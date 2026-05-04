@@ -1,11 +1,13 @@
 "use client";
 
-import { createBrowserClient } from "@repo/supabase/browser";
+export const dynamic = "force-dynamic";
+
+import { createBrowserClient } from "@supabase/ssr";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { signOut } from "../../lib/auth";
 
 const bebas = Bebas_Neue({
@@ -103,46 +105,30 @@ export default function VideosPage(): JSX.Element | null {
   const [listLoading, setListLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
-  const loadVideos = useCallback(async () => {
-    setListLoading(true);
-    setLoadError(null);
-    try {
-      const res = await fetch("/api/videos");
-      const data = (await res.json()) as { videos?: unknown; error?: string } | unknown[];
-      if (!res.ok) {
-        const msg =
-          data &&
-          typeof data === "object" &&
-          !Array.isArray(data) &&
-          typeof (data as { error?: string }).error === "string"
-            ? (data as { error: string }).error
-            : `Erreur ${res.status}`;
-        console.error("[videos] API error:", res.status, data);
-        setLoadError(msg);
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    );
+    let cancelled = false;
+
+    async function loadVideosFromDb(): Promise<void> {
+      setListLoading(true);
+      setLoadError(null);
+      const { data, error } = await supabase
+        .from("videos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      console.log("videos data:", data, "error:", error);
+      if (cancelled) return;
+      if (error) {
+        setLoadError(error.message);
         setVideos([]);
-        return;
+      } else {
+        setVideos((data as VideoRow[]) ?? []);
       }
-      const raw =
-        data && typeof data === "object" && !Array.isArray(data)
-          ? (data as { videos?: VideoRow[] }).videos ?? data
-          : data;
-      const rows = (Array.isArray(raw) ? raw : []) as VideoRow[];
-      if (process.env.NODE_ENV === "development") {
-        console.log("[videos] loaded", rows.length, "row(s)");
-      }
-      setVideos(rows);
-    } catch (err) {
-      console.error("[videos] loadVideos failed:", err);
-      setLoadError(err instanceof Error ? err.message : "Erreur lors du chargement des vidéos");
-      setVideos([]);
-    } finally {
       setListLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    const supabase = createBrowserClient();
-    let cancelled = false;
 
     void (async () => {
       const {
@@ -165,7 +151,7 @@ export default function VideosPage(): JSX.Element | null {
         setProfile(profileRes.data as ProfileRow | null);
       }
 
-      await loadVideos();
+      await loadVideosFromDb();
     })();
 
     const {
@@ -186,14 +172,14 @@ export default function VideosPage(): JSX.Element | null {
       if (!cancelled && !profileRes.error) {
         setProfile(profileRes.data as ProfileRow | null);
       }
-      await loadVideos();
+      await loadVideosFromDb();
     });
 
     return () => {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [loadVideos, router]);
+  }, [router]);
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
