@@ -107,23 +107,30 @@ export default function VideosPage(): JSX.Element | null {
     setListLoading(true);
     setLoadError(null);
     try {
-      const supabase = createBrowserClient();
-      const res = await supabase
-        .from("videos")
-        .select("id, youtube_id, title, points_value")
-        .order("created_at", { ascending: false });
-
-      if (res.error) {
-        console.error("[videos] Supabase error:", res.error.message, res.error);
-        setLoadError(res.error.message);
+      const res = await fetch("/api/videos");
+      const data = (await res.json()) as { videos?: unknown; error?: string } | unknown[];
+      if (!res.ok) {
+        const msg =
+          data &&
+          typeof data === "object" &&
+          !Array.isArray(data) &&
+          typeof (data as { error?: string }).error === "string"
+            ? (data as { error: string }).error
+            : `Erreur ${res.status}`;
+        console.error("[videos] API error:", res.status, data);
+        setLoadError(msg);
         setVideos([]);
-      } else {
-        const rows = (res.data ?? []) as VideoRow[];
-        if (process.env.NODE_ENV === "development") {
-          console.log("[videos] loaded", rows.length, "row(s)");
-        }
-        setVideos(rows);
+        return;
       }
+      const raw =
+        data && typeof data === "object" && !Array.isArray(data)
+          ? (data as { videos?: VideoRow[] }).videos ?? data
+          : data;
+      const rows = (Array.isArray(raw) ? raw : []) as VideoRow[];
+      if (process.env.NODE_ENV === "development") {
+        console.log("[videos] loaded", rows.length, "row(s)");
+      }
+      setVideos(rows);
     } catch (err) {
       console.error("[videos] loadVideos failed:", err);
       setLoadError(err instanceof Error ? err.message : "Erreur lors du chargement des vidéos");
