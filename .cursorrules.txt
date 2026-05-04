@@ -1,0 +1,107 @@
+# LEVE — Cursor Rules
+# Plateforme de redistribution communautaire francophone YouTube
+
+## Architecture
+Monorepo: apps/web (Next.js 15) + apps/mobile (Expo 52) + packages/shared (business logic)
+
+## Stack
+- Frontend Web: Next.js 15 App Router, TypeScript strict, Tailwind CSS, shadcn/ui
+- Frontend Mobile: Expo SDK 52, Expo Router, NativeWind
+- Backend: Supabase (PostgreSQL + Auth + Edge Functions + RLS)
+- Cache: Upstash Redis
+- AI: Anthropic Claude API (quiz generation - claude-sonnet-4-20250514)
+- Payments: Stripe + PayPal
+
+## Business Rules (CRITICAL - never break these)
+- Revenue split: 45% members (PMQ) / 20% production / 10% Foundation / 25% operations
+- PMQ formula: value_per_pt = (monthly_revenue × 0.45) / total_pts_pmq
+- PCOL: collaborator gets 20% of EARNED points by members (NOT 20% of all available points)
+- Members keep 80% of their earned points on collaborator videos
+- PA Pool: fixed $5/pt. Tax 2% on ALL PA transactions
+- Transfer threshold: $100 minimum solde_banque
+- Code fragments: 3 per video, placed at random timestamps
+- Multiplicators: pionnier=2.0, fondateur=2.0, communaute=1.0, collaborateur=1.2
+
+## Member Types
+1. Pionnier — first 1000 members, multiplier 2.0
+2. Fondateur — members 1001-10000, multiplier 2.0
+3. Communaute — regular members, multiplier 1.0
+4. Collaborateur — content creators, multiplier 1.2 (on external videos)
+
+## Database — 13 Supabase Tables
+profiles, videos, codes, code_submissions, quiz_questions, quiz_submissions,
+points_transactions, redistribution_history, pa_transactions, pending_pcol,
+collaborateurs, banque_leve, foundation_pool
+
+## Code Conventions
+- All business logic MUST live in packages/shared/src/ — never in components
+- TypeScript strict mode always
+- Zod for all API input validation
+- All Supabase queries must respect RLS
+- Never expose SUPABASE_SERVICE_ROLE_KEY client-side
+- Cache Redis: classement TTL 5min, solde 30s, PMQ 1h, codes 30 jours
+
+## Visual Identity
+- Colors: #080808 (noir), #C0392B (rouge), #D4A017 (or), #F5F0E8 (creme), #2ECC71 (vert)
+- Fonts: Bebas Neue (titres), DM Sans (corps), DM Mono (code/chiffres)
+- Style: dark luxury editorial — jamais de blanc pur, jamais de bleu primaire générique
+
+## File Structure
+apps/web/app/ — Next.js App Router pages
+apps/web/app/api/ — API routes (10 endpoints)
+apps/mobile/app/ — Expo Router screens (5 tabs)
+packages/shared/src/ — All business logic (pools, codes, redistribution)
+packages/shared/src/pools/ — PMQ, PTC, PCOL, PA formulas
+packages/shared/src/codes/ — Code fragment generator
+packages/supabase/migrations/ — All SQL migrations
+supabase/functions/ — Edge Functions (redistribution, quiz, expire-pending)
+
+## 10 Web Pages
+1. Landing (public) — hero + how it works + stats
+2. Dashboard — solde PMQ + points + derniere redistribution
+3. Videos/Code/Quiz — liste videos + soumission code + quiz 90s timer
+4. Banque — solde + historique transactions + transfert
+5. Pool PA — achat points acces + historique
+6. Transparence — pools publics + redistribution historique
+7. Classement — top membres temps reel
+8. Concours — concours actifs
+9. Profil — info membre + type + multiplicateur
+10. Admin — gestion videos + membres + redistribution
+
+## 5 Mobile Tabs
+1. Accueil — fil videos + stats
+2. Code/Quiz — soumission + quiz
+3. Classement — temps reel
+4. Banque — solde + transactions
+5. Profil — parametres
+
+## API Endpoints
+POST /api/quiz/submit
+GET /api/classement
+GET /api/membre/solde
+POST /api/code/valider
+GET /api/redistribution/historique
+POST /api/pa/acheter
+GET /api/videos
+POST /api/admin/code
+POST /api/admin/redistribution
+GET /api/admin/membres
+
+## Edge Functions (Supabase)
+1. redistribution-mensuelle — 1er du mois, calcule 4 pools, credite membres
+2. generer-quiz — appelle Claude API, 15 questions QCM par video
+3. expire-pending — quotidien 2h, expire Pending > 1 an vers PTC
+4. notifier-redistribution — email a tous les membres le jour J
+
+## Environment Variables Required
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
+YOUTUBE_API_KEY
+ANTHROPIC_API_KEY
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+NEXT_PUBLIC_APP_URL
+ADMIN_SECRET_KEY
