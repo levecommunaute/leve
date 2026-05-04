@@ -1,7 +1,9 @@
 "use client";
+
+import type { JSX } from "react";
 import { signInWithGoogle } from "../lib/auth";
 
-export default function Home() {
+export default function Home(): JSX.Element {
   return (
     <main style={{ background: "#080808", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#F5F0E8" }}>
       <h1 style={{ fontSize: "10rem", letterSpacing: "0.05em", lineHeight: 1, margin: 0 }}>LEVE</h1>
