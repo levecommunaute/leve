@@ -104,30 +104,33 @@ export default function VideosPage(): JSX.Element | null {
   const [signingOut, setSigningOut] = useState(false);
 
   const loadVideos = useCallback(async () => {
-    const supabase = createBrowserClient();
     setListLoading(true);
     setLoadError(null);
-
-    let res = await supabase
-      .from("videos")
-      .select("id, youtube_id, title, points_value")
-      .eq("active", true)
-      .order("created_at", { ascending: false });
-
-    if (res.error && /active/i.test(res.error.message)) {
-      res = await supabase
+    try {
+      const supabase = createBrowserClient();
+      const res = await supabase
         .from("videos")
         .select("id, youtube_id, title, points_value")
         .order("created_at", { ascending: false });
-    }
 
-    if (res.error) {
-      setLoadError(res.error.message);
+      if (res.error) {
+        console.error("[videos] Supabase error:", res.error.message, res.error);
+        setLoadError(res.error.message);
+        setVideos([]);
+      } else {
+        const rows = (res.data ?? []) as VideoRow[];
+        if (process.env.NODE_ENV === "development") {
+          console.log("[videos] loaded", rows.length, "row(s)");
+        }
+        setVideos(rows);
+      }
+    } catch (err) {
+      console.error("[videos] loadVideos failed:", err);
+      setLoadError(err instanceof Error ? err.message : "Erreur lors du chargement des vidéos");
       setVideos([]);
-    } else {
-      setVideos((res.data ?? []) as VideoRow[]);
+    } finally {
+      setListLoading(false);
     }
-    setListLoading(false);
   }, []);
 
   useEffect(() => {
