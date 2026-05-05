@@ -101,9 +101,26 @@ export default function VideosPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [videos, setVideos] = useState<VideoRow[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/videos?select=*&order=created_at.desc`;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+    fetch(url, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setVideos(Array.isArray(data) ? (data as VideoRow[]) : []);
+        setListLoading(false);
+      })
+      .catch(() => setListLoading(false));
+  }, []);
 
   useEffect(() => {
     const supabase = createBrowserClient(
@@ -111,24 +128,6 @@ export default function VideosPage(): JSX.Element | null {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     );
     let cancelled = false;
-
-    async function loadVideosFromDb(): Promise<void> {
-      setListLoading(true);
-      setLoadError(null);
-      const { data, error } = await supabase
-        .from("videos")
-        .select("*")
-        .order("created_at", { ascending: false });
-      console.log("videos data:", data, "error:", error);
-      if (cancelled) return;
-      if (error) {
-        setLoadError(error.message);
-        setVideos([]);
-      } else {
-        setVideos((data as VideoRow[]) ?? []);
-      }
-      setListLoading(false);
-    }
 
     void (async () => {
       const {
@@ -150,8 +149,6 @@ export default function VideosPage(): JSX.Element | null {
       if (!cancelled && !profileRes.error) {
         setProfile(profileRes.data as ProfileRow | null);
       }
-
-      await loadVideosFromDb();
     })();
 
     const {
@@ -172,7 +169,6 @@ export default function VideosPage(): JSX.Element | null {
       if (!cancelled && !profileRes.error) {
         setProfile(profileRes.data as ProfileRow | null);
       }
-      await loadVideosFromDb();
     });
 
     return () => {
@@ -337,19 +333,6 @@ export default function VideosPage(): JSX.Element | null {
             Regarde, trouve le code secret, gagne des points
           </p>
         </section>
-
-        {loadError ? (
-          <p
-            role="alert"
-            style={{
-              color: ROUGE,
-              fontSize: "0.9rem",
-              marginBottom: "1rem",
-            }}
-          >
-            {loadError}
-          </p>
-        ) : null}
 
         {listLoading ? (
           <p style={{ opacity: 0.7 }}>Chargement des vidéos…</p>
