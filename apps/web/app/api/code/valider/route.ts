@@ -55,7 +55,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let body: {
     video_id?: string;
     submitted_code?: string;
-    membre_id?: string;
   };
   try {
     body = await request.json();
@@ -64,19 +63,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const videoId = typeof body.video_id === "string" ? body.video_id.trim() : "";
-  const membreId = typeof body.membre_id === "string" ? body.membre_id.trim() : "";
   const submitted =
     typeof body.submitted_code === "string" ? body.submitted_code.trim() : "";
 
-  if (!videoId || !membreId) {
+  if (!videoId || !submitted) {
     return NextResponse.json(
-      { success: false, error: "video_id et membre_id requis" },
+      { success: false, error: "video_id et submitted_code requis" },
       { status: 400 },
     );
-  }
-
-  if (membreId !== user.id) {
-    return NextResponse.json({ success: false, error: "Identité incohérente" }, { status: 403 });
   }
 
   const normalized = normalizeSubmittedCode(submitted);
