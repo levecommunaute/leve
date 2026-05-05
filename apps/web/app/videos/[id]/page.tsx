@@ -21,8 +21,17 @@ export default function VideoPage(): JSX.Element {
   const [f1, setF1] = useState<string>("");
   const [f2, setF2] = useState<string>("");
   const [f3, setF3] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
   const [result, setResult] = useState<{success: boolean; points_awarded?: number; message?: string} | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+    })
+      .then(r => r.json())
+      .then(data => { if (data.id) setUserId(data.id); });
+  }, []);
 
   useEffect(() => {
     const url = `${SUPABASE_URL}/rest/v1/videos?id=eq.${id}&select=*`;
@@ -39,7 +48,7 @@ export default function VideoPage(): JSX.Element {
     const res = await fetch("/api/code/valider", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video_id: id, submitted_code: code })
+      body: JSON.stringify({ video_id: id, submitted_code: `${f1}-${f2}-${f3}`, membre_id: userId })
     });
     const data = await res.json();
     setResult(data);
