@@ -43,12 +43,13 @@ export default function VideoPage(): JSX.Element {
   }, [id]);
 
   useEffect(() => {
-    const keys = Object.keys(localStorage).filter(k => k.includes('auth-token'));
+    if (typeof window === "undefined") return;
+    const keys = Object.keys(localStorage).filter((k: string) => k.includes("auth-token"));
     if (keys.length > 0) {
       try {
-        const parsed = JSON.parse(localStorage.getItem(keys[0]) || '{}');
+        const parsed = JSON.parse(localStorage.getItem(keys[0]) || "{}");
         if (parsed?.user?.id) setUserId(parsed.user.id);
-      } catch(e) {}
+      } catch (e) {}
     }
   }, []);
 
