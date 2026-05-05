@@ -2,6 +2,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+const SUPABASE_URL = "https://lrolatbudvianeazliax.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
+
 export default function VideoPage() {
   const params = useParams();
   const router = useRouter();
@@ -15,8 +18,8 @@ export default function VideoPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/videos?id=eq.${id}&select=*`;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const url = `${SUPABASE_URL}/rest/v1/videos?id=eq.${id}&select=*`;
+    const key = SUPABASE_KEY;
     fetch(url, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
       .then(r => r.json())
       .then(data => { setVideo(data[0]); setLoading(false); })
