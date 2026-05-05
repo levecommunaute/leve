@@ -42,6 +42,16 @@ export default function VideoPage(): JSX.Element {
       .catch(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    const keys = Object.keys(localStorage).filter(k => k.includes('auth-token'));
+    if (keys.length > 0) {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(keys[0]) || '{}');
+        if (parsed?.user?.id) setUserId(parsed.user.id);
+      } catch(e) {}
+    }
+  }, []);
+
   const handleSubmit = async () => {
     setSubmitting(true);
     const code = `${f1}-${f2}-${f3}`;
