@@ -9,14 +9,23 @@ export async function POST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Chercher le code en base
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from('codes')
     .select('id, full_code')
     .eq('video_id', video_id)
 
-  console.log('CODES EN DB:', data)
-  console.log('CODE REÇU:', code)
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: 'Code incorrect' }, { status: 400 })
+  }
 
-  return NextResponse.json({ db: data, recu: code })
+  const normalizedInput = code.trim().toUpperCase().replace(/-/g, '')
+  const match = data.find(
+    c => c.full_code.trim().toUpperCase().replace(/-/g, '') === normalizedInput
+  )
+
+  if (!match) {
+    return NextResponse.json({ error: 'Code incorrect' }, { status: 400 })
+  }
+
+  return NextResponse.json({ success: true })
 }
