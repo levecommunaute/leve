@@ -151,19 +151,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const denom = Math.max(rows?.length ?? 0, 1);
     const pointsEarned = correct * POINTS_PER_CORRECT;
 
-    await svc.from("points_transactions").insert({
+    console.log("INSERTING PT:", { membre_id: user.id, amount: pointsEarned, type: "quiz" })
+
+    const { error: ptError } = await svc.from("points_transactions").insert({
       membre_id: user.id,
       amount: pointsEarned,
       type: "quiz",
       description: `Quiz vidéo — ${correct}/${denom} bonnes réponses`,
     });
 
-    await svc.from("quiz_submissions").insert({
+    console.log("PT ERROR:", JSON.stringify(ptError))
+
+    const { error: qsError } = await svc.from("quiz_submissions").insert({
       membre_id: user.id,
       video_id: videoId,
       score: correct,
       points_awarded: pointsEarned,
     });
+
+    console.log("QS ERROR:", JSON.stringify(qsError))
 
     return NextResponse.json({
       success: true,
