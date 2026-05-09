@@ -36,7 +36,7 @@ type QuizSubmissionRow = {
   video_id: string;
   score: number | null;
   points_awarded: number | null;
-  created_at?: string | null;
+  completed_at?: string | null;
 };
 
 function formatMemberTypeLabel(raw: string | null | undefined): string {
@@ -88,7 +88,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
-  const [quizRows, setQuizRows] = useState<
+  const [quizRows, setQuizRows] = useState
     {
       video_id: string;
       title: string;
@@ -113,19 +113,16 @@ export default function ProfilPage(): JSX.Element | null {
       supabase.from("points_transactions").select("amount").eq("membre_id", uid),
       supabase
         .from("quiz_submissions")
-        .select("video_id, score, points_awarded, created_at")
+        .select("video_id, score, points_awarded, completed_at")
         .eq("membre_id", uid)
-        .order("created_at", { ascending: false })
+        .order("completed_at", { ascending: false })
         .limit(5),
     ]);
 
     let quizSubs = (quizRes.data ?? []) as QuizSubmissionRow[];
     let quizErr = quizRes.error;
 
-    if (
-      quizErr &&
-      /created_at|column/i.test(quizErr.message ?? "")
-    ) {
+    if (quizErr && /completed_at|column/i.test(quizErr.message ?? "")) {
       const retry = await supabase
         .from("quiz_submissions")
         .select("video_id, score, points_awarded")
@@ -174,7 +171,7 @@ export default function ProfilPage(): JSX.Element | null {
           title: titles.get(s.video_id)?.trim() || "Vidéo",
           score: Number(s.score ?? 0),
           points: Number(s.points_awarded ?? 0),
-          at: s.created_at ?? null,
+          at: s.completed_at ?? null,
         })),
       );
     }
@@ -248,16 +245,13 @@ export default function ProfilPage(): JSX.Element | null {
     );
   }
 
-  if (!session) {
-    return null;
-  }
+  if (!session) return null;
 
   const name = displayNameFrom(profile, session);
   const memberLabel = formatMemberTypeLabel(profile?.member_type ?? null);
   const mult = Number(profile?.multiplier ?? 1);
   const multiplierDisplay = `${Number.isFinite(mult) ? mult.toFixed(1) : "1.0"}×`;
-  const emailDisplay =
-    profile?.email?.trim() || session.user.email?.trim() || "—";
+  const emailDisplay = profile?.email?.trim() || session.user.email?.trim() || "—";
 
   return (
     <div
@@ -330,14 +324,7 @@ export default function ProfilPage(): JSX.Element | null {
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? (
-          <p
-            role="alert"
-            style={{
-              color: ROUGE,
-              fontSize: "0.9rem",
-              marginBottom: "1rem",
-            }}
-          >
+          <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>
             {loadError}
           </p>
         ) : null}
@@ -347,14 +334,12 @@ export default function ProfilPage(): JSX.Element | null {
             borderRadius: "14px",
             padding: "1.75rem 1.5rem",
             marginBottom: "1.25rem",
-            background:
-              "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)",
+            background: "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)",
             border: "1px solid rgba(245, 240, 232, 0.1)",
           }}
         >
           <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>
-            Profil membre
-            {profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}
+            Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}
           </p>
           <h1
             style={{
@@ -401,26 +386,10 @@ export default function ProfilPage(): JSX.Element | null {
               border: `1px solid rgba(212, 160, 23, 0.35)`,
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.72rem",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: GOLD,
-                opacity: 0.95,
-              }}
-            >
+            <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>
               Total points PMQ
             </p>
-            <p
-              style={{
-                margin: "0.5rem 0 0",
-                fontSize: "1.65rem",
-                fontWeight: 700,
-                color: GOLD,
-              }}
-            >
+            <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>
               {pointsFmt.format(totalPointsPmq)}
             </p>
           </article>
@@ -433,25 +402,10 @@ export default function ProfilPage(): JSX.Element | null {
               border: "1px solid rgba(245, 240, 232, 0.12)",
             }}
           >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.72rem",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                opacity: 0.55,
-              }}
-            >
+            <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>
               Multiplicateur
             </p>
-            <p
-              style={{
-                margin: "0.5rem 0 0",
-                fontSize: "1.65rem",
-                fontWeight: 700,
-                color: TEXT,
-              }}
-            >
+            <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: TEXT }}>
               {multiplierDisplay}
             </p>
           </article>
@@ -466,47 +420,24 @@ export default function ProfilPage(): JSX.Element | null {
             border: "1px solid rgba(245, 240, 232, 0.08)",
           }}
         >
-          <h2
-            style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "1.35rem",
-              letterSpacing: "0.06em",
-              color: ROUGE,
-              margin: "0 0 1rem",
-            }}
-          >
+          <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.06em", color: ROUGE, margin: "0 0 1rem" }}>
             Informations
           </h2>
-          <dl
-            style={{
-              margin: 0,
-              display: "grid",
-              gap: "0.85rem",
-              fontSize: "0.95rem",
-            }}
-          >
+          <dl style={{ margin: 0, display: "grid", gap: "0.85rem", fontSize: "0.95rem" }}>
             <div>
-              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Nom affiché
-              </dt>
+              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Nom affiché</dt>
               <dd style={{ margin: "0.25rem 0 0" }}>{name}</dd>
             </div>
             <div>
-              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Courriel
-              </dt>
+              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Courriel</dt>
               <dd style={{ margin: "0.25rem 0 0", wordBreak: "break-word" }}>{emailDisplay}</dd>
             </div>
             <div>
-              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Type de membre
-              </dt>
+              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Type de membre</dt>
               <dd style={{ margin: "0.25rem 0 0" }}>{memberLabel}</dd>
             </div>
             <div>
-              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                Numéro membre
-              </dt>
+              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Numéro membre</dt>
               <dd style={{ margin: "0.25rem 0 0" }}>
                 {profile?.numero_membre?.trim() ? `#${profile.numero_membre}` : "—"}
               </dd>
@@ -515,15 +446,7 @@ export default function ProfilPage(): JSX.Element | null {
         </section>
 
         <section style={{ marginBottom: "2rem" }}>
-          <h2
-            style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "1.35rem",
-              letterSpacing: "0.08em",
-              margin: "0 0 0.75rem",
-              color: GOLD,
-            }}
-          >
+          <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.08em", margin: "0 0 0.75rem", color: GOLD }}>
             Derniers quiz
           </h2>
           <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem" }}>
@@ -532,22 +455,13 @@ export default function ProfilPage(): JSX.Element | null {
           {quizRows.length === 0 ? (
             <p style={{ opacity: 0.65, fontSize: "0.95rem" }}>Aucun quiz complété pour le moment.</p>
           ) : (
-            <ul
-              style={{
-                listStyle: "none",
-                margin: 0,
-                padding: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.65rem",
-              }}
-            >
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
               {quizRows.map((row, i) => (
                 <li
                   key={`${row.video_id}-${row.at ?? i}`}
                   style={{
                     borderRadius: "10px",
-                    padding: "1rem 1rem",
+                    padding: "1rem",
                     background: "rgba(245, 240, 232, 0.04)",
                     border: "1px solid rgba(245, 240, 232, 0.1)",
                     display: "flex",
@@ -566,9 +480,7 @@ export default function ProfilPage(): JSX.Element | null {
                     ) : null}
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ color: GOLD, fontWeight: 700 }}>
-                      +{pointsFmt.format(row.points)} pts
-                    </span>
+                    <span style={{ color: GOLD, fontWeight: 700 }}>+{pointsFmt.format(row.points)} pts</span>
                     <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", opacity: 0.75 }}>
                       Score : {row.score} bonnes réponses
                     </p>
