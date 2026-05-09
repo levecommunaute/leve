@@ -38,9 +38,17 @@ export async function POST(req: NextRequest) {
   )
 
   if (!match) {
-    return NextResponse.json({ success: false, message: 'Code incorrect' }, { status: 400 })
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Code incorrect',
+      debug: {
+        recu: code,
+        video_id: video_id,
+        normalizedInput,
+        codesEnDB: data.map(c => c.full_code)
+      }
+    }, { status: 400 })
   }
-
   // Enregistrer la soumission
   await supabase.from('code_submissions').insert({
     membre_id: user.id,
