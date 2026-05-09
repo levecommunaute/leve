@@ -88,7 +88,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
-  const [quizRows, setQuizRows] = useState
+  const [quizRows, setQuizRows] = useState <
     {
       video_id: string;
       title: string;
