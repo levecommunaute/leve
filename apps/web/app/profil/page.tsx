@@ -110,7 +110,7 @@ export default function ProfilPage(): JSX.Element | null {
         .select("display_name, email, member_type, multiplier, numero_membre")
         .eq("id", uid)
         .maybeSingle(),
-      supabase.from("points_transactions").select("amount").eq("user_id", uid),
+      supabase.from("points_transactions").select("amount").eq("membre_id", uid),
       supabase
         .from("quiz_submissions")
         .select("video_id, score, points_awarded, created_at")
