@@ -28,6 +28,12 @@ function formatTime(total: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
+/** Index 0–3 → lettre attendue par l’API (aligné option_a … option_d). */
+function indexToAnswerLetter(index: number): "a" | "b" | "c" | "d" | null {
+  if (index < 0 || index > 3) return null;
+  return String.fromCharCode(97 + index) as "a" | "b" | "c" | "d";
+}
+
 export default function VideoQuizPage(): JSX.Element {
   const params = useParams();
   const router = useRouter();
@@ -135,11 +141,15 @@ export default function VideoQuizPage(): JSX.Element {
           video_id: videoId,
           membre_id: userId,
           time_remaining_seconds: timeRemaining,
-          answers: quiz_questions.map((q) => ({
-            question_id: q.id,
-            selected_index:
-              typeof answers[q.id] === "number" ? answers[q.id] : -1,
-          })),
+          answers: quiz_questions.map((q) => {
+            const raw = answers[q.id];
+            const selected_answer =
+              typeof raw === "number" ? indexToAnswerLetter(raw) : null;
+            return {
+              question_id: q.id,
+              selected_answer,
+            };
+          }),
         };
         const res = await fetch("/api/quiz/submit", {
           method: "POST",

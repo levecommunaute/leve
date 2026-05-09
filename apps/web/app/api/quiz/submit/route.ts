@@ -4,11 +4,11 @@ import { getServiceSupabase } from "../../../../lib/admin-server";
 
 export const dynamic = "force-dynamic";
 
-/** Points PMQ crédités par bonne réponse (aligné affichage banque type quiz). */
 const POINTS_PER_CORRECT = 4;
 
 type AnswerItem = {
   question_id?: string;
+  selected_answer?: string | null;
   selected_index?: number;
 };
 
@@ -20,7 +20,7 @@ async function alreadySubmittedQuiz(
   const q = await svc
     .from("quiz_submissions")
     .select("id")
-    .eq("user_id", userId)
+    .eq("membre_id", userId)
     .eq("video_id", videoId)
     .maybeSingle();
 
@@ -105,9 +105,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: rows, error: fetchErr } = await svc
       .from("quiz_questions")
-      .select(
-        "id, video_id, question, option_a, option_b, option_c, option_d, correct_answer",
-      )
+      .select("id, video_id, question, option_a, option_b, option_c, option_d, correct_answer")
       .eq("video_id", videoId)
       .in("id", [...new Set(ids)]);
 
@@ -118,14 +116,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const byId = new Map((rows ?? []).map((r) => [String(r.id), r]));
 
     let correct = 0;
-    const graded: Record<string, boolean> = {};
 
     for (const ans of answers) {
       const qid = typeof ans.question_id === "string" ? ans.question_id.trim() : "";
-      const idx =
-        typeof ans.selected_index === "number" ? Math.floor(ans.selected_index) : -1;
       const row = byId.get(qid);
-      if (!row || idx < 0 || idx > 3) continue;
+      if (!row) continue;
+
+      const letterRaw =
+        typeof ans.selected_answer === "string"
+          ? ans.selected_answer.trim().toLowerCase()
+          : "";
+      let idx = -1;
+      if (letterRaw === "a" || letterRaw === "b" || letterRaw === "c" || letterRaw === "d") {
+        idx = letterRaw.charCodeAt(0) - 97;
+      } else if (typeof ans.selected_index === "number") {
+        idx = Math.floor(ans.selected_index);
+      }
+      if (idx < 0 || idx > 3) continue;
 
       const ordered = [
         String(row.option_a ?? ""),
@@ -134,13 +141,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         String(row.option_d ?? ""),
       ];
       const chosen = ordered[idx]?.trim() ?? "";
-      const correctAnswer = String(row.correct_answer ?? "").trim();
+      let correctNorm = String(row.correct_answer ?? "").trim();
+      const caLower = correctNorm.toLowerCase();
+      if (caLower === "a" || caLower === "b" || caLower === "c" || caLower === "d") {
+        const li = caLower.charCodeAt(0) - 97;
+        correctNorm = ordered[li]?.trim() ?? correctNorm;
+      }
       const ok =
         chosen.length > 0 &&
-        correctAnswer.length > 0 &&
-        chosen.toUpperCase() === correctAnswer.toUpperCase();
+        correctNorm.length > 0 &&
+        chosen.toLowerCase() === correctNorm.toLowerCase();
       if (ok) correct += 1;
-      graded[qid] = ok;
     }
 
     const denom = Math.max(rows?.length ?? 0, 1);
@@ -152,7 +163,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .eq("id", videoId)
       .maybeSingle();
 
-    /** Toujours enregistrer la tentative pour bloquer les doublons même à 0 pt. */
     await svc.from("points_transactions").insert({
       user_id: user.id,
       amount: pointsEarned,
@@ -166,25 +176,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     });
 
-    const quizIns = await svc.from("quiz_submissions").insert({
-      user_id: user.id,
+    await svc.from("quiz_submissions").insert({
+      membre_id: user.id,
       video_id: videoId,
-      score_correct: correct,
-      score_total: denom,
+      score: correct,
       points_awarded: pointsEarned,
-      time_remaining_seconds: timeLeft,
-      answers: graded,
     });
-    if (quizIns.error) {
-      console.warn("[api/quiz/submit] quiz_submissions:", quizIns.error.message);
-    }
 
     return NextResponse.json({
       success: true,
       score_correct: correct,
       score_total: denom,
       points_earned: pointsEarned,
-      time_remaining_seconds: timeLeft,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

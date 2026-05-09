@@ -41,7 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const rows = data ?? [];
-    /** Ordre options identique au serveur (/api/quiz/submit compare l’index à option_a … option_d). */
+    /** Ordre options identique au serveur (/api/quiz/submit : selected_answer a–d ↔ option_a … option_d). */
     const picked = shuffleInPlace(rows).slice(0, 5).map((row) => ({
       id: row.id as string,
       question: row.question as string,
