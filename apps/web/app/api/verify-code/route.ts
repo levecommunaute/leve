@@ -21,11 +21,18 @@ export async function POST(req: NextRequest) {
     .select('id, full_code, points_value')
     .eq('video_id', video_id)
 
+  console.log("VIDEO_ID REÇU:", video_id)
+  console.log("CODE REÇU:", code)
+  console.log("DATA EN DB:", data)
+
   if (!data || data.length === 0) {
     return NextResponse.json({ success: false, message: 'Code incorrect' }, { status: 400 })
   }
 
   const normalizedInput = code.trim().toUpperCase().replace(/-/g, '')
+  console.log("INPUT NORMALISÉ:", normalizedInput)
+  console.log("CODES EN DB:", data.map(c => c.full_code.trim().toUpperCase().replace(/-/g, '')))
+
   const match = data.find(
     c => c.full_code.trim().toUpperCase().replace(/-/g, '') === normalizedInput
   )
