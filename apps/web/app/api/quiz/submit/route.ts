@@ -104,7 +104,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const { data: rows, error: fetchErr } = await svc
-      .from("quiz_questions")
+      .from("questions")
       .select(
         "id, video_id, question, option_a, option_b, option_c, option_d, correct_answer",
       )

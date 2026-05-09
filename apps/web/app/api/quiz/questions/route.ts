@@ -32,7 +32,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
-      .from("quiz_questions")
+      .from("questions")
       .select("id, question, option_a, option_b, option_c, option_d")
       .eq("video_id", videoId);
 
