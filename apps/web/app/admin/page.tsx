@@ -773,7 +773,7 @@ const labelSm = {
   textTransform: "uppercase",
   opacity: 0.5,
   marginBottom: "0.4rem",
-};
+} as const;
 
 const inputBase = {
   width: "100%",
