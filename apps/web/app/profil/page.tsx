@@ -104,13 +104,43 @@ export default function ProfilPage(): JSX.Element | null {
     const supabase = createBrowserClient();
     const uid = activeSession.user.id;
 
+    const fetchPointsTransactions = async (): Promise<{
+      data: { amount: unknown }[] | null;
+      error: { message: string } | null;
+    }> => {
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const res = await fetch(
+        `${base}/rest/v1/points_transactions?select=amount&membre_id=eq.${encodeURIComponent(uid)}`,
+        {
+          headers: {
+            apikey: anonKey,
+            Authorization: `Bearer ${activeSession.access_token}`,
+          },
+        },
+      );
+      if (!res.ok) {
+        let message = `HTTP ${res.status}`;
+        try {
+          const body = (await res.json()) as { message?: string };
+          if (body.message) message = body.message;
+        } catch {
+          /* ignore */
+        }
+        return { data: null, error: { message } };
+      }
+      const parsed = (await res.json()) as unknown;
+      const rows = Array.isArray(parsed) ? parsed : [];
+      return { data: rows as { amount: unknown }[], error: null };
+    };
+
     const [profileRes, txRes, quizRes] = await Promise.all([
       supabase
         .from("profiles")
         .select("display_name, email, member_type, multiplier, numero_membre")
         .eq("id", uid)
         .maybeSingle(),
-      supabase.from("points_transactions").select("amount").eq("membre_id", uid),
+      fetchPointsTransactions(),
       supabase
         .from("quiz_submissions")
         .select("video_id, score, points_awarded, completed_at")
