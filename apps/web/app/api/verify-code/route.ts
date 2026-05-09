@@ -26,7 +26,11 @@ export async function POST(req: NextRequest) {
   console.log("DATA EN DB:", data)
 
   if (!data || data.length === 0) {
-    return NextResponse.json({ success: false, message: 'Code incorrect' }, { status: 400 })
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Code incorrect',
+      debug: { video_id, data }
+    }, { status: 400 })
   }
 
   const normalizedInput = code.trim().toUpperCase().replace(/-/g, '')
