@@ -2,27 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: NextRequest) {
-  const { code, video_id } = await req.json()
-
-  // Lire token depuis les cookies de la requête directement
-  const allCookies = req.cookies.getAll()
-  const parts: string[] = []
-  let i = 0
-  while (true) {
-    const part = allCookies.find(c => c.name === `sb-lrolatbudvianeazliax-auth-token.${i}`)
-    if (!part) break
-    parts.push(part.value)
-    i++
-  }
-
-  let token = ""
-  if (parts.length > 0) {
-    try {
-      const combined = parts.join("").replace("base64-", "")
-      const decoded = JSON.parse(atob(combined))
-      token = decoded?.access_token || ""
-    } catch(e) {}
-  }
+  const { code, video_id, token } = await req.json()
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
