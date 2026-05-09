@@ -22,7 +22,7 @@ export default function VideoPage(): JSX.Element {
       const match=document.cookie.split(";").find(c=>c.trim().startsWith(cookieName));
       if(match){const val=JSON.parse(decodeURIComponent(match.split("=").slice(1).join("=")));token=val?.access_token||"";}
     }catch(e){}
-    const res=await fetch("/api/verify-code",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({video_id:id,code:f1+"-"+f2+"-"+f3})});
+    const res=await fetch("/api/verify-code",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({video_id:id,code:f1+"-"+f2+"-"+f3})});
     setResult(await res.json());
     setSubmitting(false);
   };
