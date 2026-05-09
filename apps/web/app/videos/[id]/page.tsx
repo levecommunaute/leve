@@ -16,25 +16,13 @@ export default function VideoPage(): JSX.Element {
   useEffect(()=>{if(typeof window==="undefined")return;try{const keys=Object.keys(localStorage).filter((k:string)=>k.includes("auth-token"));if(keys.length>0){const key=keys[0] as string;const item=localStorage.getItem(key);const p=JSON.parse(item||"{}");if(p?.user?.id)setUserId(p.user.id);}}catch(e){}},[]);
   const handleSubmit=async()=>{
     setSubmitting(true);
-    const cookieName="sb-lrolatbudvianeazliax-auth-token";
-    let token="";
-    try{
-      const allCookies=document.cookie.split(";");
-      const parts:string[]=[];
-      let i=0;
-      while(true){
-        const part=allCookies.find(c=>c.trim().startsWith(`sb-lrolatbudvianeazliax-auth-token.${i}=`));
-        if(!part)break;
-        parts.push(part.trim().split("=").slice(1).join("="));
-        i++;
-      }
-      if(parts.length>0){
-        const combined=parts.join("").replace("base64-","");
-        const decoded=JSON.parse(atob(combined));
-        token=decoded?.access_token||"";
-      }
-    }catch(e){console.error("token error:",e)}
-    const res=await fetch("/api/verify-code",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify({video_id:id,code:f1+"-"+f2+"-"+f3})});
+    
+    const res = await fetch("/api/verify-code", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_id: id, code: f1+"-"+f2+"-"+f3 })
+    });
     setResult(await res.json());
     setSubmitting(false);
   };
