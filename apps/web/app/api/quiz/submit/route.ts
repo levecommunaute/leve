@@ -28,17 +28,11 @@ async function alreadySubmittedQuiz(
 
   const tx = await svc
     .from("points_transactions")
-    .select("id, metadata")
-    .eq("user_id", userId)
-    .in("type", ["quiz", "quiz_bonus"]);
+    .select("id")
+    .eq("membre_id", userId)
+    .eq("type", "quiz");
 
-  if (!tx.error && tx.data?.length) {
-    for (const row of tx.data) {
-      const m = row.metadata as Record<string, unknown> | null;
-      const vid = typeof m?.video_id === "string" ? m.video_id : "";
-      if (vid === videoId) return true;
-    }
-  }
+  if (!tx.error && tx.data?.length) return true;
 
   return false;
 }
@@ -157,23 +151,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const denom = Math.max(rows?.length ?? 0, 1);
     const pointsEarned = correct * POINTS_PER_CORRECT;
 
-    const { data: videoMeta } = await svc
-      .from("videos")
-      .select("title")
-      .eq("id", videoId)
-      .maybeSingle();
-
     await svc.from("points_transactions").insert({
-      user_id: user.id,
+      membre_id: user.id,
       amount: pointsEarned,
       type: "quiz",
-      metadata: {
-        video_id: videoId,
-        video_title: videoMeta?.title ?? null,
-        correct,
-        score_total: denom,
-        time_remaining_seconds: timeLeft,
-      },
+      description: `Quiz vidéo — ${correct}/${denom} bonnes réponses`,
     });
 
     await svc.from("quiz_submissions").insert({
