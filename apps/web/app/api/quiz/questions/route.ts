@@ -32,7 +32,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
-      .from("questions")
+      .from("quiz_questions")
       .select("id, question, option_a, option_b, option_c, option_d")
       .eq("video_id", videoId);
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       ].map((o) => String(o ?? "")),
     }));
 
-    return NextResponse.json({ questions: picked });
+    return NextResponse.json({ quiz_questions: picked });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: message }, { status: 500 });

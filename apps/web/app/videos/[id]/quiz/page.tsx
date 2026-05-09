@@ -34,7 +34,7 @@ export default function VideoQuizPage(): JSX.Element {
   const videoId = params.id as string;
 
   const [video, setVideo] = useState<Video | null>(null);
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [quiz_questions, setQuiz_questions] = useState<QuizQuestion[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,12 +89,12 @@ export default function VideoQuizPage(): JSX.Element {
                 ? "Connecte-toi pour accéder au quiz."
                 : "Impossible de charger le quiz.",
           );
-          setQuestions([]);
+          setQuiz_questions([]);
           return;
         }
-        const data = (await qRes.json()) as { questions?: QuizQuestion[] };
-        const qs = Array.isArray(data.questions) ? data.questions : [];
-        setQuestions(qs);
+        const data = (await qRes.json()) as { quiz_questions?: QuizQuestion[] };
+        const qs = Array.isArray(data.quiz_questions) ? data.quiz_questions : [];
+        setQuiz_questions(qs);
         if (qs.length === 0) {
           setLoadError("Aucune question pour cette vidéo pour le moment.");
         } else {
@@ -117,16 +117,16 @@ export default function VideoQuizPage(): JSX.Element {
   }, [videoId]);
 
   useEffect(() => {
-    if (phase !== "running" || questions.length === 0) return;
+    if (phase !== "running" || quiz_questions.length === 0) return;
     const id = window.setInterval(() => {
       setSecondsLeft((s) => (s <= 0 ? 0 : s - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [phase, questions.length]);
+  }, [phase, quiz_questions.length]);
 
   const doSubmit = useCallback(
     async (timeRemaining: number) => {
-      if (submitOnce.current || !userId || questions.length === 0) return;
+      if (submitOnce.current || !userId || quiz_questions.length === 0) return;
       submitOnce.current = true;
       setSubmitting(true);
       setPhase("done");
@@ -135,7 +135,7 @@ export default function VideoQuizPage(): JSX.Element {
           video_id: videoId,
           membre_id: userId,
           time_remaining_seconds: timeRemaining,
-          answers: questions.map((q) => ({
+          answers: quiz_questions.map((q) => ({
             question_id: q.id,
             selected_index:
               typeof answers[q.id] === "number" ? answers[q.id] : -1,
@@ -152,14 +152,14 @@ export default function VideoQuizPage(): JSX.Element {
           if (data?.error === "already_submitted") {
             setResult({
               score_correct: 0,
-              score_total: questions.length,
+              score_total: quiz_questions.length,
               points_earned: 0,
               error: "Tu as déjà complété le quiz pour cette vidéo.",
             });
           } else {
             setResult({
               score_correct: 0,
-              score_total: questions.length,
+              score_total: quiz_questions.length,
               points_earned: 0,
               error:
                 typeof data?.error === "string"
@@ -171,13 +171,13 @@ export default function VideoQuizPage(): JSX.Element {
         }
         setResult({
           score_correct: Number(data.score_correct ?? 0),
-          score_total: Number(data.score_total ?? questions.length),
+          score_total: Number(data.score_total ?? quiz_questions.length),
           points_earned: Number(data.points_earned ?? 0),
         });
       } catch {
         setResult({
           score_correct: 0,
-          score_total: questions.length,
+          score_total: quiz_questions.length,
           points_earned: 0,
           error: "Erreur réseau.",
         });
@@ -185,7 +185,7 @@ export default function VideoQuizPage(): JSX.Element {
         setSubmitting(false);
       }
     },
-    [userId, videoId, questions, answers],
+    [userId, videoId, quiz_questions, answers],
   );
 
   useEffect(() => {
@@ -228,7 +228,7 @@ export default function VideoQuizPage(): JSX.Element {
     );
   }
 
-  if (loadError && questions.length === 0) {
+  if (loadError && quiz_questions.length === 0) {
     return (
       <main style={shellStyle}>
         <nav
@@ -340,7 +340,7 @@ export default function VideoQuizPage(): JSX.Element {
         ) : null}
 
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-          {questions.map((q, qi) => (
+          {quiz_questions.map((q, qi) => (
             <div
               key={q.id}
               style={{
