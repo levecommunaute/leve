@@ -27,5 +27,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Code incorrect' }, { status: 400 })
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, points_awarded: 100 })
 }
