@@ -1,12 +1,83 @@
 "use client";
 
-import { createBrowserClient } from "@repo/supabase/browser";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { signOut } from "../../lib/auth";
+
+/** Supabase project URL (PostgREST + Auth). */
+const SB = "https://lrolatbudvianeazliax.supabase.co";
+/** Anon key (public); authenticated calls use `Authorization: Bearer <access_token>`. */
+const KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
+
+const SB_AUTH_STORAGE_KEY = "sb-lrolatbudvianeazliax-auth-token";
+
+function supabaseRestHeaders(accessToken: string): HeadersInit {
+  return {
+    apikey: KEY,
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+  };
+}
+
+type RestErr = { message: string };
+
+async function fetchRest<T>(
+  path: string,
+  accessToken: string,
+): Promise<{ data: T; error: null } | { data: null; error: RestErr }> {
+  const res = await fetch(`${SB}/rest/v1/${path}`, {
+    headers: supabaseRestHeaders(accessToken),
+  });
+  if (!res.ok) {
+    let message = res.statusText || "Erreur réseau";
+    try {
+      const j = (await res.json()) as { message?: string; hint?: string };
+      message = j.message ?? j.hint ?? message;
+    } catch {
+      try {
+        message = (await res.text()) || message;
+      } catch {
+        /* ignore */
+      }
+    }
+    return { data: null, error: { message } };
+  }
+  const data = (await res.json()) as T;
+  return { data, error: null };
+}
+
+function readSessionFromStorage(): Session | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(SB_AUTH_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const body =
+      parsed &&
+      typeof parsed === "object" &&
+      "access_token" in parsed &&
+      "user" in parsed
+        ? parsed
+        : parsed &&
+            typeof parsed === "object" &&
+            "currentSession" in parsed &&
+            (parsed as { currentSession?: unknown }).currentSession &&
+            typeof (parsed as { currentSession: unknown }).currentSession ===
+              "object"
+          ? (parsed as { currentSession: Session }).currentSession
+          : null;
+    if (!body || typeof body !== "object") return null;
+    const s = body as Session;
+    if (typeof s.access_token !== "string" || !s.user) return null;
+    return s;
+  } catch {
+    return null;
+  }
+}
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -93,22 +164,23 @@ export default function ConcoursPage(): JSX.Element | null {
   } | null>(null);
 
   const loadPage = useCallback(async (activeSession: Session) => {
-    const supabase = createBrowserClient();
+    const token = activeSession.access_token;
     const uid = activeSession.user.id;
     const nowIso = new Date().toISOString();
 
     const [profileRes, txRes, concoursRes] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("id", uid)
-        .maybeSingle(),
-      supabase.from("points_transactions").select("amount").eq("user_id", uid),
-      supabase
-        .from("concours")
-        .select("id, titre, description, date_fin, points_requis")
-        .gte("date_fin", nowIso)
-        .order("date_fin", { ascending: true }),
+      fetchRest<ProfileRow[]>(
+        `profiles?select=display_name&id=eq.${encodeURIComponent(uid)}`,
+        token,
+      ),
+      fetchRest<{ amount?: unknown }[]>(
+        `points_transactions?select=amount&user_id=eq.${encodeURIComponent(uid)}`,
+        token,
+      ),
+      fetchRest<ConcoursRow[]>(
+        `concours?select=id,titre,description,date_fin,points_requis&date_fin=gte.${encodeURIComponent(nowIso)}&order=date_fin.asc`,
+        token,
+      ),
     ]);
 
     const errMsg =
@@ -119,7 +191,8 @@ export default function ConcoursPage(): JSX.Element | null {
     setLoadError(errMsg);
 
     if (!profileRes.error) {
-      setProfile(profileRes.data as ProfileRow | null);
+      const rows = profileRes.data ?? [];
+      setProfile(rows[0] ?? null);
     }
 
     if (txRes.error) {
@@ -127,7 +200,7 @@ export default function ConcoursPage(): JSX.Element | null {
     } else {
       const rows = txRes.data ?? [];
       const sum = rows.reduce(
-        (acc, row) => acc + Number((row as { amount?: unknown }).amount ?? 0),
+        (acc, row) => acc + Number(row.amount ?? 0),
         0,
       );
       setTotalPointsPmq(sum);
@@ -136,44 +209,51 @@ export default function ConcoursPage(): JSX.Element | null {
     if (concoursRes.error) {
       setConcours([]);
     } else {
-      setConcours((concoursRes.data ?? []) as ConcoursRow[]);
+      setConcours(concoursRes.data ?? []);
     }
   }, []);
 
   useEffect(() => {
-    const supabase = createBrowserClient();
     let cancelled = false;
 
-    void (async () => {
-      const {
-        data: { session: initial },
-      } = await supabase.auth.getSession();
+    async function applyStoredSession(next: Session | null): Promise<void> {
       if (cancelled) return;
-      if (!initial) {
+      if (!next) {
         setSession(null);
         router.replace("/");
         return;
       }
-      setSession(initial);
-      await loadPage(initial);
-    })();
+      setSession(next);
+      await loadPage(next);
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (cancelled) return;
-      if (!nextSession) {
-        setSession(null);
-        router.replace("/");
-        return;
+    function syncFromStorage(): void {
+      void applyStoredSession(readSessionFromStorage());
+    }
+
+    void applyStoredSession(readSessionFromStorage());
+
+    const onStorage = (e: StorageEvent): void => {
+      if (e.key === SB_AUTH_STORAGE_KEY || e.key === null) {
+        syncFromStorage();
       }
-      setSession(nextSession);
-      await loadPage(nextSession);
-    });
+    };
+    window.addEventListener("storage", onStorage);
+
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") {
+        syncFromStorage();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const pollId = window.setInterval(syncFromStorage, 15000);
 
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(pollId);
     };
   }, [loadPage, router]);
 
