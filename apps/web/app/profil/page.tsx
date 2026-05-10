@@ -46,7 +46,8 @@ function formatMemberTypeLabel(raw: string | null | undefined): string {
 function displayNameFrom(profile: ProfileRow | null, session: Session): string {
   const meta = session.user.user_metadata as Record<string, unknown> | undefined;
   const fullName = typeof meta?.full_name === "string" ? meta.full_name : undefined;
-  return profile?.display_name?.trim() || fullName || session.user.email?.split("@")[0] || "Membre";
+  const displayName = typeof profile?.display_name === "string" ? profile.display_name.trim() : "";
+  return displayName || fullName || session.user.email?.split("@")[0] || "Membre";
 }
 
 const navPages: { href: string; label: string }[] = [
