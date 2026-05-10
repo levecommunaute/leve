@@ -7,13 +7,12 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { signOut } from "../../lib/auth";
 
-/** Supabase project URL (PostgREST + Auth). */
 const SB = "https://lrolatbudvianeazliax.supabase.co";
-/** Anon key (public); authenticated calls use `Authorization: Bearer <access_token>`. */
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
-const SB_AUTH_STORAGE_KEY = "sb-lrolatbudvianeazliax-auth-token";
+/** Chunked Supabase auth cookie (project ref lrolatbudvianeazliax). */
+const SB_AUTH_COOKIE_BASE = "sb-lrolatbudvianeazliax-auth-token";
 
 function supabaseRestHeaders(accessToken: string): HeadersInit {
   return {
@@ -50,12 +49,32 @@ async function fetchRest<T>(
   return { data, error: null };
 }
 
-function readSessionFromStorage(): Session | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(SB_AUTH_STORAGE_KEY);
-  if (!raw) return null;
+function readCookieValue(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const prefix = `${name}=`;
+  for (const part of document.cookie.split(";")) {
+    const s = part.trim();
+    if (s.startsWith(prefix)) {
+      try {
+        return decodeURIComponent(s.slice(prefix.length));
+      } catch {
+        return s.slice(prefix.length);
+      }
+    }
+  }
+  return null;
+}
+
+/** Lit les segments `.0` / `.1`, décode le base64 et retourne une session utilisable pour l’API. */
+function readSessionFromAuthCookies(): Session | null {
+  const p0 = readCookieValue(`${SB_AUTH_COOKIE_BASE}.0`);
+  const p1 = readCookieValue(`${SB_AUTH_COOKIE_BASE}.1`);
+  const combined = [p0, p1].filter(Boolean).join("");
+  if (!combined) return null;
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const b64 = combined.replace(/^base64-/, "");
+    const jsonStr = atob(b64);
+    const parsed = JSON.parse(jsonStr) as unknown;
     const body =
       parsed &&
       typeof parsed === "object" &&
@@ -72,7 +91,7 @@ function readSessionFromStorage(): Session | null {
           : null;
     if (!body || typeof body !== "object") return null;
     const s = body as Session;
-    if (typeof s.access_token !== "string" || !s.user) return null;
+    if (typeof s.access_token !== "string" || !s.user?.id) return null;
     return s;
   } catch {
     return null;
@@ -216,46 +235,41 @@ export default function ConcoursPage(): JSX.Element | null {
   useEffect(() => {
     let cancelled = false;
 
-    async function applyStoredSession(next: Session | null): Promise<void> {
+    async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
       if (!next) {
         setSession(null);
-        router.replace("/");
+        setProfile(null);
+        setConcours([]);
+        setTotalPointsPmq(0);
+        setLoadError(null);
         return;
       }
       setSession(next);
       await loadPage(next);
     }
 
-    function syncFromStorage(): void {
-      void applyStoredSession(readSessionFromStorage());
+    function syncFromCookies(): void {
+      void applyCookieSession(readSessionFromAuthCookies());
     }
 
-    void applyStoredSession(readSessionFromStorage());
-
-    const onStorage = (e: StorageEvent): void => {
-      if (e.key === SB_AUTH_STORAGE_KEY || e.key === null) {
-        syncFromStorage();
-      }
-    };
-    window.addEventListener("storage", onStorage);
+    void applyCookieSession(readSessionFromAuthCookies());
 
     const onVisible = (): void => {
       if (document.visibilityState === "visible") {
-        syncFromStorage();
+        syncFromCookies();
       }
     };
     document.addEventListener("visibilitychange", onVisible);
 
-    const pollId = window.setInterval(syncFromStorage, 15000);
+    const pollId = window.setInterval(syncFromCookies, 15000);
 
     return () => {
       cancelled = true;
-      window.removeEventListener("storage", onStorage);
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [loadPage, router]);
+  }, [loadPage]);
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
@@ -314,7 +328,101 @@ export default function ConcoursPage(): JSX.Element | null {
   }
 
   if (!session) {
-    return null;
+    return (
+      <div
+        className={fonts}
+        style={{
+          minHeight: "100vh",
+          background: BG,
+          color: TEXT,
+          fontFamily: "var(--font-dm), system-ui, sans-serif",
+          paddingBottom: "6rem",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "1rem 1.25rem",
+            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            position: "sticky",
+            top: 0,
+            background: "rgba(8, 8, 8, 0.92)",
+            backdropFilter: "blur(8px)",
+            zIndex: 20,
+          }}
+        >
+          <Link
+            href="/"
+            style={{
+              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontSize: "2rem",
+              letterSpacing: "0.12em",
+              color: TEXT,
+              textDecoration: "none",
+            }}
+          >
+            LEVE
+          </Link>
+        </header>
+        <main
+          style={{
+            maxWidth: "960px",
+            margin: "0 auto",
+            padding: "2rem 1.25rem",
+            textAlign: "center",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "1.05rem", opacity: 0.85, lineHeight: 1.6 }}>
+            Connecte-toi pour accéder aux concours
+          </p>
+        </main>
+        <nav
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: "rgba(8, 8, 8, 0.97)",
+            borderTop: "1px solid rgba(245, 240, 232, 0.1)",
+            padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
+            zIndex: 30,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              overflowX: "auto",
+              gap: "0.5rem",
+              justifyContent: "flex-start",
+              maxWidth: "960px",
+              margin: "0 auto",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "none",
+            }}
+          >
+            {navPages.map((p) => (
+              <Link
+                key={p.href}
+                href={p.href}
+                style={{
+                  flex: "0 0 auto",
+                  fontSize: "0.68rem",
+                  color: p.href === "/concours" ? GOLD : TEXT,
+                  opacity: p.href === "/concours" ? 1 : 0.75,
+                  textDecoration: "none",
+                  padding: "0.35rem 0.5rem",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {p.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      </div>
+    );
   }
 
   const name = displayNameFrom(profile, session);
