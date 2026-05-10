@@ -34,7 +34,7 @@ type QuizSubmissionRow = {
 };
 
 function formatMemberTypeLabel(raw: string | null | undefined): string {
-  if (!raw) return "Communauté";
+  if (!raw || typeof raw !== "string") return "Communauté";
   const n = raw.trim();
   if (n.toLowerCase() === "communaute" || n === "Communauté") return "Communauté";
   if (n === "Pionnier") return "Pionnier";
