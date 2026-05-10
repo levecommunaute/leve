@@ -193,7 +193,7 @@ export default function ConcoursPage(): JSX.Element | null {
         token,
       ),
       fetchRest<{ amount?: unknown }[]>(
-        `points_transactions?select=amount&user_id=eq.${encodeURIComponent(uid)}`,
+        `points_transactions?select=amount&membre_id=eq.${encodeURIComponent(uid)}`,
         token,
       ),
       fetchRest<ConcoursRow[]>(
