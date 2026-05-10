@@ -159,7 +159,7 @@ export default function ProfilPage(): JSX.Element | null {
   const memberLabel = formatMemberTypeLabel(profile?.member_type ?? null);
   const mult = Number(profile?.multiplier ?? 1);
   const multiplierDisplay = `${Number.isFinite(mult) ? mult.toFixed(1) : "1.0"}×`;
-  const emailDisplay = profile?.email?.trim() || session.user.email?.trim() || "—";
+  const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
   return (
     <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-dm), system-ui, sans-serif", paddingBottom: "6rem" }}>
@@ -210,7 +210,7 @@ export default function ProfilPage(): JSX.Element | null {
             </div>
             <div>
               <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Numéro membre</dt>
-              <dd style={{ margin: "0.25rem 0 0" }}>{profile?.numero_membre?.trim() ? `#${profile.numero_membre}` : "—"}</dd>
+              <dd style={{ margin: "0.25rem 0 0" }}>{typeof profile?.numero_membre === "string" && profile.numero_membre.trim() ? `#${profile.numero_membre}` : "—"}</dd>
             </div>
           </dl>
         </section>
