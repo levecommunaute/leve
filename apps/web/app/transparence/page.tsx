@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
-import { signOut } from "../../lib/auth";
 
 /** Aligné sur la réponse JSON de `/api/redistribution/historique`. */
 type RedistributionMois = {
@@ -234,14 +233,36 @@ export default function TransparencePage(): JSX.Element {
     };
   }, [loadProfile]);
 
-  async function handleSignOut(): Promise<void> {
+  function handleSignOut(): void {
     setSigningOut(true);
-    try {
-      await signOut();
-      router.replace("/");
-    } catch {
-      setSigningOut(false);
+
+    const cookieNames = document.cookie
+      .split(";")
+      .map((cookie) => cookie.trim().split("=")[0])
+      .filter(
+        (name): name is string =>
+          typeof name === "string" &&
+          (name.startsWith("sb-") || name.includes("supabase")),
+      );
+
+    const hostname = window.location.hostname.replace(/^www\./, "");
+    const secure = window.location.protocol === "https:" ? ";secure" : "";
+    const domains = [
+      undefined,
+      window.location.hostname,
+      hostname ? `.${hostname}` : undefined,
+    ];
+
+    for (const name of cookieNames) {
+      for (const domain of domains) {
+        const domainPart = domain ? `;domain=${domain}` : "";
+        document.cookie =
+          `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;Max-Age=0;path=/` +
+          `${domainPart}${secure}`;
+      }
     }
+
+    window.location.href = "/";
   }
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
