@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from "@repo/supabase/browser";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -123,10 +123,7 @@ export default function VideosPage(): JSX.Element | null {
   }, []);
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    );
+    const supabase = createBrowserClient();
     let cancelled = false;
 
     void (async () => {
