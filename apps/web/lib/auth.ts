@@ -48,7 +48,6 @@ export async function signOut(): Promise<void> {
   
   window.location.href = "/";
 }
-}
 
 /** Uses the browser client; call from Client Components (or after hydration). */
 export async function getSession(): Promise<Session | null> {
