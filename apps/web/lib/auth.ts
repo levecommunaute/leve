@@ -32,11 +32,22 @@ export async function signInWithGoogle(): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  // Supprimer les cookies Supabase manuellement
+  const cookieNames = document.cookie
+    .split(";")
+    .map(c => c.trim().split("=")[0])
+    .filter(name => name.includes("supabase") || name.includes("sb-"));
+  
+  cookieNames.forEach(name => {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=${window.location.hostname}`;
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/`;
+  });
+
   const supabase = createBrowserClient();
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    throw error;
-  }
+  await supabase.auth.signOut().catch(() => {});
+  
+  window.location.href = "/";
+}
 }
 
 /** Uses the browser client; call from Client Components (or after hydration). */
