@@ -162,11 +162,11 @@ export default function BanquePage(): JSX.Element | null {
         token,
       ),
       restJson<{ amount?: unknown }[]>(
-        `points_transactions?user_id=eq.${encodeURIComponent(uid)}&select=amount`,
+        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=amount`,
         token,
       ),
       restJson<PointsTxRow[]>(
-        `points_transactions?user_id=eq.${encodeURIComponent(uid)}&select=id,created_at,amount,type,metadata&order=created_at.desc&limit=20`,
+        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=id,created_at,amount,type,metadata&order=created_at.desc&limit=20`,
         token,
       ),
     ]);

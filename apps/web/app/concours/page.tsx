@@ -95,7 +95,7 @@ function displayNameFrom(
 const navPages: { href: string; label: string }[] = [
   { href: "/", label: "Accueil" },
   { href: "/dashboard", label: "Tableau de bord" },
-  { href: "/videos", label: "VidÃ©os" },
+  { href: "/videos", label: "Vidéos" },
   { href: "/banque", label: "Banque LEVE" },
   { href: "/classement", label: "Classement" },
   { href: "/concours", label: "Concours" },
@@ -251,7 +251,7 @@ export default function ConcoursPage(): JSX.Element | null {
       setParticipationMsg({
         concoursId: row.id,
         kind: "ok",
-        text: "Merci ! Votre participation est notÃ©e pour ce concours. Les gagnants seront contactÃ©s aprÃ¨s la date de clÃ´ture.",
+        text: "Merci ! Votre participation est notée pour ce concours. Les gagnants seront contactés après la date de clôture.",
       });
     }, 280);
   }
@@ -272,7 +272,7 @@ export default function ConcoursPage(): JSX.Element | null {
           justifyContent: "center",
         }}
       >
-        <p style={{ opacity: 0.7 }}>Chargementâ€¦</p>
+        <p style={{ opacity: 0.7 }}>Chargement…</p>
       </div>
     );
   }
@@ -325,7 +325,7 @@ export default function ConcoursPage(): JSX.Element | null {
           }}
         >
           <p style={{ margin: 0, fontSize: "1.05rem", opacity: 0.85, lineHeight: 1.6 }}>
-            Connecte-toi pour accÃ©der aux concours
+            Connecte-toi pour accéder aux concours
           </p>
         </main>
         <nav
@@ -441,7 +441,7 @@ export default function ConcoursPage(): JSX.Element | null {
               cursor: signingOut ? "wait" : "pointer",
             }}
           >
-            {signingOut ? "â€¦" : "DÃ©connexion"}
+            {signingOut ? "…" : "Déconnexion"}
           </button>
         </div>
       </header>
@@ -471,7 +471,7 @@ export default function ConcoursPage(): JSX.Element | null {
           }}
         >
           <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>
-            CommunautÃ© LEVE
+            Communauté LEVE
           </p>
           <h1
             style={{
@@ -486,7 +486,7 @@ export default function ConcoursPage(): JSX.Element | null {
             Concours
           </h1>
           <p style={{ margin: 0, opacity: 0.8, fontSize: "0.95rem", maxWidth: "36rem" }}>
-            Participez aux tirages et Ã©vÃ©nements rÃ©servÃ©s aux membres. Chaque concours indique
+            Participez aux tirages et événements réservés aux membres. Chaque concours indique
             le seuil de points PMQ requis et la date limite.
           </p>
         </section>
@@ -596,8 +596,8 @@ export default function ConcoursPage(): JSX.Element | null {
                 opacity: 0.82,
               }}
             >
-              Aucun concours actif pour le moment. Revenez bientÃ´t : les prochaines Ã©ditions
-              seront annoncÃ©es ici, en toute transparence, pour la communautÃ© LEVE.
+              Aucun concours actif pour le moment. Revenez bientôt : les prochaines éditions
+              seront annoncées ici, en toute transparence, pour la communauté LEVE.
             </p>
             <div
               style={{
@@ -628,7 +628,7 @@ export default function ConcoursPage(): JSX.Element | null {
               const canParticiper = totalPointsPmq >= req && !already;
               const end = new Date(row.date_fin);
               const endLabel = Number.isNaN(end.getTime())
-                ? "â€”"
+                ? "—"
                 : dateFinFmt.format(end);
               const msg =
                 participationMsg?.concoursId === row.id ? participationMsg : null;
@@ -749,9 +749,9 @@ export default function ConcoursPage(): JSX.Element | null {
                       }}
                     >
                       {participatingId === row.id
-                        ? "Envoiâ€¦"
+                        ? "Envoi…"
                         : already
-                          ? "Participation envoyÃ©e"
+                          ? "Participation envoyée"
                           : "Participer"}
                     </button>
                     {totalPointsPmq < req ? (

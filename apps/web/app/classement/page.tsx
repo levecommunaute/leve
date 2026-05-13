@@ -63,7 +63,7 @@ type ProfileRow = {
 
 type ClassementRow = {
   rank: number;
-  user_id: string;
+  membre_id: string;
   display_name: string;
   member_type: string;
   total_points: number;
@@ -147,9 +147,9 @@ async function aggregatePointsByUser(
   let offset = 0;
   for (;;) {
     const { data, error } = await restJson<
-      { user_id?: unknown; amount?: unknown }[]
+      { membre_id?: unknown; amount?: unknown }[]
     >(
-      `points_transactions?select=user_id,amount&offset=${offset}&limit=${PAGE_SIZE}`,
+      `points_transactions?select=membre_id,amount&offset=${offset}&limit=${PAGE_SIZE}`,
       accessToken,
     );
 
@@ -159,7 +159,7 @@ async function aggregatePointsByUser(
 
     const rows = data ?? [];
     for (const row of rows) {
-      const uid = String(row.user_id ?? "");
+      const uid = String(row.membre_id ?? "");
       if (!uid) continue;
       const amt = Number(row.amount ?? 0);
       totals.set(uid, (totals.get(uid) ?? 0) + amt);
@@ -219,8 +219,8 @@ async function fetchClassementRows(
     ]),
   );
 
-  return sortedIds.map((userId, index) => {
-    const p = profileMap.get(userId);
+  return sortedIds.map((membreId, index) => {
+    const p = profileMap.get(membreId);
     const label = formatMemberTypeLabel(p?.member_type ?? null);
     const display =
       p?.display_name?.trim() ||
@@ -228,10 +228,10 @@ async function fetchClassementRows(
       "Membre";
     return {
       rank: index + 1,
-      user_id: userId,
+      membre_id: membreId,
       display_name: display,
       member_type: label,
-      total_points: totals.get(userId) ?? 0,
+      total_points: totals.get(membreId) ?? 0,
     };
   });
 }
@@ -666,7 +666,7 @@ export default function ClassementPage(): JSX.Element | null {
                   place={2}
                   accent={SILVER}
                   height="200px"
-                  isCurrentUser={second.user_id === uid}
+                  isCurrentUser={second.membre_id === uid}
                 />
               ) : null}
               {first ? (
@@ -675,7 +675,7 @@ export default function ClassementPage(): JSX.Element | null {
                   place={1}
                   accent={GOLD}
                   height="240px"
-                  isCurrentUser={first.user_id === uid}
+                  isCurrentUser={first.membre_id === uid}
                 />
               ) : null}
               {third ? (
@@ -684,7 +684,7 @@ export default function ClassementPage(): JSX.Element | null {
                   place={3}
                   accent={BRONZE}
                   height="180px"
-                  isCurrentUser={third.user_id === uid}
+                  isCurrentUser={third.membre_id === uid}
                 />
               ) : null}
             </div>
@@ -758,11 +758,11 @@ export default function ClassementPage(): JSX.Element | null {
                   </thead>
                   <tbody>
                     {tableRows.map((row) => {
-                      const isMe = row.user_id === uid;
+                      const isMe = row.membre_id === uid;
                       const badge = memberTypeBadgeStyle(row.member_type);
                       return (
                         <tr
-                          key={row.user_id}
+                          key={row.membre_id}
                           style={{
                             borderBottom: "1px solid rgba(245, 240, 232, 0.06)",
                             background: isMe

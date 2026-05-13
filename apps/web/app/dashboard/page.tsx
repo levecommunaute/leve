@@ -126,7 +126,7 @@ export default function DashboardPage(): JSX.Element | null {
         token,
       ),
       restJson<{ total_revenue?: unknown; month?: string }[]>(
-        `redistribution_history?user_id=eq.${encodeURIComponent(uid)}&select=total_revenue,month&order=month.desc&limit=1`,
+        `redistribution_history?select=total_revenue,month&order=month.desc&limit=1`,
         token,
       ),
     ]);
