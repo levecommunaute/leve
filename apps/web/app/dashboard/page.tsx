@@ -99,6 +99,8 @@ const navPages: { href: string; label: string }[] = [
   { href: "/banque", label: "Banque LEVE" },
   { href: "/classement", label: "Classement" },
   { href: "/transparence", label: "Transparence" },
+  { href: "/profil", label: "Profil" },
+  { href: "/concours", label: "Concours" },
 ];
 
 export default function DashboardPage(): JSX.Element | null {
