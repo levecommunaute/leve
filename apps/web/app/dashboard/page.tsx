@@ -122,7 +122,7 @@ export default function DashboardPage(): JSX.Element | null {
         token,
       ),
       restJson<{ amount?: unknown }[]>(
-        `points_transactions?user_id=eq.${encodeURIComponent(uid)}&select=amount`,
+        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=amount`,
         token,
       ),
       restJson<{ amount?: unknown; month?: string }[]>(
