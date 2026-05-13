@@ -34,9 +34,52 @@ type MemberRow = {
   display_name: string | null;
   email: string | null;
   member_type: string | null;
+  multiplier: number | string | null;
   numero_membre: string | null;
-  created_at: string | null;
 };
+
+type MemberTypeValue = "Communaute" | "Pionnier" | "Fondateur" | "Collaborateur";
+type MultiplierValue = 1.0 | 1.2 | 2.0;
+
+type MemberDraft = {
+  member_type: MemberTypeValue;
+  multiplier: MultiplierValue;
+  numero_membre: string;
+};
+
+function memberTypeToForm(raw: string | null): MemberTypeValue {
+  const t = (raw ?? "").trim();
+  const lower = t.toLowerCase();
+  if (lower === "communaute" || t === "Communauté") return "Communaute";
+  if (lower === "pionnier" || t === "Pionnier") return "Pionnier";
+  if (lower === "fondateur" || t === "Fondateur") return "Fondateur";
+  if (lower === "collaborateur" || t === "Collaborateur") return "Collaborateur";
+  if (t === "Communaute") return "Communaute";
+  return "Communaute";
+}
+
+function multiplierToForm(raw: number | string | null): MultiplierValue {
+  const n = Number(raw);
+  if (Math.abs(n - 1.2) < 1e-9) return 1.2;
+  if (Math.abs(n - 2) < 1e-9) return 2.0;
+  return 1.0;
+}
+
+function memberRowDirty(m: MemberRow, d: MemberDraft): boolean {
+  return (
+    memberTypeToForm(m.member_type) !== d.member_type ||
+    multiplierToForm(m.multiplier) !== d.multiplier ||
+    (m.numero_membre ?? "") !== d.numero_membre
+  );
+}
+
+function defaultMemberDraft(m: MemberRow): MemberDraft {
+  return {
+    member_type: memberTypeToForm(m.member_type),
+    multiplier: multiplierToForm(m.multiplier),
+    numero_membre: m.numero_membre ?? "",
+  };
+}
 
 const cad = new Intl.NumberFormat("fr-CA", {
   style: "currency",
@@ -44,10 +87,6 @@ const cad = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 6,
 });
 
-const dateFmt = new Intl.DateTimeFormat("fr-CA", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
 
 function cardStyle() {
   return {
@@ -113,6 +152,8 @@ export default function AdminPage(): JSX.Element {
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
+  const [memberDrafts, setMemberDrafts] = useState<Record<string, MemberDraft>>({});
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
 
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
@@ -174,6 +215,14 @@ export default function AdminPage(): JSX.Element {
     void loadMembers();
   }, [hydrated, authed, loadVideos, loadMembers]);
 
+  useEffect(() => {
+    const next: Record<string, MemberDraft> = {};
+    for (const m of members) {
+      next[m.id] = defaultMemberDraft(m);
+    }
+    setMemberDrafts(next);
+  }, [members]);
+
   async function handleLogin(e: FormEvent): Promise<void> {
     e.preventDefault();
     setAuthError(null);
@@ -205,6 +254,7 @@ export default function AdminPage(): JSX.Element {
     setCodeByVideo({});
     setRedistResult(null);
     setMembers([]);
+    setMemberDrafts({});
     setVideos([]);
   }
 
@@ -307,6 +357,36 @@ export default function AdminPage(): JSX.Element {
       setRedistError("Erreur réseau");
     } finally {
       setRedistLoading(false);
+    }
+  }
+
+  async function saveMember(id: string): Promise<void> {
+    const m = members.find((x) => x.id === id);
+    const d = memberDrafts[id] ?? (m ? defaultMemberDraft(m) : null);
+    if (!m || !d || !memberRowDirty(m, d)) return;
+    setSavingMemberId(id);
+    setMembersError(null);
+    try {
+      const r = await fetch("/api/admin/members", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          id,
+          member_type: d.member_type,
+          multiplier: d.multiplier,
+          numero_membre: d.numero_membre,
+        }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setMembersError(j.error ?? "Échec enregistrement");
+        return;
+      }
+      await loadMembers();
+    } catch (e) {
+      setMembersError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setSavingMemberId(null);
     }
   }
 
@@ -711,31 +791,32 @@ export default function AdminPage(): JSX.Element {
             ) : null}
           </section>
 
-          {/* SECTION MEMBRES */}
+          {/* SECTION GESTION DES MEMBRES */}
           <section style={cardStyle()}>
-            {sectionTitle("MEMBRES")}
+            {sectionTitle("GESTION DES MEMBRES")}
             <p style={{ margin: "0 0 1rem", fontSize: "1.1rem" }}>
               Total :{" "}
               <strong style={{ color: GOLD, fontSize: "1.35rem" }}>{membersLoading ? "…" : members.length}</strong>{" "}
               membre{members.length !== 1 ? "s" : ""}
             </p>
-            {membersError ? <p style={{ color: ROUGE }}>{membersError}</p> : null}
+            {membersError ? <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{membersError}</p> : null}
             {membersLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement…</p>
             ) : (
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.88rem" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
                     <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
-                      {["Nom", "Courriel", "Type", "N° membre", "Créé le"].map((h) => (
+                      {["Id", "Nom", "Courriel", "Type", "Mult.", "N° membre", ""].map((h, i) => (
                         <th
-                          key={h}
+                          key={`${h}-${i}`}
                           style={{
                             padding: "0.65rem 0.5rem",
                             letterSpacing: "0.08em",
                             fontSize: "0.65rem",
                             textTransform: "uppercase",
                             opacity: 0.55,
+                            minWidth: i === 0 ? "7.5rem" : undefined,
                           }}
                         >
                           {h}
@@ -744,19 +825,102 @@ export default function AdminPage(): JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {members.map((m) => (
-                      <tr key={m.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
-                        <td style={{ padding: "0.65rem 0.5rem" }}>{m.display_name ?? "—"}</td>
-                        <td style={{ padding: "0.65rem 0.5rem" }}>{m.email ?? "—"}</td>
-                        <td style={{ padding: "0.65rem 0.5rem" }}>{m.member_type ?? "—"}</td>
-                        <td style={{ padding: "0.65rem 0.5rem" }}>{m.numero_membre ?? "—"}</td>
-                        <td style={{ padding: "0.65rem 0.5rem", whiteSpace: "nowrap" }}>
-                          {m.created_at ? dateFmt.format(new Date(m.created_at)) : "—"}
-                        </td>
-                      </tr>
-                    ))}
+                    {members.map((m) => {
+                      const d = memberDrafts[m.id] ?? defaultMemberDraft(m);
+                      const dirty = memberRowDirty(m, d);
+                      const multKey = d.multiplier === 1.2 ? "1.2" : d.multiplier === 2 ? "2" : "1";
+                      return (
+                        <tr key={m.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                          <td
+                            style={{
+                              padding: "0.6rem 0.5rem",
+                              fontFamily: "ui-monospace, monospace",
+                              fontSize: "0.72rem",
+                              wordBreak: "break-all",
+                              verticalAlign: "top",
+                              maxWidth: "10rem",
+                            }}
+                            title={m.id}
+                          >
+                            {m.id}
+                          </td>
+                          <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top" }}>{m.display_name ?? "—"}</td>
+                          <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top" }}>{m.email ?? "—"}</td>
+                          <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top", minWidth: "8.5rem" }}>
+                            <select
+                              value={d.member_type}
+                              onChange={(e) => {
+                                const v = e.target.value as MemberTypeValue;
+                                setMemberDrafts((prev) => ({
+                                  ...prev,
+                                  [m.id]: { ...d, member_type: v },
+                                }));
+                              }}
+                              style={{ ...inputBase, cursor: "pointer", fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                            >
+                              <option value="Communaute">Communauté</option>
+                              <option value="Pionnier">Pionnier</option>
+                              <option value="Fondateur">Fondateur</option>
+                              <option value="Collaborateur">Collaborateur</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top", minWidth: "4.5rem" }}>
+                            <select
+                              value={multKey}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                const mult = (v === 1.2 ? 1.2 : v === 2 ? 2.0 : 1.0) as MultiplierValue;
+                                setMemberDrafts((prev) => ({
+                                  ...prev,
+                                  [m.id]: { ...d, multiplier: mult },
+                                }));
+                              }}
+                              style={{ ...inputBase, cursor: "pointer", fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                            >
+                              <option value="1">1.0</option>
+                              <option value="1.2">1.2</option>
+                              <option value="2">2.0</option>
+                            </select>
+                          </td>
+                          <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top", minWidth: "6rem" }}>
+                            <input
+                              value={d.numero_membre}
+                              onChange={(e) =>
+                                setMemberDrafts((prev) => ({
+                                  ...prev,
+                                  [m.id]: { ...d, numero_membre: e.target.value },
+                                }))
+                              }
+                              placeholder="—"
+                              style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                            />
+                          </td>
+                          <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top" }}>
+                            <button
+                              type="button"
+                              disabled={!dirty || savingMemberId === m.id}
+                              onClick={() => void saveMember(m.id)}
+                              style={{
+                                background: dirty ? "rgba(212, 160, 23, 0.12)" : "rgba(245, 240, 232, 0.04)",
+                                color: dirty ? GOLD : "rgba(245,240,232,0.35)",
+                                border: `1px solid ${dirty ? "rgba(212, 160, 23, 0.35)" : "rgba(245, 240, 232, 0.1)"}`,
+                                padding: "0.45rem 0.65rem",
+                                cursor: !dirty || savingMemberId === m.id ? "not-allowed" : "pointer",
+                                fontSize: "0.68rem",
+                                letterSpacing: "0.1em",
+                                textTransform: "uppercase",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {savingMemberId === m.id ? "…" : "Enregistrer"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+                {members.length === 0 ? <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucun membre.</p> : null}
               </div>
             )}
           </section>
