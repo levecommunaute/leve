@@ -64,7 +64,6 @@ type PointsTxRow = {
   created_at: string;
   amount: number | string | null;
   type: string | null;
-  metadata: Record<string, unknown> | null;
 };
 
 function displayNameFrom(
@@ -82,17 +81,10 @@ function displayNameFrom(
   );
 }
 
-function transactionDescription(
-  type: string | null | undefined,
-  metadata: Record<string, unknown> | null,
-): string {
+function transactionDescription(type: string | null | undefined): string {
   const t = (type ?? "").toLowerCase();
   if (t === "redistribution") {
-    const month =
-      typeof metadata?.month === "string" ? metadata.month : null;
-    return month
-      ? `Redistribution PMQ — ${month}`
-      : "Redistribution PMQ";
+    return "Redistribution PMQ";
   }
   if (
     t === "code" ||
@@ -100,13 +92,7 @@ function transactionDescription(
     t === "code_secret" ||
     t === "fragment"
   ) {
-    const title =
-      typeof metadata?.video_title === "string"
-        ? metadata.video_title
-        : typeof metadata?.title === "string"
-          ? metadata.title
-          : null;
-    return title ? `Code vidéo — ${title}` : "Points code vidéo";
+    return "Points code vidéo";
   }
   if (t === "quiz" || t === "quiz_bonus") {
     return "Bonus quiz";
@@ -166,7 +152,7 @@ export default function BanquePage(): JSX.Element | null {
         token,
       ),
       restJson<PointsTxRow[]>(
-        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=id,created_at,amount,type,metadata&order=created_at.desc&limit=20`,
+        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=id,created_at,amount,type&order=created_at.desc&limit=20`,
         token,
       ),
     ]);
@@ -595,7 +581,7 @@ export default function BanquePage(): JSX.Element | null {
                             {dateLabel}
                           </td>
                           <td style={{ padding: "0.7rem 1rem", maxWidth: "360px" }}>
-                            {transactionDescription(row.type, row.metadata)}
+                            {transactionDescription(row.type)}
                           </td>
                           <td
                             style={{

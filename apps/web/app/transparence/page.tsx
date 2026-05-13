@@ -68,9 +68,10 @@ type ProfileRow = {
 type BanqueLeveRow = {
   id: string;
   total_revenue: number | string | null;
-  ptc_pool: number | string | null;
-  pool_pcol: number | string | null;
-  pool_pa: number | string | null;
+  ptc_balance: number | string | null;
+  pmq_balance: number | string | null;
+  pcol_balance: number | string | null;
+  pa_balance: number | string | null;
   pool_operations: number | string | null;
 };
 
@@ -181,7 +182,7 @@ export default function TransparencePage(): JSX.Element {
     setLoadError(null);
 
     const bankRes = await fetch(
-      `${SB}/rest/v1/banque_leve?select=id,total_revenue,ptc_pool,pool_pcol,pool_pa,pool_operations&limit=1`,
+      `${SB}/rest/v1/banque_leve?select=id,total_revenue,ptc_balance,pmq_balance,pcol_balance,pa_balance,pool_operations&limit=1`,
       {
         headers: {
           apikey: KEY,
@@ -304,9 +305,9 @@ export default function TransparencePage(): JSX.Element {
   const name = session ? displayNameFrom(profile, session) : null;
 
   const tr = Number(banque?.total_revenue ?? 0);
-  const poolPtc = Number(banque?.ptc_pool ?? 0);
-  const poolPcol = Number(banque?.pool_pcol ?? 0);
-  const poolPa = Number(banque?.pool_pa ?? 0);
+  const poolPtc = Number(banque?.ptc_balance ?? 0);
+  const poolPcol = Number(banque?.pcol_balance ?? 0);
+  const poolPa = Number(banque?.pa_balance ?? 0);
   const poolOps = Number(banque?.pool_operations ?? 0);
 
   return (
