@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
@@ -105,17 +106,6 @@ function transactionDescription(type: string | null | undefined): string {
   }
   return "Transaction";
 }
-
-const navPages: { href: string; label: string }[] = [
-  { href: "/", label: "Accueil" },
-  { href: "/dashboard", label: "Tableau de bord" },
-  { href: "/videos", label: "Vidéos" },
-  { href: "/banque", label: "Banque LEVE" },
-  { href: "/classement", label: "Classement" },
-  { href: "/transparence", label: "Transparence" },
-  { href: "/profil", label: "Profil" },
-  { href: "/concours", label: "Concours" },
-];
 
 const cad = new Intl.NumberFormat("fr-CA", {
   style: "currency",

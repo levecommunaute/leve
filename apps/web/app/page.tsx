@@ -3,6 +3,7 @@
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import type { JSX } from "react";
+import { APP_BOTTOM_NAV_LINKS } from "../lib/appBottomNavLinks";
 import { signInWithGoogle } from "../lib/auth";
 
 const bebas = Bebas_Neue({
@@ -353,18 +354,16 @@ export default function Home(): JSX.Element {
             </a>
           </p>
           <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 uppercase tracking-wide">
-            <Link href="/dashboard" className="opacity-75 transition hover:opacity-100" style={{ color: TEXT }}>
-              Dashboard
-            </Link>
-            <Link href="/videos" className="opacity-75 transition hover:opacity-100" style={{ color: TEXT }}>
-              Vidéos
-            </Link>
-            <Link href="/classement" className="opacity-75 transition hover:opacity-100" style={{ color: TEXT }}>
-              Classement
-            </Link>
-            <Link href="/transparence" className="opacity-75 transition hover:opacity-100" style={{ color: TEXT }}>
-              Transparence
-            </Link>
+            {APP_BOTTOM_NAV_LINKS.map((p) => (
+              <Link
+                key={p.href}
+                href={p.href}
+                className="opacity-75 transition hover:opacity-100"
+                style={{ color: TEXT }}
+              >
+                {p.label}
+              </Link>
+            ))}
           </nav>
         </div>
       </footer>
