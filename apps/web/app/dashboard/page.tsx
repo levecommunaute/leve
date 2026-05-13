@@ -125,8 +125,8 @@ export default function DashboardPage(): JSX.Element | null {
         `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=amount`,
         token,
       ),
-      restJson<{ amount?: unknown; month?: string }[]>(
-        `redistribution_history?user_id=eq.${encodeURIComponent(uid)}&select=amount,month&order=month.desc&limit=1`,
+      restJson<{ total_revenue?: unknown; month?: string }[]>(
+        `redistribution_history?user_id=eq.${encodeURIComponent(uid)}&select=total_revenue,month&order=month.desc&limit=1`,
         token,
       ),
     ]);
@@ -156,8 +156,8 @@ export default function DashboardPage(): JSX.Element | null {
     } else {
       const hrows = histRes.data ?? [];
       const first = hrows[0];
-      if (first?.amount != null) {
-        setLastRedistributionCad(Number(first.amount));
+      if (first?.total_revenue != null) {
+        setLastRedistributionCad(Number(first.total_revenue));
       } else {
         setLastRedistributionCad(null);
       }
