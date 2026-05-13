@@ -40,7 +40,7 @@ export async function GET(): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from("redistribution_history")
-    .select("month, amount, points_snapshot, multiplier_snapshot")
+    .select("month, total_revenue, points_snapshot, multiplier_snapshot")
     .gte("month", minMonth)
     .order("month", { ascending: false });
 
@@ -57,7 +57,7 @@ export async function GET(): Promise<NextResponse> {
   for (const row of rows) {
     const month = String(row.month ?? "");
     if (!month) continue;
-    const amt = Number(row.amount ?? 0);
+    const amt = Number(row.total_revenue ?? 0);
     const pts = Number(row.points_snapshot ?? 0);
     const mult = Number(row.multiplier_snapshot ?? 1);
     const w =
