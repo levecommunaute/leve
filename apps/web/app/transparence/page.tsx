@@ -8,11 +8,12 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
-/** Aligné sur la réponse JSON de `/api/redistribution/historique`. */
+/** Aligné sur la réponse JSON de `/api/redistribution/historique` (lignes `redistribution_history`). */
 type RedistributionMois = {
   month: string;
   total_revenue: number;
   value_per_point: number | null;
+  /** Correspond au `pmq_pool` agrégé par mois. */
   total_distributed: number;
 };
 
@@ -672,9 +673,8 @@ export default function TransparencePage(): JSX.Element {
               maxWidth: "40rem",
             }}
           >
-            Revenu mensuel déduit du total PMQ redistribué (÷ 45 %). Valeur par
-            point : montant par unité pondérée (points × multiplicateur) au
-            moment de la redistribution.
+            Revenu mensuel et valeur par point tels qu’enregistrés à la
+            redistribution. Total redistribué : pool PMQ du mois.
           </p>
 
           {history.length === 0 ? (

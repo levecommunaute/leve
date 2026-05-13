@@ -3,15 +3,13 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-/** Part du revenu allouée au pool PMQ lors de la redistribution (aligné Edge `redistribution-mensuelle`). */
-const PMQ_SHARE = 0.45;
-
 export type RedistributionMois = {
   month: string;
-  /** Revenu mensuel déduit du total redistribué (÷ 45 % PMQ). */
+  /** Revenu mensuel (champ `total_revenue` en base). */
   total_revenue: number;
-  /** $ CAD par unité de pondération (point × multiplicateur) pour ce mois. */
+  /** $ CAD par unité de pondération pour ce mois. */
   value_per_point: number | null;
+  /** Montant PMQ redistribué (`pmq_pool`). */
   total_distributed: number;
 };
 
@@ -40,7 +38,9 @@ export async function GET(): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from("redistribution_history")
-    .select("month, total_revenue, points_snapshot, multiplier_snapshot")
+    .select(
+      "id, month, total_revenue, pmq_pool, ptc_pool, pcol_pool, pa_pool, total_members, value_per_point, created_at",
+    )
     .gte("month", minMonth)
     .order("month", { ascending: false });
 
@@ -51,34 +51,62 @@ export async function GET(): Promise<NextResponse> {
   const rows = data ?? [];
   const agg = new Map<
     string,
-    { totalDistributed: number; weightSum: number }
+    {
+      totalDistributed: number;
+      totalRevenueSum: number;
+      weightedVpp: number;
+      vppWeight: number;
+    }
   >();
 
   for (const row of rows) {
     const month = String(row.month ?? "");
     if (!month) continue;
-    const amt = Number(row.total_revenue ?? 0);
-    const pts = Number(row.points_snapshot ?? 0);
-    const mult = Number(row.multiplier_snapshot ?? 1);
-    const w =
-      Number.isFinite(pts) && Number.isFinite(mult) ? pts * mult : 0;
-    const cur = agg.get(month) ?? { totalDistributed: 0, weightSum: 0 };
-    cur.totalDistributed += Number.isFinite(amt) ? amt : 0;
-    cur.weightSum += w > 0 ? w : 0;
+    const pmq = Number(row.pmq_pool ?? 0);
+    const tr = Number(row.total_revenue ?? 0);
+    const vppRaw = row.value_per_point;
+    const vpp =
+      vppRaw != null && vppRaw !== ""
+        ? Number(vppRaw)
+        : null;
+
+    const cur = agg.get(month) ?? {
+      totalDistributed: 0,
+      totalRevenueSum: 0,
+      weightedVpp: 0,
+      vppWeight: 0,
+    };
+    cur.totalDistributed += Number.isFinite(pmq) ? pmq : 0;
+    cur.totalRevenueSum += Number.isFinite(tr) ? tr : 0;
+    if (vpp != null && Number.isFinite(vpp) && pmq > 0) {
+      cur.weightedVpp += vpp * pmq;
+      cur.vppWeight += pmq;
+    }
     agg.set(month, cur);
   }
 
   const months = [...agg.keys()].sort((a, b) => b.localeCompare(a)).slice(0, 12);
 
   const history: RedistributionMois[] = months.map((month) => {
-    const { totalDistributed, weightSum } = agg.get(month)!;
-    const total_revenue =
-      PMQ_SHARE > 0 ? totalDistributed / PMQ_SHARE : totalDistributed;
-    const value_per_point =
-      weightSum > 0 ? totalDistributed / weightSum : null;
+    const { totalDistributed, totalRevenueSum, weightedVpp, vppWeight } =
+      agg.get(month)!;
+    let value_per_point: number | null =
+      vppWeight > 0 ? weightedVpp / vppWeight : null;
+    if (value_per_point == null) {
+      const fallback = rows.find(
+        (r) =>
+          String(r.month ?? "") === month &&
+          r.value_per_point != null &&
+          r.value_per_point !== "",
+      );
+      if (fallback?.value_per_point != null && fallback.value_per_point !== "") {
+        const n = Number(fallback.value_per_point);
+        value_per_point = Number.isFinite(n) ? n : null;
+      }
+    }
     return {
       month,
-      total_revenue,
+      total_revenue: totalRevenueSum,
       value_per_point,
       total_distributed: totalDistributed,
     };
