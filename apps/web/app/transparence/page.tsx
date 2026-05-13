@@ -590,10 +590,22 @@ export default function TransparencePage(): JSX.Element {
                 </p>
               </article>
               {[
-                { label: "Pool PTC", value: poolPtc, accent: GOLD },
-                { label: "Pool production (PCOL)", value: poolPcol, accent: ROUGE },
-                { label: "Pool fondation (PA)", value: poolPa, accent: VERT },
-                { label: "Pool opérations", value: poolOps, accent: GRIS_OPS },
+                {
+                  label: "PTC — Pool de Croissance",
+                  value: poolPtc,
+                  accent: GOLD,
+                },
+                {
+                  label: "PCOL — Pool Collaborateur",
+                  value: poolPcol,
+                  accent: ROUGE,
+                },
+                { label: "PA — Pool Activités", value: poolPa, accent: VERT },
+                {
+                  label: "Opérations (LEVE MÉDIA INC.)",
+                  value: poolOps,
+                  accent: GRIS_OPS,
+                },
               ].map((row) => (
                 <article
                   key={row.label}
