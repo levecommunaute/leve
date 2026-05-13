@@ -1,11 +1,11 @@
 "use client";
 
-import { createBrowserClient } from "@repo/supabase/browser";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 /** Aligné sur la réponse JSON de `/api/redistribution/historique`. */
 type RedistributionMois = {
@@ -32,6 +32,34 @@ const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 const VERT = "#2ECC71";
 const GRIS_OPS = "#7F8C8D";
+const SB = "https://lrolatbudvianeazliax.supabase.co";
+const KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
+
+async function restJson<T>(
+  path: string,
+  accessToken: string,
+): Promise<{ data: T; error: string | null }> {
+  const res = await fetch(`${SB}/rest/v1/${path}`, {
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  });
+  const json = (await res.json()) as unknown;
+  if (!res.ok) {
+    const msg =
+      json &&
+      typeof json === "object" &&
+      "message" in json &&
+      typeof (json as { message: unknown }).message === "string"
+        ? (json as { message: string }).message
+        : res.statusText || "Erreur réseau";
+    return { data: null as T, error: msg };
+  }
+  return { data: json as T, error: null };
+}
 
 type ProfileRow = {
   display_name: string | null;
@@ -139,51 +167,58 @@ export default function TransparencePage(): JSX.Element {
   const [signingOut, setSigningOut] = useState(false);
 
   const loadProfile = useCallback(async (activeSession: Session) => {
-    const supabase = createBrowserClient();
-    const profileRes = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", activeSession.user.id)
-      .maybeSingle();
-    if (!profileRes.error) {
-      setProfile(profileRes.data as ProfileRow | null);
+    const profileRes = await restJson<ProfileRow[]>(
+      `profiles?id=eq.${encodeURIComponent(activeSession.user.id)}&select=display_name`,
+      activeSession.access_token,
+    );
+    if (!profileRes.error && profileRes.data) {
+      const rows = profileRes.data;
+      setProfile((rows[0] ?? null) as ProfileRow | null);
     }
   }, []);
 
   const loadPublicData = useCallback(async () => {
     setLoadError(null);
-    const supabase = createBrowserClient();
 
-    const [bankRes, histRes] = await Promise.all([
-      supabase
-        .from("banque_leve")
-        .select(
-          "id, total_revenue, pool_ptc, pool_pcol, pool_pa, pool_operations",
-        )
-        .limit(1)
-        .maybeSingle(),
-      fetch("/api/redistribution/historique", { cache: "no-store" }).then(
-        async (r) => {
-          const j = (await r.json()) as {
-            error?: string;
-            history?: RedistributionMois[];
-          };
-          if (!r.ok) {
-            throw new Error(j.error ?? "Historique indisponible");
-          }
-          return j.history ?? [];
+    const bankRes = await fetch(
+      `${SB}/rest/v1/banque_leve?select=id,total_revenue,pool_ptc,pool_pcol,pool_pa,pool_operations&limit=1`,
+      {
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          Accept: "application/json",
         },
-      ),
-    ]);
-
-    if (bankRes.error) {
-      setLoadError(bankRes.error.message);
+      },
+    );
+    const bankJson = (await bankRes.json()) as unknown;
+    if (!bankRes.ok) {
+      const msg =
+        bankJson &&
+        typeof bankJson === "object" &&
+        "message" in bankJson &&
+        typeof (bankJson as { message: unknown }).message === "string"
+          ? (bankJson as { message: string }).message
+          : bankRes.statusText || "Erreur banque";
+      setLoadError(msg);
       setBanque(null);
     } else {
-      setBanque((bankRes.data ?? null) as BanqueLeveRow | null);
+      const arr = Array.isArray(bankJson) ? bankJson : [];
+      setBanque((arr[0] ?? null) as BanqueLeveRow | null);
     }
 
     try {
+      const histRes = await fetch("/api/redistribution/historique", {
+        cache: "no-store",
+      }).then(async (r) => {
+        const j = (await r.json()) as {
+          error?: string;
+          history?: RedistributionMois[];
+        };
+        if (!r.ok) {
+          throw new Error(j.error ?? "Historique indisponible");
+        }
+        return j.history ?? [];
+      });
       setHistory(histRes);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -197,39 +232,38 @@ export default function TransparencePage(): JSX.Element {
   }, [loadPublicData]);
 
   useEffect(() => {
-    const supabase = createBrowserClient();
     let cancelled = false;
 
-    void (async () => {
-      const {
-        data: { session: initial },
-      } = await supabase.auth.getSession();
+    async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
-      setSession(initial ?? null);
+      setSession(next ?? null);
       setAuthChecked(true);
-      if (initial) {
-        await loadProfile(initial);
+      if (next) {
+        await loadProfile(next);
       } else {
         setProfile(null);
       }
-    })();
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (cancelled) return;
-      setSession(nextSession ?? null);
-      setAuthChecked(true);
-      if (nextSession) {
-        await loadProfile(nextSession);
-      } else {
-        setProfile(null);
+    function syncFromCookies(): void {
+      void applyCookieSession(readSessionFromAuthCookies());
+    }
+
+    void applyCookieSession(readSessionFromAuthCookies());
+
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") {
+        syncFromCookies();
       }
-    });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const pollId = window.setInterval(syncFromCookies, 15000);
 
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(pollId);
     };
   }, [loadProfile]);
 

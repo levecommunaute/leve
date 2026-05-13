@@ -1,11 +1,11 @@
 "use client";
 
-import { createBrowserClient } from "@repo/supabase/browser";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -22,6 +22,34 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const SB = "https://lrolatbudvianeazliax.supabase.co";
+const KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
+
+async function restJson<T>(
+  path: string,
+  accessToken: string,
+): Promise<{ data: T; error: string | null }> {
+  const res = await fetch(`${SB}/rest/v1/${path}`, {
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  });
+  const json = (await res.json()) as unknown;
+  if (!res.ok) {
+    const msg =
+      json &&
+      typeof json === "object" &&
+      "message" in json &&
+      typeof (json as { message: unknown }).message === "string"
+        ? (json as { message: string }).message
+        : res.statusText || "Erreur réseau";
+    return { data: null as T, error: msg };
+  }
+  return { data: json as T, error: null };
+}
 
 /** Indicatif jusqu’à redistribution réelle (aligné API /api/membre/solde). */
 const CAD_PER_POINT = 0.1;
@@ -125,33 +153,31 @@ export default function BanquePage(): JSX.Element | null {
   const [signingOut, setSigningOut] = useState(false);
 
   const loadBanque = useCallback(async (activeSession: Session) => {
-    const supabase = createBrowserClient();
+    const token = activeSession.access_token;
     const uid = activeSession.user.id;
 
     const [profileRes, sumRes, listRes] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("id", uid)
-        .maybeSingle(),
-      supabase.from("points_transactions").select("amount").eq("user_id", uid),
-      supabase
-        .from("points_transactions")
-        .select("id, created_at, amount, type, metadata")
-        .eq("user_id", uid)
-        .order("created_at", { ascending: false })
-        .limit(20),
+      restJson<ProfileRow[]>(
+        `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name`,
+        token,
+      ),
+      restJson<{ amount?: unknown }[]>(
+        `points_transactions?user_id=eq.${encodeURIComponent(uid)}&select=amount`,
+        token,
+      ),
+      restJson<PointsTxRow[]>(
+        `points_transactions?user_id=eq.${encodeURIComponent(uid)}&select=id,created_at,amount,type,metadata&order=created_at.desc&limit=20`,
+        token,
+      ),
     ]);
 
     const errMsg =
-      profileRes.error?.message ??
-      sumRes.error?.message ??
-      listRes.error?.message ??
-      null;
+      profileRes.error ?? sumRes.error ?? listRes.error ?? null;
     setLoadError(errMsg);
 
     if (!profileRes.error) {
-      setProfile(profileRes.data as ProfileRow | null);
+      const rows = profileRes.data ?? [];
+      setProfile((rows[0] ?? null) as ProfileRow | null);
     }
 
     if (sumRes.error) {
@@ -173,39 +199,38 @@ export default function BanquePage(): JSX.Element | null {
   }, []);
 
   useEffect(() => {
-    const supabase = createBrowserClient();
     let cancelled = false;
 
-    void (async () => {
-      const {
-        data: { session: initial },
-      } = await supabase.auth.getSession();
+    async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
-      if (!initial) {
+      if (!next) {
         setSession(null);
         router.replace("/");
         return;
       }
-      setSession(initial);
-      await loadBanque(initial);
-    })();
+      setSession(next);
+      await loadBanque(next);
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (cancelled) return;
-      if (!nextSession) {
-        setSession(null);
-        router.replace("/");
-        return;
+    function syncFromCookies(): void {
+      void applyCookieSession(readSessionFromAuthCookies());
+    }
+
+    void applyCookieSession(readSessionFromAuthCookies());
+
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") {
+        syncFromCookies();
       }
-      setSession(nextSession);
-      await loadBanque(nextSession);
-    });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const pollId = window.setInterval(syncFromCookies, 15000);
 
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(pollId);
     };
   }, [loadBanque, router]);
 

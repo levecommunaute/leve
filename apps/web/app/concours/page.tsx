@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
@@ -6,13 +6,11 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { signOut } from "../../lib/auth";
+import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
-
-/** Chunked Supabase auth cookie (project ref lrolatbudvianeazliax). */
-const SB_AUTH_COOKIE_BASE = "sb-lrolatbudvianeazliax-auth-token";
 
 function supabaseRestHeaders(accessToken: string): HeadersInit {
   return {
@@ -49,54 +47,6 @@ async function fetchRest<T>(
   return { data, error: null };
 }
 
-function readCookieValue(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const prefix = `${name}=`;
-  for (const part of document.cookie.split(";")) {
-    const s = part.trim();
-    if (s.startsWith(prefix)) {
-      try {
-        return decodeURIComponent(s.slice(prefix.length));
-      } catch {
-        return s.slice(prefix.length);
-      }
-    }
-  }
-  return null;
-}
-
-/** Lit les segments `.0` / `.1`, décode le base64 et retourne une session utilisable pour l’API. */
-function readSessionFromAuthCookies(): Session | null {
-  const p0 = readCookieValue(`${SB_AUTH_COOKIE_BASE}.0`);
-  const p1 = readCookieValue(`${SB_AUTH_COOKIE_BASE}.1`);
-  const combined = [p0, p1].filter(Boolean).join("");
-  if (!combined) return null;
-  try {
-    const b64 = combined.replace(/^base64-/, "");
-    const jsonStr = atob(b64);
-    const parsed = JSON.parse(jsonStr) as unknown;
-    const body =
-      parsed &&
-      typeof parsed === "object" &&
-      "access_token" in parsed &&
-      "user" in parsed
-        ? parsed
-        : parsed &&
-            typeof parsed === "object" &&
-            "currentSession" in parsed &&
-            (parsed as { currentSession?: unknown }).currentSession &&
-            typeof (parsed as { currentSession: unknown }).currentSession ===
-              "object"
-          ? (parsed as { currentSession: Session }).currentSession
-          : null;
-    if (!body || typeof body !== "object") return null;
-    const s = body as Session;
-    if (typeof s.access_token !== "string" || !s.user?.id) return null;
-    return s;
-  } catch {
-    return null;
-  }
-}
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -145,7 +95,7 @@ function displayNameFrom(
 const navPages: { href: string; label: string }[] = [
   { href: "/", label: "Accueil" },
   { href: "/dashboard", label: "Tableau de bord" },
-  { href: "/videos", label: "Vidéos" },
+  { href: "/videos", label: "VidÃ©os" },
   { href: "/banque", label: "Banque LEVE" },
   { href: "/classement", label: "Classement" },
   { href: "/concours", label: "Concours" },
@@ -301,7 +251,7 @@ export default function ConcoursPage(): JSX.Element | null {
       setParticipationMsg({
         concoursId: row.id,
         kind: "ok",
-        text: "Merci ! Votre participation est notée pour ce concours. Les gagnants seront contactés après la date de clôture.",
+        text: "Merci ! Votre participation est notÃ©e pour ce concours. Les gagnants seront contactÃ©s aprÃ¨s la date de clÃ´ture.",
       });
     }, 280);
   }
@@ -322,7 +272,7 @@ export default function ConcoursPage(): JSX.Element | null {
           justifyContent: "center",
         }}
       >
-        <p style={{ opacity: 0.7 }}>Chargement…</p>
+        <p style={{ opacity: 0.7 }}>Chargementâ€¦</p>
       </div>
     );
   }
@@ -375,7 +325,7 @@ export default function ConcoursPage(): JSX.Element | null {
           }}
         >
           <p style={{ margin: 0, fontSize: "1.05rem", opacity: 0.85, lineHeight: 1.6 }}>
-            Connecte-toi pour accéder aux concours
+            Connecte-toi pour accÃ©der aux concours
           </p>
         </main>
         <nav
@@ -491,7 +441,7 @@ export default function ConcoursPage(): JSX.Element | null {
               cursor: signingOut ? "wait" : "pointer",
             }}
           >
-            {signingOut ? "…" : "Déconnexion"}
+            {signingOut ? "â€¦" : "DÃ©connexion"}
           </button>
         </div>
       </header>
@@ -521,7 +471,7 @@ export default function ConcoursPage(): JSX.Element | null {
           }}
         >
           <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>
-            Communauté LEVE
+            CommunautÃ© LEVE
           </p>
           <h1
             style={{
@@ -536,7 +486,7 @@ export default function ConcoursPage(): JSX.Element | null {
             Concours
           </h1>
           <p style={{ margin: 0, opacity: 0.8, fontSize: "0.95rem", maxWidth: "36rem" }}>
-            Participez aux tirages et événements réservés aux membres. Chaque concours indique
+            Participez aux tirages et Ã©vÃ©nements rÃ©servÃ©s aux membres. Chaque concours indique
             le seuil de points PMQ requis et la date limite.
           </p>
         </section>
@@ -646,8 +596,8 @@ export default function ConcoursPage(): JSX.Element | null {
                 opacity: 0.82,
               }}
             >
-              Aucun concours actif pour le moment. Revenez bientôt : les prochaines éditions
-              seront annoncées ici, en toute transparence, pour la communauté LEVE.
+              Aucun concours actif pour le moment. Revenez bientÃ´t : les prochaines Ã©ditions
+              seront annoncÃ©es ici, en toute transparence, pour la communautÃ© LEVE.
             </p>
             <div
               style={{
@@ -678,7 +628,7 @@ export default function ConcoursPage(): JSX.Element | null {
               const canParticiper = totalPointsPmq >= req && !already;
               const end = new Date(row.date_fin);
               const endLabel = Number.isNaN(end.getTime())
-                ? "—"
+                ? "â€”"
                 : dateFinFmt.format(end);
               const msg =
                 participationMsg?.concoursId === row.id ? participationMsg : null;
@@ -799,9 +749,9 @@ export default function ConcoursPage(): JSX.Element | null {
                       }}
                     >
                       {participatingId === row.id
-                        ? "Envoi…"
+                        ? "Envoiâ€¦"
                         : already
-                          ? "Participation envoyée"
+                          ? "Participation envoyÃ©e"
                           : "Participer"}
                     </button>
                     {totalPointsPmq < req ? (

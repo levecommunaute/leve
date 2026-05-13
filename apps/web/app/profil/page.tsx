@@ -1,12 +1,12 @@
 "use client";
 
-import { createBrowserClient } from "@repo/supabase/browser";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { signOut } from "../../lib/auth";
+import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
@@ -117,25 +117,39 @@ export default function ProfilPage(): JSX.Element | null {
   }, []);
 
   useEffect(() => {
-    const supabase = createBrowserClient();
     let cancelled = false;
 
-    void (async () => {
-      const { data: { session: initial } } = await supabase.auth.getSession();
+    async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
-      if (!initial) { setSession(null); router.replace("/"); return; }
-      setSession(initial);
-      await loadProfil(initial);
-    })();
+      if (!next) {
+        setSession(null);
+        router.replace("/");
+        return;
+      }
+      setSession(next);
+      await loadProfil(next);
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (cancelled) return;
-      if (!nextSession) { setSession(null); router.replace("/"); return; }
-      setSession(nextSession);
-      await loadProfil(nextSession);
-    });
+    function syncFromCookies(): void {
+      void applyCookieSession(readSessionFromAuthCookies());
+    }
 
-    return () => { cancelled = true; subscription.unsubscribe(); };
+    void applyCookieSession(readSessionFromAuthCookies());
+
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") {
+        syncFromCookies();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const pollId = window.setInterval(syncFromCookies, 15000);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(pollId);
+    };
   }, [loadProfil, router]);
 
   async function handleSignOut(): Promise<void> {

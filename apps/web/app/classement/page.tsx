@@ -1,11 +1,11 @@
 "use client";
 
-import { createBrowserClient } from "@repo/supabase/browser";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -26,8 +26,36 @@ const SILVER = "#C8C8C8";
 const BRONZE = "#B87333";
 const VIOLET_BADGE = "#8E44AD";
 const GRIS_COMM = "#6B6B6B";
+const SB = "https://lrolatbudvianeazliax.supabase.co";
+const KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
 const PAGE_SIZE = 1000;
+
+async function restJson<T>(
+  path: string,
+  accessToken: string,
+): Promise<{ data: T; error: string | null }> {
+  const res = await fetch(`${SB}/rest/v1/${path}`, {
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  });
+  const json = (await res.json()) as unknown;
+  if (!res.ok) {
+    const msg =
+      json &&
+      typeof json === "object" &&
+      "message" in json &&
+      typeof (json as { message: unknown }).message === "string"
+        ? (json as { message: string }).message
+        : res.statusText || "Erreur réseau";
+    return { data: null as T, error: msg };
+  }
+  return { data: json as T, error: null };
+}
 
 type ProfileRow = {
   display_name: string | null;
@@ -113,18 +141,20 @@ function memberTypeBadgeStyle(label: string): {
 }
 
 async function aggregatePointsByUser(
-  supabase: SupabaseClient,
+  accessToken: string,
 ): Promise<Map<string, number>> {
   const totals = new Map<string, number>();
   let offset = 0;
   for (;;) {
-    const { data, error } = await supabase
-      .from("points_transactions")
-      .select("user_id, amount")
-      .range(offset, offset + PAGE_SIZE - 1);
+    const { data, error } = await restJson<
+      { user_id?: unknown; amount?: unknown }[]
+    >(
+      `points_transactions?select=user_id,amount&offset=${offset}&limit=${PAGE_SIZE}`,
+      accessToken,
+    );
 
     if (error) {
-      throw new Error(error.message);
+      throw new Error(error);
     }
 
     const rows = data ?? [];
@@ -144,9 +174,9 @@ async function aggregatePointsByUser(
 }
 
 async function fetchClassementRows(
-  supabase: SupabaseClient,
+  accessToken: string,
 ): Promise<ClassementRow[]> {
-  const totals = await aggregatePointsByUser(supabase);
+  const totals = await aggregatePointsByUser(accessToken);
 
   const sortedIds = [...totals.entries()]
     .sort((a, b) => {
@@ -160,13 +190,21 @@ async function fetchClassementRows(
     return [];
   }
 
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, display_name, member_type, email")
-    .in("id", sortedIds);
+  const inList = sortedIds.map(encodeURIComponent).join(",");
+  const { data: profiles, error: profilesError } = await restJson<
+    {
+      id: string;
+      display_name: string | null;
+      member_type: string | null;
+      email: string | null;
+    }[]
+  >(
+    `profiles?id=in.(${inList})&select=id,display_name,member_type,email`,
+    accessToken,
+  );
 
   if (profilesError) {
-    throw new Error(profilesError.message);
+    throw new Error(profilesError);
   }
 
   const profileMap = new Map(
@@ -310,23 +348,23 @@ export default function ClassementPage(): JSX.Element | null {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   const loadClassement = useCallback(async (activeSession: Session) => {
-    const supabase = createBrowserClient();
+    const token = activeSession.access_token;
     const uid = activeSession.user.id;
 
-    const profileRes = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", uid)
-      .maybeSingle();
+    const profileRes = await restJson<ProfileRow[]>(
+      `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name`,
+      token,
+    );
 
     if (profileRes.error) {
-      setLoadError(profileRes.error.message);
+      setLoadError(profileRes.error);
     } else {
-      setProfile(profileRes.data as ProfileRow | null);
+      const rows = profileRes.data ?? [];
+      setProfile((rows[0] ?? null) as ProfileRow | null);
     }
 
     try {
-      const classementRows = await fetchClassementRows(supabase);
+      const classementRows = await fetchClassementRows(token);
       setRows(classementRows);
       setLastRefresh(new Date());
       if (!profileRes.error) {
@@ -339,49 +377,43 @@ export default function ClassementPage(): JSX.Element | null {
   }, []);
 
   useEffect(() => {
-    const supabase = createBrowserClient();
     let cancelled = false;
 
-    void (async () => {
-      const {
-        data: { session: initial },
-      } = await supabase.auth.getSession();
+    async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
-      if (!initial) {
+      if (!next) {
         setSession(null);
         router.replace("/");
         return;
       }
-      setSession(initial);
+      setSession(next);
       try {
-        await loadClassement(initial);
+        await loadClassement(next);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         setLoadError(msg);
       }
-    })();
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (cancelled) return;
-      if (!nextSession) {
-        setSession(null);
-        router.replace("/");
-        return;
+    function syncFromCookies(): void {
+      void applyCookieSession(readSessionFromAuthCookies());
+    }
+
+    void applyCookieSession(readSessionFromAuthCookies());
+
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") {
+        syncFromCookies();
       }
-      setSession(nextSession);
-      try {
-        await loadClassement(nextSession);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        setLoadError(msg);
-      }
-    });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const pollId = window.setInterval(syncFromCookies, 15000);
 
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(pollId);
     };
   }, [loadClassement, router]);
 

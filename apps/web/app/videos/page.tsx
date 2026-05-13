@@ -2,12 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import { createBrowserClient } from "@repo/supabase/browser";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState, type JSX } from "react";
+import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -24,6 +24,9 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const SB = "https://lrolatbudvianeazliax.supabase.co";
+const KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
 type VideoRow = {
   id: string;
@@ -122,54 +125,53 @@ export default function VideosPage(): JSX.Element | null {
   }, []);
 
   useEffect(() => {
-    const supabase = createBrowserClient();
     let cancelled = false;
 
-    void (async () => {
-      const {
-        data: { session: initial },
-      } = await supabase.auth.getSession();
+    async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
-      if (!initial) {
+      if (!next) {
         setSession(null);
         router.replace("/");
         return;
       }
-      setSession(initial);
+      setSession(next);
+      const res = await fetch(
+        `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name`,
+        {
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${next.access_token}`,
+            Accept: "application/json",
+          },
+        },
+      );
+      const json = (await res.json()) as unknown;
+      if (!cancelled && res.ok && Array.isArray(json)) {
+        setProfile((json[0] ?? null) as ProfileRow | null);
+      } else if (!cancelled) {
+        setProfile(null);
+      }
+    }
 
-      const profileRes = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("id", initial.user.id)
-        .maybeSingle();
-      if (!cancelled && !profileRes.error) {
-        setProfile(profileRes.data as ProfileRow | null);
-      }
-    })();
+    function syncFromCookies(): void {
+      void applyCookieSession(readSessionFromAuthCookies());
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (cancelled) return;
-      if (!nextSession) {
-        setSession(null);
-        router.replace("/");
-        return;
+    void applyCookieSession(readSessionFromAuthCookies());
+
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") {
+        syncFromCookies();
       }
-      setSession(nextSession);
-      const profileRes = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("id", nextSession.user.id)
-        .maybeSingle();
-      if (!cancelled && !profileRes.error) {
-        setProfile(profileRes.data as ProfileRow | null);
-      }
-    });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    const pollId = window.setInterval(syncFromCookies, 15000);
 
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(pollId);
     };
   }, [router]);
 
