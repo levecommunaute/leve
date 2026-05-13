@@ -72,7 +72,7 @@ type BanqueLeveRow = {
   pmq_balance: number | string | null;
   pcol_balance: number | string | null;
   pa_balance: number | string | null;
-  pool_operations: number | string | null;
+  operations_balance: number | string | null;
 };
 
 function displayNameFrom(
@@ -182,7 +182,7 @@ export default function TransparencePage(): JSX.Element {
     setLoadError(null);
 
     const bankRes = await fetch(
-      `${SB}/rest/v1/banque_leve?select=id,total_revenue,ptc_balance,pmq_balance,pcol_balance,pa_balance,pool_operations&limit=1`,
+      `${SB}/rest/v1/banque_leve?select=id,total_revenue,ptc_balance,pmq_balance,pcol_balance,pa_balance,operations_balance&limit=1`,
       {
         headers: {
           apikey: KEY,
@@ -308,7 +308,7 @@ export default function TransparencePage(): JSX.Element {
   const poolPtc = Number(banque?.ptc_balance ?? 0);
   const poolPcol = Number(banque?.pcol_balance ?? 0);
   const poolPa = Number(banque?.pa_balance ?? 0);
-  const poolOps = Number(banque?.pool_operations ?? 0);
+  const poolOps = Number(banque?.operations_balance ?? 0);
 
   return (
     <div
