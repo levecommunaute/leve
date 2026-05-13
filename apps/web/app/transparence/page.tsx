@@ -608,6 +608,16 @@ export default function TransparencePage(): JSX.Element {
                 },
                 { label: "PA — Pool Activités", value: poolPa, accent: VERT },
                 {
+                  label: "Production — Équipe fondatrice",
+                  value: Number.isFinite(tr) ? tr * 0.2 : 0,
+                  accent: ROUGE,
+                },
+                {
+                  label: "Fondation LEVE",
+                  value: Number.isFinite(tr) ? tr * 0.1 : 0,
+                  accent: VERT,
+                },
+                {
                   label: "Opérations (LEVE MÉDIA INC.)",
                   value: poolOps,
                   accent: GRIS_OPS,
