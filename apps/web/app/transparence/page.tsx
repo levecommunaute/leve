@@ -305,6 +305,7 @@ export default function TransparencePage(): JSX.Element {
   const name = session ? displayNameFrom(profile, session) : null;
 
   const tr = Number(banque?.total_revenue ?? 0);
+  const poolPmq = Number(banque?.pmq_balance ?? 0);
   const poolPtc = Number(banque?.ptc_balance ?? 0);
   const poolPcol = Number(banque?.pcol_balance ?? 0);
   const poolPa = Number(banque?.pa_balance ?? 0);
@@ -590,6 +591,11 @@ export default function TransparencePage(): JSX.Element {
                 </p>
               </article>
               {[
+                {
+                  label: "PMQ — Pool Mensuelle Quiz",
+                  value: poolPmq,
+                  accent: GOLD,
+                },
                 {
                   label: "PTC — Pool de Croissance",
                   value: poolPtc,
