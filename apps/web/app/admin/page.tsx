@@ -51,7 +51,7 @@ type MemberDraft = {
 function memberTypeToForm(raw: string | null): MemberTypeForm {
   const t = (raw ?? "").trim();
   const lower = t.toLowerCase();
-  if (lower === "communaute" || t === "Communauté" || t === "Communaute") return "communaute";
+  if (lower === "communaute" || lower === "communauté" || t === "Communauté" || t === "Communaute") return "communaute";
   if (lower === "pionnier" || t === "Pionnier") return "pionnier";
   if (lower === "fondateur" || t === "Fondateur") return "fondateur";
   if (lower === "collaborateur" || t === "Collaborateur") return "collaborateur";
@@ -388,7 +388,7 @@ export default function AdminPage(): JSX.Element {
         headers: adminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           id,
-          member_type: d.member_type,
+          member_type: d.member_type.toLowerCase(),
           multiplier: d.multiplier,
           numero_membre: d.numero_membre,
         }),
@@ -935,9 +935,9 @@ export default function AdminPage(): JSX.Element {
                                       }}
                                       style={{ ...inputBase, cursor: "pointer", fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
                                     >
-                                      <option value="communaute">communaute</option>
                                       <option value="pionnier">pionnier</option>
                                       <option value="fondateur">fondateur</option>
+                                      <option value="communaute">communaute</option>
                                       <option value="collaborateur">collaborateur</option>
                                     </select>
                                   </div>

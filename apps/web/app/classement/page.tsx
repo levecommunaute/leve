@@ -92,10 +92,11 @@ function displayNameFrom(
 function formatMemberTypeLabel(raw: string | null | undefined): string {
   if (!raw) return "Communauté";
   const n = raw.trim();
-  if (n.toLowerCase() === "communaute" || n === "Communauté") return "Communauté";
-  if (n === "Pionnier") return "Pionnier";
-  if (n === "Fondateur") return "Fondateur";
-  if (n === "Collaborateur") return "Collaborateur";
+  const lower = n.toLowerCase();
+  if (lower === "communauté" || lower === "communaute" || n === "Communauté") return "Communauté";
+  if (lower === "pionnier" || n === "Pionnier") return "Pionnier";
+  if (lower === "fondateur" || n === "Fondateur") return "Fondateur";
+  if (lower === "collaborateur" || n === "Collaborateur") return "Collaborateur";
   return n;
 }
 

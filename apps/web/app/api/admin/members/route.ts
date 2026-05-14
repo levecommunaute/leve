@@ -3,22 +3,15 @@ import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-se
 
 export const dynamic = "force-dynamic";
 
-const MEMBER_TYPES = new Set(["Communaute", "Pionnier", "Fondateur", "Collaborateur"]);
-
 function normalizeMemberType(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const t = raw.trim();
+  if (!t) return null;
   const lower = t.toLowerCase();
-  const fromLower: Record<string, string> = {
-    communaute: "Communaute",
-    pionnier: "Pionnier",
-    fondateur: "Fondateur",
-    collaborateur: "Collaborateur",
-  };
-  const mapped = fromLower[lower];
-  if (mapped !== undefined) return mapped;
-  if (t === "Communauté") return "Communaute";
-  if (MEMBER_TYPES.has(t)) return t;
+  if (lower === "communauté" || lower === "communaute" || t === "Communauté" || t === "Communaute") return "communaute";
+  if (lower === "pionnier" || t === "Pionnier") return "pionnier";
+  if (lower === "fondateur" || t === "Fondateur") return "fondateur";
+  if (lower === "collaborateur" || t === "Collaborateur") return "collaborateur";
   return null;
 }
 
