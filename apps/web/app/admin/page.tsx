@@ -79,11 +79,18 @@ function multiplierToForm(raw: number | string | null): MultiplierValue {
   return 1.0;
 }
 
+/** Valeur affichée / éditée pour le N° (l’API peut renvoyer une chaîne ou un nombre selon le driver). */
+function rowNumeroMembreString(m: MemberRow): string {
+  const v = m.numero_membre;
+  if (v == null) return "";
+  return String(v);
+}
+
 function memberRowDirty(m: MemberRow, d: MemberDraft): boolean {
   return (
     memberTypeToForm(m.member_type) !== d.member_type ||
     multiplierToForm(m.multiplier) !== d.multiplier ||
-    (m.numero_membre ?? "") !== d.numero_membre
+    rowNumeroMembreString(m) !== d.numero_membre
   );
 }
 
@@ -91,7 +98,7 @@ function defaultMemberDraft(m: MemberRow): MemberDraft {
   return {
     member_type: memberTypeToForm(m.member_type),
     multiplier: multiplierToForm(m.multiplier),
-    numero_membre: m.numero_membre ?? "",
+    numero_membre: rowNumeroMembreString(m),
   };
 }
 
@@ -390,7 +397,7 @@ export default function AdminPage(): JSX.Element {
           id,
           member_type: d.member_type.toLowerCase(),
           multiplier: d.multiplier,
-          numero_membre: d.numero_membre,
+          numero_membre: String(d.numero_membre),
         }),
       });
       const j = (await r.json()) as { error?: string };
@@ -870,19 +877,115 @@ export default function AdminPage(): JSX.Element {
                             <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top" }}>{m.display_name ?? "—"}</td>
                             <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top" }}>{m.email ?? "—"}</td>
                             <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top", minWidth: "6.5rem" }}>
-                              {displayMemberType(m.member_type)}
+                              {editingMemberId === m.id ? (
+                                <select
+                                  value={d.member_type}
+                                  onChange={(e) => {
+                                    const v = e.target.value as MemberTypeForm;
+                                    setMemberDrafts((prev) => ({
+                                      ...prev,
+                                      [m.id]: { ...d, member_type: v },
+                                    }));
+                                  }}
+                                  aria-label="Type de membre"
+                                  style={{ ...inputBase, cursor: "pointer", fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                >
+                                  <option value="pionnier">pionnier</option>
+                                  <option value="fondateur">fondateur</option>
+                                  <option value="communaute">communaute</option>
+                                  <option value="collaborateur">collaborateur</option>
+                                </select>
+                              ) : (
+                                displayMemberType(m.member_type)
+                              )}
                             </td>
                             <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top", minWidth: "3.5rem" }}>
-                              {multDisplay}
+                              {editingMemberId === m.id ? (
+                                <select
+                                  value={multKey}
+                                  onChange={(e) => {
+                                    const v = Number(e.target.value);
+                                    const mult = (v === 1.2 ? 1.2 : v === 2 ? 2.0 : 1.0) as MultiplierValue;
+                                    setMemberDrafts((prev) => ({
+                                      ...prev,
+                                      [m.id]: { ...d, multiplier: mult },
+                                    }));
+                                  }}
+                                  aria-label="Multiplicateur"
+                                  style={{ ...inputBase, cursor: "pointer", fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                >
+                                  <option value="1">1.0</option>
+                                  <option value="1.2">1.2</option>
+                                  <option value="2">2.0</option>
+                                </select>
+                              ) : (
+                                multDisplay
+                              )}
                             </td>
-                            <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top", minWidth: "5rem" }}>
-                              {m.numero_membre?.length ? m.numero_membre : "—"}
+                            <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top", minWidth: "6.5rem" }}>
+                              {editingMemberId === m.id ? (
+                                <input
+                                  type="text"
+                                  value={d.numero_membre}
+                                  onChange={(e) =>
+                                    setMemberDrafts((prev) => ({
+                                      ...prev,
+                                      [m.id]: { ...d, numero_membre: e.target.value },
+                                    }))
+                                  }
+                                  aria-label="Numéro membre"
+                                  autoComplete="off"
+                                  placeholder="N° membre"
+                                  style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                />
+                              ) : rowNumeroMembreString(m).length ? (
+                                rowNumeroMembreString(m)
+                              ) : (
+                                "—"
+                              )}
                             </td>
                             <td style={{ padding: "0.6rem 0.5rem", verticalAlign: "top" }}>
                               {editingMemberId === m.id ? (
-                                <span style={{ fontSize: "0.72rem", opacity: 0.45, letterSpacing: "0.06em" }}>
-                                  Édition…
-                                </span>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem", alignItems: "stretch" }}>
+                                  <button
+                                    type="button"
+                                    disabled={!dirty || savingMemberId === m.id}
+                                    onClick={() => void saveMember(m.id)}
+                                    style={{
+                                      background: dirty ? ROUGE : "rgba(245, 240, 232, 0.06)",
+                                      color: TEXT,
+                                      border: `1px solid ${dirty ? ROUGE : "rgba(245, 240, 232, 0.12)"}`,
+                                      padding: "0.45rem 0.55rem",
+                                      cursor: !dirty || savingMemberId === m.id ? "not-allowed" : "pointer",
+                                      fontSize: "0.68rem",
+                                      letterSpacing: "0.1em",
+                                      textTransform: "uppercase",
+                                      opacity: dirty ? 1 : 0.5,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {savingMemberId === m.id ? "…" : "Sauvegarder"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={savingMemberId === m.id}
+                                    onClick={() => setEditingMemberId(null)}
+                                    style={{
+                                      background: "transparent",
+                                      color: TEXT,
+                                      border: "1px solid rgba(245, 240, 232, 0.2)",
+                                      padding: "0.45rem 0.55rem",
+                                      cursor: savingMemberId === m.id ? "wait" : "pointer",
+                                      fontSize: "0.68rem",
+                                      letterSpacing: "0.08em",
+                                      textTransform: "uppercase",
+                                      opacity: 0.85,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
                               ) : (
                                 <button
                                   type="button"
@@ -910,113 +1013,6 @@ export default function AdminPage(): JSX.Element {
                               )}
                             </td>
                           </tr>
-                          {editingMemberId === m.id ? (
-                            <tr style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
-                              <td colSpan={7} style={{ padding: "0.85rem 0.5rem 1.1rem", background: "rgba(212, 160, 23, 0.04)" }}>
-                                <div
-                                  style={{
-                                    display: "grid",
-                                    gap: "1rem",
-                                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                                    alignItems: "end",
-                                    maxWidth: "720px",
-                                  }}
-                                >
-                                  <div>
-                                    <label style={labelSm}>Type de membre</label>
-                                    <select
-                                      value={d.member_type}
-                                      onChange={(e) => {
-                                        const v = e.target.value as MemberTypeForm;
-                                        setMemberDrafts((prev) => ({
-                                          ...prev,
-                                          [m.id]: { ...d, member_type: v },
-                                        }));
-                                      }}
-                                      style={{ ...inputBase, cursor: "pointer", fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
-                                    >
-                                      <option value="pionnier">pionnier</option>
-                                      <option value="fondateur">fondateur</option>
-                                      <option value="communaute">communaute</option>
-                                      <option value="collaborateur">collaborateur</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label style={labelSm}>Multiplicateur</label>
-                                    <select
-                                      value={multKey}
-                                      onChange={(e) => {
-                                        const v = Number(e.target.value);
-                                        const mult = (v === 1.2 ? 1.2 : v === 2 ? 2.0 : 1.0) as MultiplierValue;
-                                        setMemberDrafts((prev) => ({
-                                          ...prev,
-                                          [m.id]: { ...d, multiplier: mult },
-                                        }));
-                                      }}
-                                      style={{ ...inputBase, cursor: "pointer", fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
-                                    >
-                                      <option value="1">1.0</option>
-                                      <option value="1.2">1.2</option>
-                                      <option value="2">2.0</option>
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label style={labelSm}>N° membre</label>
-                                    <input
-                                      type="text"
-                                      value={d.numero_membre}
-                                      onChange={(e) =>
-                                        setMemberDrafts((prev) => ({
-                                          ...prev,
-                                          [m.id]: { ...d, numero_membre: e.target.value },
-                                        }))
-                                      }
-                                      placeholder="—"
-                                      style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
-                                    />
-                                  </div>
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem", alignItems: "center" }}>
-                                    <button
-                                      type="button"
-                                      disabled={!dirty || savingMemberId === m.id}
-                                      onClick={() => void saveMember(m.id)}
-                                      style={{
-                                        background: dirty ? ROUGE : "rgba(245, 240, 232, 0.06)",
-                                        color: TEXT,
-                                        border: `1px solid ${dirty ? ROUGE : "rgba(245, 240, 232, 0.12)"}`,
-                                        padding: "0.55rem 1rem",
-                                        cursor: !dirty || savingMemberId === m.id ? "not-allowed" : "pointer",
-                                        fontSize: "0.72rem",
-                                        letterSpacing: "0.12em",
-                                        textTransform: "uppercase",
-                                        opacity: dirty ? 1 : 0.5,
-                                      }}
-                                    >
-                                      {savingMemberId === m.id ? "…" : "Sauvegarder"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={savingMemberId === m.id}
-                                      onClick={() => setEditingMemberId(null)}
-                                      style={{
-                                        background: "transparent",
-                                        color: TEXT,
-                                        border: "1px solid rgba(245, 240, 232, 0.2)",
-                                        padding: "0.55rem 1rem",
-                                        cursor: savingMemberId === m.id ? "wait" : "pointer",
-                                        fontSize: "0.72rem",
-                                        letterSpacing: "0.1em",
-                                        textTransform: "uppercase",
-                                        opacity: 0.85,
-                                      }}
-                                    >
-                                      Annuler
-                                    </button>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          ) : null}
                         </tbody>
                       );
                     })}
