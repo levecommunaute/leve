@@ -387,6 +387,18 @@ export default function AdminPage(): JSX.Element {
     const m = members.find((x) => x.id === id);
     const d = memberDrafts[id] ?? (m ? defaultMemberDraft(m) : null);
     if (!m || !d || !memberRowDirty(m, d)) return;
+    const numeroTrim = d.numero_membre.trim();
+    const numParsed = Number(numeroTrim);
+    const isNumeroOneToTen =
+      numeroTrim !== "" &&
+      Number.isFinite(numParsed) &&
+      Number.isInteger(numParsed) &&
+      numParsed >= 1 &&
+      numParsed <= 10;
+    if (isNumeroOneToTen && d.member_type !== "pionnier") {
+      setMembersError("Les numéros 1-10 sont réservés aux Pionniers");
+      return;
+    }
     setSavingMemberId(id);
     setMembersError(null);
     try {
