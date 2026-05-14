@@ -35,7 +35,8 @@ type MemberRow = {
   email: string | null;
   member_type: string | null;
   multiplier: number | string | null;
-  numero_membre: string | null;
+  /** Colonne Supabase en entier ; l’API peut renvoyer un nombre ou une chaîne selon le driver. */
+  numero_membre: string | number | null;
 };
 
 /** Valeurs envoyées au PATCH (normalisées côté API). */
@@ -79,11 +80,15 @@ function multiplierToForm(raw: number | string | null): MultiplierValue {
   return 1.0;
 }
 
-/** Valeur affichée / éditée pour le N° (l’API peut renvoyer une chaîne ou un nombre selon le driver). */
+/** Valeur affichée / éditée pour le N° (entier en base ; chaîne possible côté API héritée). */
 function rowNumeroMembreString(m: MemberRow): string {
   const v = m.numero_membre;
   if (v == null) return "";
-  return String(v);
+  if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v));
+  const s = String(v).trim();
+  if (s === "") return "";
+  if (/^\d+$/.test(s)) return String(parseInt(s, 10));
+  return s;
 }
 
 function memberRowDirty(m: MemberRow, d: MemberDraft): boolean {
@@ -399,6 +404,15 @@ export default function AdminPage(): JSX.Element {
       setMembersError("Les numéros 1-10 sont réservés aux Pionniers");
       return;
     }
+    const numeroPayload: number | null =
+      numeroTrim === "" ? null : parseInt(numeroTrim, 10);
+    if (
+      numeroTrim !== "" &&
+      (Number.isNaN(numeroPayload) || !Number.isInteger(Number(numeroTrim)))
+    ) {
+      setMembersError("Numéro membre invalide (entier attendu)");
+      return;
+    }
     setSavingMemberId(id);
     setMembersError(null);
     try {
@@ -409,7 +423,7 @@ export default function AdminPage(): JSX.Element {
           id,
           member_type: d.member_type.toLowerCase(),
           multiplier: d.multiplier,
-          numero_membre: String(d.numero_membre),
+          numero_membre: numeroPayload,
         }),
       });
       const j = (await r.json()) as { error?: string };

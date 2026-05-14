@@ -98,12 +98,28 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   }
 
   if (hasNum) {
-    if (body.numero_membre !== null && typeof body.numero_membre !== "string") {
+    const v = body.numero_membre;
+    if (v === null) {
+      patch.numero_membre = null;
+    } else if (typeof v === "number") {
+      if (!Number.isInteger(v) || Number.isNaN(v)) {
+        return NextResponse.json({ error: "numero_membre invalide" }, { status: 400 });
+      }
+      patch.numero_membre = v;
+    } else if (typeof v === "string") {
+      const t = v.trim();
+      if (!t) {
+        patch.numero_membre = null;
+      } else {
+        const n = parseInt(t, 10);
+        if (Number.isNaN(n) || String(n) !== t) {
+          return NextResponse.json({ error: "numero_membre invalide" }, { status: 400 });
+        }
+        patch.numero_membre = n;
+      }
+    } else {
       return NextResponse.json({ error: "numero_membre invalide" }, { status: 400 });
     }
-    const raw =
-      body.numero_membre === null ? "" : typeof body.numero_membre === "string" ? body.numero_membre.trim() : "";
-    patch.numero_membre = raw.length ? raw : null;
   }
 
   try {
