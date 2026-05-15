@@ -99,7 +99,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: rows, error: fetchErr } = await svc
       .from("quiz_questions")
-      .select("id, video_id, question, option_a, option_b, option_c, option_d, correct_answer")
+      .select("id, video_id, question, choix, bonne_reponse")
       .eq("video_id", videoId)
       .in("id", [...new Set(ids)]);
 
@@ -116,6 +116,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const row = byId.get(qid);
       if (!row) continue;
 
+      const choix = (Array.isArray(row.choix) ? row.choix : []).map((o) => String(o ?? ""));
       const letterRaw =
         typeof ans.selected_answer === "string"
           ? ans.selected_answer.trim().toLowerCase()
@@ -126,21 +127,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       } else if (typeof ans.selected_index === "number") {
         idx = Math.floor(ans.selected_index);
       }
-      if (idx < 0 || idx > 3) continue;
+      if (idx < 0 || idx >= choix.length) continue;
 
-      const ordered = [
-        String(row.option_a ?? ""),
-        String(row.option_b ?? ""),
-        String(row.option_c ?? ""),
-        String(row.option_d ?? ""),
-      ];
-      const chosen = ordered[idx]?.trim() ?? "";
-      let correctNorm = String(row.correct_answer ?? "").trim();
-      const caLower = correctNorm.toLowerCase();
-      if (caLower === "a" || caLower === "b" || caLower === "c" || caLower === "d") {
-        const li = caLower.charCodeAt(0) - 97;
-        correctNorm = ordered[li]?.trim() ?? correctNorm;
-      }
+      const chosen = choix[idx]?.trim() ?? "";
+      const correctNorm = String(row.bonne_reponse ?? "").trim();
       const ok =
         chosen.length > 0 &&
         correctNorm.length > 0 &&

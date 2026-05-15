@@ -28,7 +28,7 @@ function formatTime(total: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
-/** Index 0–3 → lettre attendue par l’API (aligné option_a … option_d). */
+/** Index 0–3 → lettre attendue par l’API (aligné sur l’ordre du tableau choix). */
 function indexToAnswerLetter(index: number): "a" | "b" | "c" | "d" | null {
   if (index < 0 || index > 3) return null;
   return String.fromCharCode(97 + index) as "a" | "b" | "c" | "d";

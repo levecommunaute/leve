@@ -43,30 +43,27 @@ type QuizQuestionRow = {
   id: string;
   video_id: string;
   question: string;
-  option_a: string | null;
-  option_b: string | null;
-  option_c: string | null;
-  option_d: string | null;
-  correct_answer: string | null;
+  choix: string[] | null;
+  bonne_reponse: string | null;
 };
 
 type QuizCorrectLetter = "a" | "b" | "c" | "d";
 
+function quizChoix(row: QuizQuestionRow): string[] {
+  if (!Array.isArray(row.choix)) return [];
+  return row.choix.map((o) => String(o ?? ""));
+}
+
 function formatQuizCorrectDisplay(row: QuizQuestionRow): string {
-  const raw = (row.correct_answer ?? "").trim();
-  const lower = raw.toLowerCase();
-  const opts: Record<QuizCorrectLetter, string | null> = {
-    a: row.option_a,
-    b: row.option_b,
-    c: row.option_c,
-    d: row.option_d,
-  };
-  if (lower === "a" || lower === "b" || lower === "c" || lower === "d") {
-    const letter = lower as QuizCorrectLetter;
-    const t = opts[letter];
-    return `${letter.toUpperCase()} — ${t?.length ? t : "—"}`;
+  const choix = quizChoix(row);
+  const bonne = (row.bonne_reponse ?? "").trim();
+  if (!bonne) return "—";
+  const idx = choix.findIndex((o) => o.trim().toLowerCase() === bonne.toLowerCase());
+  if (idx >= 0) {
+    const t = choix[idx]?.trim();
+    return `${String.fromCharCode(65 + idx)} — ${t?.length ? t : "—"}`;
   }
-  return raw.length ? raw : "—";
+  return bonne;
 }
 
 /** Valeurs envoyées au PATCH (normalisées côté API). */
@@ -498,11 +495,15 @@ export default function AdminPage(): JSX.Element {
         body: JSON.stringify({
           video_id: quizVideoId,
           question: newQuizQ.trim(),
-          option_a: newQuizA.trim(),
-          option_b: newQuizB.trim(),
-          option_c: newQuizC.trim(),
-          option_d: newQuizD.trim(),
-          correct_answer: newQuizCorrect,
+          choix: [
+            newQuizA.trim(),
+            newQuizB.trim(),
+            newQuizC.trim(),
+            newQuizD.trim(),
+          ],
+          bonne_reponse: [newQuizA, newQuizB, newQuizC, newQuizD][
+            newQuizCorrect.charCodeAt(0) - 97
+          ]?.trim() ?? "",
         }),
       });
       const j = (await r.json()) as { error?: string };
@@ -981,13 +982,15 @@ export default function AdminPage(): JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {quizQuestions.map((q) => (
+                    {quizQuestions.map((q) => {
+                      const choix = quizChoix(q);
+                      return (
                       <tr key={q.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
                         <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", maxWidth: "220px" }}>{q.question}</td>
-                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_a ?? "—"}</td>
-                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_b ?? "—"}</td>
-                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_c ?? "—"}</td>
-                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_d ?? "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{choix[0] || "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{choix[1] || "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{choix[2] || "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{choix[3] || "—"}</td>
                         <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", color: GOLD, fontSize: "0.8rem" }}>
                           {formatQuizCorrectDisplay(q)}
                         </td>
@@ -1011,7 +1014,8 @@ export default function AdminPage(): JSX.Element {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
                 {quizQuestions.length === 0 ? (

@@ -33,7 +33,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from("quiz_questions")
-      .select("id, question, option_a, option_b, option_c, option_d")
+      .select("id, question, choix")
       .eq("video_id", videoId);
 
     if (error) {
@@ -41,16 +41,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const rows = data ?? [];
-    /** Ordre options identique au serveur (/api/quiz/submit : selected_answer a–d ↔ option_a … option_d). */
+    /** Ordre options identique au serveur (/api/quiz/submit : index ↔ choix[]). */
     const picked = shuffleInPlace(rows).slice(0, 5).map((row) => ({
       id: row.id as string,
       question: row.question as string,
-      options: [
-        row.option_a,
-        row.option_b,
-        row.option_c,
-        row.option_d,
-      ].map((o) => String(o ?? "")),
+      options: (Array.isArray(row.choix) ? row.choix : []).map((o) => String(o ?? "")),
     }));
 
     return NextResponse.json({ quiz_questions: picked });

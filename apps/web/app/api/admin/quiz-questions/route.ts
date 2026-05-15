@@ -3,7 +3,10 @@ import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-se
 
 export const dynamic = "force-dynamic";
 
-const ANSWER_LETTERS = new Set(["a", "b", "c", "d"]);
+function asChoixArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((o) => String(o ?? "").trim());
+}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const denied = requireAdminSecret(request);
@@ -18,7 +21,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from("quiz_questions")
-      .select("id, video_id, question, option_a, option_b, option_c, option_d, correct_answer")
+      .select("id, video_id, question, choix, bonne_reponse")
       .eq("video_id", videoId);
 
     if (error) {
@@ -39,11 +42,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let body: {
     video_id?: string;
     question?: string;
-    option_a?: string;
-    option_b?: string;
-    option_c?: string;
-    option_d?: string;
-    correct_answer?: string;
+    choix?: unknown;
+    bonne_reponse?: string;
   };
   try {
     body = await request.json();
@@ -53,20 +53,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const videoId = typeof body.video_id === "string" ? body.video_id.trim() : "";
   const question = typeof body.question === "string" ? body.question.trim() : "";
-  const optionA = typeof body.option_a === "string" ? body.option_a.trim() : "";
-  const optionB = typeof body.option_b === "string" ? body.option_b.trim() : "";
-  const optionC = typeof body.option_c === "string" ? body.option_c.trim() : "";
-  const optionD = typeof body.option_d === "string" ? body.option_d.trim() : "";
-  const letterRaw = typeof body.correct_answer === "string" ? body.correct_answer.trim().toLowerCase() : "";
+  const choix = asChoixArray(body.choix);
+  const bonneReponse =
+    typeof body.bonne_reponse === "string" ? body.bonne_reponse.trim() : "";
 
   if (!videoId || !question) {
     return NextResponse.json({ error: "video_id et question requis" }, { status: 400 });
   }
-  if (!optionA || !optionB || !optionC || !optionD) {
-    return NextResponse.json({ error: "Les quatre options sont requises" }, { status: 400 });
+  if (choix.length !== 4 || choix.some((o) => !o)) {
+    return NextResponse.json({ error: "choix doit être un tableau de 4 options non vides" }, { status: 400 });
   }
-  if (!ANSWER_LETTERS.has(letterRaw)) {
-    return NextResponse.json({ error: "correct_answer doit être a, b, c ou d" }, { status: 400 });
+  if (!bonneReponse || !choix.some((o) => o.toLowerCase() === bonneReponse.toLowerCase())) {
+    return NextResponse.json(
+      { error: "bonne_reponse doit correspondre à l'une des options" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -92,13 +93,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         video_id: videoId,
         youtube_id: youtubeId,
         question,
-        option_a: optionA,
-        option_b: optionB,
-        option_c: optionC,
-        option_d: optionD,
-        correct_answer: letterRaw,
+        choix,
+        bonne_reponse: bonneReponse,
       })
-      .select("id, video_id, question, option_a, option_b, option_c, option_d, correct_answer")
+      .select("id, video_id, question, choix, bonne_reponse")
       .single();
 
     if (insErr) {
