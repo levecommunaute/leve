@@ -39,6 +39,36 @@ type MemberRow = {
   numero_membre: string | number | null;
 };
 
+type QuizQuestionRow = {
+  id: string;
+  video_id: string;
+  question: string;
+  option_a: string | null;
+  option_b: string | null;
+  option_c: string | null;
+  option_d: string | null;
+  correct_answer: string | null;
+};
+
+type QuizCorrectLetter = "a" | "b" | "c" | "d";
+
+function formatQuizCorrectDisplay(row: QuizQuestionRow): string {
+  const raw = (row.correct_answer ?? "").trim();
+  const lower = raw.toLowerCase();
+  const opts: Record<QuizCorrectLetter, string | null> = {
+    a: row.option_a,
+    b: row.option_b,
+    c: row.option_c,
+    d: row.option_d,
+  };
+  if (lower === "a" || lower === "b" || lower === "c" || lower === "d") {
+    const letter = lower as QuizCorrectLetter;
+    const t = opts[letter];
+    return `${letter.toUpperCase()} — ${t?.length ? t : "—"}`;
+  }
+  return raw.length ? raw : "—";
+}
+
 /** Valeurs envoyées au PATCH (normalisées côté API). */
 type MemberTypeForm = "communaute" | "pionnier" | "fondateur" | "collaborateur";
 type MultiplierValue = 1.0 | 1.2 | 2.0;
@@ -182,6 +212,20 @@ export default function AdminPage(): JSX.Element {
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
 
+  const [quizVideoId, setQuizVideoId] = useState("");
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestionRow[]>([]);
+  const [quizQuestionsLoading, setQuizQuestionsLoading] = useState(false);
+  const [quizQuestionsError, setQuizQuestionsError] = useState<string | null>(null);
+  const [newQuizQ, setNewQuizQ] = useState("");
+  const [newQuizA, setNewQuizA] = useState("");
+  const [newQuizB, setNewQuizB] = useState("");
+  const [newQuizC, setNewQuizC] = useState("");
+  const [newQuizD, setNewQuizD] = useState("");
+  const [newQuizCorrect, setNewQuizCorrect] = useState<QuizCorrectLetter>("a");
+  const [quizAddLoading, setQuizAddLoading] = useState(false);
+  const [quizAddMsg, setQuizAddMsg] = useState<string | null>(null);
+  const [quizDeleteId, setQuizDeleteId] = useState<string | null>(null);
+
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem(STORAGE_KEY);
@@ -236,11 +280,52 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  const loadQuizQuestions = useCallback(
+    async (videoId: string): Promise<void> => {
+      if (!videoId) {
+        setQuizQuestions([]);
+        setQuizQuestionsError(null);
+        return;
+      }
+      setQuizQuestionsLoading(true);
+      setQuizQuestionsError(null);
+      try {
+        const r = await fetch(
+          `/api/admin/quiz-questions?video_id=${encodeURIComponent(videoId)}`,
+          { headers: adminHeaders() },
+        );
+        const j = (await r.json()) as { questions?: QuizQuestionRow[]; error?: string };
+        if (!r.ok) {
+          setQuizQuestionsError(j.error ?? "Erreur chargement quiz");
+          setQuizQuestions([]);
+          return;
+        }
+        setQuizQuestions(j.questions ?? []);
+      } catch (e) {
+        setQuizQuestionsError(e instanceof Error ? e.message : "Erreur réseau");
+        setQuizQuestions([]);
+      } finally {
+        setQuizQuestionsLoading(false);
+      }
+    },
+    [adminHeaders],
+  );
+
   useEffect(() => {
     if (!hydrated || !authed) return;
     void loadVideos();
     void loadMembers();
   }, [hydrated, authed, loadVideos, loadMembers]);
+
+  useEffect(() => {
+    if (!hydrated || !authed) return;
+    if (!quizVideoId) {
+      setQuizQuestions([]);
+      setQuizQuestionsError(null);
+      return;
+    }
+    void loadQuizQuestions(quizVideoId);
+  }, [hydrated, authed, quizVideoId, loadQuizQuestions]);
 
   useEffect(() => {
     const next: Record<string, MemberDraft> = {};
@@ -284,6 +369,16 @@ export default function AdminPage(): JSX.Element {
     setMemberDrafts({});
     setEditingMemberId(null);
     setVideos([]);
+    setQuizVideoId("");
+    setQuizQuestions([]);
+    setQuizQuestionsError(null);
+    setNewQuizQ("");
+    setNewQuizA("");
+    setNewQuizB("");
+    setNewQuizC("");
+    setNewQuizD("");
+    setNewQuizCorrect("a");
+    setQuizAddMsg(null);
   }
 
   async function generateCode(videoId: string): Promise<void> {
@@ -385,6 +480,70 @@ export default function AdminPage(): JSX.Element {
       setRedistError("Erreur réseau");
     } finally {
       setRedistLoading(false);
+    }
+  }
+
+  async function handleAddQuizQuestion(e: FormEvent): Promise<void> {
+    e.preventDefault();
+    if (!quizVideoId) {
+      setQuizAddMsg("Sélectionnez une vidéo.");
+      return;
+    }
+    setQuizAddMsg(null);
+    setQuizAddLoading(true);
+    try {
+      const r = await fetch("/api/admin/quiz-questions", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          video_id: quizVideoId,
+          question: newQuizQ.trim(),
+          option_a: newQuizA.trim(),
+          option_b: newQuizB.trim(),
+          option_c: newQuizC.trim(),
+          option_d: newQuizD.trim(),
+          correct_answer: newQuizCorrect,
+        }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setQuizAddMsg(j.error ?? "Échec");
+        return;
+      }
+      setNewQuizQ("");
+      setNewQuizA("");
+      setNewQuizB("");
+      setNewQuizC("");
+      setNewQuizD("");
+      setNewQuizCorrect("a");
+      setQuizAddMsg("Question ajoutée.");
+      await loadQuizQuestions(quizVideoId);
+    } catch {
+      setQuizAddMsg("Erreur réseau");
+    } finally {
+      setQuizAddLoading(false);
+    }
+  }
+
+  async function handleDeleteQuizQuestion(id: string): Promise<void> {
+    if (!window.confirm("Supprimer cette question ?")) return;
+    setQuizDeleteId(id);
+    setQuizQuestionsError(null);
+    try {
+      const r = await fetch(`/api/admin/quiz-questions?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: adminHeaders(),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setQuizQuestionsError(j.error ?? "Suppression impossible");
+        return;
+      }
+      if (quizVideoId) await loadQuizQuestions(quizVideoId);
+    } catch (e) {
+      setQuizQuestionsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setQuizDeleteId(null);
     }
   }
 
@@ -759,6 +918,202 @@ export default function AdminPage(): JSX.Element {
               </form>
               {addVideoMsg ? (
                 <p style={{ marginTop: "0.85rem", fontSize: "0.88rem", opacity: 0.85 }}>{addVideoMsg}</p>
+              ) : null}
+            </div>
+          </section>
+
+          {/* SECTION GESTION DES QUIZ */}
+          <section style={cardStyle()}>
+            {sectionTitle("GESTION DES QUIZ")}
+            <div style={{ maxWidth: "520px", marginBottom: "1.5rem" }}>
+              <label style={labelSm}>Vidéo</label>
+              <select
+                value={quizVideoId}
+                onChange={(e) => {
+                  setQuizVideoId(e.target.value);
+                  setQuizAddMsg(null);
+                }}
+                style={{ ...inputBase, cursor: "pointer" }}
+                aria-label="Vidéo pour le quiz"
+              >
+                <option value="">— Choisir une vidéo —</option>
+                {videos.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {(v.title ?? "Sans titre").slice(0, 80)}
+                    {v.title && v.title.length > 80 ? "…" : ""} ({v.youtube_id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {quizQuestionsError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{quizQuestionsError}</p>
+            ) : null}
+            {!quizVideoId ? (
+              <p style={{ opacity: 0.65, margin: 0 }}>Sélectionnez une vidéo pour afficher et modifier les questions.</p>
+            ) : quizQuestionsLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement des questions…</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  <thead>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                      {["Question", "A", "B", "C", "D", "Bonne réponse", ""].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "0.65rem 0.5rem",
+                            letterSpacing: "0.08em",
+                            fontSize: "0.65rem",
+                            textTransform: "uppercase",
+                            opacity: 0.55,
+                            minWidth: h === "Question" ? "10rem" : h === "" ? "5rem" : "4rem",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quizQuestions.map((q) => (
+                      <tr key={q.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", maxWidth: "220px" }}>{q.question}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_a ?? "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_b ?? "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_c ?? "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{q.option_d ?? "—"}</td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", color: GOLD, fontSize: "0.8rem" }}>
+                          {formatQuizCorrectDisplay(q)}
+                        </td>
+                        <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top" }}>
+                          <button
+                            type="button"
+                            disabled={quizDeleteId === q.id}
+                            onClick={() => void handleDeleteQuizQuestion(q.id)}
+                            style={{
+                              background: "transparent",
+                              color: ROUGE,
+                              border: `1px solid rgba(192, 57, 43, 0.45)`,
+                              padding: "0.4rem 0.65rem",
+                              cursor: quizDeleteId === q.id ? "wait" : "pointer",
+                              fontSize: "0.68rem",
+                              letterSpacing: "0.1em",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {quizDeleteId === q.id ? "…" : "Supprimer"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {quizQuestions.length === 0 ? (
+                  <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucune question pour cette vidéo.</p>
+                ) : null}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: "2rem",
+                paddingTop: "1.5rem",
+                borderTop: "1px solid rgba(245, 240, 232, 0.08)",
+              }}
+            >
+              <h3
+                style={{
+                  fontFamily: "var(--font-bebas), Impact, sans-serif",
+                  letterSpacing: "0.12em",
+                  fontSize: "1.35rem",
+                  margin: "0 0 1rem",
+                  opacity: 0.9,
+                }}
+              >
+                Nouvelle question
+              </h3>
+              <form onSubmit={(ev) => void handleAddQuizQuestion(ev)}>
+                <label style={{ ...labelSm, marginBottom: "0.5rem" }}>Question</label>
+                <textarea
+                  value={newQuizQ}
+                  onChange={(e) => setNewQuizQ(e.target.value)}
+                  placeholder="Texte de la question"
+                  rows={3}
+                  style={{
+                    ...inputBase,
+                    resize: "vertical",
+                    minHeight: "4.5rem",
+                    marginBottom: "1rem",
+                    display: "block",
+                  }}
+                />
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "1rem",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    alignItems: "end",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <div>
+                    <label style={labelSm}>Option A</label>
+                    <input value={newQuizA} onChange={(e) => setNewQuizA(e.target.value)} style={inputBase} />
+                  </div>
+                  <div>
+                    <label style={labelSm}>Option B</label>
+                    <input value={newQuizB} onChange={(e) => setNewQuizB(e.target.value)} style={inputBase} />
+                  </div>
+                  <div>
+                    <label style={labelSm}>Option C</label>
+                    <input value={newQuizC} onChange={(e) => setNewQuizC(e.target.value)} style={inputBase} />
+                  </div>
+                  <div>
+                    <label style={labelSm}>Option D</label>
+                    <input value={newQuizD} onChange={(e) => setNewQuizD(e.target.value)} style={inputBase} />
+                  </div>
+                  <div>
+                    <label style={labelSm}>Bonne réponse</label>
+                    <select
+                      value={newQuizCorrect}
+                      onChange={(e) => setNewQuizCorrect(e.target.value as QuizCorrectLetter)}
+                      style={{ ...inputBase, cursor: "pointer" }}
+                      aria-label="Bonne réponse"
+                    >
+                      <option value="a">A</option>
+                      <option value="b">B</option>
+                      <option value="c">C</option>
+                      <option value="d">D</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={quizAddLoading || !quizVideoId}
+                    style={{
+                      background: ROUGE,
+                      color: TEXT,
+                      border: "none",
+                      padding: "0.75rem 1.25rem",
+                      cursor: quizAddLoading || !quizVideoId ? "not-allowed" : "pointer",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      fontSize: "0.72rem",
+                      height: "fit-content",
+                      opacity: !quizVideoId ? 0.5 : 1,
+                    }}
+                  >
+                    {quizAddLoading ? "…" : "Ajouter la question"}
+                  </button>
+                </div>
+              </form>
+              {quizAddMsg ? (
+                <p style={{ marginTop: "0.85rem", fontSize: "0.88rem", opacity: 0.85 }}>{quizAddMsg}</p>
               ) : null}
             </div>
           </section>
