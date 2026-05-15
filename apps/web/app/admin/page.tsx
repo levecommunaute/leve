@@ -47,6 +47,14 @@ type QuizQuestionRow = {
   bonne_reponse: string | null;
 };
 
+type FeatureFlagRow = {
+  id: string;
+  nom: string;
+  actif: boolean;
+  description: string | null;
+  updated_at: string;
+};
+
 type QuizCorrectLetter = "a" | "b" | "c" | "d";
 
 function quizChoix(row: QuizQuestionRow): string[] {
@@ -223,6 +231,11 @@ export default function AdminPage(): JSX.Element {
   const [quizAddMsg, setQuizAddMsg] = useState<string | null>(null);
   const [quizDeleteId, setQuizDeleteId] = useState<string | null>(null);
 
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlagRow[]>([]);
+  const [featureFlagsLoading, setFeatureFlagsLoading] = useState(false);
+  const [featureFlagsError, setFeatureFlagsError] = useState<string | null>(null);
+  const [togglingFlagNom, setTogglingFlagNom] = useState<string | null>(null);
+
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem(STORAGE_KEY);
@@ -277,6 +290,26 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  const loadFeatureFlags = useCallback(async (): Promise<void> => {
+    setFeatureFlagsLoading(true);
+    setFeatureFlagsError(null);
+    try {
+      const r = await fetch("/api/admin/feature-flags", { headers: adminHeaders() });
+      const j = (await r.json()) as { flags?: FeatureFlagRow[]; error?: string };
+      if (!r.ok) {
+        setFeatureFlagsError(j.error ?? "Erreur feature flags");
+        setFeatureFlags([]);
+        return;
+      }
+      setFeatureFlags(j.flags ?? []);
+    } catch (e) {
+      setFeatureFlagsError(e instanceof Error ? e.message : "Erreur réseau");
+      setFeatureFlags([]);
+    } finally {
+      setFeatureFlagsLoading(false);
+    }
+  }, [adminHeaders]);
+
   const loadQuizQuestions = useCallback(
     async (videoId: string): Promise<void> => {
       if (!videoId) {
@@ -312,7 +345,8 @@ export default function AdminPage(): JSX.Element {
     if (!hydrated || !authed) return;
     void loadVideos();
     void loadMembers();
-  }, [hydrated, authed, loadVideos, loadMembers]);
+    void loadFeatureFlags();
+  }, [hydrated, authed, loadVideos, loadMembers, loadFeatureFlags]);
 
   useEffect(() => {
     if (!hydrated || !authed) return;
@@ -376,6 +410,37 @@ export default function AdminPage(): JSX.Element {
     setNewQuizD("");
     setNewQuizCorrect("a");
     setQuizAddMsg(null);
+    setFeatureFlags([]);
+    setFeatureFlagsError(null);
+  }
+
+  async function handleToggleFeatureFlag(flag: FeatureFlagRow): Promise<void> {
+    const nextActif = !flag.actif;
+    setTogglingFlagNom(flag.nom);
+    setFeatureFlagsError(null);
+    try {
+      const r = await fetch("/api/admin/feature-flags", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ nom: flag.nom, actif: nextActif }),
+      });
+      const j = (await r.json()) as { flag?: FeatureFlagRow; error?: string };
+      if (!r.ok) {
+        setFeatureFlagsError(j.error ?? "Échec mise à jour");
+        return;
+      }
+      if (j.flag) {
+        setFeatureFlags((prev) =>
+          prev.map((f) => (f.nom === j.flag!.nom ? j.flag! : f)),
+        );
+      } else {
+        await loadFeatureFlags();
+      }
+    } catch (e) {
+      setFeatureFlagsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setTogglingFlagNom(null);
+    }
   }
 
   async function generateCode(videoId: string): Promise<void> {
@@ -1197,6 +1262,126 @@ export default function AdminPage(): JSX.Element {
                   </li>
                 </ul>
               </div>
+            ) : null}
+          </section>
+
+          {/* SECTION DÉPLOIEMENT DES FONCTIONNALITÉS */}
+          <section style={cardStyle()}>
+            {sectionTitle("DÉPLOIEMENT DES FONCTIONNALITÉS")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Activez ou désactivez les pages et espaces visibles sur le site. La modification est
+              appliquée immédiatement dans Supabase.
+            </p>
+            {featureFlagsError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{featureFlagsError}</p>
+            ) : null}
+            {featureFlagsLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement des flags…</p>
+            ) : (
+              <ul
+                style={{
+                  listStyle: "none",
+                  margin: 0,
+                  padding: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.85rem",
+                }}
+              >
+                {featureFlags.map((flag) => {
+                  const busy = togglingFlagNom === flag.nom;
+                  return (
+                    <li
+                      key={flag.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                        padding: "1rem 1.1rem",
+                        borderRadius: "10px",
+                        background: "rgba(245, 240, 232, 0.04)",
+                        border: "1px solid rgba(245, 240, 232, 0.1)",
+                      }}
+                    >
+                      <div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontFamily: "var(--font-bebas), Impact, sans-serif",
+                            fontSize: "1.25rem",
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {flag.nom}
+                        </p>
+                        {flag.description ? (
+                          <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", opacity: 0.65 }}>
+                            {flag.description}
+                          </p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={flag.actif}
+                        aria-label={`${flag.nom} — ${flag.actif ? "activé" : "désactivé"}`}
+                        disabled={busy}
+                        onClick={() => void handleToggleFeatureFlag(flag)}
+                        style={{
+                          flexShrink: 0,
+                          position: "relative",
+                          width: "3.25rem",
+                          height: "1.75rem",
+                          borderRadius: "999px",
+                          border: `1px solid ${flag.actif ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
+                          background: flag.actif ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
+                          cursor: busy ? "wait" : "pointer",
+                          padding: 0,
+                          transition: "background 0.2s ease",
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: flag.actif ? "calc(100% - 1.35rem)" : "0.2rem",
+                            transform: "translateY(-50%)",
+                            width: "1.15rem",
+                            height: "1.15rem",
+                            borderRadius: "50%",
+                            background: flag.actif ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                            transition: "left 0.2s ease, background 0.2s ease",
+                          }}
+                        />
+                        <span
+                          style={{
+                            position: "absolute",
+                            width: 1,
+                            height: 1,
+                            padding: 0,
+                            margin: -1,
+                            overflow: "hidden",
+                            clip: "rect(0,0,0,0)",
+                            whiteSpace: "nowrap",
+                            border: 0,
+                          }}
+                        >
+                          {flag.actif ? "ON" : "OFF"}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {!featureFlagsLoading && featureFlags.length === 0 ? (
+              <p style={{ opacity: 0.6, margin: 0 }}>
+                Aucun flag. Exécutez la migration Supabase{" "}
+                <code style={{ fontSize: "0.82rem" }}>feature_flags</code>.
+              </p>
             ) : null}
           </section>
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
@@ -31,7 +31,7 @@ async function fetchRest<T>(
     headers: supabaseRestHeaders(accessToken),
   });
   if (!res.ok) {
-    let message = res.statusText || "Erreur réseau";
+    let message = res.statusText || "Erreur r?seau";
     try {
       const j = (await res.json()) as { message?: string; hint?: string };
       message = j.message ?? j.hint ?? message;
@@ -104,6 +104,48 @@ function pointsRequis(row: ConcoursRow): number {
   return Number.isFinite(n) ? Math.max(0, n) : 0;
 }
 
+function comingSoonSection(title: string): JSX.Element {
+  return (
+    <section
+      aria-live="polite"
+      style={{
+        borderRadius: "16px",
+        padding: "3rem 1.75rem",
+        textAlign: "center",
+        marginTop: "2rem",
+        background:
+          "linear-gradient(180deg, rgba(212, 160, 23, 0.07) 0%, rgba(8, 8, 8, 0.95) 55%)",
+        border: "1px solid rgba(212, 160, 23, 0.22)",
+        boxShadow: "0 0 0 1px rgba(245, 240, 232, 0.04) inset",
+      }}
+    >
+      <p
+        style={{
+          margin: "0 0 0.75rem",
+          fontFamily: "var(--font-bebas), Impact, sans-serif",
+          fontSize: "clamp(1.75rem, 6vw, 2.5rem)",
+          letterSpacing: "0.14em",
+          color: GOLD,
+          textTransform: "uppercase",
+        }}
+      >
+        Bient?t disponible
+      </p>
+      <p
+        style={{
+          margin: "0 auto",
+          maxWidth: "28rem",
+          fontSize: "1rem",
+          lineHeight: 1.65,
+          opacity: 0.82,
+        }}
+      >
+        La section {title} arrive prochainement sur LEVE. Revenez bient?t.
+      </p>
+    </section>
+  );
+}
+
 export default function ConcoursPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -121,6 +163,26 @@ export default function ConcoursPage(): JSX.Element | null {
     kind: "ok" | "err";
     text: string;
   } | null>(null);
+  const [featureFlagState, setFeatureFlagState] = useState<
+    "loading" | "enabled" | "disabled"
+  >("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch("/api/feature-flags?nom=concours", { cache: "no-store" });
+        const j = (await r.json()) as { actif?: boolean };
+        if (cancelled) return;
+        setFeatureFlagState(j.actif ? "enabled" : "disabled");
+      } catch {
+        if (!cancelled) setFeatureFlagState("disabled");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadPage = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -241,12 +303,120 @@ export default function ConcoursPage(): JSX.Element | null {
       setParticipationMsg({
         concoursId: row.id,
         kind: "ok",
-        text: "Merci ! Votre participation est notée pour ce concours. Les gagnants seront contactés après la date de clôture.",
+        text: "Merci ! Votre participation est not?e pour ce concours. Les gagnants seront contact?s apr?s la date de cl?ture.",
       });
     }, 280);
   }
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
+
+  if (featureFlagState === "loading") {
+    return (
+      <div
+        className={fonts}
+        style={{
+          minHeight: "100vh",
+          background: BG,
+          color: TEXT,
+          fontFamily: "var(--font-dm), system-ui, sans-serif",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <p style={{ opacity: 0.7 }}>Chargement?</p>
+      </div>
+    );
+  }
+
+  if (featureFlagState === "disabled") {
+    return (
+      <div
+        className={fonts}
+        style={{
+          minHeight: "100vh",
+          background: BG,
+          color: TEXT,
+          fontFamily: "var(--font-dm), system-ui, sans-serif",
+          paddingBottom: "6rem",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "1rem 1.25rem",
+            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            position: "sticky",
+            top: 0,
+            background: "rgba(8, 8, 8, 0.92)",
+            backdropFilter: "blur(8px)",
+            zIndex: 20,
+          }}
+        >
+          <Link
+            href="/"
+            style={{
+              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontSize: "2rem",
+              letterSpacing: "0.12em",
+              color: TEXT,
+              textDecoration: "none",
+            }}
+          >
+            LEVE
+          </Link>
+        </header>
+        <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
+          {comingSoonSection("Concours")}
+        </main>
+        <nav
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: "rgba(8, 8, 8, 0.97)",
+            borderTop: "1px solid rgba(245, 240, 232, 0.1)",
+            padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
+            zIndex: 30,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              overflowX: "auto",
+              gap: "0.5rem",
+              justifyContent: "flex-start",
+              maxWidth: "960px",
+              margin: "0 auto",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "none",
+            }}
+          >
+            {navPages.map((p) => (
+              <Link
+                key={p.href}
+                href={p.href}
+                style={{
+                  flex: "0 0 auto",
+                  fontSize: "0.68rem",
+                  color: p.href === "/concours" ? GOLD : TEXT,
+                  opacity: p.href === "/concours" ? 1 : 0.75,
+                  textDecoration: "none",
+                  padding: "0.35rem 0.5rem",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {p.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      </div>
+    );
+  }
 
   if (session === undefined) {
     return (
@@ -262,7 +432,7 @@ export default function ConcoursPage(): JSX.Element | null {
           justifyContent: "center",
         }}
       >
-        <p style={{ opacity: 0.7 }}>Chargement…</p>
+        <p style={{ opacity: 0.7 }}>Chargement?</p>
       </div>
     );
   }
@@ -315,7 +485,7 @@ export default function ConcoursPage(): JSX.Element | null {
           }}
         >
           <p style={{ margin: 0, fontSize: "1.05rem", opacity: 0.85, lineHeight: 1.6 }}>
-            Connecte-toi pour accéder aux concours
+            Connecte-toi pour acc?der aux concours
           </p>
         </main>
         <nav
@@ -431,7 +601,7 @@ export default function ConcoursPage(): JSX.Element | null {
               cursor: signingOut ? "wait" : "pointer",
             }}
           >
-            {signingOut ? "…" : "Déconnexion"}
+            {signingOut ? "?" : "D?connexion"}
           </button>
         </div>
       </header>
@@ -461,7 +631,7 @@ export default function ConcoursPage(): JSX.Element | null {
           }}
         >
           <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>
-            Communauté LEVE
+            Communaut? LEVE
           </p>
           <h1
             style={{
@@ -476,7 +646,7 @@ export default function ConcoursPage(): JSX.Element | null {
             Concours
           </h1>
           <p style={{ margin: 0, opacity: 0.8, fontSize: "0.95rem", maxWidth: "36rem" }}>
-            Participez aux tirages et événements réservés aux membres. Chaque concours indique
+            Participez aux tirages et ?v?nements r?serv?s aux membres. Chaque concours indique
             le seuil de points PMQ requis et la date limite.
           </p>
         </section>
@@ -586,8 +756,8 @@ export default function ConcoursPage(): JSX.Element | null {
                 opacity: 0.82,
               }}
             >
-              Aucun concours actif pour le moment. Revenez bientôt : les prochaines éditions
-              seront annoncées ici, en toute transparence, pour la communauté LEVE.
+              Aucun concours actif pour le moment. Revenez bient?t : les prochaines ?ditions
+              seront annonc?es ici, en toute transparence, pour la communaut? LEVE.
             </p>
             <div
               style={{
@@ -618,7 +788,7 @@ export default function ConcoursPage(): JSX.Element | null {
               const canParticiper = totalPointsPmq >= req && !already;
               const end = new Date(row.date_fin);
               const endLabel = Number.isNaN(end.getTime())
-                ? "—"
+                ? "?"
                 : dateFinFmt.format(end);
               const msg =
                 participationMsg?.concoursId === row.id ? participationMsg : null;
@@ -739,9 +909,9 @@ export default function ConcoursPage(): JSX.Element | null {
                       }}
                     >
                       {participatingId === row.id
-                        ? "Envoi…"
+                        ? "Envoi?"
                         : already
-                          ? "Participation envoyée"
+                          ? "Participation envoy?e"
                           : "Participer"}
                     </button>
                     {totalPointsPmq < req ? (
