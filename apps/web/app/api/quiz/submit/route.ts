@@ -6,6 +6,26 @@ export const dynamic = "force-dynamic";
 
 const POINTS_PER_CORRECT = 4;
 
+/** "a" | "b" | "c" | "d" → index 0–3 dans le tableau choix. */
+function letterToIndex(letter: string): number {
+  const l = letter.trim().toLowerCase();
+  if (l === "a" || l === "b" || l === "c" || l === "d") {
+    return l.charCodeAt(0) - 97;
+  }
+  return -1;
+}
+
+/** bonne_reponse = lettre (a–d) ou, en legacy, texte d'une option choix[]. */
+function resolveCorrectIndex(bonneReponse: string, choix: string[]): number {
+  const raw = bonneReponse.trim();
+  if (!raw) return -1;
+
+  const letterIdx = letterToIndex(raw);
+  if (letterIdx >= 0 && letterIdx < choix.length) return letterIdx;
+
+  return choix.findIndex((o) => o.trim().toLowerCase() === raw.toLowerCase());
+}
+
 type AnswerItem = {
   question_id?: string;
   selected_answer?: string | null;
@@ -117,25 +137,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!row) continue;
 
       const choix = (Array.isArray(row.choix) ? row.choix : []).map((o) => String(o ?? ""));
-      const letterRaw =
-        typeof ans.selected_answer === "string"
-          ? ans.selected_answer.trim().toLowerCase()
-          : "";
-      let idx = -1;
-      if (letterRaw === "a" || letterRaw === "b" || letterRaw === "c" || letterRaw === "d") {
-        idx = letterRaw.charCodeAt(0) - 97;
-      } else if (typeof ans.selected_index === "number") {
-        idx = Math.floor(ans.selected_index);
-      }
-      if (idx < 0 || idx >= choix.length) continue;
+      if (choix.length === 0) continue;
 
-      const chosen = choix[idx]?.trim() ?? "";
-      const correctNorm = String(row.bonne_reponse ?? "").trim();
-      const ok =
-        chosen.length > 0 &&
-        correctNorm.length > 0 &&
-        chosen.toLowerCase() === correctNorm.toLowerCase();
-      if (ok) correct += 1;
+      let selectedIdx = -1;
+      if (typeof ans.selected_answer === "string") {
+        selectedIdx = letterToIndex(ans.selected_answer);
+      } else if (typeof ans.selected_index === "number") {
+        selectedIdx = Math.floor(ans.selected_index);
+      }
+      if (selectedIdx < 0 || selectedIdx >= choix.length) continue;
+
+      const correctIdx = resolveCorrectIndex(String(row.bonne_reponse ?? ""), choix);
+      if (correctIdx >= 0 && selectedIdx === correctIdx) correct += 1;
     }
 
     const denom = Math.max(rows?.length ?? 0, 1);
