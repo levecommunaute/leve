@@ -140,7 +140,7 @@ function comingSoonSection(title: string): JSX.Element {
           opacity: 0.82,
         }}
       >
-        La section {title} arrive prochainement sur LEVE. Revenez bient?t.
+        La section {title} arrive prochainement sur LEVE. Revenez bientôt.
       </p>
     </section>
   );
