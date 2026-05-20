@@ -83,19 +83,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const fragments = threeUniqueFragments();
     const timestamps = spreadTimestamps(maxTs);
-    const rows = fragments.map((full_code, i) => ({
-      video_id: videoId,
-      full_code,
-      expires_at: new Date(Date.now() + timestamps[i]! * 1000).toISOString(),
-    }));
+    const fullCode = fragments.join("-");
+    const expiresSeconds = Math.max(...timestamps);
 
-    const { error: insErr } = await supabase.from("codes").insert(rows);
+    const { error: insErr } = await supabase.from("codes").insert({
+      video_id: videoId,
+      full_code: fullCode,
+      expires_at: new Date(Date.now() + expiresSeconds * 1000).toISOString(),
+    });
     if (insErr) {
       return NextResponse.json({ error: insErr.message }, { status: 500 });
     }
 
-    const code = fragments.join(" · ");
-    return NextResponse.json({ code, fragments });
+    return NextResponse.json({ code: fullCode, fragments });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: message }, { status: 500 });
