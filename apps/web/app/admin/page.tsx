@@ -188,8 +188,10 @@ export default function AdminPage(): JSX.Element {
 
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
-  const [codeByVideo, setCodeByVideo] = useState<Record<string, string>>({});
+  const [linkedVideoCodes, setLinkedVideoCodes] = useState<Record<string, string>>({});
   const [codeInputByVideo, setCodeInputByVideo] = useState<Record<string, string>>({});
+  const [codeAssociateError, setCodeAssociateError] = useState<Record<string, string>>({});
+  const [codeModifyConfirmVideoId, setCodeModifyConfirmVideoId] = useState<string | null>(null);
   const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
   const [standaloneGeneratedCode, setStandaloneGeneratedCode] = useState<string | null>(null);
   const [standaloneGenLoading, setStandaloneGenLoading] = useState(false);
@@ -275,6 +277,24 @@ export default function AdminPage(): JSX.Element {
     }
   }, []);
 
+  const loadLinkedVideoCodes = useCallback(async (): Promise<void> => {
+    try {
+      const r = await fetch("/api/admin/code", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { codes?: Record<string, string>; error?: string };
+      if (!r.ok) {
+        console.warn(j.error ?? "Erreur chargement des codes vidéo");
+        setLinkedVideoCodes({});
+        return;
+      }
+      setLinkedVideoCodes(j.codes ?? {});
+    } catch {
+      setLinkedVideoCodes({});
+    }
+  }, [adminHeaders]);
+
   const loadMembers = useCallback(async () => {
     setMembersLoading(true);
     setMembersError(null);
@@ -349,9 +369,10 @@ export default function AdminPage(): JSX.Element {
   useEffect(() => {
     if (!hydrated || !authed) return;
     void loadVideos();
+    void loadLinkedVideoCodes();
     void loadMembers();
     void loadFeatureFlags();
-  }, [hydrated, authed, loadVideos, loadMembers, loadFeatureFlags]);
+  }, [hydrated, authed, loadVideos, loadLinkedVideoCodes, loadMembers, loadFeatureFlags]);
 
   useEffect(() => {
     if (!hydrated || !authed) return;
@@ -399,8 +420,10 @@ export default function AdminPage(): JSX.Element {
   function handleLogout(): void {
     sessionStorage.removeItem(STORAGE_KEY);
     setAuthed(false);
-    setCodeByVideo({});
+    setLinkedVideoCodes({});
     setCodeInputByVideo({});
+    setCodeAssociateError({});
+    setCodeModifyConfirmVideoId(null);
     setStandaloneGeneratedCode(null);
     setStandaloneGenCopied(false);
     setStandaloneGenError(null);
@@ -494,13 +517,15 @@ export default function AdminPage(): JSX.Element {
   async function associateCodeToVideo(videoId: string): Promise<void> {
     const code = (codeInputByVideo[videoId] ?? "").trim();
     if (!code) {
-      setCodeByVideo((prev) => ({
-        ...prev,
-        [videoId]: "Saisissez un code.",
-      }));
+      setCodeAssociateError((prev) => ({ ...prev, [videoId]: "Saisissez un code." }));
       return;
     }
     setCodeLoadingId(videoId);
+    setCodeAssociateError((prev) => {
+      const n = { ...prev };
+      delete n[videoId];
+      return n;
+    });
     try {
       const r = await fetch("/api/admin/code", {
         method: "POST",
@@ -509,22 +534,47 @@ export default function AdminPage(): JSX.Element {
       });
       const j = (await r.json()) as { code?: string; error?: string };
       if (!r.ok) {
-        setCodeByVideo((prev) => ({
-          ...prev,
-          [videoId]: j.error ?? "Erreur",
-        }));
+        setCodeAssociateError((prev) => ({ ...prev, [videoId]: j.error ?? "Erreur" }));
         return;
       }
       if (j.code) {
         const linked = j.code;
-        setCodeInputByVideo((prev) => ({ ...prev, [videoId]: linked }));
-        setCodeByVideo((prev) => ({
-          ...prev,
-          [videoId]: `Associé : ${linked}`,
-        }));
+        setLinkedVideoCodes((prev) => ({ ...prev, [videoId]: linked }));
+        setCodeInputByVideo((prev) => ({ ...prev, [videoId]: "" }));
       }
     } catch {
-      setCodeByVideo((prev) => ({ ...prev, [videoId]: "Erreur réseau" }));
+      setCodeAssociateError((prev) => ({ ...prev, [videoId]: "Erreur réseau" }));
+    } finally {
+      setCodeLoadingId(null);
+    }
+  }
+
+  async function deleteVideoLinkedCode(videoId: string): Promise<void> {
+    setCodeModifyConfirmVideoId(null);
+    setCodeLoadingId(videoId);
+    try {
+      const r = await fetch(`/api/admin/code?video_id=${encodeURIComponent(videoId)}`, {
+        method: "DELETE",
+        headers: adminHeaders(),
+      });
+      const j = (await r.json()) as { ok?: boolean; error?: string };
+      if (!r.ok) {
+        setCodeAssociateError((prev) => ({ ...prev, [videoId]: j.error ?? "Erreur" }));
+        return;
+      }
+      setLinkedVideoCodes((prev) => {
+        const next = { ...prev };
+        delete next[videoId];
+        return next;
+      });
+      setCodeInputByVideo((prev) => ({ ...prev, [videoId]: "" }));
+      setCodeAssociateError((prev) => {
+        const n = { ...prev };
+        delete n[videoId];
+        return n;
+      });
+    } catch {
+      setCodeAssociateError((prev) => ({ ...prev, [videoId]: "Erreur réseau" }));
     } finally {
       setCodeLoadingId(null);
     }
@@ -896,7 +946,94 @@ export default function AdminPage(): JSX.Element {
           </div>
         </main>
       ) : (
-        <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "2rem 1.25rem" }}>
+        <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "2rem 1.25rem", position: "relative" }}>
+          {codeModifyConfirmVideoId ? (
+            <div
+              role="presentation"
+              onClick={() => setCodeModifyConfirmVideoId(null)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 200,
+                background: "rgba(0, 0, 0, 0.72)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "1.25rem",
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="modify-code-confirm-title"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  maxWidth: "28rem",
+                  width: "100%",
+                  background: "#121212",
+                  border: "1px solid rgba(245, 240, 232, 0.18)",
+                  borderRadius: "12px",
+                  padding: "1.35rem 1.5rem",
+                  boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+                }}
+              >
+                <h2
+                  id="modify-code-confirm-title"
+                  style={{
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.25rem",
+                    letterSpacing: "0.1em",
+                    margin: "0 0 0.85rem",
+                    color: GOLD,
+                  }}
+                >
+                  Modifier le code
+                </h2>
+                <p style={{ margin: "0 0 1.35rem", fontSize: "0.92rem", lineHeight: 1.55, opacity: 0.92 }}>
+                  {
+                    "Attention — modifier ce code supprimera l'ancien de toutes les bases de données et invalidera les soumissions existantes. Confirmer ?"
+                  }
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => setCodeModifyConfirmVideoId(null)}
+                    style={{
+                      background: "transparent",
+                      color: TEXT,
+                      border: "1px solid rgba(245, 240, 232, 0.25)",
+                      padding: "0.5rem 1rem",
+                      cursor: "pointer",
+                      fontSize: "0.78rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={codeLoadingId === codeModifyConfirmVideoId}
+                    onClick={() => void deleteVideoLinkedCode(codeModifyConfirmVideoId)}
+                    style={{
+                      background: ROUGE,
+                      color: TEXT,
+                      border: "none",
+                      padding: "0.5rem 1rem",
+                      cursor: codeLoadingId === codeModifyConfirmVideoId ? "wait" : "pointer",
+                      opacity: codeLoadingId === codeModifyConfirmVideoId ? 0.65 : 1,
+                      fontSize: "0.78rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {codeLoadingId === codeModifyConfirmVideoId ? "…" : "Confirmer"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {/* GÉNÉRATEUR DE CODES */}
           <section style={cardStyle()}>
             {sectionTitle("GÉNÉRATEUR DE CODES")}
@@ -997,76 +1134,110 @@ export default function AdminPage(): JSX.Element {
                     </tr>
                   </thead>
                   <tbody>
-                    {videos.map((v) => (
-                      <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
-                        <td style={{ padding: "0.75rem 0.5rem", maxWidth: "280px" }}>{v.title ?? "—"}</td>
-                        <td style={{ padding: "0.75rem 0.5rem", fontFamily: "ui-monospace, monospace", fontSize: "0.82rem" }}>
-                          {v.youtube_id}
-                        </td>
-                        <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
-                        <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "240px" }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
-                            <input
-                              type="text"
-                              value={codeInputByVideo[v.id] ?? ""}
-                              onChange={(e) =>
-                                setCodeInputByVideo((prev) => ({
-                                  ...prev,
-                                  [v.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="XXXX-YYYY-ZZZZ"
-                              autoComplete="off"
-                              spellCheck={false}
-                              aria-label={`Code pour ${v.title ?? v.youtube_id}`}
-                              disabled={codeLoadingId === v.id}
-                              style={{
-                                flex: "1 1 140px",
-                                minWidth: "120px",
-                                padding: "0.45rem 0.55rem",
-                                fontFamily: "ui-monospace, monospace",
-                                fontSize: "0.8rem",
-                                background: "rgba(245, 240, 232, 0.06)",
-                                border: "1px solid rgba(245, 240, 232, 0.14)",
-                                borderRadius: "6px",
-                                color: TEXT,
-                              }}
-                            />
-                            <button
-                              type="button"
-                              disabled={codeLoadingId === v.id}
-                              onClick={() => void associateCodeToVideo(v.id)}
-                              style={{
-                                background: "rgba(212, 160, 23, 0.12)",
-                                color: GOLD,
-                                border: `1px solid rgba(212, 160, 23, 0.35)`,
-                                padding: "0.45rem 0.65rem",
-                                cursor: codeLoadingId === v.id ? "wait" : "pointer",
-                                fontSize: "0.68rem",
-                                letterSpacing: "0.08em",
-                                textTransform: "uppercase",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {codeLoadingId === v.id ? "…" : "Associer le code"}
-                            </button>
-                          </div>
-                          {codeByVideo[v.id] ? (
-                            <div
-                              style={{
-                                marginTop: "0.5rem",
-                                fontFamily: "ui-monospace, monospace",
-                                fontSize: "0.8rem",
-                                color: TEXT,
-                                opacity: 0.88,
-                              }}
-                            >
-                              {codeByVideo[v.id]}
+                    {videos.map((v) => {
+                      const linked = linkedVideoCodes[v.id];
+                      const busy = codeLoadingId === v.id;
+                      return (
+                        <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", maxWidth: "280px" }}>{v.title ?? "—"}</td>
+                          <td style={{ padding: "0.75rem 0.5rem", fontFamily: "ui-monospace, monospace", fontSize: "0.82rem" }}>
+                            {v.youtube_id}
+                          </td>
+                          <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "240px" }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
+                              <input
+                                type="text"
+                                value={linked ?? (codeInputByVideo[v.id] ?? "")}
+                                readOnly={!!linked}
+                                onChange={(e) => {
+                                  if (linked) return;
+                                  setCodeInputByVideo((prev) => ({
+                                    ...prev,
+                                    [v.id]: e.target.value,
+                                  }));
+                                  setCodeAssociateError((prev) => {
+                                    const n = { ...prev };
+                                    delete n[v.id];
+                                    return n;
+                                  });
+                                }}
+                                placeholder="XXXX-YYYY-ZZZZ"
+                                autoComplete="off"
+                                spellCheck={false}
+                                aria-label={`Code pour ${v.title ?? v.youtube_id}`}
+                                disabled={busy}
+                                style={{
+                                  flex: "1 1 140px",
+                                  minWidth: "120px",
+                                  padding: "0.45rem 0.55rem",
+                                  fontFamily: "ui-monospace, monospace",
+                                  fontSize: "0.8rem",
+                                  background: linked ? "rgba(245, 240, 232, 0.04)" : "rgba(245, 240, 232, 0.06)",
+                                  border: "1px solid rgba(245, 240, 232, 0.14)",
+                                  borderRadius: "6px",
+                                  color: TEXT,
+                                  opacity: linked ? 0.92 : 1,
+                                  cursor: linked ? "default" : "text",
+                                }}
+                              />
+                              {linked ? (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => setCodeModifyConfirmVideoId(v.id)}
+                                  style={{
+                                    background: "rgba(192, 57, 43, 0.15)",
+                                    color: ROUGE,
+                                    border: `1px solid rgba(192, 57, 43, 0.4)`,
+                                    padding: "0.45rem 0.65rem",
+                                    cursor: busy ? "wait" : "pointer",
+                                    fontSize: "0.68rem",
+                                    letterSpacing: "0.08em",
+                                    textTransform: "uppercase",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {busy ? "…" : "Modifier le code"}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => void associateCodeToVideo(v.id)}
+                                  style={{
+                                    background: "rgba(212, 160, 23, 0.12)",
+                                    color: GOLD,
+                                    border: `1px solid rgba(212, 160, 23, 0.35)`,
+                                    padding: "0.45rem 0.65rem",
+                                    cursor: busy ? "wait" : "pointer",
+                                    fontSize: "0.68rem",
+                                    letterSpacing: "0.08em",
+                                    textTransform: "uppercase",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {busy ? "…" : "Associer le code"}
+                                </button>
+                              )}
                             </div>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
+                            {codeAssociateError[v.id] ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontFamily: "ui-monospace, monospace",
+                                  fontSize: "0.78rem",
+                                  color: ROUGE,
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {codeAssociateError[v.id]}
+                              </p>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
                 {videos.length === 0 ? <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucune vidéo.</p> : null}
