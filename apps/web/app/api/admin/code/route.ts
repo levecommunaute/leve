@@ -76,7 +76,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const maxTs = 1200;
 
-    const { error: delErr } = await supabase.from("video_codes").delete().eq("video_id", videoId);
+    const { error: delErr } = await supabase.from("codes").delete().eq("video_id", videoId);
     if (delErr) {
       return NextResponse.json({ error: delErr.message }, { status: 500 });
     }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       timestamp_seconds: timestamps[i]!,
     }));
 
-    const { error: insErr } = await supabase.from("video_codes").insert(rows);
+    const { error: insErr } = await supabase.from("codes").insert(rows);
     if (insErr) {
       return NextResponse.json({ error: insErr.message }, { status: 500 });
     }
