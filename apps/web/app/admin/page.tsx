@@ -192,6 +192,8 @@ export default function AdminPage(): JSX.Element {
   const [codeInputByVideo, setCodeInputByVideo] = useState<Record<string, string>>({});
   const [codeAssociateError, setCodeAssociateError] = useState<Record<string, string>>({});
   const [codeModifyConfirmVideoId, setCodeModifyConfirmVideoId] = useState<string | null>(null);
+  const [codeModifyStep, setCodeModifyStep] = useState<1 | 2>(1);
+  const [codeModifyReentryKey, setCodeModifyReentryKey] = useState("");
   const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
   const [standaloneGeneratedCode, setStandaloneGeneratedCode] = useState<string | null>(null);
   const [standaloneGenLoading, setStandaloneGenLoading] = useState(false);
@@ -549,8 +551,31 @@ export default function AdminPage(): JSX.Element {
     }
   }
 
-  async function deleteVideoLinkedCode(videoId: string): Promise<void> {
+  function closeCodeModifyModal(): void {
     setCodeModifyConfirmVideoId(null);
+    setCodeModifyStep(1);
+    setCodeModifyReentryKey("");
+  }
+
+  function handleCodeModifyConfirmKeyStep(): void {
+    const vid = codeModifyConfirmVideoId;
+    if (!vid) return;
+    const stored =
+      typeof window !== "undefined" ? sessionStorage.getItem(STORAGE_KEY) : null;
+    const entered = codeModifyReentryKey.trim();
+    if (!stored || entered !== stored) {
+      setCodeAssociateError((prev) => ({
+        ...prev,
+        [vid]: "Clé administrateur incorrecte",
+      }));
+      closeCodeModifyModal();
+      return;
+    }
+    void deleteVideoLinkedCode(vid);
+  }
+
+  async function deleteVideoLinkedCode(videoId: string): Promise<void> {
+    closeCodeModifyModal();
     setCodeLoadingId(videoId);
     try {
       const r = await fetch(`/api/admin/code?video_id=${encodeURIComponent(videoId)}`, {
@@ -950,7 +975,7 @@ export default function AdminPage(): JSX.Element {
           {codeModifyConfirmVideoId ? (
             <div
               role="presentation"
-              onClick={() => setCodeModifyConfirmVideoId(null)}
+              onClick={() => closeCodeModifyModal()}
               style={{
                 position: "fixed",
                 inset: 0,
@@ -987,17 +1012,57 @@ export default function AdminPage(): JSX.Element {
                     color: GOLD,
                   }}
                 >
-                  Modifier le code
+                  {codeModifyStep === 1 ? "Modifier le code" : "Clé administrateur"}
                 </h2>
-                <p style={{ margin: "0 0 1.35rem", fontSize: "0.92rem", lineHeight: 1.55, opacity: 0.92 }}>
-                  {
-                    "Attention — modifier ce code supprimera l'ancien de toutes les bases de données et invalidera les soumissions existantes. Confirmer ?"
-                  }
-                </p>
+                {codeModifyStep === 1 ? (
+                  <p style={{ margin: "0 0 1.35rem", fontSize: "0.92rem", lineHeight: 1.55, opacity: 0.92 }}>
+                    Attention — modifier ce code supprimera l&apos;ancien de toutes les bases de données et
+                    invalidera les soumissions existantes. Confirmer ?
+                  </p>
+                ) : (
+                  <div style={{ margin: "0 0 1.35rem" }}>
+                    <label
+                      htmlFor="modify-code-reentry-key"
+                      style={{
+                        display: "block",
+                        fontSize: "0.72rem",
+                        letterSpacing: "0.2em",
+                        textTransform: "uppercase",
+                        opacity: 0.55,
+                        marginBottom: "0.45rem",
+                      }}
+                    >
+                      Clé administrateur
+                    </label>
+                    <input
+                      id="modify-code-reentry-key"
+                      type="password"
+                      autoComplete="off"
+                      value={codeModifyReentryKey}
+                      onChange={(e) => setCodeModifyReentryKey(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && codeModifyReentryKey.trim()) {
+                          e.preventDefault();
+                          handleCodeModifyConfirmKeyStep();
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "0.75rem 0.85rem",
+                        background: "rgba(245, 240, 232, 0.06)",
+                        border: "1px solid rgba(245, 240, 232, 0.14)",
+                        borderRadius: "8px",
+                        color: TEXT,
+                        fontSize: "0.92rem",
+                      }}
+                    />
+                  </div>
+                )}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem", justifyContent: "flex-end" }}>
                   <button
                     type="button"
-                    onClick={() => setCodeModifyConfirmVideoId(null)}
+                    onClick={() => closeCodeModifyModal()}
                     style={{
                       background: "transparent",
                       color: TEXT,
@@ -1011,25 +1076,53 @@ export default function AdminPage(): JSX.Element {
                   >
                     Annuler
                   </button>
-                  <button
-                    type="button"
-                    disabled={codeLoadingId === codeModifyConfirmVideoId}
-                    onClick={() => void deleteVideoLinkedCode(codeModifyConfirmVideoId)}
-                    style={{
-                      background: ROUGE,
-                      color: TEXT,
-                      border: "none",
-                      padding: "0.5rem 1rem",
-                      cursor: codeLoadingId === codeModifyConfirmVideoId ? "wait" : "pointer",
-                      opacity: codeLoadingId === codeModifyConfirmVideoId ? 0.65 : 1,
-                      fontSize: "0.78rem",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {codeLoadingId === codeModifyConfirmVideoId ? "…" : "Confirmer"}
-                  </button>
+                  {codeModifyStep === 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setCodeModifyStep(2)}
+                      style={{
+                        background: ROUGE,
+                        color: TEXT,
+                        border: "none",
+                        padding: "0.5rem 1rem",
+                        cursor: "pointer",
+                        fontSize: "0.78rem",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Confirmer
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={
+                        codeLoadingId === codeModifyConfirmVideoId || !codeModifyReentryKey.trim()
+                      }
+                      onClick={() => handleCodeModifyConfirmKeyStep()}
+                      style={{
+                        background: ROUGE,
+                        color: TEXT,
+                        border: "none",
+                        padding: "0.5rem 1rem",
+                        cursor:
+                          codeLoadingId === codeModifyConfirmVideoId || !codeModifyReentryKey.trim()
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          codeLoadingId === codeModifyConfirmVideoId || !codeModifyReentryKey.trim()
+                            ? 0.55
+                            : 1,
+                        fontSize: "0.78rem",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {codeLoadingId === codeModifyConfirmVideoId ? "…" : "Confirmer"}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1185,7 +1278,11 @@ export default function AdminPage(): JSX.Element {
                                 <button
                                   type="button"
                                   disabled={busy}
-                                  onClick={() => setCodeModifyConfirmVideoId(v.id)}
+                                  onClick={() => {
+                                    setCodeModifyStep(1);
+                                    setCodeModifyReentryKey("");
+                                    setCodeModifyConfirmVideoId(v.id);
+                                  }}
                                   style={{
                                     background: "rgba(192, 57, 43, 0.15)",
                                     color: ROUGE,
