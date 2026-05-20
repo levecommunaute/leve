@@ -21,7 +21,7 @@ export async function signInWithGoogle(): Promise<void> {
     provider: "google",
     options: {
       redirectTo,
-      scopes: "https://www.googleapis.com/auth/youtube.readonly",
+      scopes: ["https://www.googleapis.com/auth/youtube.readonly"].join(" "),
       queryParams: {
         access_type: "offline",
         prompt: "consent",

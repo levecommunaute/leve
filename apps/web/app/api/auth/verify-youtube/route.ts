@@ -23,6 +23,7 @@ export async function GET(): Promise<NextResponse> {
   } = await supabase.auth.getSession();
 
   const providerToken = session?.provider_token;
+  console.log("[verify-youtube] provider_token:", providerToken);
   if (!providerToken) {
     return NextResponse.json({ subscribed: false });
   }
@@ -48,11 +49,13 @@ export async function GET(): Promise<NextResponse> {
     },
   });
 
+  const ytData = (await ytRes.json()) as YouTubeSubscriptionsResponse;
+  console.log("[verify-youtube] YouTube API status:", ytRes.status);
+  console.log("[verify-youtube] YouTube API response:", ytData);
+
   if (!ytRes.ok) {
     return NextResponse.json({ subscribed: false });
   }
-
-  const ytData = (await ytRes.json()) as YouTubeSubscriptionsResponse;
   const subscribed = Array.isArray(ytData.items) && ytData.items.length > 0;
 
   return NextResponse.json({ subscribed });
