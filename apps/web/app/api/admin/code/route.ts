@@ -83,10 +83,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const fragments = threeUniqueFragments();
     const timestamps = spreadTimestamps(maxTs);
-    const rows = fragments.map((fragment_code, i) => ({
+    const rows = fragments.map((full_code, i) => ({
       video_id: videoId,
-      fragment_code,
-      timestamp_seconds: timestamps[i]!,
+      full_code,
+      expires_at: new Date(Date.now() + timestamps[i]! * 1000).toISOString(),
     }));
 
     const { error: insErr } = await supabase.from("codes").insert(rows);
