@@ -19,7 +19,14 @@ export async function signInWithGoogle(): Promise<void> {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo },
+    options: {
+      redirectTo,
+      scopes: "https://www.googleapis.com/auth/youtube.readonly",
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
+    },
   });
 
   if (error) {

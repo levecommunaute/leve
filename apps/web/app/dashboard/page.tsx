@@ -104,6 +104,25 @@ export default function DashboardPage(): JSX.Element | null {
   >(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [youtubeSubscribed, setYoutubeSubscribed] = useState<boolean | null>(
+    null,
+  );
+
+  const verifyYoutubeSubscription = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch("/api/auth/verify-youtube", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        setYoutubeSubscribed(false);
+        return;
+      }
+      const data = (await res.json()) as { subscribed?: boolean };
+      setYoutubeSubscribed(data.subscribed === true);
+    } catch {
+      setYoutubeSubscribed(false);
+    }
+  }, []);
 
   const loadDashboard = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -168,7 +187,7 @@ export default function DashboardPage(): JSX.Element | null {
         return;
       }
       setSession(next);
-      await loadDashboard(next);
+      await Promise.all([loadDashboard(next), verifyYoutubeSubscription()]);
     }
 
     function syncFromCookies(): void {
@@ -191,7 +210,7 @@ export default function DashboardPage(): JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [loadDashboard, router]);
+  }, [loadDashboard, router, verifyYoutubeSubscription]);
 
   function handleSignOut(): void {
     setSigningOut(true);
@@ -598,6 +617,69 @@ export default function DashboardPage(): JSX.Element | null {
           ))}
         </div>
       </nav>
+
+      {youtubeSubscribed === false ? (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(0, 0, 0, 0.82)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1.25rem",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="youtube-subscribe-title"
+            style={{
+              maxWidth: "28rem",
+              width: "100%",
+              background: "#121212",
+              border: "1px solid rgba(245, 240, 232, 0.18)",
+              borderRadius: "12px",
+              padding: "1.5rem",
+              boxShadow: "0 12px 40px rgba(0, 0, 0, 0.45)",
+            }}
+          >
+            <h2
+              id="youtube-subscribe-title"
+              style={{
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "1.35rem",
+                letterSpacing: "0.08em",
+                margin: "0 0 0.85rem",
+                color: GOLD,
+              }}
+            >
+              Abonnement requis
+            </h2>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.95rem",
+                lineHeight: 1.55,
+                opacity: 0.92,
+              }}
+            >
+              Vous devez être abonné à la chaîne LEVE sur YouTube pour accéder à
+              votre espace membre. Abonnez-vous ici :{" "}
+              <a
+                href="https://www.youtube.com/@levecommunaute"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: ROUGE, fontWeight: 600 }}
+              >
+                https://www.youtube.com/@levecommunaute
+              </a>
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
