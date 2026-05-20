@@ -63,7 +63,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: video, error: vErr } = await supabase
       .from("videos")
-      .select("id, duration_seconds")
+      .select("id")
       .eq("id", videoId)
       .maybeSingle();
 
@@ -74,8 +74,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Vidéo introuvable" }, { status: 404 });
     }
 
-    const duration = Number(video.duration_seconds ?? 0);
-    const maxTs = duration > 60 ? duration : 1200;
+    const maxTs = 1200;
 
     const { error: delErr } = await supabase.from("video_codes").delete().eq("video_id", videoId);
     if (delErr) {
