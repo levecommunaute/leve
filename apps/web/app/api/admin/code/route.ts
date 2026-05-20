@@ -1,52 +1,14 @@
-import { randomBytes } from "crypto";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
+import { normalizeAdminVideoCode, spreadTimestamps } from "../../../../lib/admin-video-code";
 
 export const dynamic = "force-dynamic";
-
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-function randomFragment(): string {
-  const bytes = randomBytes(8);
-  let s = "";
-  for (let i = 0; i < 4; i++) {
-    s += ALPHABET[bytes[i]! % ALPHABET.length]!;
-  }
-  return s;
-}
-
-function threeUniqueFragments(): string[] {
-  const set = new Set<string>();
-  while (set.size < 3) {
-    set.add(randomFragment());
-  }
-  return [...set];
-}
-
-function spreadTimestamps(maxSeconds: number): number[] {
-  const cap = Math.max(120, Math.min(maxSeconds - 30, 7200));
-  const lo = 30;
-  const hi = Math.max(lo + 90, cap);
-  const bytes = randomBytes(12);
-  const picks: number[] = [];
-  for (let i = 0; i < 3; i++) {
-    const t = lo + ((bytes[i * 4]! << 16) | (bytes[i * 4 + 1]! << 8) | bytes[i * 4 + 2]!) % (hi - lo);
-    picks.push(Math.floor(t));
-  }
-  picks.sort((a, b) => a - b);
-  let n0 = picks[0] ?? lo;
-  let n1 = picks[1] ?? n0 + 20;
-  let n2 = picks[2] ?? n1 + 20;
-  if (n0 === n1) n1 += 17;
-  if (n1 === n2) n2 += 23;
-  return [n0, n1, n2].map((n) => Math.min(n, hi));
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const denied = requireAdminSecret(request);
   if (denied) return denied;
 
-  let body: { video_id?: string };
+  let body: { video_id?: string; code?: string };
   try {
     body = await request.json();
   } catch {
@@ -54,8 +16,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const videoId = typeof body.video_id === "string" ? body.video_id.trim() : "";
+  const codeRaw = typeof body.code === "string" ? body.code : "";
+
   if (!videoId) {
     return NextResponse.json({ error: "video_id requis" }, { status: 400 });
+  }
+
+  const fullCode = normalizeAdminVideoCode(codeRaw);
+  if (!fullCode) {
+    return NextResponse.json(
+      {
+        error:
+          "Code invalide : attendu 12 caractères (A-Z sans I/O, chiffres sans 0/1), par ex. XXXX-YYYY-ZZZZ",
+      },
+      { status: 400 },
+    );
   }
 
   try {
@@ -74,6 +49,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Vidéo introuvable" }, { status: 404 });
     }
 
+    const { data: other, error: oErr } = await supabase
+      .from("codes")
+      .select("video_id")
+      .eq("full_code", fullCode)
+      .maybeSingle();
+
+    if (oErr) {
+      return NextResponse.json({ error: oErr.message }, { status: 500 });
+    }
+    if (other && other.video_id !== videoId) {
+      return NextResponse.json(
+        { error: "Ce code est déjà associé à une autre vidéo" },
+        { status: 409 },
+      );
+    }
+
     const maxTs = 1200;
 
     const { error: delErr } = await supabase.from("codes").delete().eq("video_id", videoId);
@@ -81,9 +72,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: delErr.message }, { status: 500 });
     }
 
-    const fragments = threeUniqueFragments();
     const timestamps = spreadTimestamps(maxTs);
-    const fullCode = fragments.join("-");
     const expiresSeconds = Math.max(...timestamps);
 
     const { error: insErr } = await supabase.from("codes").insert({
@@ -95,7 +84,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: insErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({ code: fullCode, fragments });
+    return NextResponse.json({ code: fullCode });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: message }, { status: 500 });

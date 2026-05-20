@@ -189,7 +189,12 @@ export default function AdminPage(): JSX.Element {
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
   const [codeByVideo, setCodeByVideo] = useState<Record<string, string>>({});
+  const [codeInputByVideo, setCodeInputByVideo] = useState<Record<string, string>>({});
   const [codeLoadingId, setCodeLoadingId] = useState<string | null>(null);
+  const [standaloneGeneratedCode, setStandaloneGeneratedCode] = useState<string | null>(null);
+  const [standaloneGenLoading, setStandaloneGenLoading] = useState(false);
+  const [standaloneGenCopied, setStandaloneGenCopied] = useState(false);
+  const [standaloneGenError, setStandaloneGenError] = useState<string | null>(null);
 
   const [newYoutube, setNewYoutube] = useState("");
   const [newTitle, setNewTitle] = useState("");
@@ -395,6 +400,10 @@ export default function AdminPage(): JSX.Element {
     sessionStorage.removeItem(STORAGE_KEY);
     setAuthed(false);
     setCodeByVideo({});
+    setCodeInputByVideo({});
+    setStandaloneGeneratedCode(null);
+    setStandaloneGenCopied(false);
+    setStandaloneGenError(null);
     setRedistResult(null);
     setMembers([]);
     setMemberDrafts({});
@@ -443,13 +452,60 @@ export default function AdminPage(): JSX.Element {
     }
   }
 
-  async function generateCode(videoId: string): Promise<void> {
+  async function generateStandaloneCode(): Promise<void> {
+    setStandaloneGenLoading(true);
+    setStandaloneGeneratedCode(null);
+    setStandaloneGenCopied(false);
+    setStandaloneGenError(null);
+    try {
+      const r = await fetch("/api/admin/code/generate", {
+        cache: "no-store",
+        headers: adminHeaders(),
+      });
+      const j = (await r.json()) as { code?: string; error?: string };
+      if (!r.ok) {
+        setStandaloneGeneratedCode(null);
+        setStandaloneGenError(j.error ?? "Échec de la génération");
+        return;
+      }
+      if (j.code) {
+        setStandaloneGeneratedCode(j.code);
+        setStandaloneGenError(null);
+      }
+    } catch {
+      setStandaloneGenError("Erreur réseau");
+    } finally {
+      setStandaloneGenLoading(false);
+    }
+  }
+
+  async function copyStandaloneCode(): Promise<void> {
+    if (!standaloneGeneratedCode) return;
+    try {
+      await navigator.clipboard.writeText(standaloneGeneratedCode);
+      setStandaloneGenCopied(true);
+      setStandaloneGenError(null);
+      window.setTimeout(() => setStandaloneGenCopied(false), 2000);
+    } catch {
+      setStandaloneGenError("Impossible de copier (permissions navigateur)");
+    }
+  }
+
+  async function associateCodeToVideo(videoId: string): Promise<void> {
+    const code = (codeInputByVideo[videoId] ?? "").trim();
+    if (!code) {
+      setCodeByVideo((prev) => ({
+        ...prev,
+        [videoId]: "Saisissez un code.",
+      }));
+      return;
+    }
     setCodeLoadingId(videoId);
     try {
       const r = await fetch("/api/admin/code", {
         method: "POST",
         headers: adminHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ video_id: videoId }),
+        body: JSON.stringify({ video_id: videoId, code }),
       });
       const j = (await r.json()) as { code?: string; error?: string };
       if (!r.ok) {
@@ -460,7 +516,12 @@ export default function AdminPage(): JSX.Element {
         return;
       }
       if (j.code) {
-        setCodeByVideo((prev) => ({ ...prev, [videoId]: j.code! }));
+        const linked = j.code;
+        setCodeInputByVideo((prev) => ({ ...prev, [videoId]: linked }));
+        setCodeByVideo((prev) => ({
+          ...prev,
+          [videoId]: `Associé : ${linked}`,
+        }));
       }
     } catch {
       setCodeByVideo((prev) => ({ ...prev, [videoId]: "Erreur réseau" }));
@@ -836,6 +897,75 @@ export default function AdminPage(): JSX.Element {
         </main>
       ) : (
         <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "2rem 1.25rem" }}>
+          {/* GÉNÉRATEUR DE CODES */}
+          <section style={cardStyle()}>
+            {sectionTitle("GÉNÉRATEUR DE CODES")}
+            <p style={{ margin: "0 0 1rem", opacity: 0.72, fontSize: "0.9rem", maxWidth: "42rem" }}>
+              Générez un code unique vérifié en base (non lié à une vidéo). Vous pouvez ensuite le coller dans le champ
+              « Associer le code » pour la vidéo concernée.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+              <button
+                type="button"
+                disabled={standaloneGenLoading}
+                onClick={() => void generateStandaloneCode()}
+                style={{
+                  background: "rgba(212, 160, 23, 0.12)",
+                  color: GOLD,
+                  border: `1px solid rgba(212, 160, 23, 0.35)`,
+                  padding: "0.55rem 1rem",
+                  cursor: standaloneGenLoading ? "wait" : "pointer",
+                  fontSize: "0.75rem",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                }}
+              >
+                {standaloneGenLoading ? "…" : "Générer un code"}
+              </button>
+              {standaloneGeneratedCode ? (
+                <>
+                  <span
+                    style={{
+                      fontFamily: "ui-monospace, monospace",
+                      fontSize: "1rem",
+                      letterSpacing: "0.06em",
+                      padding: "0.45rem 0.75rem",
+                      background: "rgba(245, 240, 232, 0.06)",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(245, 240, 232, 0.12)",
+                    }}
+                  >
+                    {standaloneGeneratedCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void copyStandaloneCode()}
+                    style={{
+                      background: ROUGE,
+                      color: TEXT,
+                      border: "none",
+                      padding: "0.5rem 0.95rem",
+                      cursor: "pointer",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      fontWeight: 600,
+                      borderRadius: "8px",
+                    }}
+                  >
+                    {standaloneGenCopied ? "Copié" : "Copier"}
+                  </button>
+                </>
+              ) : null}
+            </div>
+            {standaloneGenError ? (
+              <p style={{ margin: "0.85rem 0 0", fontSize: "0.85rem", color: ROUGE, opacity: 0.95 }}>
+                {standaloneGenError}
+              </p>
+            ) : null}
+          </section>
+
           {/* SECTION VIDÉOS */}
           <section style={cardStyle()}>
             {sectionTitle("VIDÉOS")}
@@ -861,7 +991,9 @@ export default function AdminPage(): JSX.Element {
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Points
                       </th>
-                      <th style={{ padding: "0.65rem 0.5rem" }} />
+                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Code
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -872,32 +1004,61 @@ export default function AdminPage(): JSX.Element {
                           {v.youtube_id}
                         </td>
                         <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
-                        <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top" }}>
-                          <button
-                            type="button"
-                            disabled={codeLoadingId === v.id}
-                            onClick={() => void generateCode(v.id)}
-                            style={{
-                              background: "rgba(212, 160, 23, 0.12)",
-                              color: GOLD,
-                              border: `1px solid rgba(212, 160, 23, 0.35)`,
-                              padding: "0.4rem 0.75rem",
-                              cursor: codeLoadingId === v.id ? "wait" : "pointer",
-                              fontSize: "0.72rem",
-                              letterSpacing: "0.1em",
-                              textTransform: "uppercase",
-                            }}
-                          >
-                            {codeLoadingId === v.id ? "…" : "Générer le code"}
-                          </button>
+                        <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "240px" }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
+                            <input
+                              type="text"
+                              value={codeInputByVideo[v.id] ?? ""}
+                              onChange={(e) =>
+                                setCodeInputByVideo((prev) => ({
+                                  ...prev,
+                                  [v.id]: e.target.value,
+                                }))
+                              }
+                              placeholder="XXXX-YYYY-ZZZZ"
+                              autoComplete="off"
+                              spellCheck={false}
+                              aria-label={`Code pour ${v.title ?? v.youtube_id}`}
+                              disabled={codeLoadingId === v.id}
+                              style={{
+                                flex: "1 1 140px",
+                                minWidth: "120px",
+                                padding: "0.45rem 0.55rem",
+                                fontFamily: "ui-monospace, monospace",
+                                fontSize: "0.8rem",
+                                background: "rgba(245, 240, 232, 0.06)",
+                                border: "1px solid rgba(245, 240, 232, 0.14)",
+                                borderRadius: "6px",
+                                color: TEXT,
+                              }}
+                            />
+                            <button
+                              type="button"
+                              disabled={codeLoadingId === v.id}
+                              onClick={() => void associateCodeToVideo(v.id)}
+                              style={{
+                                background: "rgba(212, 160, 23, 0.12)",
+                                color: GOLD,
+                                border: `1px solid rgba(212, 160, 23, 0.35)`,
+                                padding: "0.45rem 0.65rem",
+                                cursor: codeLoadingId === v.id ? "wait" : "pointer",
+                                fontSize: "0.68rem",
+                                letterSpacing: "0.08em",
+                                textTransform: "uppercase",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {codeLoadingId === v.id ? "…" : "Associer le code"}
+                            </button>
+                          </div>
                           {codeByVideo[v.id] ? (
                             <div
                               style={{
                                 marginTop: "0.5rem",
                                 fontFamily: "ui-monospace, monospace",
-                                fontSize: "0.82rem",
+                                fontSize: "0.8rem",
                                 color: TEXT,
-                                opacity: 0.92,
+                                opacity: 0.88,
                               }}
                             >
                               {codeByVideo[v.id]}
