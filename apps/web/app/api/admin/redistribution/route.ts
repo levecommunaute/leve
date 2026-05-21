@@ -1,14 +1,56 @@
 import { type NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
 
 export const dynamic = "force-dynamic";
 
-/** Aligné sur `redistribution-mensuelle` et `historique` (PMQ = 45 %). */
-const PMQ = 0.45;
-const PTC = 0.1;
-const PCOL = 0.2;
-const PA = 0.05;
-const OPERATIONS = 0.25;
+const PMQ_RATE = 0.45;
+const PCOL_RATE = 0.2;
+const PA_RATE = 0.1;
+const OPERATIONS_RATE = 0.25;
+
+const ELIGIBLE_POINT_TYPES = ["code", "quiz"] as const;
+const PAGE_SIZE = 1000;
+
+type MemberWeight = {
+  membre_id: string;
+  points: number;
+  multiplier: number;
+  weight: number;
+};
+
+async function aggregateEligiblePoints(
+  supabase: SupabaseClient,
+): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("points_transactions")
+      .select("membre_id, amount")
+      .in("type", [...ELIGIBLE_POINT_TYPES])
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const membreId = String(row.membre_id ?? "").trim();
+      if (!membreId) continue;
+      const amt = Number(row.amount ?? 0);
+      if (!Number.isFinite(amt)) continue;
+      totals.set(membreId, (totals.get(membreId) ?? 0) + amt);
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return totals;
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const denied = requireAdminSecret(request);
@@ -26,6 +68,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ? body.month.trim()
       : null;
   const totalRevenue = Number(body.total_revenue);
+
   if (!month) {
     return NextResponse.json({ error: "month attendu (format AAAA-MM)" }, { status: 400 });
   }
@@ -36,13 +79,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const supabase = getServiceSupabase();
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("redistribution_history")
       .select("id")
       .eq("month", month)
       .limit(1)
       .maybeSingle();
 
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
     if (existing) {
       return NextResponse.json(
         { error: `Une redistribution existe déjà pour ${month}` },
@@ -52,7 +98,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: bank, error: bankError } = await supabase
       .from("banque_leve")
-      .select("id, pool_ptc, pool_pcol, pool_pa, pool_operations")
+      .select(
+        "id, total_revenue, pmq_balance, ptc_balance, pcol_balance, pa_balance, operations_balance",
+      )
       .limit(1)
       .maybeSingle();
 
@@ -63,32 +111,50 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "banque_leve introuvable" }, { status: 404 });
     }
 
-    const pmqPool = totalRevenue * PMQ;
-    const ptcAdd = totalRevenue * PTC;
-    const pcolAdd = totalRevenue * PCOL;
-    const paAdd = totalRevenue * PA;
-    const operationsAdd = totalRevenue * OPERATIONS;
+    const pmqPool = totalRevenue * PMQ_RATE;
+    const pcolPool = totalRevenue * PCOL_RATE;
+    const paPoolAccrual = totalRevenue * PA_RATE;
+    const operationsPool = totalRevenue * OPERATIONS_RATE;
+
+    const pointsByMember = await aggregateEligiblePoints(supabase);
+    const memberIds = [...pointsByMember.keys()].filter((id) => (pointsByMember.get(id) ?? 0) > 0);
+
+    if (memberIds.length === 0) {
+      return NextResponse.json(
+        {
+          pmq_pool: pmqPool,
+          value_per_point: null,
+          total_distributed: 0,
+          total_members: 0,
+          error: "Aucun point éligible (types code, quiz)",
+        },
+        { status: 422 },
+      );
+    }
 
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, points, multiplier")
-      .gt("points", 0);
+      .select("id, multiplier")
+      .in("id", memberIds);
 
     if (profilesError) {
       return NextResponse.json({ error: profilesError.message }, { status: 500 });
     }
 
-    const members = profiles ?? [];
-    let totalWeight = 0;
-    const weights: { id: string; points: number; multiplier: number; w: number }[] = [];
+    const multiplierById = new Map(
+      (profiles ?? []).map((p) => [String(p.id), Number(p.multiplier ?? 1)]),
+    );
 
-    for (const row of members) {
-      const points = Number(row.points ?? 0);
-      const multiplier = Number(row.multiplier ?? 1);
-      const w = points * multiplier;
-      if (w > 0) {
-        totalWeight += w;
-        weights.push({ id: row.id, points, multiplier, w });
+    const weights: MemberWeight[] = [];
+    let totalWeight = 0;
+
+    for (const membreId of memberIds) {
+      const points = pointsByMember.get(membreId) ?? 0;
+      const multiplier = multiplierById.get(membreId) ?? 1;
+      const weight = points * multiplier;
+      if (weight > 0) {
+        totalWeight += weight;
+        weights.push({ membre_id: membreId, points, multiplier, weight });
       }
     }
 
@@ -98,6 +164,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           pmq_pool: pmqPool,
           value_per_point: null,
           total_distributed: 0,
+          total_members: 0,
           error: "Aucun poids positif (points × multiplicateur)",
         },
         { status: 422 },
@@ -105,34 +172,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const valuePerPoint = pmqPool / totalWeight;
-
     let totalDistributed = 0;
-    const historyRows: Record<string, unknown>[] = [];
     const txRows: Record<string, unknown>[] = [];
 
     for (const m of weights) {
-      const payout = (pmqPool * m.w) / totalWeight;
+      const payout = (m.points * m.multiplier * pmqPool) / totalWeight;
       totalDistributed += payout;
-      historyRows.push({
-        user_id: m.id,
-        month,
-        amount: payout,
-        points_snapshot: m.points,
-        multiplier_snapshot: m.multiplier,
-      });
       txRows.push({
-        user_id: m.id,
+        membre_id: m.membre_id,
         amount: payout,
         type: "redistribution",
-        metadata: { month, weight: m.w },
+        description: `Redistribution PMQ — ${month}`,
+        metadata: {
+          month,
+          points: m.points,
+          multiplier: m.multiplier,
+          weight: m.weight,
+        },
       });
     }
 
-    if (historyRows.length) {
-      const { error: histError } = await supabase.from("redistribution_history").insert(historyRows);
-      if (histError) {
-        return NextResponse.json({ error: histError.message }, { status: 500 });
-      }
+    const { error: histError } = await supabase.from("redistribution_history").insert({
+      month,
+      total_revenue: totalRevenue,
+      pmq_pool: pmqPool,
+      ptc_pool: 0,
+      pcol_pool: pcolPool,
+      pa_pool: 0,
+      total_members: weights.length,
+      value_per_point: valuePerPoint,
+    });
+
+    if (histError) {
+      return NextResponse.json({ error: histError.message }, { status: 500 });
     }
 
     if (txRows.length) {
@@ -145,10 +217,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { error: updateBankError } = await supabase
       .from("banque_leve")
       .update({
-        pool_ptc: Number(bank.pool_ptc ?? 0) + ptcAdd,
-        pool_pcol: Number(bank.pool_pcol ?? 0) + pcolAdd,
-        pool_pa: Number(bank.pool_pa ?? 0) + paAdd,
-        pool_operations: Number(bank.pool_operations ?? 0) + operationsAdd,
+        total_revenue: Number(bank.total_revenue ?? 0) + totalRevenue,
+        pmq_balance: Number(bank.pmq_balance ?? 0) + pmqPool,
+        pcol_balance: Number(bank.pcol_balance ?? 0) + pcolPool,
+        pa_balance: Number(bank.pa_balance ?? 0) + paPoolAccrual,
+        operations_balance: Number(bank.operations_balance ?? 0) + operationsPool,
       })
       .eq("id", bank.id);
 
@@ -160,6 +233,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       pmq_pool: pmqPool,
       value_per_point: valuePerPoint,
       total_distributed: totalDistributed,
+      total_members: weights.length,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
