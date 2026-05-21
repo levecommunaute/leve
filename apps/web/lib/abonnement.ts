@@ -50,8 +50,10 @@ export function buildActiveSubscriptionPatch(now = new Date()) {
 }
 
 export function buildRenewSubscriptionPatch(now = new Date()) {
+  const verified = now.toISOString();
   const expire = addMonths(now, 3).toISOString();
   return {
+    abonnement_verifie_at: verified,
     abonnement_expire_at: expire,
     abonnement_statut: "actif" as const,
     grace_debut_at: null,

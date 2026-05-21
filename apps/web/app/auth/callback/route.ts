@@ -6,7 +6,6 @@ import {
   buildActiveSubscriptionPatch,
   buildGraceSubscriptionPatch,
   buildRenewSubscriptionPatch,
-  isSubscriptionValid,
   profileHasMembership,
   type ProfileAbonnement,
 } from "../../../lib/abonnement";
@@ -115,10 +114,14 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.redirect(`${origin}/?error=no_profile`);
   }
 
-  if (isSubscriptionValid(profile?.abonnement_expire_at)) {
+  const expireAt = profile?.abonnement_expire_at ?? null;
+
+  // abonnement_expire_at > NOW() → dashboard sans revérification YouTube
+  if (expireAt && new Date(expireAt).getTime() > Date.now()) {
     return NextResponse.redirect(`${origin}/dashboard`);
   }
 
+  // abonnement_expire_at < NOW() (ou absent) → revérifier l'abonnement YouTube
   const subscribed = await verifyYoutubeFromSession(supabase);
   const now = new Date();
 
@@ -151,5 +154,5 @@ export async function GET(request: Request): Promise<NextResponse> {
     await sendGracePeriodEmail(user.email, graceExpireAt);
   }
 
-  return NextResponse.redirect(`${origin}/dashboard?grace=1`);
+  return NextResponse.redirect(`${origin}/dashboard?grace=true`);
 }
