@@ -4,8 +4,9 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
+import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
@@ -57,7 +58,19 @@ type ProfileRow = {
   member_type: string | null;
   multiplier: number | string | null;
   numero_membre: string | null;
+  abonnement_statut: string | null;
+  grace_expire_at: string | null;
 };
+
+function formatGraceCountdown(msLeft: number): string {
+  if (msLeft <= 0) return "0j 00h 00m 00s";
+  const totalSec = Math.floor(msLeft / 1000);
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  return `${days}j ${hours.toString().padStart(2, "0")}h ${minutes.toString().padStart(2, "0")}m ${seconds.toString().padStart(2, "0")}s`;
+}
 
 function formatMemberTypeLabel(raw: string | null | undefined): string {
   if (!raw) return "Communauté";
@@ -97,6 +110,7 @@ const pointsFmt = new Intl.NumberFormat("fr-CA", {
 export default function DashboardPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [graceFromUrl, setGraceFromUrl] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [lastRedistributionCad, setLastRedistributionCad] = useState<
@@ -104,25 +118,30 @@ export default function DashboardPage(): JSX.Element | null {
   >(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
-  const [youtubeSubscribed, setYoutubeSubscribed] = useState<boolean | null>(
-    null,
-  );
+  const [graceMsLeft, setGraceMsLeft] = useState<number | null>(null);
 
-  const verifyYoutubeSubscription = useCallback(async (): Promise<void> => {
-    try {
-      const res = await fetch("/api/auth/verify-youtube", {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        setYoutubeSubscribed(false);
-        return;
-      }
-      const data = (await res.json()) as { subscribed?: boolean };
-      setYoutubeSubscribed(data.subscribed === true);
-    } catch {
-      setYoutubeSubscribed(false);
-    }
+  useEffect(() => {
+    const g = new URLSearchParams(window.location.search).get("grace");
+    setGraceFromUrl(g === "1" || g === "true");
   }, []);
+
+  const inGrace = profile?.abonnement_statut === "grace" || graceFromUrl;
+
+  const graceExpireAt = profile?.grace_expire_at ?? null;
+
+  useEffect(() => {
+    if (!inGrace || !graceExpireAt) {
+      setGraceMsLeft(null);
+      return;
+    }
+    const target = new Date(graceExpireAt).getTime();
+    const tick = (): void => {
+      setGraceMsLeft(Math.max(0, target - Date.now()));
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [inGrace, graceExpireAt]);
 
   const loadDashboard = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -130,7 +149,7 @@ export default function DashboardPage(): JSX.Element | null {
 
     const [profileRes, txRes, histRes] = await Promise.all([
       restJson<ProfileRow[]>(
-        `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre`,
+        `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at`,
         token,
       ),
       restJson<{ amount?: unknown }[]>(
@@ -187,7 +206,7 @@ export default function DashboardPage(): JSX.Element | null {
         return;
       }
       setSession(next);
-      await Promise.all([loadDashboard(next), verifyYoutubeSubscription()]);
+      await loadDashboard(next);
     }
 
     function syncFromCookies(): void {
@@ -210,7 +229,12 @@ export default function DashboardPage(): JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [loadDashboard, router, verifyYoutubeSubscription]);
+  }, [loadDashboard, router]);
+
+  const blockedNav = useMemo(
+    () => (inGrace ? new Set(navPages.filter((p) => isGraceBlockedHref(p.href)).map((p) => p.href)) : new Set<string>()),
+    [inGrace],
+  );
 
   function handleSignOut(): void {
     setSigningOut(true);
@@ -347,6 +371,50 @@ export default function DashboardPage(): JSX.Element | null {
       </header>
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
+        {inGrace ? (
+          <div
+            role="alert"
+            style={{
+              marginBottom: "1.25rem",
+              padding: "1rem 1.15rem",
+              borderRadius: "10px",
+              background: "rgba(192, 57, 43, 0.22)",
+              border: `2px solid ${ROUGE}`,
+              color: TEXT,
+            }}
+          >
+            <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem" }}>
+              Abonnement YouTube requis — période de grâce
+            </p>
+            <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", lineHeight: 1.5, opacity: 0.92 }}>
+              Réabonnez-vous à{" "}
+              <a
+                href="https://www.youtube.com/@levecommunaute"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: GOLD, fontWeight: 600 }}
+              >
+                la chaîne LEVE
+              </a>{" "}
+              puis reconnectez-vous. L&apos;accès banque, quiz, concours et redistribution est
+              suspendu.
+            </p>
+            {graceExpireAt && graceMsLeft != null ? (
+              <p
+                style={{
+                  margin: "0.75rem 0 0",
+                  fontFamily: "monospace",
+                  fontSize: "1.1rem",
+                  fontWeight: 700,
+                  color: ROUGE,
+                }}
+              >
+                Temps restant : {formatGraceCountdown(graceMsLeft)}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         {loadError ? (
           <p
             role="alert"
@@ -543,32 +611,42 @@ export default function DashboardPage(): JSX.Element | null {
             }}
           >
             {[
-              { href: "/videos", label: "Vidéos" },
-              { href: "/banque", label: "Banque LEVE" },
-              { href: "/classement", label: "Classement" },
-              { href: "/transparence", label: "Transparence" },
-            ].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "0.9rem",
-                  borderRadius: "10px",
-                  background: "rgba(192, 57, 43, 0.15)",
-                  border: `1px solid ${ROUGE}`,
-                  color: TEXT,
-                  textDecoration: "none",
-                  fontWeight: 600,
-                  fontSize: "0.9rem",
-                  textAlign: "center",
-                }}
-              >
-                {item.label}
-              </Link>
-            ))}
+              { href: "/videos", label: "Vidéos", blockOnGrace: false },
+              { href: "/banque", label: "Banque LEVE", blockOnGrace: true },
+              { href: "/classement", label: "Classement", blockOnGrace: false },
+              { href: "/transparence", label: "Transparence", blockOnGrace: true },
+            ].map((item) => {
+              const blocked = inGrace && item.blockOnGrace;
+              const cellStyle = {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "0.9rem",
+                borderRadius: "10px",
+                background: blocked ? "rgba(80, 80, 80, 0.2)" : "rgba(192, 57, 43, 0.15)",
+                border: blocked ? "1px solid #444" : `1px solid ${ROUGE}`,
+                color: TEXT,
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                textAlign: "center" as const,
+                opacity: blocked ? 0.45 : 1,
+                cursor: blocked ? "not-allowed" : "pointer",
+                pointerEvents: blocked ? ("none" as const) : ("auto" as const),
+              };
+              if (blocked) {
+                return (
+                  <span key={item.href} style={cellStyle} title="Accès suspendu (période de grâce)">
+                    {item.label}
+                  </span>
+                );
+              }
+              return (
+                <Link key={item.href} href={item.href} style={cellStyle}>
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
         </section>
       </main>
@@ -598,88 +676,34 @@ export default function DashboardPage(): JSX.Element | null {
             scrollbarWidth: "none",
           }}
         >
-          {navPages.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              style={{
-                flex: "0 0 auto",
-                fontSize: "0.68rem",
-                color: p.href === "/dashboard" ? GOLD : TEXT,
-                opacity: p.href === "/dashboard" ? 1 : 0.75,
-                textDecoration: "none",
-                padding: "0.35rem 0.5rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {p.label}
-            </Link>
-          ))}
+          {navPages.map((p) => {
+            const blocked = blockedNav.has(p.href);
+            const navStyle = {
+              flex: "0 0 auto" as const,
+              fontSize: "0.68rem",
+              color: p.href === "/dashboard" ? GOLD : TEXT,
+              opacity: blocked ? 0.35 : p.href === "/dashboard" ? 1 : 0.75,
+              textDecoration: "none" as const,
+              padding: "0.35rem 0.5rem",
+              whiteSpace: "nowrap" as const,
+              cursor: blocked ? ("not-allowed" as const) : ("pointer" as const),
+            };
+            if (blocked) {
+              return (
+                <span key={p.href} style={navStyle} title="Accès suspendu (période de grâce)">
+                  {p.label}
+                </span>
+              );
+            }
+            return (
+              <Link key={p.href} href={p.href} style={navStyle}>
+                {p.label}
+              </Link>
+            );
+          })}
         </div>
       </nav>
 
-      {youtubeSubscribed === false ? (
-        <div
-          role="presentation"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            background: "rgba(0, 0, 0, 0.82)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "1.25rem",
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="youtube-subscribe-title"
-            style={{
-              maxWidth: "28rem",
-              width: "100%",
-              background: "#121212",
-              border: "1px solid rgba(245, 240, 232, 0.18)",
-              borderRadius: "12px",
-              padding: "1.5rem",
-              boxShadow: "0 12px 40px rgba(0, 0, 0, 0.45)",
-            }}
-          >
-            <h2
-              id="youtube-subscribe-title"
-              style={{
-                fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "1.35rem",
-                letterSpacing: "0.08em",
-                margin: "0 0 0.85rem",
-                color: GOLD,
-              }}
-            >
-              Abonnement requis
-            </h2>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.95rem",
-                lineHeight: 1.55,
-                opacity: 0.92,
-              }}
-            >
-              Vous devez être abonné à la chaîne LEVE sur YouTube pour accéder à
-              votre espace membre. Abonnez-vous ici :{" "}
-              <a
-                href="https://www.youtube.com/@levecommunaute"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: ROUGE, fontWeight: 600 }}
-              >
-                https://www.youtube.com/@levecommunaute
-              </a>
-            </p>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

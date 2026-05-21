@@ -1,11 +1,8 @@
 import { createServerClient } from "@repo/supabase/server";
 import { NextResponse } from "next/server";
+import { checkYoutubeSubscription } from "../../../../lib/youtube-subscription";
 
 export const dynamic = "force-dynamic";
-
-type YouTubeSubscriptionsResponse = {
-  items?: unknown[];
-};
 
 export async function GET(): Promise<NextResponse> {
   const supabase = await createServerClient();
@@ -23,40 +20,17 @@ export async function GET(): Promise<NextResponse> {
   } = await supabase.auth.getSession();
 
   const providerToken = session?.provider_token;
-  console.log("[verify-youtube] provider_token:", providerToken);
   if (!providerToken) {
     return NextResponse.json({ subscribed: false });
   }
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  const channelId = process.env.YOUTUBE_CHANNEL_ID;
-  if (!apiKey || !channelId) {
+  try {
+    const subscribed = await checkYoutubeSubscription(providerToken);
+    return NextResponse.json({ subscribed });
+  } catch {
     return NextResponse.json(
       { error: "Configuration YouTube manquante" },
       { status: 500 },
     );
   }
-
-  const url = new URL("https://www.googleapis.com/youtube/v3/subscriptions");
-  url.searchParams.set("part", "snippet");
-  url.searchParams.set("mine", "true");
-  url.searchParams.set("forChannelId", channelId);
-  url.searchParams.set("key", apiKey);
-
-  const ytRes = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${providerToken}`,
-    },
-  });
-
-  const ytData = (await ytRes.json()) as YouTubeSubscriptionsResponse;
-  console.log("[verify-youtube] YouTube API status:", ytRes.status);
-  console.log("[verify-youtube] YouTube API response:", ytData);
-
-  if (!ytRes.ok) {
-    return NextResponse.json({ subscribed: false });
-  }
-  const subscribed = Array.isArray(ytData.items) && ytData.items.length > 0;
-
-  return NextResponse.json({ subscribed });
 }

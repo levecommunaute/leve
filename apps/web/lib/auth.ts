@@ -1,6 +1,8 @@
 import { createBrowserClient } from "@repo/supabase/browser";
 import type { Session } from "@supabase/supabase-js";
 
+export type AuthMode = "rejoindre" | "connecter";
+
 function getAppOrigin(): string {
   if (typeof window !== "undefined") {
     return window.location.origin;
@@ -12,10 +14,11 @@ function getAppOrigin(): string {
   return "";
 }
 
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithGoogle(mode: AuthMode = "rejoindre"): Promise<void> {
   const supabase = createBrowserClient();
   const origin = getAppOrigin();
-  const redirectTo = origin ? `${origin}/auth/callback` : "/auth/callback";
+  const base = origin ? `${origin}/auth/callback` : "/auth/callback";
+  const redirectTo = `${base}?mode=${encodeURIComponent(mode)}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

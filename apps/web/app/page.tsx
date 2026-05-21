@@ -82,10 +82,12 @@ function RougeButton({
   children,
   onClick,
   className = "",
+  style,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   className?: string;
+  style?: React.CSSProperties;
 }): JSX.Element {
   return (
     <button
@@ -98,6 +100,7 @@ function RougeButton({
         fontFamily: "var(--font-dm), system-ui, sans-serif",
         border: "none",
         cursor: "pointer",
+        ...style,
       }}
     >
       {children}
@@ -189,7 +192,18 @@ export default function Home(): JSX.Element {
             La première plateforme YouTube francophone qui redistribue ses revenus publicitaires à sa
             communauté.
           </p>
-          <RougeButton onClick={() => void signInWithGoogle()}>Rejoindre LEVE</RougeButton>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+              Rejoindre
+            </RougeButton>
+            <RougeButton
+              onClick={() => void signInWithGoogle("connecter")}
+              className="!bg-transparent"
+              style={{ border: `2px solid ${ROUGE}` }}
+            >
+              Se connecter
+            </RougeButton>
+          </div>
         </div>
       </section>
 
@@ -331,7 +345,14 @@ export default function Home(): JSX.Element {
           <p className="max-w-xl text-base leading-relaxed opacity-[0.82]">
             Les premiers 1&nbsp;000 membres deviennent Pionniers avec un multiplicateur 2.0x.
           </p>
-          <RougeButton onClick={() => void signInWithGoogle()}>Se connecter avec Google</RougeButton>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+              Rejoindre
+            </RougeButton>
+            <RougeButton onClick={() => void signInWithGoogle("connecter")}>
+              Se connecter
+            </RougeButton>
+          </div>
         </div>
       </section>
 
