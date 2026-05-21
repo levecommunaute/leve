@@ -88,7 +88,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     if (profileHasMembership(profile)) {
-      return NextResponse.redirect(`${origin}/auth/connecter`);
+      return NextResponse.redirect(`${origin}/auth/deja-membre`);
     }
 
     const now = new Date();
