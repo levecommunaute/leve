@@ -111,7 +111,9 @@ const monthTitleFr = new Intl.DateTimeFormat("fr-CA", {
 });
 
 function formatMonthLabel(ym: string): string {
-  const [y, m] = ym.split("-").map(Number);
+  const key = /^(\d{4})-(\d{2})/.exec(ym.trim());
+  const y = key ? Number(key[1]) : NaN;
+  const m = key ? Number(key[2]) : NaN;
   if (!y || !m) return ym;
   const d = new Date(Date.UTC(y, m - 1, 1));
   try {

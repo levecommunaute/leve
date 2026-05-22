@@ -13,14 +13,22 @@ export type RedistributionMois = {
   total_distributed: number;
 };
 
-function cutoffMonthKey(): string {
+/** Clé affichage AAAA-MM à partir de la colonne date `month` (AAAA-MM-01). */
+function monthKeyFromDb(value: unknown): string {
+  const s = String(value ?? "").trim();
+  const m = /^(\d{4})-(\d{2})/.exec(s);
+  return m ? `${m[1]}-${m[2]}` : s;
+}
+
+/** Borne basse (12 mois) au format date attendu par `redistribution_history.month`. */
+function cutoffMonthDate(): string {
   const d = new Date();
   d.setUTCDate(1);
   d.setUTCHours(0, 0, 0, 0);
   d.setUTCMonth(d.getUTCMonth() - 11);
   const y = d.getUTCFullYear();
   const m = d.getUTCMonth() + 1;
-  return `${y}-${String(m).padStart(2, "0")}`;
+  return `${y}-${String(m).padStart(2, "0")}-01`;
 }
 
 export async function GET(): Promise<NextResponse> {
@@ -34,14 +42,14 @@ export async function GET(): Promise<NextResponse> {
   }
 
   const supabase = createClient(url, key);
-  const minMonth = cutoffMonthKey();
+  const minMonthDate = cutoffMonthDate();
 
   const { data, error } = await supabase
     .from("redistribution_history")
     .select(
       "id, month, total_revenue, pmq_pool, ptc_pool, pcol_pool, pa_pool, total_members, value_per_point, created_at",
     )
-    .gte("month", minMonth)
+    .gte("month", minMonthDate)
     .order("month", { ascending: false });
 
   if (error) {
@@ -60,7 +68,7 @@ export async function GET(): Promise<NextResponse> {
   >();
 
   for (const row of rows) {
-    const month = String(row.month ?? "");
+    const month = monthKeyFromDb(row.month);
     if (!month) continue;
     const pmq = Number(row.pmq_pool ?? 0);
     const tr = Number(row.total_revenue ?? 0);
@@ -95,7 +103,7 @@ export async function GET(): Promise<NextResponse> {
     if (value_per_point == null) {
       const fallback = rows.find(
         (r) =>
-          String(r.month ?? "") === month &&
+          monthKeyFromDb(r.month) === month &&
           r.value_per_point != null &&
           r.value_per_point !== "",
       );
