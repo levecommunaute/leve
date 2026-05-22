@@ -198,15 +198,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       totalDistributed += payout;
       txRows.push({
         membre_id: m.membre_id,
-        amount: payout,
         type: "redistribution",
+        amount: payout,
         description: `Redistribution PMQ — ${monthKey}`,
-        metadata: {
-          month: monthKey,
-          points: m.points,
-          multiplier: m.multiplier,
-          weight: m.weight,
-        },
       });
     }
 
