@@ -14,6 +14,16 @@ const ELIGIBLE_POINT_TYPES = ["code", "quiz"] as const;
 const PAGE_SIZE = 1000;
 const TX_BATCH_SIZE = 500;
 
+/** "2026-05" → "2026-05-01" pour la colonne date `month` de redistribution_history. */
+function parseMonthInput(raw: string): { monthKey: string; monthDate: string } | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(raw.trim());
+  if (!match) return null;
+  const mon = Number(match[2]);
+  if (mon < 1 || mon > 12) return null;
+  const monthKey = `${match[1]}-${match[2]}`;
+  return { monthKey, monthDate: `${monthKey}-01` };
+}
+
 type MemberWeight = {
   membre_id: string;
   points: number;
@@ -66,13 +76,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Corps JSON invalide" }, { status: 400 });
   }
 
-  const month =
-    typeof body.month === "string" && /^\d{4}-\d{2}$/.test(body.month.trim())
-      ? body.month.trim()
-      : null;
+  const parsed =
+    typeof body.month === "string" ? parseMonthInput(body.month) : null;
   const totalRevenue = Number(body.total_revenue);
 
-  if (!month) {
+  if (!parsed) {
     return NextResponse.json(
       { error: "month attendu (format AAAA-MM)" },
       { status: 400 },
@@ -82,13 +90,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "total_revenue invalide" }, { status: 400 });
   }
 
+  const { monthKey, monthDate } = parsed;
+
   try {
     const supabase = getServiceSupabase();
 
     const { data: existing, error: existingError } = await supabase
       .from("redistribution_history")
       .select("id")
-      .eq("month", month)
+      .eq("month", monthDate)
       .limit(1)
       .maybeSingle();
 
@@ -97,7 +107,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     if (existing) {
       return NextResponse.json(
-        { error: `Une redistribution existe déjà pour ${month}` },
+        { error: `Une redistribution existe déjà pour ${monthKey}` },
         { status: 409 },
       );
     }
@@ -190,9 +200,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         membre_id: m.membre_id,
         amount: payout,
         type: "redistribution",
-        description: `Redistribution PMQ — ${month}`,
+        description: `Redistribution PMQ — ${monthKey}`,
         metadata: {
-          month,
+          month: monthKey,
           points: m.points,
           multiplier: m.multiplier,
           weight: m.weight,
@@ -201,7 +211,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const { error: histError } = await supabase.from("redistribution_history").insert({
-      month,
+      month: monthDate,
       total_revenue: totalRevenue,
       pmq_pool: pmqPool,
       ptc_pool: 0,
