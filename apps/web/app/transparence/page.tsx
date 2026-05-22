@@ -70,11 +70,13 @@ type ProfileRow = {
 type BanqueLeveRow = {
   id: string;
   total_revenue: number | string | null;
-  ptc_balance: number | string | null;
   pmq_balance: number | string | null;
+  production_balance: number | string | null;
+  fondation_balance: number | string | null;
+  operations_balance: number | string | null;
+  ptc_balance: number | string | null;
   pcol_balance: number | string | null;
   pa_balance: number | string | null;
-  operations_balance: number | string | null;
 };
 
 function displayNameFrom(
@@ -175,7 +177,7 @@ export default function TransparencePage(): JSX.Element {
     setLoadError(null);
 
     const bankRes = await fetch(
-      `${SB}/rest/v1/banque_leve?select=id,total_revenue,ptc_balance,pmq_balance,pcol_balance,pa_balance,operations_balance&limit=1`,
+      `${SB}/rest/v1/banque_leve?select=id,total_revenue,pmq_balance,production_balance,fondation_balance,operations_balance,ptc_balance,pcol_balance,pa_balance&limit=1`,
       {
         headers: {
           apikey: KEY,
@@ -299,10 +301,12 @@ export default function TransparencePage(): JSX.Element {
 
   const tr = Number(banque?.total_revenue ?? 0);
   const poolPmq = Number(banque?.pmq_balance ?? 0);
+  const poolProduction = Number(banque?.production_balance ?? 0);
+  const poolFondation = Number(banque?.fondation_balance ?? 0);
+  const poolOps = Number(banque?.operations_balance ?? 0);
   const poolPtc = Number(banque?.ptc_balance ?? 0);
   const poolPcol = Number(banque?.pcol_balance ?? 0);
   const poolPa = Number(banque?.pa_balance ?? 0);
-  const poolOps = Number(banque?.operations_balance ?? 0);
 
   return (
     <div
@@ -590,6 +594,21 @@ export default function TransparencePage(): JSX.Element {
                   accent: GOLD,
                 },
                 {
+                  label: "Production — Équipe fondatrice (20%)",
+                  value: poolProduction,
+                  accent: ROUGE,
+                },
+                {
+                  label: "Fondation LEVE (10%)",
+                  value: poolFondation,
+                  accent: VERT,
+                },
+                {
+                  label: "Opérations — LEVE MÉDIA INC. (25%)",
+                  value: poolOps,
+                  accent: GRIS_OPS,
+                },
+                {
                   label: "PTC — Pool de Croissance",
                   value: poolPtc,
                   accent: GOLD,
@@ -599,21 +618,10 @@ export default function TransparencePage(): JSX.Element {
                   value: poolPcol,
                   accent: ROUGE,
                 },
-                { label: "PA — Pool Activités", value: poolPa, accent: VERT },
                 {
-                  label: "Production — Équipe fondatrice",
-                  value: Number.isFinite(tr) ? tr * 0.2 : 0,
-                  accent: ROUGE,
-                },
-                {
-                  label: "Fondation LEVE",
-                  value: Number.isFinite(tr) ? tr * 0.1 : 0,
+                  label: "PA — Pool Activités",
+                  value: poolPa,
                   accent: VERT,
-                },
-                {
-                  label: "Opérations (LEVE MÉDIA INC.)",
-                  value: poolOps,
-                  accent: GRIS_OPS,
                 },
               ].map((row) => (
                 <article
