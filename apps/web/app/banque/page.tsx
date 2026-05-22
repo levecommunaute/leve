@@ -3,7 +3,7 @@
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Session } from "@supabase/supabase-js";
+import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
@@ -27,29 +27,12 @@ const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
-async function restJson<T>(
-  path: string,
-  accessToken: string,
-): Promise<{ data: T; error: string | null }> {
-  const res = await fetch(`${SB}/rest/v1/${path}`, {
-    headers: {
-      apikey: KEY,
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
+/** Client Supabase anon + JWT membre (RLS sur banque_membres, points_transactions, etc.). */
+function createAuthedSupabase(accessToken: string): SupabaseClient {
+  return createClient(SB, KEY, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
-  const json = (await res.json()) as unknown;
-  if (!res.ok) {
-    const msg =
-      json &&
-      typeof json === "object" &&
-      "message" in json &&
-      typeof (json as { message: unknown }).message === "string"
-        ? (json as { message: string }).message
-        : res.statusText || "Erreur réseau";
-    return { data: null as T, error: msg };
-  }
-  return { data: json as T, error: null };
 }
 
 const MIN_TRANSFER_CAD = 100;
@@ -147,61 +130,64 @@ export default function BanquePage(): JSX.Element | null {
   const [signingOut, setSigningOut] = useState(false);
 
   const loadBanque = useCallback(async (activeSession: Session) => {
-    const token = activeSession.access_token;
     const uid = activeSession.user.id;
-
-    const pmqTypeFilter = `type=in.(${PMQ_POINT_TYPES.join(",")})`;
+    const sb = createAuthedSupabase(activeSession.access_token);
 
     const [profileRes, banqueRes, sumRes, pointsListRes, mouvementsRes] =
       await Promise.all([
-        restJson<ProfileRow[]>(
-          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name`,
-          token,
-        ),
-        restJson<BanqueMembreRow[]>(
-          `banque_membres?membre_id=eq.${encodeURIComponent(uid)}&select=solde_dollars`,
-          token,
-        ),
-        restJson<{ amount?: unknown }[]>(
-          `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&${pmqTypeFilter}&select=amount`,
-          token,
-        ),
-        restJson<PointsTxRow[]>(
-          `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&${pmqTypeFilter}&select=id,created_at,amount,type&order=created_at.desc&limit=20`,
-          token,
-        ),
-        restJson<BanqueMouvementRow[]>(
-          `banque_membres_mouvements?membre_id=eq.${encodeURIComponent(uid)}&select=id,created_at,montant,type,description&order=created_at.desc&limit=20`,
-          token,
-        ),
+        sb
+          .from("profiles")
+          .select("display_name")
+          .eq("id", uid)
+          .maybeSingle(),
+        sb
+          .from("banque_membres")
+          .select("solde_dollars")
+          .eq("membre_id", uid)
+          .maybeSingle(),
+        sb
+          .from("points_transactions")
+          .select("amount")
+          .eq("membre_id", uid)
+          .in("type", [...PMQ_POINT_TYPES]),
+        sb
+          .from("points_transactions")
+          .select("id, created_at, amount, type")
+          .eq("membre_id", uid)
+          .in("type", [...PMQ_POINT_TYPES])
+          .order("created_at", { ascending: false })
+          .limit(20),
+        sb
+          .from("banque_membres_mouvements")
+          .select("id, created_at, montant, type, description")
+          .eq("membre_id", uid)
+          .order("created_at", { ascending: false })
+          .limit(20),
       ]);
 
     const errMsg =
-      profileRes.error ??
-      banqueRes.error ??
-      sumRes.error ??
-      pointsListRes.error ??
-      mouvementsRes.error ??
+      profileRes.error?.message ??
+      banqueRes.error?.message ??
+      sumRes.error?.message ??
+      pointsListRes.error?.message ??
+      mouvementsRes.error?.message ??
       null;
     setLoadError(errMsg);
 
     if (!profileRes.error) {
-      const rows = profileRes.data ?? [];
-      setProfile((rows[0] ?? null) as ProfileRow | null);
+      setProfile((profileRes.data ?? null) as ProfileRow | null);
     }
 
     if (banqueRes.error) {
       setSoldeDollars(0);
     } else {
-      const rows = banqueRes.data ?? [];
-      setSoldeDollars(Number(rows[0]?.solde_dollars ?? 0));
+      setSoldeDollars(Number((banqueRes.data as BanqueMembreRow | null)?.solde_dollars ?? 0));
     }
 
     if (sumRes.error) {
       setTotalPoints(0);
     } else {
-      const rows = sumRes.data ?? [];
-      const sum = rows.reduce(
+      const sum = (sumRes.data ?? []).reduce(
         (acc, row) => acc + Number(row.amount ?? 0),
         0,
       );
