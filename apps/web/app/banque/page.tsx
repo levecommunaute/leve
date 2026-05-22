@@ -52,9 +52,8 @@ async function restJson<T>(
   return { data: json as T, error: null };
 }
 
-/** Indicatif jusqu’à redistribution réelle (aligné API /api/membre/solde). */
-const CAD_PER_POINT = 0.1;
 const MIN_TRANSFER_CAD = 100;
+const PMQ_POINT_TYPES = ["code", "quiz"] as const;
 
 type ProfileRow = {
   display_name: string | null;
@@ -66,6 +65,22 @@ type PointsTxRow = {
   amount: number | string | null;
   type: string | null;
 };
+
+type BanqueMembreRow = {
+  solde_dollars: number | string | null;
+};
+
+type BanqueMouvementRow = {
+  id: string;
+  created_at: string;
+  montant: number | string | null;
+  type: string | null;
+  description: string | null;
+};
+
+type HistoryRow =
+  | { id: string; created_at: string; kind: "points"; amount: number; type: string | null }
+  | { id: string; created_at: string; kind: "dollars"; amount: number; description: string };
 
 function displayNameFrom(
   profile: ProfileRow | null,
@@ -125,8 +140,9 @@ export default function BanquePage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [soldeDollars, setSoldeDollars] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
-  const [transactions, setTransactions] = useState<PointsTxRow[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -134,28 +150,51 @@ export default function BanquePage(): JSX.Element | null {
     const token = activeSession.access_token;
     const uid = activeSession.user.id;
 
-    const [profileRes, sumRes, listRes] = await Promise.all([
-      restJson<ProfileRow[]>(
-        `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name`,
-        token,
-      ),
-      restJson<{ amount?: unknown }[]>(
-        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=amount`,
-        token,
-      ),
-      restJson<PointsTxRow[]>(
-        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&select=id,created_at,amount,type&order=created_at.desc&limit=20`,
-        token,
-      ),
-    ]);
+    const pmqTypeFilter = `type=in.(${PMQ_POINT_TYPES.join(",")})`;
+
+    const [profileRes, banqueRes, sumRes, pointsListRes, mouvementsRes] =
+      await Promise.all([
+        restJson<ProfileRow[]>(
+          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name`,
+          token,
+        ),
+        restJson<BanqueMembreRow[]>(
+          `banque_membres?membre_id=eq.${encodeURIComponent(uid)}&select=solde_dollars`,
+          token,
+        ),
+        restJson<{ amount?: unknown }[]>(
+          `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&${pmqTypeFilter}&select=amount`,
+          token,
+        ),
+        restJson<PointsTxRow[]>(
+          `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&${pmqTypeFilter}&select=id,created_at,amount,type&order=created_at.desc&limit=20`,
+          token,
+        ),
+        restJson<BanqueMouvementRow[]>(
+          `banque_membres_mouvements?membre_id=eq.${encodeURIComponent(uid)}&select=id,created_at,montant,type,description&order=created_at.desc&limit=20`,
+          token,
+        ),
+      ]);
 
     const errMsg =
-      profileRes.error ?? sumRes.error ?? listRes.error ?? null;
+      profileRes.error ??
+      banqueRes.error ??
+      sumRes.error ??
+      pointsListRes.error ??
+      mouvementsRes.error ??
+      null;
     setLoadError(errMsg);
 
     if (!profileRes.error) {
       const rows = profileRes.data ?? [];
       setProfile((rows[0] ?? null) as ProfileRow | null);
+    }
+
+    if (banqueRes.error) {
+      setSoldeDollars(0);
+    } else {
+      const rows = banqueRes.data ?? [];
+      setSoldeDollars(Number(rows[0]?.solde_dollars ?? 0));
     }
 
     if (sumRes.error) {
@@ -169,11 +208,38 @@ export default function BanquePage(): JSX.Element | null {
       setTotalPoints(sum);
     }
 
-    if (listRes.error) {
-      setTransactions([]);
-    } else {
-      setTransactions((listRes.data ?? []) as PointsTxRow[]);
+    const merged: HistoryRow[] = [];
+    if (!pointsListRes.error) {
+      for (const row of (pointsListRes.data ?? []) as PointsTxRow[]) {
+        merged.push({
+          id: `pt-${row.id}`,
+          created_at: row.created_at,
+          kind: "points",
+          amount: Number(row.amount ?? 0),
+          type: row.type,
+        });
+      }
     }
+    if (!mouvementsRes.error) {
+      for (const row of (mouvementsRes.data ?? []) as BanqueMouvementRow[]) {
+        merged.push({
+          id: `bm-${row.id}`,
+          created_at: row.created_at,
+          kind: "dollars",
+          amount: Number(row.montant ?? 0),
+          description:
+            row.description?.trim() ||
+            (row.type === "redistribution"
+              ? "Redistribution PMQ"
+              : row.type?.replace(/_/g, " ") || "Crédit banque"),
+        });
+      }
+    }
+    merged.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    setHistory(merged.slice(0, 20));
   }, []);
 
   useEffect(() => {
@@ -245,8 +311,11 @@ export default function BanquePage(): JSX.Element | null {
   }
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
-  const estimatedCad = totalPoints * CAD_PER_POINT;
-  const canTransfer = estimatedCad >= MIN_TRANSFER_CAD;
+  const canTransfer = soldeDollars >= MIN_TRANSFER_CAD;
+  const progressPct = Math.min(
+    100,
+    Math.max(0, (soldeDollars / MIN_TRANSFER_CAD) * 100),
+  );
 
   if (session === undefined) {
     return (
@@ -373,6 +442,80 @@ export default function BanquePage(): JSX.Element | null {
           style={{
             borderRadius: "16px",
             padding: "1.5rem 1.35rem",
+            marginBottom: "1rem",
+            background: `linear-gradient(135deg, ${ROUGE} 0%, #8b291f 55%, #5c1a14 100%)`,
+            border: "1px solid rgba(245, 240, 232, 0.2)",
+            boxShadow: "0 12px 40px rgba(192, 57, 43, 0.12)",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.72rem",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              opacity: 0.85,
+            }}
+          >
+            Solde Banque ($)
+          </p>
+          <p
+            style={{
+              margin: "0.35rem 0 0.15rem",
+              fontSize: "clamp(2.25rem, 7vw, 3rem)",
+              fontWeight: 800,
+              fontFamily: "var(--font-dm), system-ui, sans-serif",
+              letterSpacing: "-0.02em",
+              color: GOLD,
+            }}
+          >
+            {cad.format(soldeDollars)}
+          </p>
+          <p
+            style={{
+              margin: "0.85rem 0 0.35rem",
+              fontSize: "0.78rem",
+              opacity: 0.75,
+            }}
+          >
+            Seuil de retrait : {cad.format(MIN_TRANSFER_CAD)}
+          </p>
+          <div
+            style={{
+              height: "8px",
+              borderRadius: "999px",
+              background: "rgba(245, 240, 232, 0.12)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${progressPct}%`,
+                borderRadius: "999px",
+                background: canTransfer ? GOLD : ROUGE,
+                transition: "width 0.35s ease",
+              }}
+            />
+          </div>
+          <p
+            style={{
+              margin: "0.45rem 0 0",
+              fontSize: "0.78rem",
+              opacity: 0.7,
+            }}
+          >
+            {canTransfer
+              ? "Seuil atteint — transfert disponible"
+              : `${progressPct.toFixed(0)} % vers le seuil de ${cad.format(MIN_TRANSFER_CAD)}`}
+          </p>
+        </section>
+
+        <section
+          style={{
+            borderRadius: "16px",
+            padding: "1.5rem 1.35rem",
             marginBottom: "1.5rem",
             background: `linear-gradient(135deg, ${GOLD} 0%, #a67f12 55%, #7a5e0d 100%)`,
             border: "1px solid rgba(245, 240, 232, 0.25)",
@@ -390,7 +533,7 @@ export default function BanquePage(): JSX.Element | null {
               opacity: 0.85,
             }}
           >
-            Solde points PMQ
+            Points PMQ
           </p>
           <p
             style={{
@@ -405,24 +548,13 @@ export default function BanquePage(): JSX.Element | null {
           </p>
           <p
             style={{
-              margin: 0,
-              fontSize: "1.05rem",
-              fontWeight: 600,
-              opacity: 0.92,
-            }}
-          >
-            Valeur estimée : {cad.format(estimatedCad)}
-          </p>
-          <p
-            style={{
               margin: "0.65rem 0 0",
               fontSize: "0.78rem",
               opacity: 0.8,
               lineHeight: 1.45,
             }}
           >
-            Estimation indicative (× {CAD_PER_POINT.toFixed(2)} $ / pt) — le montant
-            réel suit les redistributions officielles.
+            Cumul des points code vidéo et quiz — base du calcul de redistribution.
           </p>
         </section>
 
@@ -455,9 +587,9 @@ export default function BanquePage(): JSX.Element | null {
                 opacity: 0.95,
               }}
             >
-              Minimum $100 requis
+              Minimum {cad.format(MIN_TRANSFER_CAD)} requis
               <span style={{ display: "block", marginTop: "0.25rem", opacity: 0.85 }}>
-                Solde estimé : {cad.format(estimatedCad)}
+                Solde banque : {cad.format(soldeDollars)}
               </span>
             </p>
           ) : null}
@@ -476,7 +608,7 @@ export default function BanquePage(): JSX.Element | null {
             Historique
           </h2>
 
-          {transactions.length === 0 ? (
+          {history.length === 0 ? (
             <p
               style={{
                 opacity: 0.78,
@@ -536,19 +668,25 @@ export default function BanquePage(): JSX.Element | null {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        Points
+                        Montant
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {transactions.map((row) => {
-                      const amt = Number(row.amount ?? 0);
-                      const signed =
-                        amt > 0
-                          ? `+${pointsFmt.format(amt)}`
-                          : pointsFmt.format(amt);
-                      const color =
-                        amt >= 0 ? GOLD : ROUGE;
+                    {history.map((row) => {
+                      const amt = row.amount;
+                      const isDollars = row.kind === "dollars";
+                      const signed = isDollars
+                        ? amt > 0
+                          ? `+${cad.format(amt)}`
+                          : cad.format(amt)
+                        : amt > 0
+                          ? `+${pointsFmt.format(amt)} pts`
+                          : `${pointsFmt.format(amt)} pts`;
+                      const color = amt >= 0 ? GOLD : ROUGE;
+                      const label = isDollars
+                        ? row.description
+                        : transactionDescription(row.type);
                       let dateLabel = "—";
                       try {
                         dateLabel = dateFmt.format(new Date(row.created_at));
@@ -573,7 +711,19 @@ export default function BanquePage(): JSX.Element | null {
                             {dateLabel}
                           </td>
                           <td style={{ padding: "0.7rem 1rem", maxWidth: "360px" }}>
-                            {transactionDescription(row.type)}
+                            {label}
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "0.2rem",
+                                fontSize: "0.72rem",
+                                opacity: 0.55,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.06em",
+                              }}
+                            >
+                              {isDollars ? "Banque $" : "Points PMQ"}
+                            </span>
                           </td>
                           <td
                             style={{

@@ -12,7 +12,7 @@ const OPERATIONS_RATE = 0.25;
 
 const ELIGIBLE_POINT_TYPES = ["code", "quiz"] as const;
 const PAGE_SIZE = 1000;
-const TX_BATCH_SIZE = 500;
+const MOUVEMENT_BATCH_SIZE = 500;
 
 /** "2026-05" → "2026-05-01" pour la colonne date `month` de redistribution_history. */
 function parseMonthInput(raw: string): { monthKey: string; monthDate: string } | null {
@@ -63,6 +63,69 @@ async function aggregateEligiblePoints(
   }
 
   return totals;
+}
+
+/** Crédite le solde $ et journalise le mouvement pour chaque membre. */
+async function creditBanqueMembres(
+  supabase: SupabaseClient,
+  credits: { membre_id: string; gain: number; description: string }[],
+): Promise<void> {
+  for (const { membre_id, gain, description } of credits) {
+    if (!Number.isFinite(gain) || gain <= 0) continue;
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("banque_membres")
+      .select("solde_dollars")
+      .eq("membre_id", membre_id)
+      .maybeSingle();
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    const previous = Number(existing?.solde_dollars ?? 0);
+    const nextSolde = previous + gain;
+    const now = new Date().toISOString();
+
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from("banque_membres")
+        .update({ solde_dollars: nextSolde, updated_at: now })
+        .eq("membre_id", membre_id);
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+    } else {
+      const { error: insertError } = await supabase.from("banque_membres").insert({
+        membre_id,
+        solde_dollars: gain,
+        updated_at: now,
+      });
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+    }
+
+  }
+
+  const mouvementRows = credits
+    .filter((c) => Number.isFinite(c.gain) && c.gain > 0)
+    .map((c) => ({
+      membre_id: c.membre_id,
+      montant: c.gain,
+      type: "redistribution",
+      description: c.description,
+    }));
+
+  for (let i = 0; i < mouvementRows.length; i += MOUVEMENT_BATCH_SIZE) {
+    const batch = mouvementRows.slice(i, i + MOUVEMENT_BATCH_SIZE);
+    const { error: mouvementError } = await supabase
+      .from("banque_membres_mouvements")
+      .insert(batch);
+    if (mouvementError) {
+      throw new Error(mouvementError.message);
+    }
+  }
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -191,15 +254,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const valuePerPoint = pmqPool / totalWeight;
     let totalDistributed = 0;
-    const txRows: Record<string, unknown>[] = [];
+    const bankCredits: { membre_id: string; gain: number; description: string }[] =
+      [];
 
     for (const m of weights) {
       const payout = (pmqPool * m.weight) / totalWeight;
       totalDistributed += payout;
-      txRows.push({
+      bankCredits.push({
         membre_id: m.membre_id,
-        type: "redistribution",
-        amount: payout,
+        gain: payout,
         description: `Redistribution PMQ — ${monthKey}`,
       });
     }
@@ -219,13 +282,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: histError.message }, { status: 500 });
     }
 
-    for (let i = 0; i < txRows.length; i += TX_BATCH_SIZE) {
-      const batch = txRows.slice(i, i + TX_BATCH_SIZE);
-      const { error: txError } = await supabase
-        .from("points_transactions")
-        .insert(batch);
-      if (txError) {
-        return NextResponse.json({ error: txError.message }, { status: 500 });
+    for (let i = 0; i < bankCredits.length; i += MOUVEMENT_BATCH_SIZE) {
+      const batch = bankCredits.slice(i, i + MOUVEMENT_BATCH_SIZE);
+      try {
+        await creditBanqueMembres(supabase, batch);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        return NextResponse.json({ error: message }, { status: 500 });
       }
     }
 
