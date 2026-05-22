@@ -34,7 +34,7 @@ function indexToAnswerLetter(index: number): "a" | "b" | "c" | "d" | null {
   return String.fromCharCode(97 + index) as "a" | "b" | "c" | "d";
 }
 
-export default function VideoQuizPage(): JSX.Element {
+export default function VideoQuizPage(): React.JSX.Element {
   const params = useParams();
   const router = useRouter();
   const videoId = params.id as string;
