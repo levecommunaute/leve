@@ -152,18 +152,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const denom = Math.max(rows?.length ?? 0, 1);
-    const pointsEarned = correct * POINTS_PER_CORRECT;
 
-    console.log("INSERTING PT:", { membre_id: user.id, amount: pointsEarned, type: "quiz" })
+    const { data: profile } = await svc
+      .from("profiles")
+      .select("multiplier")
+      .eq("id", user.id)
+      .single();
+    const multiplicateur = Number(profile?.multiplier ?? 1);
 
-    const { error: ptError } = await svc.from("points_transactions").insert({
-      membre_id: user.id,
-      amount: pointsEarned,
-      type: "quiz",
-      description: `Quiz vidéo — ${correct}/${denom} bonnes réponses`,
-    });
+    const pointsEarned = correct * POINTS_PER_CORRECT * multiplicateur;
+    const pointsTotal = (rows?.length ?? 0) * POINTS_PER_CORRECT;
+    const pointsPerdus =
+      (pointsTotal - correct * POINTS_PER_CORRECT) * multiplicateur;
 
-    console.log("PT ERROR:", JSON.stringify(ptError))
+    const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses · ×${multiplicateur}`;
+
+    const ptRows: {
+      membre_id: string;
+      amount: number;
+      type: string;
+      description: string;
+    }[] = [
+      {
+        membre_id: user.id,
+        amount: pointsEarned,
+        type: "quiz",
+        description: quizDescription,
+      },
+    ];
+
+    if (pointsPerdus > 0) {
+      ptRows.push({
+        membre_id: user.id,
+        amount: -pointsPerdus,
+        type: "ptc",
+        description: `Quiz vidéo — points non obtenus · ×${multiplicateur}`,
+      });
+    }
+
+    const { error: ptError } = await svc.from("points_transactions").insert(ptRows);
+
+    if (ptError) {
+      return NextResponse.json({ error: ptError.message }, { status: 500 });
+    }
 
     const { error: qsError } = await svc.from("quiz_submissions").insert({
       membre_id: user.id,
@@ -172,13 +203,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       points_awarded: pointsEarned,
     });
 
-    console.log("QS ERROR:", JSON.stringify(qsError))
+    if (qsError) {
+      return NextResponse.json({ error: qsError.message }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
       score_correct: correct,
       score_total: denom,
       points_earned: pointsEarned,
+      points_perdus: pointsPerdus,
+      multiplicateur,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
