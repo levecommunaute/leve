@@ -142,7 +142,7 @@ async function aggregatePointsByUser(
     const { data, error } = await restJson<
       { membre_id?: unknown; amount?: unknown }[]
     >(
-      `points_transactions?select=membre_id,amount&offset=${offset}&limit=${PAGE_SIZE}`,
+      `points_transactions?type=eq.quiz&select=membre_id,amount&offset=${offset}&limit=${PAGE_SIZE}`,
       accessToken,
     );
 

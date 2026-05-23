@@ -72,7 +72,7 @@ export default function ProfilPage(): JSX.Element | null {
       fetch(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre`, {
         headers: { apikey: KEY, Authorization: `Bearer ${token}` }
       }).then(r => r.json()),
-      fetch(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=in.(code,quiz)&select=amount`, {
+      fetch(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=amount`, {
         headers: { apikey: KEY, Authorization: `Bearer ${token}` }
       }).then(r => r.json()),
       fetch(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, {

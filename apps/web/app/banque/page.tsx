@@ -36,7 +36,7 @@ function createAuthedSupabase(accessToken: string): SupabaseClient {
 }
 
 const MIN_TRANSFER_CAD = 100;
-const PMQ_POINT_TYPES = ["code", "quiz"] as const;
+const PMQ_POINT_TYPES = ["quiz"] as const;
 
 type ProfileRow = {
   display_name: string | null;
@@ -540,7 +540,7 @@ export default function BanquePage(): JSX.Element | null {
               lineHeight: 1.45,
             }}
           >
-            Cumul des points code vidéo et quiz — base du calcul de redistribution.
+            Cumul des points quiz — base du calcul de redistribution.
           </p>
         </section>
 
