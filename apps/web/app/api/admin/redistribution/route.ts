@@ -10,7 +10,6 @@ const PRODUCTION_RATE = 0.2;
 const FONDATION_RATE = 0.1;
 const OPERATIONS_RATE = 0.25;
 
-const ELIGIBLE_POINT_TYPES = ["code", "quiz"] as const;
 const PAGE_SIZE = 1000;
 const MOUVEMENT_BATCH_SIZE = 500;
 
@@ -26,13 +25,11 @@ function parseMonthInput(raw: string): { monthKey: string; monthDate: string } |
 
 type MemberWeight = {
   membre_id: string;
-  points: number;
-  multiplier: number;
-  weight: number;
+  pts_ponderes: number;
 };
 
-/** SUM(amount) par membre_id pour les types code et quiz. */
-async function aggregateEligiblePoints(
+/** SUM(pts_ponderes) par membre_id pour type = quiz. */
+async function aggregateQuizPonderes(
   supabase: SupabaseClient,
 ): Promise<Map<string, number>> {
   const totals = new Map<string, number>();
@@ -40,9 +37,9 @@ async function aggregateEligiblePoints(
 
   for (;;) {
     const { data, error } = await supabase
-      .from("points_transactions")
-      .select("membre_id, amount")
-      .in("type", [...ELIGIBLE_POINT_TYPES])
+      .from("points_ponderes")
+      .select("membre_id, pts_ponderes")
+      .eq("type", "quiz")
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (error) {
@@ -53,7 +50,7 @@ async function aggregateEligiblePoints(
     for (const row of rows) {
       const membreId = String(row.membre_id ?? "").trim();
       if (!membreId) continue;
-      const amt = Number(row.amount ?? 0);
+      const amt = Number(row.pts_ponderes ?? 0);
       if (!Number.isFinite(amt)) continue;
       totals.set(membreId, (totals.get(membreId) ?? 0) + amt);
     }
@@ -195,70 +192,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const fondationPool = totalRevenue * FONDATION_RATE;
     const operationsPool = totalRevenue * OPERATIONS_RATE;
 
-    const pointsByMember = await aggregateEligiblePoints(supabase);
-    const memberIds = [...pointsByMember.keys()].filter(
-      (id) => (pointsByMember.get(id) ?? 0) > 0,
-    );
-
-    if (memberIds.length === 0) {
-      return NextResponse.json(
-        {
-          pmq_pool: pmqPool,
-          value_per_point: null,
-          total_distributed: 0,
-          total_members: 0,
-          error: "Aucun point éligible (types code, quiz)",
-        },
-        { status: 422 },
-      );
-    }
-
-    const { data: profiles, error: profilesError } = await supabase
-      .from("profiles")
-      .select("id, multiplier")
-      .in("id", memberIds);
-
-    if (profilesError) {
-      return NextResponse.json({ error: profilesError.message }, { status: 500 });
-    }
-
-    const multiplierById = new Map(
-      (profiles ?? []).map((p) => [String(p.id), Number(p.multiplier ?? 1)]),
-    );
+    const ponderesByMember = await aggregateQuizPonderes(supabase);
 
     const weights: MemberWeight[] = [];
-    let totalWeight = 0;
+    let totalPoids = 0;
 
-    for (const membreId of memberIds) {
-      const points = pointsByMember.get(membreId) ?? 0;
-      const multiplier = multiplierById.get(membreId) ?? 1;
-      const weight = points * multiplier;
-      if (weight > 0) {
-        totalWeight += weight;
-        weights.push({ membre_id: membreId, points, multiplier, weight });
+    for (const [membreId, ptsPonderes] of ponderesByMember) {
+      if (ptsPonderes > 0) {
+        totalPoids += ptsPonderes;
+        weights.push({ membre_id: membreId, pts_ponderes: ptsPonderes });
       }
     }
 
-    if (totalWeight <= 0) {
+    if (weights.length === 0 || totalPoids <= 0) {
       return NextResponse.json(
         {
           pmq_pool: pmqPool,
           value_per_point: null,
           total_distributed: 0,
           total_members: 0,
-          error: "Aucun poids positif (points × multiplicateur)",
+          error: "Aucun point quiz pondéré",
         },
         { status: 422 },
       );
     }
 
-    const valuePerPoint = pmqPool / totalWeight;
+    const valuePerPoint = pmqPool / totalPoids;
     let totalDistributed = 0;
     const bankCredits: { membre_id: string; gain: number; description: string }[] =
       [];
 
     for (const m of weights) {
-      const payout = (pmqPool * m.weight) / totalWeight;
+      const payout = (pmqPool * m.pts_ponderes) / totalPoids;
       totalDistributed += payout;
       bankCredits.push({
         membre_id: m.membre_id,
