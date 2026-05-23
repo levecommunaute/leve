@@ -33,7 +33,7 @@ export function parseMultiplierFromDescription(
   if (!description?.trim()) return null;
   const m = description.match(/×\s*(\d+(?:[.,]\d+)?)/);
   if (!m) return null;
-  const n = Number(m[1].replace(",", "."));
+  const n = Number((m[1] ?? "0").replace(",", "."));
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
