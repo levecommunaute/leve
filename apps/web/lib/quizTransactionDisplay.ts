@@ -60,16 +60,16 @@ export function formatQuizTransactionLines(
   let correct = score?.correct;
   if (correct == null || !Number.isFinite(correct)) {
     const absAmt = Math.abs(amount);
-    const baseFromAmount =
-      mult > 0 ? Math.round(absAmt / mult / QUIZ_POINTS_PER_CORRECT) : 0;
+    const baseFromAmount = Math.round(absAmt / QUIZ_POINTS_PER_CORRECT);
     correct = Math.max(0, Math.min(totalQuestions, baseFromAmount));
   }
 
   const basePts = correct * QUIZ_POINTS_PER_CORRECT;
+  const weightedTotal = basePts * mult;
   const multLabel = formatMultiplier(mult);
 
   return {
     line1: `Quiz ${correct}/${totalQuestions} bonnes réponses — base ${pointsFmt.format(basePts)} pts`,
-    line2: `Multiplicateur ×${multLabel} appliqué — total ${pointsFmt.format(amount)} pts`,
+    line2: `Multiplicateur ×${multLabel} appliqué — total ${pointsFmt.format(weightedTotal)} pts`,
   };
 }

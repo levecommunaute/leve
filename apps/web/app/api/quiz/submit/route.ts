@@ -160,12 +160,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
 
-    const pointsEarned = correct * POINTS_PER_CORRECT * multiplicateur;
-    const pointsTotal = (rows?.length ?? 0) * POINTS_PER_CORRECT;
-    const pointsPerdus =
-      (pointsTotal - correct * POINTS_PER_CORRECT) * multiplicateur;
+    const pointsEarned = correct * POINTS_PER_CORRECT;
+    const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
+    const pointsEarnedPonderes = pointsEarned * multiplicateur;
+    const pointsPerdusPonderes = pointsPerdus * multiplicateur;
 
-    const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses · ×${multiplicateur}`;
+    const multSuffix = ` · ×${multiplicateur}`;
+    const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses${multSuffix}`;
+    const ptcDescription = `Quiz vidéo — points non obtenus${multSuffix}`;
 
     const ptRows: {
       membre_id: string;
@@ -186,7 +188,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         membre_id: user.id,
         amount: -pointsPerdus,
         type: "ptc",
-        description: `Quiz vidéo — points non obtenus · ×${multiplicateur}`,
+        description: ptcDescription,
       });
     }
 
@@ -194,6 +196,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (ptError) {
       return NextResponse.json({ error: ptError.message }, { status: 500 });
+    }
+
+    const ppRows: {
+      membre_id: string;
+      pts_bruts: number;
+      multiplicateur: number;
+      pts_ponderes: number;
+      type: string;
+    }[] = [
+      {
+        membre_id: user.id,
+        pts_bruts: pointsEarned,
+        multiplicateur,
+        pts_ponderes: pointsEarnedPonderes,
+        type: "quiz",
+      },
+    ];
+
+    if (pointsPerdus > 0) {
+      ppRows.push({
+        membre_id: user.id,
+        pts_bruts: pointsPerdus,
+        multiplicateur,
+        pts_ponderes: pointsPerdusPonderes,
+        type: "ptc",
+      });
+    }
+
+    const { error: ppError } = await svc.from("points_ponderes").insert(ppRows);
+
+    if (ppError) {
+      return NextResponse.json({ error: ppError.message }, { status: 500 });
     }
 
     const { error: qsError } = await svc.from("quiz_submissions").insert({
@@ -212,7 +246,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       score_correct: correct,
       score_total: denom,
       points_earned: pointsEarned,
+      points_earned_ponderes: pointsEarnedPonderes,
       points_perdus: pointsPerdus,
+      points_perdus_ponderes: pointsPerdusPonderes,
       multiplicateur,
     });
   } catch (e) {
