@@ -7,6 +7,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
 import { signOut } from "../../lib/auth";
+import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
@@ -32,6 +33,13 @@ type QuizSubmissionRow = {
   score: number | null;
   points_awarded: number | null;
   completed_at?: string | null;
+};
+
+type PointsTxRow = {
+  id: string;
+  created_at: string;
+  amount: number | string | null;
+  description: string | null;
 };
 
 function formatMemberTypeLabel(raw: string | null | undefined): string {
@@ -61,6 +69,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [quizRows, setQuizRows] = useState<{ video_id: string; title: string; score: number; points: number; at: string | null; }[]>([]);
+  const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -68,11 +77,14 @@ export default function ProfilPage(): JSX.Element | null {
     const uid = activeSession.user.id;
     const token = activeSession.access_token;
 
-    const [profileRes, txRes, quizRes] = await Promise.all([
+    const [profileRes, txRes, txHistoryRes, quizRes] = await Promise.all([
       fetch(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre`, {
         headers: { apikey: KEY, Authorization: `Bearer ${token}` }
       }).then(r => r.json()),
       fetch(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=amount`, {
+        headers: { apikey: KEY, Authorization: `Bearer ${token}` }
+      }).then(r => r.json()),
+      fetch(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`, {
         headers: { apikey: KEY, Authorization: `Bearer ${token}` }
       }).then(r => r.json()),
       fetch(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, {
@@ -86,6 +98,8 @@ export default function ProfilPage(): JSX.Element | null {
     const txData = Array.isArray(txRes) ? txRes : [];
     const sum = txData.reduce((acc: number, row: { amount: unknown }) => acc + Number(row.amount ?? 0), 0);
     setTotalPointsPmq(sum);
+
+    setQuizTxHistory(Array.isArray(txHistoryRes) ? (txHistoryRes as PointsTxRow[]) : []);
 
     const quizSubs = Array.isArray(quizRes) ? quizRes as QuizSubmissionRow[] : [];
     const ids = [...new Set(quizSubs.map((s) => s.video_id).filter(Boolean))];
@@ -164,7 +178,8 @@ export default function ProfilPage(): JSX.Element | null {
   const name = displayNameFrom(profile, session);
   const memberLabel = formatMemberTypeLabel(profile?.member_type ?? null);
   const mult = Number(profile?.multiplier ?? 1);
-  const multiplierDisplay = `${Number.isFinite(mult) ? mult.toFixed(1) : "1.0"}×`;
+  const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
+  const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
   return (
@@ -219,6 +234,55 @@ export default function ProfilPage(): JSX.Element | null {
               <dd style={{ margin: "0.25rem 0 0" }}>{typeof profile?.numero_membre === "string" && profile.numero_membre.trim() ? `#${profile.numero_membre}` : "—"}</dd>
             </div>
           </dl>
+        </section>
+
+        <section style={{ marginBottom: "1.75rem" }}>
+          <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.08em", margin: "0 0 0.75rem", color: GOLD }}>Historique des transactions quiz</h2>
+          <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem" }}>Points PMQ crédités ou débités par quiz.</p>
+          {quizTxHistory.length === 0 ? (
+            <p style={{ opacity: 0.65, fontSize: "0.95rem" }}>Aucune transaction quiz pour le moment.</p>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+              {quizTxHistory.map((tx) => {
+                const amount = Number(tx.amount ?? 0);
+                const lines = formatQuizTransactionLines(amount, tx.description, profileMultiplier);
+                let dateLabel = "—";
+                try {
+                  dateLabel = dateFmt.format(new Date(tx.created_at));
+                } catch {
+                  dateLabel = tx.created_at;
+                }
+                const color = amount >= 0 ? GOLD : ROUGE;
+                const signed =
+                  amount > 0
+                    ? `+${pointsFmt.format(amount)} pts`
+                    : `${pointsFmt.format(amount)} pts`;
+                return (
+                  <li
+                    key={tx.id}
+                    style={{
+                      borderRadius: "10px",
+                      padding: "1rem",
+                      background: "rgba(245, 240, 232, 0.04)",
+                      border: "1px solid rgba(245, 240, 232, 0.1)",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <div style={{ flex: "1 1 12rem", minWidth: 0 }}>
+                      <p style={{ margin: 0, fontWeight: 600 }}>{lines.line1}</p>
+                      <p style={{ margin: "0.3rem 0 0", fontSize: "0.88rem", opacity: 0.8 }}>{lines.line2}</p>
+                      <p style={{ margin: "0.4rem 0 0", fontSize: "0.8rem", opacity: 0.55 }}>{dateLabel}</p>
+                    </div>
+                    <span style={{ color, fontWeight: 700, whiteSpace: "nowrap" }}>{signed}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
 
         <section style={{ marginBottom: "2rem" }}>

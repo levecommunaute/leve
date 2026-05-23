@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
+import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
@@ -40,6 +41,7 @@ const PMQ_POINT_TYPES = ["quiz"] as const;
 
 type ProfileRow = {
   display_name: string | null;
+  multiplier: number | string | null;
 };
 
 type PointsTxRow = {
@@ -47,6 +49,7 @@ type PointsTxRow = {
   created_at: string;
   amount: number | string | null;
   type: string | null;
+  description: string | null;
 };
 
 type BanqueMembreRow = {
@@ -62,7 +65,14 @@ type BanqueMouvementRow = {
 };
 
 type HistoryRow =
-  | { id: string; created_at: string; kind: "points"; amount: number; type: string | null }
+  | {
+      id: string;
+      created_at: string;
+      kind: "points";
+      amount: number;
+      type: string | null;
+      description: string | null;
+    }
   | { id: string; created_at: string; kind: "dollars"; amount: number; description: string };
 
 function displayNameFrom(
@@ -123,6 +133,7 @@ export default function BanquePage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profileMultiplier, setProfileMultiplier] = useState(1);
   const [soldeDollars, setSoldeDollars] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -137,7 +148,7 @@ export default function BanquePage(): JSX.Element | null {
       await Promise.all([
         sb
           .from("profiles")
-          .select("display_name")
+          .select("display_name, multiplier")
           .eq("id", uid)
           .maybeSingle(),
         sb
@@ -152,7 +163,7 @@ export default function BanquePage(): JSX.Element | null {
           .in("type", [...PMQ_POINT_TYPES]),
         sb
           .from("points_transactions")
-          .select("id, created_at, amount, type")
+          .select("id, created_at, amount, type, description")
           .eq("membre_id", uid)
           .in("type", [...PMQ_POINT_TYPES])
           .order("created_at", { ascending: false })
@@ -175,7 +186,10 @@ export default function BanquePage(): JSX.Element | null {
     setLoadError(errMsg);
 
     if (!profileRes.error) {
-      setProfile((profileRes.data ?? null) as ProfileRow | null);
+      const prof = (profileRes.data ?? null) as ProfileRow | null;
+      setProfile(prof);
+      const m = Number(prof?.multiplier ?? 1);
+      setProfileMultiplier(Number.isFinite(m) && m > 0 ? m : 1);
     }
 
     if (banqueRes.error) {
@@ -203,6 +217,7 @@ export default function BanquePage(): JSX.Element | null {
           kind: "points",
           amount: Number(row.amount ?? 0),
           type: row.type,
+          description: row.description ?? null,
         });
       }
     }
@@ -670,6 +685,16 @@ export default function BanquePage(): JSX.Element | null {
                           ? `+${pointsFmt.format(amt)} pts`
                           : `${pointsFmt.format(amt)} pts`;
                       const color = amt >= 0 ? GOLD : ROUGE;
+                      const isQuizPoints =
+                        !isDollars &&
+                        (row.type ?? "").toLowerCase() === "quiz";
+                      const quizLines = isQuizPoints
+                        ? formatQuizTransactionLines(
+                            row.amount,
+                            row.description,
+                            profileMultiplier,
+                          )
+                        : null;
                       const label = isDollars
                         ? row.description
                         : transactionDescription(row.type);
@@ -697,7 +722,23 @@ export default function BanquePage(): JSX.Element | null {
                             {dateLabel}
                           </td>
                           <td style={{ padding: "0.7rem 1rem", maxWidth: "360px" }}>
-                            {label}
+                            {quizLines ? (
+                              <>
+                                <span style={{ display: "block" }}>{quizLines.line1}</span>
+                                <span
+                                  style={{
+                                    display: "block",
+                                    marginTop: "0.25rem",
+                                    fontSize: "0.85rem",
+                                    opacity: 0.8,
+                                  }}
+                                >
+                                  {quizLines.line2}
+                                </span>
+                              </>
+                            ) : (
+                              label
+                            )}
                             <span
                               style={{
                                 display: "block",
