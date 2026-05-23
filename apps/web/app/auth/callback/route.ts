@@ -9,6 +9,7 @@ import {
   profileHasMembership,
   type ProfileAbonnement,
 } from "../../../lib/abonnement";
+import { sendWelcomeEmail } from "../../../lib/emails";
 import { sendGracePeriodEmail } from "../../../lib/grace-email";
 import { checkYoutubeSubscription } from "../../../lib/youtube-subscription";
 
@@ -91,19 +92,40 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const now = new Date();
-    const { error: insertError } = await supabase.from("profiles").upsert(
-      {
-        id: user.id,
-        email: user.email ?? null,
-        display_name: displayName,
-        ...buildActiveSubscriptionPatch(now),
-      },
-      { onConflict: "id" },
-    );
+    const { data: newProfile, error: insertError } = await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          email: user.email ?? null,
+          display_name: displayName,
+          ...buildActiveSubscriptionPatch(now),
+        },
+        { onConflict: "id" },
+      )
+      .select("numero_membre, display_name")
+      .single();
 
     if (insertError) {
       console.error("[auth/callback] profiles upsert:", insertError.message);
       return NextResponse.redirect(`${origin}/?error=profile`);
+    }
+
+    if (user.email) {
+      const numeroRaw = newProfile?.numero_membre;
+      const numero =
+        typeof numeroRaw === "number"
+          ? numeroRaw
+          : typeof numeroRaw === "string"
+            ? Number(numeroRaw)
+            : NaN;
+      if (Number.isFinite(numero)) {
+        const welcomeName =
+          typeof newProfile?.display_name === "string" && newProfile.display_name.trim()
+            ? newProfile.display_name
+            : displayName;
+        await sendWelcomeEmail(user.email, welcomeName, numero);
+      }
     }
 
     return NextResponse.redirect(`${origin}/dashboard`);
