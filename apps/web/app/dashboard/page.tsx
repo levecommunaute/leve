@@ -296,7 +296,9 @@ export default function DashboardPage(): JSX.Element | null {
   const name = displayNameFrom(profile, session);
   const memberLabel = formatMemberTypeLabel(profile?.member_type ?? null);
   const mult = Number(profile?.multiplier ?? 1);
-  const multiplierDisplay = `${Number.isFinite(mult) ? mult.toFixed(1) : "1.0"}×`;
+  const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
+  const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
+  const weightedPointsPmq = totalPointsPmq * profileMultiplier;
   const isNewMember =
     totalPointsPmq === 0 && lastRedistributionCad === null;
 
@@ -523,6 +525,38 @@ export default function DashboardPage(): JSX.Element | null {
               }}
             >
               {pointsFmt.format(totalPointsPmq)}
+            </p>
+            <p
+              style={{
+                margin: "0.75rem 0 0",
+                fontSize: "0.68rem",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                opacity: 0.5,
+              }}
+            >
+              Points pondérés (base redistribution)
+            </p>
+            <p
+              style={{
+                margin: "0.25rem 0 0",
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                opacity: 0.75,
+              }}
+            >
+              {pointsFmt.format(weightedPointsPmq)}
+            </p>
+            <p
+              style={{
+                margin: "0.3rem 0 0",
+                fontSize: "0.7rem",
+                opacity: 0.45,
+                lineHeight: 1.4,
+              }}
+            >
+              Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
+              utilisé pour calculer votre part de redistribution
             </p>
           </article>
 

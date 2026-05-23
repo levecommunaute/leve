@@ -180,6 +180,7 @@ export default function ProfilPage(): JSX.Element | null {
   const mult = Number(profile?.multiplier ?? 1);
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
+  const weightedPointsPmq = totalPointsPmq * profileMultiplier;
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
   return (
@@ -207,6 +208,11 @@ export default function ProfilPage(): JSX.Element | null {
           <article style={{ borderRadius: "12px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
             <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>Total points PMQ</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
+            <p style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>Points pondérés (base redistribution)</p>
+            <p style={{ margin: "0.25rem 0 0", fontSize: "0.95rem", fontWeight: 600, opacity: 0.75 }}>{pointsFmt.format(weightedPointsPmq)}</p>
+            <p style={{ margin: "0.3rem 0 0", fontSize: "0.7rem", opacity: 0.45, lineHeight: 1.4 }}>
+              Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} — utilisé pour calculer votre part de redistribution
+            </p>
           </article>
           <article style={{ borderRadius: "12px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.12)" }}>
             <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>

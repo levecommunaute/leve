@@ -342,6 +342,7 @@ export default function BanquePage(): JSX.Element | null {
   }
 
   const name = displayNameFrom(profile, session);
+  const weightedPointsPmq = totalPoints * profileMultiplier;
 
   return (
     <div
@@ -549,13 +550,35 @@ export default function BanquePage(): JSX.Element | null {
           </p>
           <p
             style={{
-              margin: "0.65rem 0 0",
-              fontSize: "0.78rem",
-              opacity: 0.8,
-              lineHeight: 1.45,
+              margin: "0.55rem 0 0",
+              fontSize: "0.68rem",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              opacity: 0.65,
             }}
           >
-            Cumul des points quiz — base du calcul de redistribution.
+            Points pondérés (base redistribution)
+          </p>
+          <p
+            style={{
+              margin: "0.2rem 0 0",
+              fontSize: "1.05rem",
+              fontWeight: 700,
+              opacity: 0.85,
+            }}
+          >
+            {pointsFmt.format(weightedPointsPmq)} pts
+          </p>
+          <p
+            style={{
+              margin: "0.3rem 0 0",
+              fontSize: "0.72rem",
+              opacity: 0.65,
+              lineHeight: 1.4,
+            }}
+          >
+            Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
+            utilisé pour calculer votre part de redistribution
           </p>
         </section>
 
