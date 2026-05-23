@@ -92,7 +92,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const now = new Date();
-    const { data: newProfile, error: insertError } = await supabase
+    const { error: insertError } = await supabase
       .from("profiles")
       .upsert(
         {
@@ -102,9 +102,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           ...buildActiveSubscriptionPatch(now),
         },
         { onConflict: "id" },
-      )
-      .select("numero_membre, display_name")
-      .single();
+      );
 
     if (insertError) {
       console.error("[auth/callback] profiles upsert:", insertError.message);
@@ -112,20 +110,36 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     if (user.email) {
-      const numeroRaw = newProfile?.numero_membre;
-      const numero =
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("numero_membre, display_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const numeroRaw = profileRow?.numero_membre;
+      const numeroParsed =
         typeof numeroRaw === "number"
           ? numeroRaw
           : typeof numeroRaw === "string"
             ? Number(numeroRaw)
             : NaN;
-      if (Number.isFinite(numero)) {
-        const welcomeName =
-          typeof newProfile?.display_name === "string" && newProfile.display_name.trim()
-            ? newProfile.display_name
-            : displayName;
-        await sendWelcomeEmail(user.email, welcomeName, numero);
-      }
+      const numeroMembre = Number.isFinite(numeroParsed) ? numeroParsed : 0;
+
+      const welcomeName =
+        typeof profileRow?.display_name === "string" && profileRow.display_name.trim()
+          ? profileRow.display_name
+          : displayName;
+
+      console.log("[auth/callback] sendWelcomeEmail before", {
+        email: user.email,
+        welcomeName,
+        numeroMembre,
+      });
+      await sendWelcomeEmail(user.email, welcomeName, numeroMembre);
+      console.log("[auth/callback] sendWelcomeEmail after", {
+        email: user.email,
+        numeroMembre,
+      });
     }
 
     return NextResponse.redirect(`${origin}/dashboard`);
