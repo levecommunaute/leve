@@ -87,7 +87,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.redirect(`${origin}/auth/abonnement-requis`);
     }
 
-    if (profileHasMembership(profile)) {
+    // Membre existant = abonnement_verifie_at renseigné (pas seulement une ligne dans profiles)
+    if (profile?.abonnement_verifie_at != null) {
       return NextResponse.redirect(`${origin}/auth/deja-membre`);
     }
 
