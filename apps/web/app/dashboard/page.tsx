@@ -528,35 +528,15 @@ export default function DashboardPage(): JSX.Element | null {
             </p>
             <p
               style={{
-                margin: "0.75rem 0 0",
-                fontSize: "0.68rem",
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                opacity: 0.5,
-              }}
-            >
-              Points pondérés (base redistribution)
-            </p>
-            <p
-              style={{
-                margin: "0.25rem 0 0",
-                fontSize: "0.95rem",
-                fontWeight: 600,
+                margin: "0.5rem 0 0",
+                fontSize: "0.82rem",
                 opacity: 0.75,
-              }}
-            >
-              {pointsFmt.format(weightedPointsPmq)}
-            </p>
-            <p
-              style={{
-                margin: "0.3rem 0 0",
-                fontSize: "0.7rem",
-                opacity: 0.45,
                 lineHeight: 1.4,
               }}
             >
-              Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
-              utilisé pour calculer votre part de redistribution
+              Points pondérés (base redistribution) :{" "}
+              {pointsFmt.format(weightedPointsPmq)} pts · ×
+              {profileMultiplier.toFixed(1)}
             </p>
           </article>
 
