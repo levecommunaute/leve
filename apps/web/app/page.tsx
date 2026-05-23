@@ -2,9 +2,29 @@
 
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
-import type { JSX } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS } from "../lib/appBottomNavLinks";
-import { signInWithGoogle } from "../lib/auth";
+import { getSession, signInWithGoogle } from "../lib/auth";
+import { readSessionFromAuthCookies } from "../lib/supabase-auth-cookies";
+
+function isBadOAuthStateUrl(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return (
+    params.get("error") === "invalid_request" &&
+    params.get("error_code") === "bad_oauth_state"
+  );
+}
+
+function clearOAuthErrorParams(): void {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("error");
+  url.searchParams.delete("error_code");
+  url.searchParams.delete("error_description");
+  const next = url.pathname + url.search + url.hash;
+  window.history.replaceState({}, "", next || "/");
+}
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -109,7 +129,43 @@ function RougeButton({
 }
 
 export default function Home(): JSX.Element {
+  const router = useRouter();
   const fonts = `${bebas.variable} ${dmSans.variable}`;
+  const [oauthRecovery, setOauthRecovery] = useState<
+    "idle" | "checking" | "error" | "redirecting"
+  >("idle");
+
+  useEffect(() => {
+    if (!isBadOAuthStateUrl()) return;
+
+    let cancelled = false;
+    setOauthRecovery("checking");
+
+    async function handleBadOAuthState(): Promise<void> {
+      const cookieSession = readSessionFromAuthCookies();
+      const session = cookieSession ?? (await getSession());
+
+      if (cancelled) return;
+
+      clearOAuthErrorParams();
+
+      if (session) {
+        setOauthRecovery("redirecting");
+        router.replace("/dashboard");
+        return;
+      }
+
+      setOauthRecovery("error");
+    }
+
+    void handleBadOAuthState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  const showOAuthError = oauthRecovery === "error";
 
   return (
     <main
@@ -192,18 +248,33 @@ export default function Home(): JSX.Element {
             La première plateforme YouTube francophone qui redistribue ses revenus publicitaires à sa
             communauté.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
-              Rejoindre
-            </RougeButton>
-            <RougeButton
-              onClick={() => void signInWithGoogle("connecter")}
-              className="!bg-transparent"
-              style={{ border: `2px solid ${ROUGE}` }}
+          {showOAuthError ? (
+            <div
+              className="flex max-w-md flex-col items-center gap-5 rounded-lg border px-8 py-8 text-center"
+              style={{ borderColor: "#3a2020", background: "#120a0a" }}
+              role="alert"
             >
-              Se connecter
-            </RougeButton>
-          </div>
+              <p className="text-base leading-relaxed opacity-90">
+                Une erreur est survenue, veuillez réessayer
+              </p>
+              <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+                Rejoindre
+              </RougeButton>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+                Rejoindre
+              </RougeButton>
+              <RougeButton
+                onClick={() => void signInWithGoogle("connecter")}
+                className="!bg-transparent"
+                style={{ border: `2px solid ${ROUGE}` }}
+              >
+                Se connecter
+              </RougeButton>
+            </div>
+          )}
         </div>
       </section>
 
