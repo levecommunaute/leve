@@ -188,7 +188,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   if (user.email) {
-    await sendGracePeriodEmail(user.email, graceExpireAt);
+    await sendGracePeriodEmail(user.email, displayName, graceExpireAt);
   }
 
   return NextResponse.redirect(`${origin}/dashboard?grace=true`);

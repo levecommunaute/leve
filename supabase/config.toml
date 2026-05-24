@@ -1,0 +1,2 @@
+[functions.notifier-grace-abonnement]
+verify_jwt = false

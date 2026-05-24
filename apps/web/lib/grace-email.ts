@@ -1,27 +1,20 @@
-import { getServiceSupabase } from "./admin-server";
+import { sendGraceEmail } from "./emails";
 
-/** Notification période de grâce via Supabase Edge Function (SMTP projet). */
+/** Notification immédiate jour 0 (le cron envoie les rappels J+15, J+25, J+30). */
 export async function sendGracePeriodEmail(
   email: string,
+  displayName: string,
   graceExpireAt: Date,
 ): Promise<void> {
   if (!email.trim()) return;
 
   try {
-    const supabase = getServiceSupabase();
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-
-    const { error } = await supabase.functions.invoke("notifier-grace-abonnement", {
-      body: {
-        email: email.trim(),
-        grace_expire_at: graceExpireAt.toISOString(),
-        app_url: appUrl || undefined,
-      },
-    });
-
-    if (error) {
-      console.error("[grace-email] invoke:", error.message);
-    }
+    await sendGraceEmail(
+      email.trim(),
+      displayName,
+      30,
+      graceExpireAt.toISOString(),
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[grace-email]", message);

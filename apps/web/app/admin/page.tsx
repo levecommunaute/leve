@@ -55,6 +55,27 @@ type FeatureFlagRow = {
   updated_at: string;
 };
 
+/** Ordre d'affichage dans « Déploiement des fonctionnalités » (flags définis en base). */
+const FEATURE_FLAG_ORDER = [
+  "boutique",
+  "concours",
+  "classement",
+  "verification-60-pct",
+  "pool-pa",
+  "collaborateur",
+] as const;
+
+function sortFeatureFlags(flags: FeatureFlagRow[]): FeatureFlagRow[] {
+  return [...flags].sort((a, b) => {
+    const ia = FEATURE_FLAG_ORDER.indexOf(a.nom as (typeof FEATURE_FLAG_ORDER)[number]);
+    const ib = FEATURE_FLAG_ORDER.indexOf(b.nom as (typeof FEATURE_FLAG_ORDER)[number]);
+    const rankA = ia === -1 ? FEATURE_FLAG_ORDER.length : ia;
+    const rankB = ib === -1 ? FEATURE_FLAG_ORDER.length : ib;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.nom.localeCompare(b.nom, "fr");
+  });
+}
+
 type QuizCorrectLetter = "a" | "b" | "c" | "d";
 
 function quizChoix(row: QuizQuestionRow): string[] {
@@ -1717,7 +1738,7 @@ export default function AdminPage(): JSX.Element {
                   gap: "0.85rem",
                 }}
               >
-                {featureFlags.map((flag) => {
+                {sortFeatureFlags(featureFlags).map((flag) => {
                   const busy = togglingFlagNom === flag.nom;
                   return (
                     <li

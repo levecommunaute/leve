@@ -40,5 +40,6 @@ INSERT INTO public.feature_flags (nom, actif, description) VALUES
   ('concours', true, 'Page concours actifs'),
   ('classement', true, 'Page classement membres'),
   ('pool-pa', false, 'Pool Activités PA'),
-  ('collaborateur', false, 'Espace collaborateur')
+  ('collaborateur', false, 'Espace collaborateur'),
+  ('verification-60-pct', false, 'Vérification 60% visionnage avant code vidéo')
 ON CONFLICT (nom) DO NOTHING;

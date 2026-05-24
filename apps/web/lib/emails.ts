@@ -55,9 +55,9 @@ function formatGraceExpireAt(iso: string): string {
 function graceSubject(joursRestants: number): string {
   switch (joursRestants) {
     case 30:
-      return "Votre abonnement LEVE a expiré";
+      return "Votre abonnement LEVE a expiré — vous avez 30 jours pour vous réabonner";
     case 15:
-      return "Rappel — Il vous reste 15 jours pour vous réabonner";
+      return "Rappel — il vous reste 15 jours pour vous réabonner";
     case 5:
       return "⚠️ Urgent — 5 jours pour garder votre profil LEVE";
     case 0:
