@@ -452,10 +452,7 @@ export default function VideoPage(): React.JSX.Element {
           >
             {video.points_value} pts
           </span>
-          <BonusBadge
-            bonusExpireAt={video.bonus_expire_at}
-            style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem" }}
-          />
+          <BonusBadge bonusExpireAt={video.bonus_expire_at} />
         </div>
         <div style={{ margin: "2rem 0", aspectRatio: "16/9" }}>
           {verification60Enabled ? (

@@ -38,10 +38,9 @@ const badgeStyle: CSSProperties = {
 
 type BonusBadgeProps = {
   bonusExpireAt: string | null | undefined;
-  style?: CSSProperties;
 };
 
-export function BonusBadge({ bonusExpireAt, style }: BonusBadgeProps): JSX.Element | null {
+export function BonusBadge({ bonusExpireAt }: BonusBadgeProps): JSX.Element | null {
   const [visible, setVisible] = useState(() => isBonusActive(bonusExpireAt));
   const [remaining, setRemaining] = useState(() => {
     if (!bonusExpireAt) return "";
@@ -78,7 +77,7 @@ export function BonusBadge({ bonusExpireAt, style }: BonusBadgeProps): JSX.Eleme
   if (!visible) return null;
 
   return (
-    <span style={{ ...badgeStyle, ...style }}>
+    <span style={badgeStyle as CSSProperties}>
       ⚡ Bonus ×2 — expire dans {remaining}
     </span>
   );
