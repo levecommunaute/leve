@@ -1,11 +1,8 @@
 "use client";
 
+import { createBrowserClient } from "@repo/supabase/browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-
-const SB = "https://lrolatbudvianeazliax.supabase.co";
-const KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
 const WATCH_THRESHOLD = 0.6;
 const WATCH_CHECK_MS = 5000;
@@ -90,7 +87,8 @@ const pageShell: React.CSSProperties = {
 export default function VideoPage(): React.JSX.Element {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const rawId = params.id;
+  const id = (Array.isArray(rawId) ? rawId[0] : rawId) ?? "";
 
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -124,15 +122,34 @@ export default function VideoPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
-    fetch(`${SB}/rest/v1/videos?id=eq.${id}&select=*`, {
-      headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
-    })
-      .then((r) => r.json())
-      .then((d: Video[]) => {
-        setVideo(d[0] || null);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    if (!id) {
+      setVideo(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const supabase = createBrowserClient();
+      const { data, error } = await supabase
+        .from("videos")
+        .select("id, youtube_id, title, points_value")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (error) {
+        console.error("video load:", error.message);
+        setVideo(null);
+      } else {
+        setVideo(data);
+      }
+      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {

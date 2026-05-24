@@ -4,10 +4,6 @@ import { createBrowserClient } from "@repo/supabase/browser";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const SB = "https://lrolatbudvianeazliax.supabase.co";
-const KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
-
 const TIMER_SECONDS = 90;
 
 interface Video {
@@ -37,7 +33,8 @@ function indexToAnswerLetter(index: number): "a" | "b" | "c" | "d" | null {
 export default function VideoQuizPage(): React.JSX.Element {
   const params = useParams();
   const router = useRouter();
-  const videoId = params.id as string;
+  const rawId = params.id;
+  const videoId = (Array.isArray(rawId) ? rawId[0] : rawId) ?? "";
 
   const [video, setVideo] = useState<Video | null>(null);
   const [quiz_questions, setQuiz_questions] = useState<QuizQuestion[]>([]);
@@ -75,17 +72,18 @@ export default function VideoQuizPage(): React.JSX.Element {
       setLoading(true);
       setLoadError(null);
       try {
-        const [vRes, qRes] = await Promise.all([
-          fetch(`${SB}/rest/v1/videos?id=eq.${videoId}&select=id,title`, {
-            headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
-          }).then((r) => r.json() as Promise<Video[]>),
+        const supabase = createBrowserClient();
+        const [vResult, qRes] = await Promise.all([
+          supabase.from("videos").select("id, title").eq("id", videoId).maybeSingle(),
           fetch(`/api/quiz/questions?video_id=${encodeURIComponent(videoId)}`, {
             credentials: "include",
           }),
         ]);
         if (cancelled) return;
-        const v = Array.isArray(vRes) ? vRes[0] : null;
-        setVideo(v ?? null);
+        if (vResult.error) {
+          console.error("video load:", vResult.error.message);
+        }
+        setVideo(vResult.data ?? null);
         if (!qRes.ok) {
           const err = await qRes.json().catch(() => ({}));
           setLoadError(
