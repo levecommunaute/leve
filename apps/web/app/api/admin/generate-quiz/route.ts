@@ -35,7 +35,7 @@ function normalizeQuestion(item: unknown): GeneratedQuestion | null {
     const letter = bonneReponse.toLowerCase();
     const map: Record<string, number> = { a: 0, b: 1, c: 2, d: 3 };
     if (letter in map) {
-      bonneReponse = choix[map[letter]] ?? "";
+      bonneReponse = choix[map[letter as keyof typeof map] ?? 0] ?? "";
     }
   }
 
