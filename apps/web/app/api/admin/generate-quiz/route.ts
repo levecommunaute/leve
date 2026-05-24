@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getServiceSupabase, requireAdminSecret } from "../../../../../lib/admin-server";
+import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
 
 export const dynamic = "force-dynamic";
 
