@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type JSX } from "react";
-
-const GOLD = "#D4A017";
+import { useEffect, useState, type JSX } from "react";
 
 export function isBonusActive(bonusExpireAt: string | null | undefined): boolean {
   if (!bonusExpireAt) return false;
@@ -22,19 +20,16 @@ function formatRemainingMs(ms: number): string {
   return parts.join(" ");
 }
 
-const badgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  fontSize: "0.72rem",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-  padding: "0.28rem 0.55rem",
-  borderRadius: "8px",
-  color: GOLD,
-  background: "rgba(212, 160, 23, 0.18)",
-  border: "1px solid rgba(212, 160, 23, 0.45)",
-  lineHeight: 1.35,
-};
+const badgeStyle = {
+  display: "inline-block",
+  background: "rgba(212, 160, 23, 0.15)",
+  color: "#D4A017",
+  border: "1px solid rgba(212, 160, 23, 0.4)",
+  padding: "2px 8px",
+  borderRadius: "4px",
+  fontSize: "0.75rem",
+  fontWeight: 600,
+} as const;
 
 type BonusBadgeProps = {
   bonusExpireAt: string | null | undefined;
@@ -77,7 +72,7 @@ export function BonusBadge({ bonusExpireAt }: BonusBadgeProps): JSX.Element | nu
   if (!visible) return null;
 
   return (
-    <span style={badgeStyle as CSSProperties}>
+    <span style={badgeStyle}>
       ⚡ Bonus ×2 — expire dans {remaining}
     </span>
   );
