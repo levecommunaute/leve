@@ -6,7 +6,7 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
@@ -34,6 +34,56 @@ type VideoRow = {
   youtube_id: string;
   title: string | null;
   points_value: number | null;
+  bonus_expire_at: string | null;
+};
+
+type SubmissionRow = {
+  video_id: string;
+};
+
+type VideoMemberStatus = "completed" | "code_submitted" | "not_completed";
+
+function memberStatusForVideo(
+  videoId: string,
+  quizVideoIds: Set<string>,
+  codeVideoIds: Set<string>,
+): VideoMemberStatus {
+  if (quizVideoIds.has(videoId)) return "completed";
+  if (codeVideoIds.has(videoId)) return "code_submitted";
+  return "not_completed";
+}
+
+function isBonusActive(bonusExpireAt: string | null | undefined): boolean {
+  if (!bonusExpireAt) return false;
+  const t = new Date(bonusExpireAt).getTime();
+  return Number.isFinite(t) && t > Date.now();
+}
+
+const STATUS_STYLES: Record<
+  VideoMemberStatus,
+  { label: string; icon: string; color: string; border: string; bg: string }
+> = {
+  completed: {
+    label: "Complété",
+    icon: "✅",
+    color: "#2ECC71",
+    border: "rgba(46, 204, 113, 0.45)",
+    bg: "rgba(46, 204, 113, 0.12)",
+  },
+  code_submitted: {
+    label: "Code soumis",
+    icon: "🔒",
+    color: GOLD,
+    border: "rgba(212, 160, 23, 0.45)",
+    bg: "rgba(212, 160, 23, 0.12)",
+  },
+  not_completed: {
+    label: "Non complété",
+    icon: "▶",
+    color: TEXT,
+    border: "rgba(245, 240, 232, 0.2)",
+    bg: "rgba(245, 240, 232, 0.06)",
+  },
 };
 
 type ProfileRow = {
@@ -95,25 +145,91 @@ export default function VideosPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [videos, setVideos] = useState<VideoRow[]>([]);
+  const [quizVideoIds, setQuizVideoIds] = useState<Set<string>>(() => new Set());
+  const [codeVideoIds, setCodeVideoIds] = useState<Set<string>>(() => new Set());
   const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
-  useEffect(() => {
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/videos?select=*&order=created_at.desc`;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const loadVideos = useCallback(async (activeSession: Session) => {
+    const token = activeSession.access_token;
+    const uid = activeSession.user.id;
+    setListLoading(true);
+    setListError(null);
 
-    fetch(url, {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-      },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setVideos(Array.isArray(data) ? (data as VideoRow[]) : []);
-        setListLoading(false);
-      })
-      .catch(() => setListLoading(false));
+    const headers = {
+      apikey: KEY,
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    };
+
+    try {
+      const [videosRes, quizRes, codeRes] = await Promise.all([
+        fetch(
+          `${SB}/rest/v1/videos?select=id,youtube_id,title,points_value,bonus_expire_at&order=created_at.desc`,
+          { headers },
+        ),
+        fetch(
+          `${SB}/rest/v1/quiz_submissions?membre_id=eq.${encodeURIComponent(uid)}&select=video_id`,
+          { headers },
+        ),
+        fetch(
+          `${SB}/rest/v1/code_submissions?membre_id=eq.${encodeURIComponent(uid)}&select=video_id`,
+          { headers },
+        ),
+      ]);
+
+      const [videosJson, quizJson, codeJson] = await Promise.all([
+        videosRes.json(),
+        quizRes.json(),
+        codeRes.json(),
+      ]);
+
+      if (!videosRes.ok) {
+        const msg =
+          videosJson &&
+          typeof videosJson === "object" &&
+          "message" in videosJson &&
+          typeof (videosJson as { message: unknown }).message === "string"
+            ? (videosJson as { message: string }).message
+            : "Impossible de charger les vidéos";
+        setListError(msg);
+        setVideos([]);
+      } else {
+        setVideos(Array.isArray(videosJson) ? (videosJson as VideoRow[]) : []);
+      }
+
+      if (quizRes.ok && Array.isArray(quizJson)) {
+        setQuizVideoIds(
+          new Set(
+            (quizJson as SubmissionRow[])
+              .map((r) => r.video_id)
+              .filter((id): id is string => typeof id === "string" && id.length > 0),
+          ),
+        );
+      } else {
+        setQuizVideoIds(new Set());
+      }
+
+      if (codeRes.ok && Array.isArray(codeJson)) {
+        setCodeVideoIds(
+          new Set(
+            (codeJson as SubmissionRow[])
+              .map((r) => r.video_id)
+              .filter((id): id is string => typeof id === "string" && id.length > 0),
+          ),
+        );
+      } else {
+        setCodeVideoIds(new Set());
+      }
+    } catch {
+      setListError("Erreur réseau lors du chargement des vidéos.");
+      setVideos([]);
+      setQuizVideoIds(new Set());
+      setCodeVideoIds(new Set());
+    } finally {
+      setListLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -127,6 +243,7 @@ export default function VideosPage(): JSX.Element | null {
         return;
       }
       setSession(next);
+      void loadVideos(next);
       const res = await fetch(
         `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name`,
         {
@@ -165,7 +282,18 @@ export default function VideosPage(): JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [router]);
+  }, [router, loadVideos]);
+
+  useEffect(() => {
+    if (!session) return;
+    const onVisible = (): void => {
+      if (document.visibilityState === "visible") {
+        void loadVideos(session);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [session, loadVideos]);
 
   function handleSignOut(): void {
     setSigningOut(true);
@@ -346,6 +474,10 @@ export default function VideosPage(): JSX.Element | null {
           </p>
         </section>
 
+        {listError ? (
+          <p style={{ color: ROUGE, fontSize: "0.95rem", marginBottom: "1rem" }}>{listError}</p>
+        ) : null}
+
         {listLoading ? (
           <p style={{ opacity: 0.7 }}>Chargement des vidéos…</p>
         ) : videos.length === 0 ? (
@@ -358,6 +490,9 @@ export default function VideosPage(): JSX.Element | null {
               const title = v.title?.trim() || "Vidéo";
               const pts = Number(v.points_value ?? 0);
               const ptsLabel = `${Number.isFinite(pts) ? pts : 0} pts`;
+              const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+              const statusStyle = STATUS_STYLES[status];
+              const bonus = isBonusActive(v.bonus_expire_at);
 
               return (
                 <article
@@ -376,6 +511,51 @@ export default function VideosPage(): JSX.Element | null {
                     <div
                       style={{
                         display: "flex",
+                        flexWrap: "wrap",
+                        gap: "0.4rem",
+                        marginBottom: "0.65rem",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          letterSpacing: "0.03em",
+                          padding: "0.28rem 0.55rem",
+                          borderRadius: "8px",
+                          color: statusStyle.color,
+                          background: statusStyle.bg,
+                          border: `1px solid ${statusStyle.border}`,
+                        }}
+                      >
+                        <span aria-hidden>{statusStyle.icon}</span>
+                        {statusStyle.label}
+                      </span>
+                      {bonus ? (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            padding: "0.28rem 0.55rem",
+                            borderRadius: "8px",
+                            color: ROUGE,
+                            background: "rgba(192, 57, 43, 0.14)",
+                            border: `1px solid ${ROUGE}`,
+                          }}
+                        >
+                          ⚡ Bonus ×2
+                        </span>
+                      ) : null}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
                         alignItems: "flex-start",
                         justifyContent: "space-between",
                         gap: "0.65rem",
@@ -388,13 +568,14 @@ export default function VideosPage(): JSX.Element | null {
                           fontSize: "1.05rem",
                           fontWeight: 600,
                           lineHeight: 1.35,
-                          color: "#ffffff",
+                          color: TEXT,
                           flex: 1,
                         }}
                       >
                         {title}
                       </h2>
                       <span
+                        title="Points disponibles pour cette vidéo"
                         style={{
                           flexShrink: 0,
                           background: "rgba(212, 160, 23, 0.15)",
