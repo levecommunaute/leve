@@ -4,14 +4,21 @@ import { createBrowserClient } from "@repo/supabase/browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-const WATCH_THRESHOLD = 0.6;
-const WATCH_CHECK_MS = 5000;
+const WATCH_THRESHOLD = 60;
+const PROGRESS_CHECK_MS = 5000;
+const SAVE_PROGRESS_MS = 10000;
+const SEEK_TOLERANCE_PCT = 10;
 
 interface Video {
   id: string;
   youtube_id: string;
   title: string;
   points_value: number;
+}
+
+interface VideoProgressRow {
+  max_progress: number;
+  unlocked: boolean;
 }
 
 interface YTPlayer {
@@ -94,6 +101,8 @@ export default function VideoPage(): React.JSX.Element {
   const [loading, setLoading] = useState<boolean>(true);
   const [verification60Enabled, setVerification60Enabled] = useState<boolean>(false);
   const [flagLoaded, setFlagLoaded] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string>("");
+  const [progressLoaded, setProgressLoaded] = useState<boolean>(false);
   const [codeUnlocked, setCodeUnlocked] = useState<boolean>(false);
   const [f1, setF1] = useState<string>("");
   const [f2, setF2] = useState<string>("");
@@ -107,18 +116,88 @@ export default function VideoPage(): React.JSX.Element {
 
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
-  const watchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const maxProgressRef = useRef<number>(0);
+  const lastKnownPositionRef = useRef<number>(0);
+  const unlockedRef = useRef<boolean>(false);
+  const userIdRef = useRef<string>("");
+  const videoIdRef = useRef<string>("");
 
-  const checkWatchProgress = useCallback((): void => {
+  const saveProgress = useCallback(async (): Promise<void> => {
+    const membreId = userIdRef.current;
+    const videoId = videoIdRef.current;
+    if (!membreId || !videoId) return;
+
+    const maxProgress = maxProgressRef.current;
+    const unlocked = unlockedRef.current || maxProgress >= WATCH_THRESHOLD;
+
+    const supabase = createBrowserClient();
+    const { error } = await supabase.from("video_progress").upsert(
+      {
+        membre_id: membreId,
+        video_id: videoId,
+        max_progress: Math.round(maxProgress * 100) / 100,
+        unlocked,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "membre_id,video_id" },
+    );
+
+    if (error) {
+      console.error("video_progress upsert:", error.message);
+    }
+  }, []);
+
+  const markUnlocked = useCallback((): void => {
+    if (unlockedRef.current) return;
+    unlockedRef.current = true;
+    setCodeUnlocked(true);
+    void saveProgress();
+  }, [saveProgress]);
+
+  const trackLinearProgress = useCallback((): void => {
     const player = playerRef.current;
     if (!player) return;
 
     const duration = player.getDuration();
     if (!duration || duration <= 0) return;
 
-    if (player.getCurrentTime() / duration >= WATCH_THRESHOLD) {
-      setCodeUnlocked(true);
+    const currentPct = (player.getCurrentTime() / duration) * 100;
+    const lastKnown = lastKnownPositionRef.current;
+
+    if (currentPct > lastKnown + SEEK_TOLERANCE_PCT) {
+      lastKnownPositionRef.current = currentPct;
+      return;
     }
+
+    lastKnownPositionRef.current = currentPct;
+
+    if (currentPct > maxProgressRef.current) {
+      maxProgressRef.current = currentPct;
+    }
+
+    if (maxProgressRef.current >= WATCH_THRESHOLD) {
+      markUnlocked();
+    }
+  }, [markUnlocked]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  useEffect(() => {
+    videoIdRef.current = id;
+  }, [id]);
+
+  useEffect(() => {
+    void (async () => {
+      const supabase = createBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user?.id) setUserId(session.user.id);
+    })();
   }, []);
 
   useEffect(() => {
@@ -174,12 +253,56 @@ export default function VideoPage(): React.JSX.Element {
   useEffect(() => {
     if (!flagLoaded) return;
     if (!verification60Enabled) {
+      unlockedRef.current = true;
       setCodeUnlocked(true);
+      setProgressLoaded(true);
     }
   }, [flagLoaded, verification60Enabled]);
 
   useEffect(() => {
-    if (!flagLoaded || !verification60Enabled || !video?.youtube_id) return;
+    if (!flagLoaded || !verification60Enabled || !id) return;
+
+    if (!userId) {
+      setProgressLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const supabase = createBrowserClient();
+      const { data, error } = await supabase
+        .from("video_progress")
+        .select("max_progress, unlocked")
+        .eq("membre_id", userId)
+        .eq("video_id", id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("video_progress load:", error.message);
+      } else if (data) {
+        const row = data as VideoProgressRow;
+        const savedMax = Number(row.max_progress) || 0;
+        maxProgressRef.current = savedMax;
+        lastKnownPositionRef.current = savedMax;
+
+        if (row.unlocked || savedMax >= WATCH_THRESHOLD) {
+          unlockedRef.current = true;
+          setCodeUnlocked(true);
+        }
+      }
+
+      setProgressLoaded(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [flagLoaded, verification60Enabled, id, userId]);
+
+  useEffect(() => {
+    if (!flagLoaded || !verification60Enabled || !video?.youtube_id || !progressLoaded) return;
 
     let cancelled = false;
 
@@ -195,31 +318,47 @@ export default function VideoPage(): React.JSX.Element {
         },
         events: {
           onReady: () => {
-            checkWatchProgress();
+            trackLinearProgress();
           },
           onStateChange: () => {
-            checkWatchProgress();
+            trackLinearProgress();
           },
         },
       });
 
       playerRef.current = player;
 
-      watchIntervalRef.current = setInterval(() => {
-        checkWatchProgress();
-      }, WATCH_CHECK_MS);
+      progressIntervalRef.current = setInterval(() => {
+        trackLinearProgress();
+      }, PROGRESS_CHECK_MS);
+
+      saveIntervalRef.current = setInterval(() => {
+        void saveProgress();
+      }, SAVE_PROGRESS_MS);
     })();
 
     return () => {
       cancelled = true;
-      if (watchIntervalRef.current) {
-        clearInterval(watchIntervalRef.current);
-        watchIntervalRef.current = null;
+      void saveProgress();
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      if (saveIntervalRef.current) {
+        clearInterval(saveIntervalRef.current);
+        saveIntervalRef.current = null;
       }
       playerRef.current?.destroy();
       playerRef.current = null;
     };
-  }, [flagLoaded, verification60Enabled, video?.youtube_id, checkWatchProgress]);
+  }, [
+    flagLoaded,
+    verification60Enabled,
+    video?.youtube_id,
+    progressLoaded,
+    trackLinearProgress,
+    saveProgress,
+  ]);
 
   const handleSubmit = async (): Promise<void> => {
     setSubmitting(true);
@@ -253,7 +392,7 @@ export default function VideoPage(): React.JSX.Element {
     setSubmitting(false);
   };
 
-  if (loading || !flagLoaded) {
+  if (loading || !flagLoaded || (verification60Enabled && !progressLoaded)) {
     return (
       <div style={{ ...pageShell, display: "flex", alignItems: "center", justifyContent: "center" }}>
         Chargement...
