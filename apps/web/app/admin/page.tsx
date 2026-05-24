@@ -55,6 +55,60 @@ type FeatureFlagRow = {
   updated_at: string;
 };
 
+type CountryCount = {
+  country: string;
+  count: number;
+};
+
+type PoolMonthPoint = {
+  month: string;
+  pmq_balance: number;
+  production_balance: number;
+  fondation_balance: number;
+  operations_balance: number;
+  total_revenue: number;
+};
+
+type PoolCurrent = {
+  pmq_balance: number;
+  production_balance: number;
+  fondation_balance: number;
+  operations_balance: number;
+  total_revenue: number;
+};
+
+type TransparencyRow = {
+  month: string;
+  total_revenue: number;
+  pmq_pool: number;
+  production_pool: number;
+  fondation_pool: number;
+  operations_pool: number;
+  value_per_point: number | null;
+  total_members: number;
+};
+
+type TransparencyAnnual = {
+  total_revenue: number;
+  pmq_pool: number;
+  production_pool: number;
+  fondation_pool: number;
+  operations_pool: number;
+  total_members: number;
+};
+
+type ProductionVideoRow = {
+  id: string;
+  youtube_id: string;
+  title: string | null;
+  points_value: number | null;
+  full_code: string | null;
+  has_code: boolean;
+  has_quiz: boolean;
+  quiz_question_count: number;
+  submission_count: number;
+};
+
 /** Ordre d'affichage dans « Déploiement des fonctionnalités » (flags définis en base). */
 const FEATURE_FLAG_ORDER = [
   "boutique",
@@ -169,6 +223,160 @@ const cad = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 6,
 });
 
+const monthTitleFr = new Intl.DateTimeFormat("fr-CA", {
+  month: "long",
+  year: "numeric",
+});
+
+function formatMonthLabel(ym: string): string {
+  const key = /^(\d{4})-(\d{2})/.exec(ym.trim());
+  const y = key ? Number(key[1]) : NaN;
+  const m = key ? Number(key[2]) : NaN;
+  if (!y || !m) return ym;
+  const d = new Date(Date.UTC(y, m - 1, 1));
+  try {
+    return monthTitleFr.format(d);
+  } catch {
+    return ym;
+  }
+}
+
+function yesNoBadge(value: boolean): JSX.Element {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "0.2rem 0.55rem",
+        borderRadius: "999px",
+        fontSize: "0.68rem",
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        background: value ? "rgba(46, 204, 113, 0.18)" : "rgba(192, 57, 43, 0.15)",
+        color: value ? "#2ECC71" : ROUGE,
+        border: `1px solid ${value ? "rgba(46, 204, 113, 0.35)" : "rgba(192, 57, 43, 0.35)"}`,
+      }}
+    >
+      {value ? "Oui" : "Non"}
+    </span>
+  );
+}
+
+const POOL_SERIES = [
+  { key: "pmq_balance" as const, color: GOLD, label: "PMQ" },
+  { key: "production_balance" as const, color: "#3498DB", label: "Production" },
+  { key: "fondation_balance" as const, color: "#9B59B6", label: "Fondation" },
+  { key: "operations_balance" as const, color: "#7F8C8D", label: "Opérations" },
+];
+
+function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): JSX.Element {
+  if (series.length === 0) {
+    return <p style={{ opacity: 0.65, margin: 0 }}>Aucune redistribution enregistrée.</p>;
+  }
+
+  const W = 920;
+  const H = 260;
+  const pad = { l: 58, r: 18, t: 18, b: 38 };
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+  const maxY = Math.max(
+    ...series.flatMap((row) => POOL_SERIES.map((s) => row[s.key])),
+    1,
+  );
+  const xStep = series.length > 1 ? innerW / (series.length - 1) : 0;
+
+  function yScale(v: number): number {
+    return pad.t + innerH - (v / maxY) * innerH;
+  }
+
+  return (
+    <div style={{ width: "100%", overflowX: "auto" }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Évolution mensuelle des pools"
+        style={{ display: "block", minWidth: "640px", width: "100%", height: "auto" }}
+      >
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+          const y = pad.t + innerH * (1 - t);
+          const val = maxY * t;
+          return (
+            <g key={t}>
+              <line
+                x1={pad.l}
+                y1={y}
+                x2={W - pad.r}
+                y2={y}
+                stroke="rgba(245,240,232,0.08)"
+                strokeWidth={1}
+              />
+              <text
+                x={pad.l - 8}
+                y={y + 4}
+                textAnchor="end"
+                fill="rgba(245,240,232,0.45)"
+                fontSize={10}
+              >
+                {cad.format(val)}
+              </text>
+            </g>
+          );
+        })}
+        {series.map((row, i) => {
+          const x = pad.l + (series.length > 1 ? i * xStep : innerW / 2);
+          return (
+            <text
+              key={row.month}
+              x={x}
+              y={H - 10}
+              textAnchor="middle"
+              fill="rgba(245,240,232,0.5)"
+              fontSize={10}
+            >
+              {row.month.slice(5)}
+            </text>
+          );
+        })}
+        {POOL_SERIES.map((s) => {
+          const points = series
+            .map((row, i) => {
+              const x = pad.l + (series.length > 1 ? i * xStep : innerW / 2);
+              const y = yScale(row[s.key]);
+              return `${x},${y}`;
+            })
+            .join(" ");
+          return (
+            <polyline
+              key={s.key}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={2}
+              points={points}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          );
+        })}
+      </svg>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginTop: "0.75rem" }}>
+        {POOL_SERIES.map((s) => (
+          <span key={s.key} style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem" }}>
+            <span
+              style={{
+                width: "0.75rem",
+                height: "0.75rem",
+                borderRadius: "50%",
+                background: s.color,
+                display: "inline-block",
+              }}
+            />
+            {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 
 function cardStyle() {
   return {
@@ -266,6 +474,28 @@ export default function AdminPage(): JSX.Element {
   const [featureFlagsError, setFeatureFlagsError] = useState<string | null>(null);
   const [togglingFlagNom, setTogglingFlagNom] = useState<string | null>(null);
 
+  const [memberMapCountries, setMemberMapCountries] = useState<CountryCount[]>([]);
+  const [memberMapTotal, setMemberMapTotal] = useState(0);
+  const [memberMapLoading, setMemberMapLoading] = useState(false);
+  const [memberMapError, setMemberMapError] = useState<string | null>(null);
+
+  const [poolSeries, setPoolSeries] = useState<PoolMonthPoint[]>([]);
+  const [poolCurrent, setPoolCurrent] = useState<PoolCurrent | null>(null);
+  const [poolLoading, setPoolLoading] = useState(false);
+  const [poolError, setPoolError] = useState<string | null>(null);
+
+  const [transparencyYear, setTransparencyYear] = useState(() => String(new Date().getFullYear()));
+  const [transparencyMonth, setTransparencyMonth] = useState("");
+  const [transparencyRows, setTransparencyRows] = useState<TransparencyRow[]>([]);
+  const [transparencyAnnual, setTransparencyAnnual] = useState<TransparencyAnnual | null>(null);
+  const [transparencyYears, setTransparencyYears] = useState<string[]>([]);
+  const [transparencyLoading, setTransparencyLoading] = useState(false);
+  const [transparencyError, setTransparencyError] = useState<string | null>(null);
+
+  const [productionVideos, setProductionVideos] = useState<ProductionVideoRow[]>([]);
+  const [productionLoading, setProductionLoading] = useState(false);
+  const [productionError, setProductionError] = useState<string | null>(null);
+
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem(STORAGE_KEY);
@@ -358,6 +588,121 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  const loadMemberMap = useCallback(async (): Promise<void> => {
+    setMemberMapLoading(true);
+    setMemberMapError(null);
+    try {
+      const r = await fetch("/api/admin/member-map", { headers: adminHeaders(), cache: "no-store" });
+      const j = (await r.json()) as {
+        countries?: CountryCount[];
+        total?: number;
+        error?: string;
+      };
+      if (!r.ok) {
+        setMemberMapError(j.error ?? "Erreur carte membres");
+        setMemberMapCountries([]);
+        setMemberMapTotal(0);
+        return;
+      }
+      setMemberMapCountries(j.countries ?? []);
+      setMemberMapTotal(j.total ?? 0);
+    } catch (e) {
+      setMemberMapError(e instanceof Error ? e.message : "Erreur réseau");
+      setMemberMapCountries([]);
+      setMemberMapTotal(0);
+    } finally {
+      setMemberMapLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadPoolAccumulation = useCallback(async (): Promise<void> => {
+    setPoolLoading(true);
+    setPoolError(null);
+    try {
+      const r = await fetch("/api/admin/pool-accumulation", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as {
+        series?: PoolMonthPoint[];
+        current?: PoolCurrent | null;
+        error?: string;
+      };
+      if (!r.ok) {
+        setPoolError(j.error ?? "Erreur pools");
+        setPoolSeries([]);
+        setPoolCurrent(null);
+        return;
+      }
+      setPoolSeries(j.series ?? []);
+      setPoolCurrent(j.current ?? null);
+    } catch (e) {
+      setPoolError(e instanceof Error ? e.message : "Erreur réseau");
+      setPoolSeries([]);
+      setPoolCurrent(null);
+    } finally {
+      setPoolLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadTransparency = useCallback(async (): Promise<void> => {
+    setTransparencyLoading(true);
+    setTransparencyError(null);
+    try {
+      const params = new URLSearchParams();
+      if (transparencyYear) params.set("year", transparencyYear);
+      if (transparencyMonth) params.set("month", transparencyMonth);
+      const qs = params.toString();
+      const r = await fetch(`/api/admin/transparency${qs ? `?${qs}` : ""}`, {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as {
+        rows?: TransparencyRow[];
+        annual_totals?: TransparencyAnnual | null;
+        available_years?: string[];
+        error?: string;
+      };
+      if (!r.ok) {
+        setTransparencyError(j.error ?? "Erreur transparence");
+        setTransparencyRows([]);
+        setTransparencyAnnual(null);
+        return;
+      }
+      setTransparencyRows(j.rows ?? []);
+      setTransparencyAnnual(j.annual_totals ?? null);
+      if (j.available_years?.length) {
+        setTransparencyYears(j.available_years);
+      }
+    } catch (e) {
+      setTransparencyError(e instanceof Error ? e.message : "Erreur réseau");
+      setTransparencyRows([]);
+      setTransparencyAnnual(null);
+    } finally {
+      setTransparencyLoading(false);
+    }
+  }, [adminHeaders, transparencyYear, transparencyMonth]);
+
+  const loadProduction = useCallback(async (): Promise<void> => {
+    setProductionLoading(true);
+    setProductionError(null);
+    try {
+      const r = await fetch("/api/admin/production", { headers: adminHeaders(), cache: "no-store" });
+      const j = (await r.json()) as { videos?: ProductionVideoRow[]; error?: string };
+      if (!r.ok) {
+        setProductionError(j.error ?? "Erreur production");
+        setProductionVideos([]);
+        return;
+      }
+      setProductionVideos(j.videos ?? []);
+    } catch (e) {
+      setProductionError(e instanceof Error ? e.message : "Erreur réseau");
+      setProductionVideos([]);
+    } finally {
+      setProductionLoading(false);
+    }
+  }, [adminHeaders]);
+
   const loadQuizQuestions = useCallback(
     async (videoId: string): Promise<void> => {
       if (!videoId) {
@@ -395,7 +740,25 @@ export default function AdminPage(): JSX.Element {
     void loadLinkedVideoCodes();
     void loadMembers();
     void loadFeatureFlags();
-  }, [hydrated, authed, loadVideos, loadLinkedVideoCodes, loadMembers, loadFeatureFlags]);
+    void loadMemberMap();
+    void loadPoolAccumulation();
+    void loadProduction();
+  }, [
+    hydrated,
+    authed,
+    loadVideos,
+    loadLinkedVideoCodes,
+    loadMembers,
+    loadFeatureFlags,
+    loadMemberMap,
+    loadPoolAccumulation,
+    loadProduction,
+  ]);
+
+  useEffect(() => {
+    if (!hydrated || !authed) return;
+    void loadTransparency();
+  }, [hydrated, authed, loadTransparency]);
 
   useEffect(() => {
     if (!hydrated || !authed) return;
@@ -467,6 +830,18 @@ export default function AdminPage(): JSX.Element {
     setQuizAddMsg(null);
     setFeatureFlags([]);
     setFeatureFlagsError(null);
+    setMemberMapCountries([]);
+    setMemberMapTotal(0);
+    setMemberMapError(null);
+    setPoolSeries([]);
+    setPoolCurrent(null);
+    setPoolError(null);
+    setTransparencyRows([]);
+    setTransparencyAnnual(null);
+    setTransparencyYears([]);
+    setTransparencyError(null);
+    setProductionVideos([]);
+    setProductionError(null);
   }
 
   async function handleToggleFeatureFlag(flag: FeatureFlagRow): Promise<void> {
@@ -695,6 +1070,8 @@ export default function AdminPage(): JSX.Element {
         value_per_point: j.value_per_point ?? null,
         total_distributed: j.total_distributed ?? 0,
       });
+      void loadPoolAccumulation();
+      void loadTransparency();
     } catch {
       setRedistError("Erreur réseau");
     } finally {
@@ -1713,6 +2090,452 @@ export default function AdminPage(): JSX.Element {
                 </ul>
               </div>
             ) : null}
+          </section>
+
+          {/* CARTE DES MEMBRES */}
+          <section style={cardStyle()}>
+            {sectionTitle("CARTE DES MEMBRES")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Répartition géographique des membres (métadonnées auth.users ou domaine courriel). Vue
+              synthétique par pays — le détail complet est dans le tableau ci-dessous.
+            </p>
+            {memberMapError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{memberMapError}</p>
+            ) : null}
+            {memberMapLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement de la carte…</p>
+            ) : memberMapCountries.length === 0 ? (
+              <p style={{ opacity: 0.6 }}>Aucun membre trouvé.</p>
+            ) : (
+              <>
+                <p style={{ margin: "0 0 1rem", fontSize: "1.05rem" }}>
+                  Total :{" "}
+                  <strong style={{ color: GOLD, fontSize: "1.3rem" }}>{memberMapTotal}</strong> membre
+                  {memberMapTotal !== 1 ? "s" : ""} ·{" "}
+                  <strong style={{ color: GOLD }}>{memberMapCountries.length}</strong> pays / zones
+                </p>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                    gap: "0.65rem",
+                    marginBottom: "1.35rem",
+                    padding: "1rem",
+                    borderRadius: "10px",
+                    background: "rgba(212, 160, 23, 0.04)",
+                    border: "1px solid rgba(212, 160, 23, 0.15)",
+                  }}
+                >
+                  {memberMapCountries.slice(0, 12).map((row) => {
+                    const max = memberMapCountries[0]?.count ?? 1;
+                    const intensity = 0.35 + (row.count / max) * 0.65;
+                    return (
+                      <div
+                        key={row.country}
+                        title={`${row.country} — ${row.count} membre(s)`}
+                        style={{
+                          padding: "0.75rem 0.65rem",
+                          borderRadius: "8px",
+                          background: `rgba(192, 57, 43, ${intensity * 0.35})`,
+                          border: `1px solid rgba(212, 160, 23, ${intensity * 0.45})`,
+                          textAlign: "center",
+                        }}
+                      >
+                        <p
+                          style={{
+                            margin: 0,
+                            fontFamily: "var(--font-bebas), Impact, sans-serif",
+                            fontSize: "1.5rem",
+                            letterSpacing: "0.06em",
+                            color: GOLD,
+                          }}
+                        >
+                          {row.count}
+                        </p>
+                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", opacity: 0.85, lineHeight: 1.3 }}>
+                          {row.country}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        {["Pays / zone", "Membres", "%"].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              padding: "0.65rem 0.5rem",
+                              letterSpacing: "0.08em",
+                              fontSize: "0.65rem",
+                              textTransform: "uppercase",
+                              opacity: 0.55,
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {memberMapCountries.map((row) => {
+                        const pct = memberMapTotal > 0 ? (row.count / memberMapTotal) * 100 : 0;
+                        return (
+                          <tr key={row.country} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>{row.country}</td>
+                            <td style={{ padding: "0.6rem 0.5rem", color: GOLD, fontWeight: 600 }}>{row.count}</td>
+                            <td style={{ padding: "0.6rem 0.5rem", opacity: 0.75 }}>
+                              {pct.toFixed(1).replace(".", ",")} %
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* ACCUMULATION DES POOLS */}
+          <section style={cardStyle()}>
+            {sectionTitle("ACCUMULATION DES POOLS")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Évolution mensuelle cumulative des pools PMQ, production, fondation et opérations, calculée
+              depuis <code style={{ fontSize: "0.82rem" }}>redistribution_history</code> et comparée aux
+              soldes actuels de <code style={{ fontSize: "0.82rem" }}>banque_leve</code>.
+            </p>
+            {poolError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{poolError}</p>
+            ) : null}
+            {poolLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement des pools…</p>
+            ) : (
+              <>
+                {poolCurrent ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                      gap: "0.75rem",
+                      marginBottom: "1.35rem",
+                    }}
+                  >
+                    {POOL_SERIES.map((s) => (
+                      <div
+                        key={s.key}
+                        style={{
+                          padding: "0.85rem 1rem",
+                          borderRadius: "10px",
+                          background: "rgba(245, 240, 232, 0.04)",
+                          border: `1px solid ${s.color}33`,
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
+                          {s.label} (actuel)
+                        </p>
+                        <p style={{ margin: "0.35rem 0 0", color: s.color, fontWeight: 600, fontSize: "0.95rem" }}>
+                          {cad.format(poolCurrent[s.key])}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <PoolAccumulationChart series={poolSeries} />
+                {poolSeries.length > 0 ? (
+                  <div style={{ overflowX: "auto", marginTop: "1.25rem" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                      <thead>
+                        <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                          {["Mois", "PMQ cumul.", "Production cumul.", "Fondation cumul.", "Opérations cumul."].map(
+                            (h) => (
+                              <th
+                                key={h}
+                                style={{
+                                  padding: "0.6rem 0.45rem",
+                                  letterSpacing: "0.06em",
+                                  fontSize: "0.62rem",
+                                  textTransform: "uppercase",
+                                  opacity: 0.55,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {h}
+                              </th>
+                            ),
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...poolSeries].reverse().map((row) => (
+                          <tr key={row.month} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                            <td style={{ padding: "0.55rem 0.45rem" }}>{formatMonthLabel(row.month)}</td>
+                            <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.pmq_balance)}</td>
+                            <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.production_balance)}</td>
+                            <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.fondation_balance)}</td>
+                            <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.operations_balance)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </section>
+
+          {/* TRANSPARENCE AVANCÉE */}
+          <section style={cardStyle()}>
+            {sectionTitle("TRANSPARENCE AVANCÉE")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Historique complet des redistributions avec filtres par année et par mois. Total annuel et
+              détail mensuel depuis <code style={{ fontSize: "0.82rem" }}>redistribution_history</code>.
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gap: "1rem",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                alignItems: "end",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <div>
+                <label style={labelSm}>Année</label>
+                <select
+                  value={transparencyYear}
+                  onChange={(e) => setTransparencyYear(e.target.value)}
+                  style={{ ...inputBase, cursor: "pointer" }}
+                >
+                  {(transparencyYears.length ? transparencyYears : [transparencyYear]).map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div
+                style={{ display: "flex", flexDirection: "column" }}
+              >
+                <label style={labelSm}>Mois (optionnel)</label>
+                <input
+                  type="month"
+                  value={transparencyMonth}
+                  onChange={(e) => setTransparencyMonth(e.target.value)}
+                  style={inputBase}
+                />
+              </div>
+              <div
+                style={{ display: "flex", alignItems: "flex-end" }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setTransparencyMonth("")}
+                  style={{
+                    background: "transparent",
+                    color: TEXT,
+                    border: "1px solid rgba(245, 240, 232, 0.2)",
+                    padding: "0.65rem 1rem",
+                    cursor: "pointer",
+                    fontSize: "0.72rem",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    width: "100%",
+                  }}
+                >
+                  Tous les mois
+                </button>
+              </div>
+            </div>
+            {transparencyError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{transparencyError}</p>
+            ) : null}
+            {transparencyLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : (
+              <>
+                {transparencyAnnual && transparencyYear ? (
+                  <div
+                    style={{
+                      marginBottom: "1.25rem",
+                      padding: "1.1rem 1.25rem",
+                      borderRadius: "10px",
+                      background: "rgba(212, 160, 23, 0.06)",
+                      border: "1px solid rgba(212, 160, 23, 0.22)",
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: "0 0 0.65rem",
+                        fontSize: "0.72rem",
+                        letterSpacing: "0.2em",
+                        textTransform: "uppercase",
+                        opacity: 0.55,
+                      }}
+                    >
+                      Total {transparencyYear}
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.85, fontSize: "0.88rem" }}>
+                      <li>
+                        Revenu : <strong style={{ color: GOLD }}>{cad.format(transparencyAnnual.total_revenue)}</strong>
+                      </li>
+                      <li>
+                        PMQ : <strong style={{ color: GOLD }}>{cad.format(transparencyAnnual.pmq_pool)}</strong>
+                      </li>
+                      <li>
+                        Production :{" "}
+                        <strong style={{ color: GOLD }}>{cad.format(transparencyAnnual.production_pool)}</strong>
+                      </li>
+                      <li>
+                        Fondation :{" "}
+                        <strong style={{ color: GOLD }}>{cad.format(transparencyAnnual.fondation_pool)}</strong>
+                      </li>
+                      <li>
+                        Opérations :{" "}
+                        <strong style={{ color: GOLD }}>{cad.format(transparencyAnnual.operations_pool)}</strong>
+                      </li>
+                    </ul>
+                  </div>
+                ) : null}
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        {[
+                          "Mois",
+                          "Revenu",
+                          "PMQ",
+                          "Production",
+                          "Fondation",
+                          "Opérations",
+                          "$/pt",
+                          "Membres",
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              padding: "0.6rem 0.45rem",
+                              letterSpacing: "0.06em",
+                              fontSize: "0.62rem",
+                              textTransform: "uppercase",
+                              opacity: 0.55,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transparencyRows.map((row) => (
+                        <tr key={row.month} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>{formatMonthLabel(row.month)}</td>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.total_revenue)}</td>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.pmq_pool)}</td>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.production_pool)}</td>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.fondation_pool)}</td>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.operations_pool)}</td>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>
+                            {row.value_per_point != null ? cad.format(row.value_per_point) : "—"}
+                          </td>
+                          <td style={{ padding: "0.55rem 0.45rem" }}>{row.total_members}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {transparencyRows.length === 0 ? (
+                    <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucune redistribution pour cette période.</p>
+                  ) : null}
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* ÉQUIPE PRODUCTION */}
+          <section style={cardStyle()}>
+            {sectionTitle("ÉQUIPE PRODUCTION")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Vue technique pour la production : codes associés, disponibilité des quiz et volume de
+              soumissions par vidéo.
+            </p>
+            {productionError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{productionError}</p>
+            ) : null}
+            {productionLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                      {[
+                        "Titre",
+                        "YouTube",
+                        "Points",
+                        "Code",
+                        "Code associé",
+                        "Quiz dispo.",
+                        "Questions",
+                        "Soumissions",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "0.65rem 0.5rem",
+                            letterSpacing: "0.08em",
+                            fontSize: "0.65rem",
+                            textTransform: "uppercase",
+                            opacity: 0.55,
+                            whiteSpace: h === "Code" ? "nowrap" : undefined,
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productionVideos.map((v) => (
+                      <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                        <td style={{ padding: "0.6rem 0.5rem", minWidth: "10rem" }}>{v.title ?? "—"}</td>
+                        <td
+                          style={{
+                            padding: "0.6rem 0.5rem",
+                            fontFamily: "ui-monospace, monospace",
+                            fontSize: "0.78rem",
+                          }}
+                        >
+                          {v.youtube_id}
+                        </td>
+                        <td style={{ padding: "0.6rem 0.5rem" }}>{v.points_value ?? "—"}</td>
+                        <td
+                          style={{
+                            padding: "0.6rem 0.5rem",
+                            fontFamily: "ui-monospace, monospace",
+                            fontSize: "0.78rem",
+                            letterSpacing: "0.04em",
+                          }}
+                        >
+                          {v.full_code ?? "—"}
+                        </td>
+                        <td style={{ padding: "0.6rem 0.5rem" }}>{yesNoBadge(v.has_code)}</td>
+                        <td style={{ padding: "0.6rem 0.5rem" }}>{yesNoBadge(v.has_quiz)}</td>
+                        <td style={{ padding: "0.6rem 0.5rem", textAlign: "center" }}>{v.quiz_question_count}</td>
+                        <td style={{ padding: "0.6rem 0.5rem", textAlign: "center", color: GOLD, fontWeight: 600 }}>
+                          {v.submission_count}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {productionVideos.length === 0 ? (
+                  <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucune vidéo.</p>
+                ) : null}
+              </div>
+            )}
           </section>
 
           {/* SECTION DÉPLOIEMENT DES FONCTIONNALITÉS */}
