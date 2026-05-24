@@ -1,6 +1,7 @@
 import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
+import { currentMonthKey, splitPcolQuizPoints } from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
 
@@ -160,13 +161,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
 
+    const { data: videoRow } = await svc
+      .from("videos")
+      .select("id, collaborateur_id")
+      .eq("id", videoId)
+      .maybeSingle();
+
+    const collaborateurId =
+      videoRow?.collaborateur_id != null ? String(videoRow.collaborateur_id) : null;
+    const isCollaborateurVideo = Boolean(collaborateurId);
+
     const pointsEarned = correct * POINTS_PER_CORRECT;
     const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
-    const pointsEarnedPonderes = pointsEarned * multiplicateur;
+
+    const memberPointsEarned = isCollaborateurVideo
+      ? splitPcolQuizPoints(pointsEarned).ptsMembresNets
+      : pointsEarned;
+
+    const pointsEarnedPonderes = memberPointsEarned * multiplicateur;
     const pointsPerdusPonderes = pointsPerdus * multiplicateur;
 
     const multSuffix = ` · ×${multiplicateur}`;
-    const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses${multSuffix}`;
+    const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur (80 %)" : "";
+    const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses${multSuffix}${collabSuffix}`;
     const ptcDescription = `Quiz vidéo — points non obtenus${multSuffix}`;
 
     const ptRows: {
@@ -177,7 +194,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }[] = [
       {
         membre_id: user.id,
-        amount: pointsEarned,
+        amount: memberPointsEarned,
         type: "quiz",
         description: quizDescription,
       },
@@ -207,7 +224,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }[] = [
       {
         membre_id: user.id,
-        pts_bruts: pointsEarned,
+        pts_bruts: memberPointsEarned,
         multiplicateur,
         pts_ponderes: pointsEarnedPonderes,
         type: "quiz",
@@ -234,22 +251,81 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       membre_id: user.id,
       video_id: videoId,
       score: correct,
-      points_awarded: pointsEarned,
+      points_awarded: memberPointsEarned,
     });
 
     if (qsError) {
       return NextResponse.json({ error: qsError.message }, { status: 500 });
     }
 
+    if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
+      const split = splitPcolQuizPoints(pointsEarned);
+      const mois = currentMonthKey();
+
+      const { error: pcolErr } = await svc.from("pcol_transactions").insert({
+        collaborateur_id: collaborateurId,
+        video_id: videoId,
+        mois,
+        pts_membres_gagnes: split.ptsMembresGagnes,
+        pts_collab: split.ptsCollabImmediate,
+        pts_membres_nets: split.ptsMembresNets,
+        type: "quiz",
+      });
+
+      if (pcolErr) {
+        return NextResponse.json({ error: pcolErr.message }, { status: 500 });
+      }
+
+      if (split.ptsPending > 0) {
+        const expiresAt = new Date();
+        expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
+
+        const { data: existingPending } = await svc
+          .from("pending_pcol")
+          .select("id, pts_pending")
+          .eq("collaborateur_id", collaborateurId)
+          .eq("video_id", videoId)
+          .eq("recupere", false)
+          .maybeSingle();
+
+        if (existingPending?.id) {
+          const { error: pendingUpdErr } = await svc
+            .from("pending_pcol")
+            .update({
+              pts_pending: Number(existingPending.pts_pending ?? 0) + split.ptsPending,
+            })
+            .eq("id", existingPending.id);
+
+          if (pendingUpdErr) {
+            return NextResponse.json({ error: pendingUpdErr.message }, { status: 500 });
+          }
+        } else {
+          const { error: pendingInsErr } = await svc.from("pending_pcol").insert({
+            collaborateur_id: collaborateurId,
+            video_id: videoId,
+            pts_pending: split.ptsPending,
+            date_expiration: expiresAt.toISOString(),
+            recupere: false,
+          });
+
+          if (pendingInsErr) {
+            return NextResponse.json({ error: pendingInsErr.message }, { status: 500 });
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       score_correct: correct,
       score_total: denom,
-      points_earned: pointsEarned,
+      points_earned: memberPointsEarned,
+      points_earned_bruts: pointsEarned,
       points_earned_ponderes: pointsEarnedPonderes,
       points_perdus: pointsPerdus,
       points_perdus_ponderes: pointsPerdusPonderes,
       multiplicateur,
+      collaborateur_video: isCollaborateurVideo,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
-import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
+import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 /** Aligné sur la réponse JSON de `/api/redistribution/historique` (lignes `redistribution_history`). */
@@ -157,6 +157,7 @@ const poolCards = [
 export default function TransparencePage(): JSX.Element {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
+  const navPages = useAppBottomNavLinks(session);
   const [authChecked, setAuthChecked] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [banque, setBanque] = useState<BanqueLeveRow | null>(null);

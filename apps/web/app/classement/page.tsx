@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
-import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
+import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
@@ -376,6 +376,7 @@ function comingSoonSection(title: string): JSX.Element {
 export default function ClassementPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const navPages = useAppBottomNavLinks(session);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [rows, setRows] = useState<ClassementRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);

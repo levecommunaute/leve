@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { BonusBadge } from "../../components/bonus-badge";
-import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
+import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
 const bebas = Bebas_Neue({
@@ -83,6 +83,7 @@ const STATUS_STYLES: Record<
 
 type ProfileRow = {
   display_name: string | null;
+  member_type: string | null;
 };
 
 function displayNameFrom(
@@ -139,6 +140,7 @@ export default function VideosPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [quizVideoIds, setQuizVideoIds] = useState<Set<string>>(() => new Set());
   const [codeVideoIds, setCodeVideoIds] = useState<Set<string>>(() => new Set());
@@ -240,7 +242,7 @@ export default function VideosPage(): JSX.Element | null {
       setSession(next);
       void loadVideos(next);
       const res = await fetch(
-        `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name`,
+        `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name,member_type`,
         {
           headers: {
             apikey: KEY,

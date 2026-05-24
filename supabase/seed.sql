@@ -160,13 +160,13 @@ INSERT INTO public.profiles (
 -- youtube_id: 11 chars (YouTube-style)
 -- =============================================================================
 
-INSERT INTO public.videos (id, youtube_id, title, description, points_value, duration_seconds, created_at) VALUES
-  ('22222222-2222-4222-8222-222222220001', 'LEVEseedV01', 'LEVE Seed — Introduction PMQ', 'Contenu fictif pour valider codes et quiz.', 15, 920, now()),
-  ('22222222-2222-4222-8222-222222220002', 'LEVEseedV02', 'LEVE Seed — Pool et redistribution', 'Deuxième vidéo de test.', 25, 1180, now()),
-  ('22222222-2222-4222-8222-222222220003', 'LEVEseedV03', 'LEVE Seed — Multiplicateurs', 'Troisième vidéo de test.', 30, 840, now()),
-  ('22222222-2222-4222-8222-222222220004', 'LEVEseedV04', 'LEVE Seed — Communauté', 'Quatrième vidéo de test.', 15, 1320, now()),
-  ('22222222-2222-4222-8222-222222220005', 'LEVEseedV05', 'LEVE Seed — Collaborateurs', 'Cinquième vidéo de test.', 25, 760, now()),
-  ('22222222-2222-4222-8222-222222220006', 'LEVEseedV06', 'LEVE Seed — Cas limites solde', 'Sixième vidéo de test.', 30, 990, now());
+INSERT INTO public.videos (id, youtube_id, title, description, points_value, duration_seconds, collaborateur_id, created_at) VALUES
+  ('22222222-2222-4222-8222-222222220001', 'LEVEseedV01', 'LEVE Seed — Introduction PMQ', 'Contenu fictif pour valider codes et quiz.', 15, 920, NULL, now()),
+  ('22222222-2222-4222-8222-222222220002', 'LEVEseedV02', 'LEVE Seed — Pool et redistribution', 'Deuxième vidéo de test.', 25, 1180, NULL, now()),
+  ('22222222-2222-4222-8222-222222220003', 'LEVEseedV03', 'LEVE Seed — Multiplicateurs', 'Troisième vidéo de test.', 30, 840, NULL, now()),
+  ('22222222-2222-4222-8222-222222220004', 'LEVEseedV04', 'LEVE Seed — Communauté', 'Quatrième vidéo de test.', 15, 1320, NULL, now()),
+  ('22222222-2222-4222-8222-222222220005', 'LEVEseedV05', 'LEVE Seed — Collaborateurs', 'Cinquième vidéo de test.', 25, 760, '11111111-1111-4111-8111-11111111000b', now()),
+  ('22222222-2222-4222-8222-222222220006', 'LEVEseedV06', 'LEVE Seed — Cas limites solde', 'Sixième vidéo de test.', 30, 990, NULL, now());
 
 -- =============================================================================
 -- public.video_codes — 3 fragments per video (XXXX), timestamps spread in seconds

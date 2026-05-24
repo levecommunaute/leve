@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
-import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
+import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
@@ -112,6 +112,7 @@ export default function DashboardPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [graceFromUrl, setGraceFromUrl] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [lastRedistributionCad, setLastRedistributionCad] = useState<
     number | null
