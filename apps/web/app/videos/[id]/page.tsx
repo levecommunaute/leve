@@ -5,9 +5,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 const WATCH_THRESHOLD = 60;
-const PROGRESS_CHECK_MS = 5000;
+const PROGRESS_CHECK_MS = 2000;
 const SAVE_PROGRESS_MS = 10000;
-const SEEK_TOLERANCE_PCT = 10;
+const SEEK_TOLERANCE_SEC = 5;
 
 interface Video {
   id: string;
@@ -163,17 +163,17 @@ export default function VideoPage(): React.JSX.Element {
     const duration = player.getDuration();
     if (!duration || duration <= 0) return;
 
-    const currentPct = (player.getCurrentTime() / duration) * 100;
-    const lastKnown = lastKnownPositionRef.current;
+    const currentTime = player.getCurrentTime();
+    const currentPct = (currentTime / duration) * 100;
+    const timeDiff = currentTime - lastKnownPositionRef.current;
 
-    if (currentPct > lastKnown + SEEK_TOLERANCE_PCT) {
-      lastKnownPositionRef.current = currentPct;
+    lastKnownPositionRef.current = currentTime;
+
+    if (timeDiff > SEEK_TOLERANCE_SEC) {
       return;
     }
 
-    lastKnownPositionRef.current = currentPct;
-
-    if (currentPct > maxProgressRef.current) {
+    if (timeDiff >= 0 && currentPct > maxProgressRef.current) {
       maxProgressRef.current = currentPct;
     }
 
@@ -285,7 +285,6 @@ export default function VideoPage(): React.JSX.Element {
         const row = data as VideoProgressRow;
         const savedMax = Number(row.max_progress) || 0;
         maxProgressRef.current = savedMax;
-        lastKnownPositionRef.current = savedMax;
 
         if (row.unlocked || savedMax >= WATCH_THRESHOLD) {
           unlockedRef.current = true;
@@ -317,11 +316,11 @@ export default function VideoPage(): React.JSX.Element {
           modestbranding: 1,
         },
         events: {
-          onReady: () => {
-            trackLinearProgress();
-          },
-          onStateChange: () => {
-            trackLinearProgress();
+          onReady: (event) => {
+            const duration = event.target.getDuration();
+            if (duration && duration > 0) {
+              lastKnownPositionRef.current = event.target.getCurrentTime();
+            }
           },
         },
       });
