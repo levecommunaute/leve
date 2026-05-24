@@ -41,6 +41,7 @@ const PMQ_POINT_TYPES = ["quiz"] as const;
 
 type ProfileRow = {
   display_name: string | null;
+  member_type: string | null;
   multiplier: number | string | null;
 };
 
@@ -149,7 +150,7 @@ export default function BanquePage(): JSX.Element | null {
       await Promise.all([
         sb
           .from("profiles")
-          .select("display_name, multiplier")
+          .select("display_name, member_type, multiplier")
           .eq("id", uid)
           .maybeSingle(),
         sb
