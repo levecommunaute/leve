@@ -468,6 +468,8 @@ export default function AdminPage(): JSX.Element {
   const [quizAddLoading, setQuizAddLoading] = useState(false);
   const [quizAddMsg, setQuizAddMsg] = useState<string | null>(null);
   const [quizDeleteId, setQuizDeleteId] = useState<string | null>(null);
+  const [generateQuizLoadingId, setGenerateQuizLoadingId] = useState<string | null>(null);
+  const [generateQuizError, setGenerateQuizError] = useState<Record<string, string>>({});
 
   const [featureFlags, setFeatureFlags] = useState<FeatureFlagRow[]>([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(false);
@@ -828,6 +830,8 @@ export default function AdminPage(): JSX.Element {
     setNewQuizD("");
     setNewQuizCorrect("a");
     setQuizAddMsg(null);
+    setGenerateQuizLoadingId(null);
+    setGenerateQuizError({});
     setFeatureFlags([]);
     setFeatureFlagsError(null);
     setMemberMapCountries([]);
@@ -1144,6 +1148,53 @@ export default function AdminPage(): JSX.Element {
       setQuizQuestionsError(e instanceof Error ? e.message : "Erreur réseau");
     } finally {
       setQuizDeleteId(null);
+    }
+  }
+
+  async function handleGenerateQuiz(video: VideoRow): Promise<void> {
+    const title = (video.title ?? "").trim() || video.youtube_id;
+    if (
+      !window.confirm(
+        `Générer automatiquement 15 questions quiz pour « ${title} » ? Cela peut prendre une minute.`,
+      )
+    ) {
+      return;
+    }
+    setGenerateQuizLoadingId(video.id);
+    setGenerateQuizError((prev) => {
+      const next = { ...prev };
+      delete next[video.id];
+      return next;
+    });
+    try {
+      const r = await fetch("/api/admin/generate-quiz", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          video_id: video.id,
+          youtube_id: video.youtube_id,
+          title,
+        }),
+      });
+      const j = (await r.json()) as { error?: string; questions_count?: number };
+      if (!r.ok) {
+        setGenerateQuizError((prev) => ({
+          ...prev,
+          [video.id]: j.error ?? "Échec génération quiz",
+        }));
+        return;
+      }
+      if (quizVideoId === video.id) {
+        await loadQuizQuestions(video.id);
+      }
+      void loadProduction();
+    } catch {
+      setGenerateQuizError((prev) => ({
+        ...prev,
+        [video.id]: "Erreur réseau",
+      }));
+    } finally {
+      setGenerateQuizLoadingId(null);
     }
   }
 
@@ -1622,12 +1673,16 @@ export default function AdminPage(): JSX.Element {
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Code
                       </th>
+                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Quiz
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {videos.map((v) => {
                       const linked = linkedVideoCodes[v.id];
                       const busy = codeLoadingId === v.id;
+                      const quizBusy = generateQuizLoadingId === v.id;
                       return (
                         <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
                           <td style={{ padding: "0.75rem 0.5rem", maxWidth: "280px" }}>{v.title ?? "—"}</td>
@@ -1727,6 +1782,38 @@ export default function AdminPage(): JSX.Element {
                                 }}
                               >
                                 {codeAssociateError[v.id]}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
+                            <button
+                              type="button"
+                              disabled={quizBusy}
+                              onClick={() => void handleGenerateQuiz(v)}
+                              style={{
+                                background: "rgba(212, 160, 23, 0.12)",
+                                color: GOLD,
+                                border: `1px solid rgba(212, 160, 23, 0.35)`,
+                                padding: "0.45rem 0.65rem",
+                                cursor: quizBusy ? "wait" : "pointer",
+                                fontSize: "0.68rem",
+                                letterSpacing: "0.08em",
+                                textTransform: "uppercase",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {quizBusy ? "…" : "Générer quiz automatique"}
+                            </button>
+                            {generateQuizError[v.id] ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontSize: "0.78rem",
+                                  color: ROUGE,
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {generateQuizError[v.id]}
                               </p>
                             ) : null}
                           </td>
