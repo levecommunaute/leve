@@ -14,7 +14,7 @@ type GeneratedQuestion = {
 function extractJsonArray(text: string): unknown {
   const trimmed = text.trim();
   const fence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)```$/m);
-  const raw = fence ? fence[1].trim() : trimmed;
+  const raw = fence ? (fence[1] ?? "").trim() : trimmed;
   return JSON.parse(raw);
 }
 
