@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { BonusBadge } from "../../components/bonus-badge";
 import { APP_BOTTOM_NAV_LINKS as navPages } from "../../lib/appBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
@@ -51,12 +52,6 @@ function memberStatusForVideo(
   if (quizVideoIds.has(videoId)) return "completed";
   if (codeVideoIds.has(videoId)) return "code_submitted";
   return "not_completed";
-}
-
-function isBonusActive(bonusExpireAt: string | null | undefined): boolean {
-  if (!bonusExpireAt) return false;
-  const t = new Date(bonusExpireAt).getTime();
-  return Number.isFinite(t) && t > Date.now();
 }
 
 const STATUS_STYLES: Record<
@@ -492,7 +487,6 @@ export default function VideosPage(): JSX.Element | null {
               const ptsLabel = `${Number.isFinite(pts) ? pts : 0} pts`;
               const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
               const statusStyle = STATUS_STYLES[status];
-              const bonus = isBonusActive(v.bonus_expire_at);
 
               return (
                 <article
@@ -534,24 +528,7 @@ export default function VideosPage(): JSX.Element | null {
                         <span aria-hidden>{statusStyle.icon}</span>
                         {statusStyle.label}
                       </span>
-                      {bonus ? (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            fontSize: "0.72rem",
-                            fontWeight: 700,
-                            letterSpacing: "0.04em",
-                            padding: "0.28rem 0.55rem",
-                            borderRadius: "8px",
-                            color: ROUGE,
-                            background: "rgba(192, 57, 43, 0.14)",
-                            border: `1px solid ${ROUGE}`,
-                          }}
-                        >
-                          ⚡ Bonus ×2
-                        </span>
-                      ) : null}
+                      <BonusBadge bonusExpireAt={v.bonus_expire_at} />
                     </div>
                     <div
                       style={{

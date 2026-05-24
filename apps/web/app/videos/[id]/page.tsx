@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@repo/supabase/browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { BonusBadge } from "../../../components/bonus-badge";
 
 const WATCH_THRESHOLD = 60;
 const PROGRESS_CHECK_MS = 2000;
@@ -14,6 +15,7 @@ interface Video {
   youtube_id: string;
   title: string;
   points_value: number;
+  bonus_expire_at: string | null;
 }
 
 interface VideoProgressRow {
@@ -212,7 +214,7 @@ export default function VideoPage(): React.JSX.Element {
       const supabase = createBrowserClient();
       const { data, error } = await supabase
         .from("videos")
-        .select("id, youtube_id, title, points_value")
+        .select("id, youtube_id, title, points_value, bonus_expire_at")
         .eq("id", id)
         .maybeSingle();
 
@@ -431,16 +433,30 @@ export default function VideoPage(): React.JSX.Element {
       </nav>
       <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem" }}>
         <h1 style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: "2.5rem" }}>{video.title}</h1>
-        <span
+        <div
           style={{
-            background: "#D4A017",
-            color: "#080808",
-            padding: ".25rem .75rem",
-            fontSize: ".75rem",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginTop: "0.75rem",
           }}
         >
-          {video.points_value} pts
-        </span>
+          <span
+            style={{
+              background: "#D4A017",
+              color: "#080808",
+              padding: ".25rem .75rem",
+              fontSize: ".75rem",
+            }}
+          >
+            {video.points_value} pts
+          </span>
+          <BonusBadge
+            bonusExpireAt={video.bonus_expire_at}
+            style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem" }}
+          />
+        </div>
         <div style={{ margin: "2rem 0", aspectRatio: "16/9" }}>
           {verification60Enabled ? (
             <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
