@@ -27,6 +27,7 @@ type VideoRow = {
   youtube_id: string;
   title: string | null;
   points_value: number | null;
+  collaborateur_id: string | null;
 };
 
 type MemberRow = {
@@ -181,6 +182,14 @@ function memberTypeLabel(form: MemberTypeForm): string {
 
 function displayMemberType(raw: string | null): string {
   return memberTypeLabel(memberTypeToForm(raw));
+}
+
+function memberDisplayLabel(m: MemberRow): string {
+  const name = (m.display_name ?? "").trim();
+  if (name) return name;
+  const email = (m.email ?? "").trim();
+  if (email) return email;
+  return m.id.slice(0, 8);
 }
 
 function multiplierToForm(raw: number | string | null): MultiplierValue {
@@ -470,6 +479,8 @@ export default function AdminPage(): JSX.Element {
   const [quizDeleteId, setQuizDeleteId] = useState<string | null>(null);
   const [generateQuizLoadingId, setGenerateQuizLoadingId] = useState<string | null>(null);
   const [generateQuizError, setGenerateQuizError] = useState<Record<string, string>>({});
+  const [collaborateurSavingId, setCollaborateurSavingId] = useState<string | null>(null);
+  const [collaborateurError, setCollaborateurError] = useState<Record<string, string>>({});
 
   const [featureFlags, setFeatureFlags] = useState<FeatureFlagRow[]>([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(false);
@@ -832,6 +843,8 @@ export default function AdminPage(): JSX.Element {
     setQuizAddMsg(null);
     setGenerateQuizLoadingId(null);
     setGenerateQuizError({});
+    setCollaborateurSavingId(null);
+    setCollaborateurError({});
     setFeatureFlags([]);
     setFeatureFlagsError(null);
     setMemberMapCountries([]);
@@ -1198,6 +1211,42 @@ export default function AdminPage(): JSX.Element {
     }
   }
 
+  async function handleVideoCollaborateurChange(videoId: string, raw: string): Promise<void> {
+    const collaborateurId = raw === "" ? null : raw;
+    setCollaborateurSavingId(videoId);
+    setCollaborateurError((prev) => {
+      const next = { ...prev };
+      delete next[videoId];
+      return next;
+    });
+    try {
+      const r = await fetch("/api/admin/videos", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: videoId, collaborateur_id: collaborateurId }),
+      });
+      const j = (await r.json()) as { video?: VideoRow; error?: string };
+      if (!r.ok) {
+        setCollaborateurError((prev) => ({
+          ...prev,
+          [videoId]: j.error ?? "Erreur enregistrement",
+        }));
+        return;
+      }
+      const savedId = j.video?.collaborateur_id ?? collaborateurId;
+      setVideos((prev) =>
+        prev.map((v) => (v.id === videoId ? { ...v, collaborateur_id: savedId } : v)),
+      );
+    } catch {
+      setCollaborateurError((prev) => ({
+        ...prev,
+        [videoId]: "Erreur réseau",
+      }));
+    } finally {
+      setCollaborateurSavingId(null);
+    }
+  }
+
   async function saveMember(id: string): Promise<void> {
     const m = members.find((x) => x.id === id);
     const d = memberDrafts[id] ?? (m ? defaultMemberDraft(m) : null);
@@ -1268,6 +1317,10 @@ export default function AdminPage(): JSX.Element {
       </div>
     );
   }
+
+  const collaboratorMembers = members.filter(
+    (m) => memberTypeToForm(m.member_type) === "collaborateur",
+  );
 
   return (
     <div
@@ -1671,6 +1724,9 @@ export default function AdminPage(): JSX.Element {
                         Points
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Collaborateur
+                      </th>
+                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Code
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
@@ -1683,6 +1739,16 @@ export default function AdminPage(): JSX.Element {
                       const linked = linkedVideoCodes[v.id];
                       const busy = codeLoadingId === v.id;
                       const quizBusy = generateQuizLoadingId === v.id;
+                      const collabBusy = collaborateurSavingId === v.id;
+                      const collabValue = v.collaborateur_id ?? "";
+                      const collabOptions =
+                        collabValue &&
+                        !collaboratorMembers.some((m) => m.id === collabValue)
+                          ? [
+                              ...collaboratorMembers,
+                              ...members.filter((m) => m.id === collabValue),
+                            ]
+                          : collaboratorMembers;
                       return (
                         <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
                           <td style={{ padding: "0.75rem 0.5rem", maxWidth: "280px" }}>{v.title ?? "—"}</td>
@@ -1690,6 +1756,44 @@ export default function AdminPage(): JSX.Element {
                             {v.youtube_id}
                           </td>
                           <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
+                            <select
+                              value={collabValue}
+                              disabled={collabBusy || membersLoading}
+                              onChange={(e) => void handleVideoCollaborateurChange(v.id, e.target.value)}
+                              aria-label={`Collaborateur pour ${v.title ?? v.youtube_id}`}
+                              style={{
+                                width: "100%",
+                                minWidth: "160px",
+                                padding: "0.45rem 0.55rem",
+                                fontSize: "0.82rem",
+                                background: "rgba(245, 240, 232, 0.06)",
+                                border: "1px solid rgba(245, 240, 232, 0.14)",
+                                borderRadius: "6px",
+                                color: TEXT,
+                                cursor: collabBusy || membersLoading ? "wait" : "pointer",
+                              }}
+                            >
+                              <option value="">Aucun</option>
+                              {collabOptions.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {memberDisplayLabel(m)}
+                                </option>
+                              ))}
+                            </select>
+                            {collaborateurError[v.id] ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontSize: "0.78rem",
+                                  color: ROUGE,
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {collaborateurError[v.id]}
+                              </p>
+                            ) : null}
+                          </td>
                           <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "240px" }}>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
                               <input
