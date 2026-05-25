@@ -44,9 +44,9 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
         .order("created_at", { ascending: false }),
       svc
         .from("pending_pcol")
-        .select("id, video_id, pts_pending, date_expiration, recupere, created_at")
+        .select("id, video_id, points_amount, expires_at, status, created_at")
         .eq("collaborateur_id", uid)
-        .eq("recupere", false),
+        .eq("status", "pending"),
     ]);
 
     if (pcolRes.error) {

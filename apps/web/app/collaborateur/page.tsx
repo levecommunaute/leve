@@ -32,9 +32,9 @@ type ProfileRow = {
 type PendingRow = {
   id: string;
   video_id: string;
-  pts_pending: number | string;
-  date_expiration: string;
-  recupere: boolean;
+  points_amount: number | string;
+  expires_at: string;
+  status: string;
   created_at: string;
 };
 
@@ -363,9 +363,12 @@ export default function CollaborateurPage(): JSX.Element | null {
                   {videoStats.map((v) => {
                     const pending = v.pending;
                     const expired =
-                      pending && msUntil(pending.date_expiration) <= 0;
+                      pending && msUntil(pending.expires_at) <= 0;
                     const canRecover =
-                      pending && !pending.recupere && !expired && Number(pending.pts_pending) > 0;
+                      pending &&
+                      pending.status === "pending" &&
+                      !expired &&
+                      Number(pending.points_amount) > 0;
 
                     return (
                       <li
@@ -395,7 +398,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                           Points générés :{" "}
                           <strong style={{ color: GOLD }}>{pointsFmt.format(v.ptsGeneres)}</strong>
                         </p>
-                        {pending && !pending.recupere ? (
+                        {pending && pending.status === "pending" ? (
                           <div
                             style={{
                               marginTop: "0.5rem",
@@ -409,12 +412,12 @@ export default function CollaborateurPage(): JSX.Element | null {
                           >
                             <p style={{ margin: 0, fontSize: "0.85rem" }}>
                               Pending :{" "}
-                              <strong>{pointsFmt.format(Number(pending.pts_pending))} pts</strong> (8 %)
+                              <strong>{pointsFmt.format(Number(pending.points_amount))} pts</strong> (8 %)
                             </p>
                             <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
                               {expired
                                 ? "Expiré — points transférés au pool PTC"
-                                : `Expire dans : ${formatCountdown(new Date(pending.date_expiration).getTime() - nowTick)}`}
+                                : `Expire dans : ${formatCountdown(new Date(pending.expires_at).getTime() - nowTick)}`}
                             </p>
                             {canRecover ? (
                               <button
