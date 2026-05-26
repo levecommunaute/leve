@@ -260,16 +260,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
-      const ptsCollab = Math.round(pointsEarned * 0.2);
-      const ptsMembresNets = Math.round(pointsEarned * 0.8);
+      const ptsPonderes = pointsEarned * multiplicateur;
+      const ptsCollabBrut = Math.round(pointsEarned * 0.2);
+      const ptsMembresNetsBrut = Math.round(pointsEarned * 0.8);
+      const ptsCollabPonderes = Math.round(ptsPonderes * 0.2);
+      const ptsMembresNetsPonderes = Math.round(ptsPonderes * 0.8);
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
         video_id: videoId,
         mois,
         pts_membres_gagnes: pointsEarned,
-        pts_collab: ptsCollab,
-        pts_membres_nets: ptsMembresNets,
+        pts_collab: ptsCollabBrut,
+        pts_membres_nets: ptsMembresNetsBrut,
+        multiplicateur_membre: multiplicateur,
+        pts_membres_gagnes_ponderes: ptsPonderes,
+        pts_collab_ponderes: ptsCollabPonderes,
+        pts_membres_nets_ponderes: ptsMembresNetsPonderes,
         type: "quiz",
       });
 
