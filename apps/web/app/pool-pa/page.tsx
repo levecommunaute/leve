@@ -54,8 +54,8 @@ type PaTxRow = {
   amount: number | string | null;
   description: string | null;
   source: string | null;
-  cout_dollars: number | string | null;
-  taxe: number | string | null;
+  cost_usd: number | string | null;
+  tax_usd: number | string | null;
 };
 
 function displayNameFrom(
@@ -76,7 +76,7 @@ function displayNameFrom(
 function paTxLabel(row: PaTxRow): string {
   if (row.description?.trim()) return row.description.trim();
   const t = (row.type ?? "").toLowerCase();
-  if (t === "achat") return "Achat de points PA";
+  if (t === "purchase") return "Achat de points PA";
   if (t === "depense" || t === "utilisation") return "Utilisation PA";
   return row.type?.replace(/_/g, " ") ?? "Transaction PA";
 }
@@ -150,12 +150,12 @@ export default function PoolPaPage(): JSX.Element | null {
         .from("pa_transactions")
         .select("amount")
         .eq("membre_id", uid)
-        .eq("type", "achat"),
+        .eq("type", "purchase"),
     ]);
 
     let historyRes = await sb
       .from("pa_transactions")
-      .select("id, created_at, type, amount, description, source, cout_dollars, taxe")
+      .select("id, created_at, type, amount, description, source, cost_usd, tax_usd")
       .eq("membre_id", uid)
       .order("created_at", { ascending: false })
       .limit(30);
@@ -163,7 +163,7 @@ export default function PoolPaPage(): JSX.Element | null {
     if (historyRes.error?.message?.includes("does not exist")) {
       historyRes = await sb
         .from("pa_transactions")
-        .select("id, created_at, type, amount, description, source, cout_dollars, taxe")
+        .select("id, created_at, type, amount, description, source, cost_usd, tax_usd")
         .eq("membre_id", uid)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -764,7 +764,7 @@ export default function PoolPaPage(): JSX.Element | null {
                   <tbody>
                     {history.map((row) => {
                       const amt = Number(row.amount ?? 0);
-                      const isAchat = (row.type ?? "").toLowerCase() === "achat";
+                      const isAchat = (row.type ?? "").toLowerCase() === "purchase";
                       const signed =
                         amt > 0
                           ? `+${ptsFmt.format(amt)} pt`
@@ -775,8 +775,8 @@ export default function PoolPaPage(): JSX.Element | null {
                       } catch {
                         dateLabel = row.created_at;
                       }
-                      const coutRow = Number(row.cout_dollars ?? 0);
-                      const taxeRow = Number(row.taxe ?? 0);
+                      const coutRow = Number(row.cost_usd ?? 0);
+                      const taxeRow = Number(row.tax_usd ?? 0);
                       return (
                         <tr
                           key={row.id}

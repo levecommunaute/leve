@@ -158,8 +158,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     amount: ptsPa,
     description: `Achat ${ptsPa} pt(s) PA depuis banque LEVE`,
     source: "banque_leve",
-    cout_dollars: cout,
-    taxe,
+    cost_usd: cout,
+    tax_usd: taxe,
     taxe_communaute: taxeCommunaute,
     taxe_fonctionnement: taxeFonctionnement,
   };
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let { error: paError } = await supabase.from("pa_transactions").insert(paInsert);
 
   if (paError?.message?.includes("column") && paError.message.includes("does not exist")) {
-    const { source: _s, cout_dollars: _c, taxe: _t, taxe_communaute: _tc, taxe_fonctionnement: _tf, ...fallback } =
+    const { source: _s, cost_usd: _c, tax_usd: _t, taxe_communaute: _tc, taxe_fonctionnement: _tf, ...fallback } =
       paInsert;
     void _s;
     void _c;
