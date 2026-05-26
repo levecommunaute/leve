@@ -86,7 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const auth = await resolveAuthUser(request);
   if (auth instanceof NextResponse) return auth;
 
-  let body: { membre_id?: string; pts_pa?: number; source?: string };
+  let body: { membre_id?: string; pts_pa?: number };
   try {
     body = await request.json();
   } catch {
@@ -95,13 +95,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const membreId = typeof body.membre_id === "string" ? body.membre_id.trim() : "";
   const ptsPa = Number(body.pts_pa);
-  const source = body.source;
 
   if (!membreId || membreId !== auth.uid) {
     return NextResponse.json({ error: "membre_id invalide" }, { status: 403 });
-  }
-  if (source !== "banque_leve") {
-    return NextResponse.json({ error: "source invalide" }, { status: 400 });
   }
   if (!Number.isInteger(ptsPa) || ptsPa < 1) {
     return NextResponse.json({ error: "pts_pa invalide (entier ≥ 1)" }, { status: 400 });
@@ -152,33 +148,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: mouvementError.message }, { status: 500 });
   }
 
-  const paInsert: Record<string, unknown> = {
+  const { error: paError } = await supabase.from("pa_transactions").insert({
     membre_id: membreId,
     type: "purchase",
     amount: ptsPa,
     description: `Achat ${ptsPa} pt(s) PA depuis banque LEVE`,
-    source: "banque_leve",
     cost_usd: cout,
     tax_usd: taxe,
-    taxe_communaute: taxeCommunaute,
-    taxe_fonctionnement: taxeFonctionnement,
-  };
-
-  let { error: paError } = await supabase.from("pa_transactions").insert(paInsert);
-
-  if (paError?.message?.includes("column") && paError.message.includes("does not exist")) {
-    const { source: _s, cost_usd: _c, tax_usd: _t, taxe_communaute: _tc, taxe_fonctionnement: _tf, ...fallback } =
-      paInsert;
-    void _s;
-    void _c;
-    void _t;
-    void _tc;
-    void _tf;
-    ({ error: paError } = await supabase.from("pa_transactions").insert({
-      ...fallback,
-      description: `Achat ${ptsPa} pt(s) PA · banque LEVE · coût ${cout.toFixed(2)} $ · taxe ${taxe.toFixed(2)} $`,
-    }));
-  }
+  });
 
   if (paError) {
     return NextResponse.json({ error: paError.message }, { status: 500 });

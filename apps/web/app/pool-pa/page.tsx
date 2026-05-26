@@ -53,7 +53,6 @@ type PaTxRow = {
   type: string | null;
   amount: number | string | null;
   description: string | null;
-  source: string | null;
   cost_usd: number | string | null;
   tax_usd: number | string | null;
 };
@@ -153,21 +152,12 @@ export default function PoolPaPage(): JSX.Element | null {
         .eq("type", "purchase"),
     ]);
 
-    let historyRes = await sb
+    const historyRes = await sb
       .from("pa_transactions")
-      .select("id, created_at, type, amount, description, source, cost_usd, tax_usd")
+      .select("id, created_at, type, amount, description, cost_usd, tax_usd")
       .eq("membre_id", uid)
       .order("created_at", { ascending: false })
       .limit(30);
-
-    if (historyRes.error?.message?.includes("does not exist")) {
-      historyRes = await sb
-        .from("pa_transactions")
-        .select("id, created_at, type, amount, description, source, cost_usd, tax_usd")
-        .eq("membre_id", uid)
-        .order("created_at", { ascending: false })
-        .limit(30);
-    }
 
     const errMsg =
       profileRes.error?.message ??
@@ -282,7 +272,6 @@ export default function PoolPaPage(): JSX.Element | null {
         body: JSON.stringify({
           membre_id: session.user.id,
           pts_pa: ptsPa,
-          source: "banque_leve",
         }),
       });
       const json = (await res.json()) as {
@@ -818,7 +807,7 @@ export default function PoolPaPage(): JSX.Element | null {
                                 letterSpacing: "0.06em",
                               }}
                             >
-                              {row.source ?? row.type ?? "PA"}
+                              {row.type ?? "PA"}
                             </span>
                           </td>
                           <td
