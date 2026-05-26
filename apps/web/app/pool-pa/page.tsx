@@ -80,6 +80,13 @@ function paTxLabel(row: PaTxRow): string {
   return row.type?.replace(/_/g, " ") ?? "Transaction PA";
 }
 
+function paTxTypeLabel(type: string | null): string {
+  const t = (type ?? "").toLowerCase();
+  if (t === "purchase") return "Achat";
+  if (t === "spend") return "Dépense";
+  return type ?? "PA";
+}
+
 const cad = new Intl.NumberFormat("fr-CA", {
   style: "currency",
   currency: "CAD",
@@ -510,7 +517,7 @@ export default function PoolPaPage(): JSX.Element | null {
                 {ptsFmt.format(soldePa)} pt{soldePa !== 1 ? "s" : ""}
               </p>
               <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", opacity: 0.8 }}>
-                Total des achats (type achat)
+                Total des achats
               </p>
             </section>
 
@@ -807,7 +814,7 @@ export default function PoolPaPage(): JSX.Element | null {
                                 letterSpacing: "0.06em",
                               }}
                             >
-                              {row.type ?? "PA"}
+                              {paTxTypeLabel(row.type)}
                             </span>
                           </td>
                           <td
