@@ -154,7 +154,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const paInsert: Record<string, unknown> = {
     membre_id: membreId,
-    type: "achat",
+    type: "purchase",
     amount: ptsPa,
     description: `Achat ${ptsPa} pt(s) PA depuis banque LEVE`,
     source: "banque_leve",
