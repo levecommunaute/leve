@@ -174,8 +174,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const pointsEarned = correct * POINTS_PER_CORRECT;
     const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
 
-    const memberPointsEarned = isCollaborateurVideo
-      ? splitPcolQuizPoints(pointsEarned).ptsMembresNets
+    const pcolSplit = isCollaborateurVideo ? splitPcolQuizPoints(pointsEarned) : null;
+    const memberPointsEarned = pcolSplit
+      ? Math.round(pcolSplit.ptsMembresNets)
       : pointsEarned;
 
     const pointsEarnedPonderes = memberPointsEarned * multiplicateur;
@@ -258,17 +259,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: qsError.message }, { status: 500 });
     }
 
-    if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
-      const split = splitPcolQuizPoints(pointsEarned);
+    if (pcolSplit && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
+      const ptsCollab = Math.round(pcolSplit.ptsCollabImmediate);
+      const ptsPending = Math.round(pcolSplit.ptsPending);
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
         video_id: videoId,
         mois,
-        pts_membres_gagnes: split.ptsMembresGagnes,
-        pts_collab: split.ptsCollabImmediate,
-        pts_membres_nets: split.ptsMembresNets,
+        pts_membres_gagnes: pointsEarned,
+        pts_collab: ptsCollab,
+        pts_membres_nets: memberPointsEarned,
         type: "quiz",
       });
 
@@ -276,7 +278,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
       }
 
-      if (split.ptsPending > 0) {
+      if (ptsPending > 0) {
         const expiresAt = new Date();
         expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
 
@@ -292,7 +294,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const { error: pendingUpdErr } = await svc
             .from("pending_pcol")
             .update({
-              pts_pending: Number(existingPending.pts_pending ?? 0) + split.ptsPending,
+              pts_pending: Number(existingPending.pts_pending ?? 0) + ptsPending,
             })
             .eq("id", existingPending.id);
 
@@ -303,7 +305,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const { error: pendingInsErr } = await svc.from("pending_pcol").insert({
             collaborateur_id: collaborateurId,
             video_id: videoId,
-            pts_pending: split.ptsPending,
+            pts_pending: ptsPending,
             date_expiration: expiresAt.toISOString(),
             recupere: false,
           });
