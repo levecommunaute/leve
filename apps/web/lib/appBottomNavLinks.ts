@@ -8,6 +8,7 @@ export const APP_BOTTOM_NAV_LINKS: AppBottomNavLink[] = [
   { href: "/dashboard", label: "Tableau de bord" },
   { href: "/videos", label: "Vidéos" },
   { href: "/banque", label: "Banque LEVE" },
+  { href: "/pool-pa", label: "Pool PA" },
   { href: "/classement", label: "Classement" },
   { href: "/concours", label: "Concours" },
   { href: "/transparence", label: "Transparence" },
