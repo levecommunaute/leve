@@ -279,22 +279,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       if (ptsPending > 0) {
-        const expiresAt = new Date();
+        const now = new Date();
+        const expiresAt = new Date(now);
         expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
 
         const { data: existingPending } = await svc
           .from("pending_pcol")
-          .select("id, pts_pending")
+          .select("id, points_amount")
           .eq("collaborateur_id", collaborateurId)
           .eq("video_id", videoId)
-          .eq("recupere", false)
+          .eq("status", "pending")
           .maybeSingle();
 
         if (existingPending?.id) {
           const { error: pendingUpdErr } = await svc
             .from("pending_pcol")
             .update({
-              pts_pending: Number(existingPending.pts_pending ?? 0) + ptsPending,
+              points_amount: Number(existingPending.points_amount ?? 0) + ptsPending,
             })
             .eq("id", existingPending.id);
 
@@ -305,9 +306,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const { error: pendingInsErr } = await svc.from("pending_pcol").insert({
             collaborateur_id: collaborateurId,
             video_id: videoId,
-            pts_pending: ptsPending,
+            points_amount: ptsPending,
+            earned_date: now.toISOString(),
             expires_at: expiresAt.toISOString(),
-            recupere: false,
+            status: "pending",
           });
 
           if (pendingInsErr) {
