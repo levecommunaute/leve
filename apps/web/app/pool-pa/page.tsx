@@ -163,7 +163,7 @@ export default function PoolPaPage(): JSX.Element | null {
     if (historyRes.error?.message?.includes("does not exist")) {
       historyRes = await sb
         .from("pa_transactions")
-        .select("id, created_at, type, amount, description")
+        .select("id, created_at, type, amount, description, source, cout_dollars, taxe")
         .eq("membre_id", uid)
         .order("created_at", { ascending: false })
         .limit(30);
