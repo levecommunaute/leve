@@ -306,7 +306,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             collaborateur_id: collaborateurId,
             video_id: videoId,
             pts_pending: ptsPending,
-            date_expiration: expiresAt.toISOString(),
+            expires_at: expiresAt.toISOString(),
             recupere: false,
           });
 
