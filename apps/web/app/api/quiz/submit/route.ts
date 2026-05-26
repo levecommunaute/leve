@@ -1,7 +1,7 @@
 import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
-import { currentMonthKey, splitPcolQuizPoints } from "../../../../lib/pcol";
+import { currentMonthKey } from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
 
@@ -174,9 +174,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const pointsEarned = correct * POINTS_PER_CORRECT;
     const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
 
-    const pcolSplit = isCollaborateurVideo ? splitPcolQuizPoints(pointsEarned) : null;
-    const memberPointsEarned = pcolSplit
-      ? Math.round(pcolSplit.ptsMembresNets)
+    const memberPointsEarned = isCollaborateurVideo
+      ? Math.round(pointsEarned * 0.8)
       : pointsEarned;
 
     const pointsEarnedPonderes = memberPointsEarned * multiplicateur;
@@ -259,10 +258,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: qsError.message }, { status: 500 });
     }
 
-    if (pcolSplit && collaborateurId && pointsEarned > 0) {
+    if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
-      const ptsCollab = Math.round(pcolSplit.ptsCollabImmediate);
-      const ptsPending = Math.round(pcolSplit.ptsPending);
+      const ptsCollab = Math.round(pointsEarned * 0.2);
+      const ptsMembresNets = Math.round(pointsEarned * 0.8);
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
@@ -270,52 +269,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         mois,
         pts_membres_gagnes: pointsEarned,
         pts_collab: ptsCollab,
-        pts_membres_nets: memberPointsEarned,
+        pts_membres_nets: ptsMembresNets,
         type: "quiz",
       });
 
       if (pcolErr) {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
-      }
-
-      if (ptsPending > 0) {
-        const now = new Date();
-        const expiresAt = new Date(now);
-        expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
-
-        const { data: existingPending } = await svc
-          .from("pending_pcol")
-          .select("id, points_amount")
-          .eq("collaborateur_id", collaborateurId)
-          .eq("video_id", videoId)
-          .eq("status", "pending")
-          .maybeSingle();
-
-        if (existingPending?.id) {
-          const { error: pendingUpdErr } = await svc
-            .from("pending_pcol")
-            .update({
-              points_amount: Number(existingPending.points_amount ?? 0) + ptsPending,
-            })
-            .eq("id", existingPending.id);
-
-          if (pendingUpdErr) {
-            return NextResponse.json({ error: pendingUpdErr.message }, { status: 500 });
-          }
-        } else {
-          const { error: pendingInsErr } = await svc.from("pending_pcol").insert({
-            collaborateur_id: collaborateurId,
-            video_id: videoId,
-            points_amount: ptsPending,
-            earned_date: now.toISOString(),
-            expires_at: expiresAt.toISOString(),
-            status: "pending",
-          });
-
-          if (pendingInsErr) {
-            return NextResponse.json({ error: pendingInsErr.message }, { status: 500 });
-          }
-        }
       }
     }
 
