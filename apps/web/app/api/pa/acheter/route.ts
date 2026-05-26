@@ -105,6 +105,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const cout = round2(ptsPa * PA_PRICE_CAD);
   const taxe = round2(cout * TAX_RATE);
+  const totalDebit = round2(cout + taxe);
   const taxeCommunaute = round2(taxe * TAX_COMMUNAUTE_SHARE);
   const taxeFonctionnement = round2(taxe - taxeCommunaute);
 
@@ -121,11 +122,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const solde = Number(banque?.solde_dollars ?? 0);
-  if (!Number.isFinite(solde) || solde < cout) {
+  if (!Number.isFinite(solde) || solde < totalDebit) {
     return NextResponse.json({ error: "Solde insuffisant" }, { status: 400 });
   }
 
-  const nextSolde = round2(solde - cout);
+  const nextSolde = round2(solde - totalDebit);
   const now = new Date().toISOString();
 
   const { error: updateBanqueError } = await supabase
@@ -137,12 +138,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: updateBanqueError.message }, { status: 500 });
   }
 
-  const { error: mouvementError } = await supabase.from("banque_membres_mouvements").insert({
-    membre_id: membreId,
-    montant: -cout,
-    type: "achat_pa",
-    description: `Achat ${ptsPa} pt(s) PA · ${cout.toFixed(2)} $`,
-  });
+  const { error: mouvementError } = await supabase.from("banque_membres_mouvements").insert([
+    {
+      membre_id: membreId,
+      montant: -cout,
+      type: "achat_pa",
+      description: `Achat ${ptsPa} pt(s) PA · ${cout.toFixed(2)} $`,
+    },
+    {
+      membre_id: membreId,
+      montant: -taxe,
+      type: "taxe_pa",
+      description: "Taxe 2% achat PA",
+    },
+  ]);
 
   if (mouvementError) {
     return NextResponse.json({ error: mouvementError.message }, { status: 500 });
@@ -173,6 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     pts_credites: ptsPa,
     taxe,
     cout,
+    total_debite: totalDebit,
     taxe_communaute: taxeCommunaute,
     taxe_fonctionnement: taxeFonctionnement,
     solde_banque: nextSolde,
