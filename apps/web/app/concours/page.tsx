@@ -33,8 +33,8 @@ type ConcoursRow = {
 
 type ConcoursArtisteRow = {
   id: string;
-  nom: string | null;
-  pays: string | null;
+  artiste_nom: string | null;
+  artiste_pays: string | null;
   categorie: string | null;
   total_votes_pts: number | string | null;
   concours_id?: string | null;
@@ -217,7 +217,7 @@ export default function ConcoursPage(): JSX.Element | null {
         ),
         flagConcoursArtistes
           ? fetchRest<ConcoursArtisteRow[]>(
-              "concours_artistes?select=id,nom,pays,categorie,total_votes_pts,concours_id&actif=eq.true&order=nom.asc",
+              "concours_artistes?select=id,artiste_nom,artiste_pays,categorie,total_votes_pts,concours_id&actif=eq.true&order=artiste_nom.asc",
               token,
             )
           : Promise.resolve({ data: [] as ConcoursArtisteRow[], error: null }),
@@ -588,9 +588,9 @@ export default function ConcoursPage(): JSX.Element | null {
             </p>
             {artistes.map((artiste) => (
               <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-                <h3 style={{ margin: 0, color: GOLD }}>{artiste.nom?.trim() || "Artiste"}</h3>
+                <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
                 <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
-                  {artiste.pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"} · {pointsFmt.format(pts(artiste.total_votes_pts))} votes
+                  {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"} · {pointsFmt.format(pts(artiste.total_votes_pts))} votes
                 </p>
                 <button
                   type="button"
