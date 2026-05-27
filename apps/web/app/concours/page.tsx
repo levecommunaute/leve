@@ -178,9 +178,17 @@ export default function ConcoursPage(): JSX.Element | null {
           tirageRes.json(),
         ])) as Array<{ actif?: boolean }>;
         if (cancelled) return;
-        setFeatureFlagsState((concoursJson?.actif ?? false) ? "enabled" : "disabled");
-        setFlagConcoursArtistes(artistesJson?.actif ?? false);
-        setFlagTirage(tirageJson?.actif ?? false);
+        const concoursOn = concoursJson?.actif ?? false;
+        const artistesOn = artistesJson?.actif ?? false;
+        const tirageOn = tirageJson?.actif ?? false;
+        console.log("[concours] feature flags", {
+          concours: concoursOn,
+          "concours-artistes": artistesOn,
+          tirage: tirageOn,
+        });
+        setFeatureFlagsState(concoursOn ? "enabled" : "disabled");
+        setFlagConcoursArtistes(artistesOn);
+        setFlagTirage(tirageOn);
       } catch {
         if (!cancelled) {
           setFeatureFlagsState("disabled");
@@ -265,7 +273,14 @@ export default function ConcoursPage(): JSX.Element | null {
         setTotalPointsPmq(0);
       }
       setConcours(concoursRes.error ? [] : (concoursRes.data ?? []));
-      setArtistes(artistesRes.error ? [] : (artistesRes.data ?? []));
+      const artistesList = artistesRes.error ? [] : (artistesRes.data ?? []);
+      setArtistes(artistesList);
+      console.log("[concours] concours_artistes (actif=true)", {
+        flagConcoursArtistes,
+        error: artistesRes.error?.message ?? null,
+        count: artistesList.length,
+        sample: artistesList.slice(0, 3),
+      });
 
       if (votesRes.error) {
         setVotesArtistesUsed(0);
@@ -274,6 +289,11 @@ export default function ConcoursPage(): JSX.Element | null {
       }
 
       setTirageActif(activeTirage);
+      console.log("[concours] tirages (actif=true)", {
+        flagTirage,
+        error: tiragesRes.error?.message ?? null,
+        activeTirage,
+      });
       if (ticketsRes.error) {
         setTicketsTirage(0);
       } else {
@@ -288,6 +308,8 @@ export default function ConcoursPage(): JSX.Element | null {
   );
 
   useEffect(() => {
+    if (featureFlagsState === "loading") return;
+
     let cancelled = false;
     async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
@@ -321,7 +343,7 @@ export default function ConcoursPage(): JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [loadPage]);
+  }, [loadPage, featureFlagsState]);
 
   const isFounderBonusEligible = useMemo(() => {
     const memberType = (profile?.member_type ?? "").toLowerCase().trim();
@@ -576,30 +598,34 @@ export default function ConcoursPage(): JSX.Element | null {
               Votes utilisés: {votesArtistesUsed}/3
               {isFounderBonusEligible ? " (1er vote gratuit bonus fondateur)" : ""}
             </p>
-            {artistes.map((artiste) => (
-              <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-                <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
-                <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
-                  {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"} · {pointsFmt.format(pts(artiste.total_votes_pts))} votes
-                </p>
-                <button
-                  type="button"
-                  disabled={votingArtisteId === artiste.id || votesArtistesUsed >= 3}
-                  onClick={() => void handleVoteArtiste(artiste.id)}
-                  style={{
-                    background: ROUGE,
-                    color: TEXT,
-                    border: "none",
-                    borderRadius: "8px",
-                    padding: "0.6rem 1rem",
-                    cursor: votesArtistesUsed >= 3 ? "not-allowed" : "pointer",
-                    opacity: votesArtistesUsed >= 3 ? 0.55 : 1,
-                  }}
-                >
-                  {votingArtisteId === artiste.id ? "Vote..." : "Voter (5 pts PA)"}
-                </button>
-              </article>
-            ))}
+            {artistes.length === 0 ? (
+              <p style={{ margin: 0, opacity: 0.75 }}>Aucun artiste actif pour le moment.</p>
+            ) : (
+              artistes.map((artiste) => (
+                <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+                  <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
+                  <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
+                    {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"} · {pointsFmt.format(pts(artiste.total_votes_pts))} votes
+                  </p>
+                  <button
+                    type="button"
+                    disabled={votingArtisteId === artiste.id || votesArtistesUsed >= 3}
+                    onClick={() => void handleVoteArtiste(artiste.id)}
+                    style={{
+                      background: ROUGE,
+                      color: TEXT,
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "0.6rem 1rem",
+                      cursor: votesArtistesUsed >= 3 ? "not-allowed" : "pointer",
+                      opacity: votesArtistesUsed >= 3 ? 0.55 : 1,
+                    }}
+                  >
+                    {votingArtisteId === artiste.id ? "Vote..." : "Voter (5 pts PA)"}
+                  </button>
+                </article>
+              ))
+            )}
             {voteArtisteMsg ? (
               <p role={voteArtisteMsg.kind === "err" ? "alert" : "status"} style={{ color: voteArtisteMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.35rem 0 0" }}>
                 {voteArtisteMsg.text}
