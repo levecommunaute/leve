@@ -78,11 +78,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let effectiveDebit = ptsPa;
   let tax = round2(effectiveDebit * TAX_RATE);
 
-  let artisteConcoursId: string | null = null;
   if (type === "vote_concours") {
     const { data: artistForLimit, error: artistLimitErr } = await supabase
       .from("concours_artistes")
-      .select("id, concours_id")
+      .select("id")
       .eq("id", targetId)
       .maybeSingle();
     if (artistLimitErr) {
@@ -91,14 +90,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!artistForLimit?.id) {
       return NextResponse.json({ error: "Artiste introuvable" }, { status: 404 });
     }
-    artisteConcoursId = artistForLimit.concours_id ?? null;
 
     const [{ data: votes, error: votesErr }, { data: profile, error: profileErr }] = await Promise.all([
       supabase
         .from("votes_concours_artistes")
         .select("id")
-        .eq("membre_id", membreId)
-        .eq("concours_id", artisteConcoursId),
+        .eq("membre_id", membreId),
       supabase
         .from("profiles")
         .select("member_type, multiplier")
@@ -173,8 +170,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (type === "vote_concours") {
     const { error: voteLogErr } = await supabase.from("votes_concours_artistes").insert({
       membre_id: membreId,
-      concours_id: artisteConcoursId,
-      artiste_id: targetId,
+      concours_artiste_id: targetId,
+      nb_votes: 1,
+      pts_pa_depenses: effectiveDebit,
     });
     if (voteLogErr) return NextResponse.json({ error: voteLogErr.message }, { status: 500 });
 

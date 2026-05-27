@@ -37,7 +37,6 @@ type ConcoursArtisteRow = {
   artiste_pays: string | null;
   categorie: string | null;
   total_votes_pts: number | string | null;
-  concours_id?: string | null;
 };
 
 type TirageRow = {
@@ -48,7 +47,6 @@ type TirageRow = {
 
 type VoteArtisteRow = {
   id: string;
-  concours_id?: string | null;
 };
 
 type TirageTicketRow = {
@@ -217,13 +215,13 @@ export default function ConcoursPage(): JSX.Element | null {
         ),
         flagConcoursArtistes
           ? fetchRest<ConcoursArtisteRow[]>(
-              "concours_artistes?select=id,artiste_nom,artiste_pays,categorie,total_votes_pts,concours_id&actif=eq.true&order=artiste_nom.asc",
+              "concours_artistes?select=id,artiste_nom,artiste_pays,categorie,total_votes_pts&actif=eq.true&order=artiste_nom.asc",
               token,
             )
           : Promise.resolve({ data: [] as ConcoursArtisteRow[], error: null }),
         flagConcoursArtistes
           ? fetchRest<VoteArtisteRow[]>(
-              `votes_concours_artistes?select=id,concours_id&membre_id=eq.${encodeURIComponent(uid)}`,
+              `votes_concours_artistes?select=id&membre_id=eq.${encodeURIComponent(uid)}`,
               token,
             )
           : Promise.resolve({ data: [] as VoteArtisteRow[], error: null }),
@@ -272,15 +270,7 @@ export default function ConcoursPage(): JSX.Element | null {
       if (votesRes.error) {
         setVotesArtistesUsed(0);
       } else {
-        const voteRows = votesRes.data ?? [];
-        const activeConcoursId = (artistesRes.error ? [] : artistesRes.data ?? []).find(
-          (a) => a.concours_id,
-        )?.concours_id;
-        const filtered =
-          activeConcoursId && activeConcoursId.trim().length
-            ? voteRows.filter((v) => v.concours_id === activeConcoursId)
-            : voteRows;
-        setVotesArtistesUsed(filtered.length);
+        setVotesArtistesUsed((votesRes.data ?? []).length);
       }
 
       setTirageActif(activeTirage);
