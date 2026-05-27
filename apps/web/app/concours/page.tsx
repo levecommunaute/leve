@@ -181,8 +181,8 @@ export default function ConcoursPage(): JSX.Element | null {
         ])) as Array<{ actif?: boolean }>;
         if (cancelled) return;
         setFeatureFlagsState((concoursJson?.actif ?? false) ? "enabled" : "disabled");
-        setFlagConcoursArtistes(Boolean(artistesJson.actif));
-        setFlagTirage(Boolean(tirageJson.actif));
+        setFlagConcoursArtistes(artistesJson?.actif ?? false);
+        setFlagTirage(tirageJson?.actif ?? false);
       } catch {
         if (!cancelled) {
           setFeatureFlagsState("disabled");
