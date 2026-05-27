@@ -4,7 +4,7 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
@@ -13,6 +13,53 @@ const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
+type RestErr = { message: string };
+type FeatureFlagsState = "loading" | "enabled" | "disabled";
+type ActionType = "vote_concours" | "tirage";
+
+type ProfileRow = {
+  display_name: string | null;
+  member_type: string | null;
+  multiplier: number | string | null;
+};
+
+type ConcoursRow = {
+  id: string;
+  titre: string;
+  description: string | null;
+  date_fin: string;
+  points_requis: number | string | null;
+};
+
+type ConcoursArtisteRow = {
+  id: string;
+  nom: string | null;
+  pays: string | null;
+  categorie: string | null;
+  total_votes_pts: number | string | null;
+  concours_id?: string | null;
+};
+
+type TirageRow = {
+  id: string;
+  trimestre: string | null;
+  date_tirage: string | null;
+};
+
+type VoteArtisteRow = {
+  id: string;
+  concours_id?: string | null;
+};
+
+type TirageTicketRow = {
+  nb_tickets: number | string | null;
+};
+
+type MessageState = {
+  kind: "ok" | "err";
+  text: string;
+} | null;
+
 function supabaseRestHeaders(accessToken: string): HeadersInit {
   return {
     apikey: KEY,
@@ -20,8 +67,6 @@ function supabaseRestHeaders(accessToken: string): HeadersInit {
     Accept: "application/json",
   };
 }
-
-type RestErr = { message: string };
 
 async function fetchRest<T>(
   path: string,
@@ -48,7 +93,6 @@ async function fetchRest<T>(
   return { data, error: null };
 }
 
-
 const bebas = Bebas_Neue({
   weight: "400",
   subsets: ["latin"],
@@ -64,24 +108,14 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
-const VERT = "#2ECC71";
 
-type ProfileRow = {
-  display_name: string | null;
-};
+const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
+const dateFmt = new Intl.DateTimeFormat("fr-CA", {
+  dateStyle: "long",
+  timeStyle: "short",
+});
 
-type ConcoursRow = {
-  id: string;
-  titre: string;
-  description: string | null;
-  date_fin: string;
-  points_requis: number | string | null;
-};
-
-function displayNameFrom(
-  profile: ProfileRow | null,
-  session: Session,
-): string {
+function displayNameFrom(profile: ProfileRow | null, session: Session): string {
   const meta = session.user.user_metadata as Record<string, unknown> | undefined;
   const fullName =
     typeof meta?.full_name === "string" ? meta.full_name : undefined;
@@ -93,91 +127,68 @@ function displayNameFrom(
   );
 }
 
-const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
-const dateFinFmt = new Intl.DateTimeFormat("fr-CA", {
-  dateStyle: "long",
-  timeStyle: "short",
-});
-
-function pointsRequis(row: ConcoursRow): number {
-  const n = Number(row.points_requis ?? 0);
-  return Number.isFinite(n) ? Math.max(0, n) : 0;
-}
-
-function comingSoonSection(title: string): JSX.Element {
-  return (
-    <section
-      aria-live="polite"
-      style={{
-        borderRadius: "16px",
-        padding: "3rem 1.75rem",
-        textAlign: "center",
-        marginTop: "2rem",
-        background:
-          "linear-gradient(180deg, rgba(212, 160, 23, 0.07) 0%, rgba(8, 8, 8, 0.95) 55%)",
-        border: "1px solid rgba(212, 160, 23, 0.22)",
-        boxShadow: "0 0 0 1px rgba(245, 240, 232, 0.04) inset",
-      }}
-    >
-      <p
-        style={{
-          margin: "0 0 0.75rem",
-          fontFamily: "var(--font-bebas), Impact, sans-serif",
-          fontSize: "clamp(1.75rem, 6vw, 2.5rem)",
-          letterSpacing: "0.14em",
-          color: GOLD,
-          textTransform: "uppercase",
-        }}
-      >
-        Bientôt disponible
-      </p>
-      <p
-        style={{
-          margin: "0 auto",
-          maxWidth: "28rem",
-          fontSize: "1rem",
-          lineHeight: 1.65,
-          opacity: 0.82,
-        }}
-      >
-        La section {title} arrive prochainement sur LEVE. Revenez bientôt.
-      </p>
-    </section>
-  );
+function pts(n: number | string | null | undefined): number {
+  const num = Number(n ?? 0);
+  return Number.isFinite(num) ? num : 0;
 }
 
 export default function ConcoursPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const navPages = useAppBottomNavLinks(session);
+
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [concours, setConcours] = useState<ConcoursRow[]>([]);
+  const [artistes, setArtistes] = useState<ConcoursArtisteRow[]>([]);
+  const [votesArtistesUsed, setVotesArtistesUsed] = useState(0);
+  const [tirageActif, setTirageActif] = useState<TirageRow | null>(null);
+  const [ticketsTirage, setTicketsTirage] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  const [featureFlagsState, setFeatureFlagsState] = useState<FeatureFlagsState>("loading");
+  const [flagConcoursArtistes, setFlagConcoursArtistes] = useState(false);
+  const [flagTirage, setFlagTirage] = useState(false);
+
   const [participatingId, setParticipatingId] = useState<string | null>(null);
-  const [participatedIds, setParticipatedIds] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [participatedIds, setParticipatedIds] = useState<Set<string>>(() => new Set());
   const [participationMsg, setParticipationMsg] = useState<{
     concoursId: string;
     kind: "ok" | "err";
     text: string;
   } | null>(null);
-  const [featureFlagState, setFeatureFlagState] = useState<
-    "loading" | "enabled" | "disabled"
-  >("loading");
+
+  const [votingArtisteId, setVotingArtisteId] = useState<string | null>(null);
+  const [voteArtisteMsg, setVoteArtisteMsg] = useState<MessageState>(null);
+
+  const [buyingTicket, setBuyingTicket] = useState(false);
+  const [ticketMsg, setTicketMsg] = useState<MessageState>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const r = await fetch("/api/feature-flags?nom=concours", { cache: "no-store" });
-        const j = (await r.json()) as { actif?: boolean };
+        const [concoursRes, artistesRes, tirageRes] = await Promise.all([
+          fetch("/api/feature-flags?nom=concours", { cache: "no-store" }),
+          fetch("/api/feature-flags?nom=concours-artistes", { cache: "no-store" }),
+          fetch("/api/feature-flags?nom=tirage", { cache: "no-store" }),
+        ]);
+        const [concoursJson, artistesJson, tirageJson] = (await Promise.all([
+          concoursRes.json(),
+          artistesRes.json(),
+          tirageRes.json(),
+        ])) as Array<{ actif?: boolean }>;
         if (cancelled) return;
-        setFeatureFlagState(j.actif ? "enabled" : "disabled");
+        setFeatureFlagsState(concoursJson.actif ? "enabled" : "disabled");
+        setFlagConcoursArtistes(Boolean(artistesJson.actif));
+        setFlagTirage(Boolean(tirageJson.actif));
       } catch {
-        if (!cancelled) setFeatureFlagState("disabled");
+        if (!cancelled) {
+          setFeatureFlagsState("disabled");
+          setFlagConcoursArtistes(false);
+          setFlagTirage(false);
+        }
       }
     })();
     return () => {
@@ -185,65 +196,118 @@ export default function ConcoursPage(): JSX.Element | null {
     };
   }, []);
 
-  const loadPage = useCallback(async (activeSession: Session) => {
-    const token = activeSession.access_token;
-    const uid = activeSession.user.id;
-    const nowIso = new Date().toISOString();
+  const loadPage = useCallback(
+    async (activeSession: Session) => {
+      const token = activeSession.access_token;
+      const uid = activeSession.user.id;
+      const nowIso = new Date().toISOString();
 
-    const [profileRes, txRes, concoursRes] = await Promise.all([
-      fetchRest<ProfileRow[]>(
-        `profiles?select=display_name&id=eq.${encodeURIComponent(uid)}`,
-        token,
-      ),
-      fetchRest<{ amount?: unknown }[]>(
-        `points_transactions?select=amount&membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz`,
-        token,
-      ),
-      fetchRest<ConcoursRow[]>(
-        `concours?select=id,titre,description,date_fin,points_requis&date_fin=gte.${encodeURIComponent(nowIso)}&order=date_fin.asc`,
-        token,
-      ),
-    ]);
+      const baseReqs = await Promise.all([
+        fetchRest<ProfileRow[]>(
+          `profiles?select=display_name,member_type,multiplier&id=eq.${encodeURIComponent(uid)}`,
+          token,
+        ),
+        fetchRest<{ amount?: unknown }[]>(
+          `points_transactions?select=amount&membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz`,
+          token,
+        ),
+        fetchRest<ConcoursRow[]>(
+          `concours?select=id,titre,description,date_fin,points_requis&date_fin=gte.${encodeURIComponent(nowIso)}&order=date_fin.asc`,
+          token,
+        ),
+        flagConcoursArtistes
+          ? fetchRest<ConcoursArtisteRow[]>(
+              "concours_artistes?select=id,nom,pays,categorie,total_votes_pts,concours_id&actif=eq.true&order=nom.asc",
+              token,
+            )
+          : Promise.resolve({ data: [] as ConcoursArtisteRow[], error: null }),
+        flagConcoursArtistes
+          ? fetchRest<VoteArtisteRow[]>(
+              `votes_concours_artistes?select=id,concours_id&membre_id=eq.${encodeURIComponent(uid)}`,
+              token,
+            )
+          : Promise.resolve({ data: [] as VoteArtisteRow[], error: null }),
+        flagTirage
+          ? fetchRest<TirageRow[]>(
+              "tirages?select=id,trimestre,date_tirage&actif=eq.true&order=date_tirage.asc&limit=1",
+              token,
+            )
+          : Promise.resolve({ data: [] as TirageRow[], error: null }),
+      ]);
 
-    const errMsg =
-      profileRes.error?.message ??
-      txRes.error?.message ??
-      concoursRes.error?.message ??
-      null;
-    setLoadError(errMsg);
+      const [profileRes, txRes, concoursRes, artistesRes, votesRes, tiragesRes] = baseReqs;
+      let ticketsRes:
+        | { data: TirageTicketRow[]; error: null }
+        | { data: null; error: RestErr } = { data: [], error: null };
 
-    if (!profileRes.error) {
-      const rows = profileRes.data ?? [];
-      setProfile(rows[0] ?? null);
-    }
+      const activeTirage = tiragesRes.error ? null : (tiragesRes.data?.[0] ?? null);
+      if (flagTirage && activeTirage?.id) {
+        ticketsRes = await fetchRest<TirageTicketRow[]>(
+          `tirage_tickets?select=nb_tickets&membre_id=eq.${encodeURIComponent(uid)}&tirage_id=eq.${encodeURIComponent(activeTirage.id)}`,
+          token,
+        );
+      }
 
-    if (txRes.error) {
-      setTotalPointsPmq(0);
-    } else {
-      const rows = txRes.data ?? [];
-      const sum = rows.reduce(
-        (acc, row) => acc + Number(row.amount ?? 0),
-        0,
-      );
-      setTotalPointsPmq(sum);
-    }
+      const errMsg =
+        profileRes.error?.message ??
+        txRes.error?.message ??
+        concoursRes.error?.message ??
+        artistesRes.error?.message ??
+        votesRes.error?.message ??
+        tiragesRes.error?.message ??
+        ticketsRes.error?.message ??
+        null;
+      setLoadError(errMsg);
 
-    if (concoursRes.error) {
-      setConcours([]);
-    } else {
-      setConcours(concoursRes.data ?? []);
-    }
-  }, []);
+      if (!profileRes.error) setProfile(profileRes.data?.[0] ?? null);
+      if (!txRes.error) {
+        const sum = (txRes.data ?? []).reduce((acc, row) => acc + Number(row.amount ?? 0), 0);
+        setTotalPointsPmq(sum);
+      } else {
+        setTotalPointsPmq(0);
+      }
+      setConcours(concoursRes.error ? [] : (concoursRes.data ?? []));
+      setArtistes(artistesRes.error ? [] : (artistesRes.data ?? []));
+
+      if (votesRes.error) {
+        setVotesArtistesUsed(0);
+      } else {
+        const voteRows = votesRes.data ?? [];
+        const activeConcoursId = (artistesRes.error ? [] : artistesRes.data ?? []).find(
+          (a) => a.concours_id,
+        )?.concours_id;
+        const filtered =
+          activeConcoursId && activeConcoursId.trim().length
+            ? voteRows.filter((v) => v.concours_id === activeConcoursId)
+            : voteRows;
+        setVotesArtistesUsed(filtered.length);
+      }
+
+      setTirageActif(activeTirage);
+      if (ticketsRes.error) {
+        setTicketsTirage(0);
+      } else {
+        const total = (ticketsRes.data ?? []).reduce((acc, row) => {
+          const value = Number(row.nb_tickets ?? 0);
+          return acc + (Number.isFinite(value) && value > 0 ? value : 0);
+        }, 0);
+        setTicketsTirage(total);
+      }
+    },
+    [flagConcoursArtistes, flagTirage],
+  );
 
   useEffect(() => {
     let cancelled = false;
-
     async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
       if (!next) {
         setSession(null);
         setProfile(null);
         setConcours([]);
+        setArtistes([]);
+        setTirageActif(null);
+        setTicketsTirage(0);
         setTotalPointsPmq(0);
         setLoadError(null);
         return;
@@ -257,22 +321,92 @@ export default function ConcoursPage(): JSX.Element | null {
     }
 
     void applyCookieSession(readSessionFromAuthCookies());
-
     const onVisible = (): void => {
-      if (document.visibilityState === "visible") {
-        syncFromCookies();
-      }
+      if (document.visibilityState === "visible") syncFromCookies();
     };
     document.addEventListener("visibilitychange", onVisible);
-
     const pollId = window.setInterval(syncFromCookies, 15000);
-
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
   }, [loadPage]);
+
+  const isFounderBonusEligible = useMemo(() => {
+    const memberType = (profile?.member_type ?? "").toLowerCase().trim();
+    return memberType === "fondateur" && Number(profile?.multiplier ?? 1) >= 2;
+  }, [profile?.member_type, profile?.multiplier]);
+
+  async function spendPa(
+    action: ActionType,
+    ptsPa: number,
+    targetId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    if (!session?.user.id) return { success: false, message: "Session invalide" };
+    try {
+      const res = await fetch("/api/pa/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          membre_id: session.user.id,
+          type: action,
+          pts_pa: ptsPa,
+          target_id: targetId,
+        }),
+      });
+      const j = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || !j.success) {
+        return { success: false, message: j.error || "Action impossible" };
+      }
+      return { success: true };
+    } catch {
+      return { success: false, message: "Erreur réseau" };
+    }
+  }
+
+  async function handleVoteArtiste(artisteId: string): Promise<void> {
+    if (votesArtistesUsed >= 3) {
+      setVoteArtisteMsg({ kind: "err", text: "Maximum 3 votes atteint pour ce concours." });
+      return;
+    }
+    setVotingArtisteId(artisteId);
+    setVoteArtisteMsg(null);
+    const result = await spendPa("vote_concours", 5, artisteId);
+    setVotingArtisteId(null);
+    if (!result.success) {
+      setVoteArtisteMsg({ kind: "err", text: result.message });
+      return;
+    }
+    setVoteArtisteMsg({
+      kind: "ok",
+      text: isFounderBonusEligible && votesArtistesUsed === 0
+        ? "Vote enregistré (bonus fondateur appliqué)."
+        : "Vote enregistré.",
+    });
+    if (session) await loadPage(session);
+  }
+
+  async function handleAcheterTicket(): Promise<void> {
+    if (!tirageActif?.id) {
+      setTicketMsg({ kind: "err", text: "Aucun tirage actif." });
+      return;
+    }
+    if (ticketsTirage >= 10) {
+      setTicketMsg({ kind: "err", text: "Maximum 10 tickets atteint pour ce trimestre." });
+      return;
+    }
+    setBuyingTicket(true);
+    setTicketMsg(null);
+    const result = await spendPa("tirage", 10, tirageActif.id);
+    setBuyingTicket(false);
+    if (!result.success) {
+      setTicketMsg({ kind: "err", text: result.message });
+      return;
+    }
+    setTicketMsg({ kind: "ok", text: "Ticket ajouté avec succès." });
+    if (session) await loadPage(session);
+  }
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
@@ -285,7 +419,7 @@ export default function ConcoursPage(): JSX.Element | null {
   }
 
   function handleParticiper(row: ConcoursRow): void {
-    const req = pointsRequis(row);
+    const req = Math.max(0, pts(row.points_requis));
     if (totalPointsPmq < req) {
       setParticipationMsg({
         concoursId: row.id,
@@ -294,24 +428,23 @@ export default function ConcoursPage(): JSX.Element | null {
       });
       return;
     }
-
     setParticipatingId(row.id);
     setParticipationMsg(null);
-
     window.setTimeout(() => {
       setParticipatingId(null);
       setParticipatedIds((prev) => new Set(prev).add(row.id));
       setParticipationMsg({
         concoursId: row.id,
         kind: "ok",
-        text: "Merci ! Votre participation est notée pour ce concours. Les gagnants seront contactés après la date de clôture.",
+        text: "Merci ! Votre participation est notée pour ce concours.",
       });
-    }, 280);
+    }, 250);
   }
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
+  const name = session && profile ? displayNameFrom(profile, session) : "";
 
-  if (featureFlagState === "loading") {
+  if (featureFlagsState === "loading" || session === undefined) {
     return (
       <div
         className={fonts}
@@ -319,224 +452,36 @@ export default function ConcoursPage(): JSX.Element | null {
           minHeight: "100vh",
           background: BG,
           color: TEXT,
-          fontFamily: "var(--font-dm), system-ui, sans-serif",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          fontFamily: "var(--font-dm), system-ui, sans-serif",
         }}
       >
-        <p style={{ opacity: 0.7 }}>Chargement…</p>
+        <p style={{ opacity: 0.75 }}>Chargement…</p>
       </div>
     );
   }
 
-  if (featureFlagState === "disabled") {
+  if (featureFlagsState === "disabled") {
     return (
-      <div
-        className={fonts}
-        style={{
-          minHeight: "100vh",
-          background: BG,
-          color: TEXT,
-          fontFamily: "var(--font-dm), system-ui, sans-serif",
-          paddingBottom: "6rem",
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "1rem 1.25rem",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
-            position: "sticky",
-            top: 0,
-            background: "rgba(8, 8, 8, 0.92)",
-            backdropFilter: "blur(8px)",
-            zIndex: 20,
-          }}
-        >
-          <Link
-            href="/"
-            style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "2rem",
-              letterSpacing: "0.12em",
-              color: TEXT,
-              textDecoration: "none",
-            }}
-          >
-            LEVE
-          </Link>
-        </header>
-        <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
-          {comingSoonSection("Concours")}
+      <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT }}>
+        <main style={{ maxWidth: "960px", margin: "0 auto", padding: "2rem 1.25rem" }}>
+          <p style={{ opacity: 0.8 }}>La section concours est désactivée pour le moment.</p>
         </main>
-        <nav
-          style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: "rgba(8, 8, 8, 0.97)",
-            borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-            padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
-            zIndex: 30,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              overflowX: "auto",
-              gap: "0.5rem",
-              justifyContent: "flex-start",
-              maxWidth: "960px",
-              margin: "0 auto",
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "none",
-            }}
-          >
-            {navPages.map((p) => (
-              <Link
-                key={p.href}
-                href={p.href}
-                style={{
-                  flex: "0 0 auto",
-                  fontSize: "0.68rem",
-                  color: p.href === "/concours" ? GOLD : TEXT,
-                  opacity: p.href === "/concours" ? 1 : 0.75,
-                  textDecoration: "none",
-                  padding: "0.35rem 0.5rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {p.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      </div>
-    );
-  }
-
-  if (session === undefined) {
-    return (
-      <div
-        className={fonts}
-        style={{
-          minHeight: "100vh",
-          background: BG,
-          color: TEXT,
-          fontFamily: "var(--font-dm), system-ui, sans-serif",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <p style={{ opacity: 0.7 }}>Chargement…</p>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div
-        className={fonts}
-        style={{
-          minHeight: "100vh",
-          background: BG,
-          color: TEXT,
-          fontFamily: "var(--font-dm), system-ui, sans-serif",
-          paddingBottom: "6rem",
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "1rem 1.25rem",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
-            position: "sticky",
-            top: 0,
-            background: "rgba(8, 8, 8, 0.92)",
-            backdropFilter: "blur(8px)",
-            zIndex: 20,
-          }}
-        >
-          <Link
-            href="/"
-            style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "2rem",
-              letterSpacing: "0.12em",
-              color: TEXT,
-              textDecoration: "none",
-            }}
-          >
-            LEVE
-          </Link>
-        </header>
-        <main
-          style={{
-            maxWidth: "960px",
-            margin: "0 auto",
-            padding: "2rem 1.25rem",
-            textAlign: "center",
-          }}
-        >
-          <p style={{ margin: 0, fontSize: "1.05rem", opacity: 0.85, lineHeight: 1.6 }}>
-            Connecte-toi pour accéder aux concours
-          </p>
+      <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT }}>
+        <main style={{ maxWidth: "960px", margin: "0 auto", padding: "2rem 1.25rem" }}>
+          <p style={{ opacity: 0.8 }}>Connecte-toi pour accéder aux concours.</p>
         </main>
-        <nav
-          style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: "rgba(8, 8, 8, 0.97)",
-            borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-            padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
-            zIndex: 30,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              overflowX: "auto",
-              gap: "0.5rem",
-              justifyContent: "flex-start",
-              maxWidth: "960px",
-              margin: "0 auto",
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "none",
-            }}
-          >
-            {navPages.map((p) => (
-              <Link
-                key={p.href}
-                href={p.href}
-                style={{
-                  flex: "0 0 auto",
-                  fontSize: "0.68rem",
-                  color: p.href === "/concours" ? GOLD : TEXT,
-                  opacity: p.href === "/concours" ? 1 : 0.75,
-                  textDecoration: "none",
-                  padding: "0.35rem 0.5rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {p.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
       </div>
     );
   }
-
-  const name = displayNameFrom(profile, session);
 
   return (
     <div
@@ -559,35 +504,14 @@ export default function ConcoursPage(): JSX.Element | null {
           position: "sticky",
           top: 0,
           background: "rgba(8, 8, 8, 0.92)",
-          backdropFilter: "blur(8px)",
           zIndex: 20,
         }}
       >
-        <Link
-          href="/"
-          style={{
-            fontFamily: "var(--font-bebas), Impact, sans-serif",
-            fontSize: "2rem",
-            letterSpacing: "0.12em",
-            color: TEXT,
-            textDecoration: "none",
-          }}
-        >
+        <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>
           LEVE
         </Link>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <span
-            style={{
-              fontSize: "0.9rem",
-              opacity: 0.85,
-              maxWidth: "42vw",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {name}
-          </span>
+          <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>{name}</span>
           <button
             type="button"
             disabled={signingOut}
@@ -608,341 +532,129 @@ export default function ConcoursPage(): JSX.Element | null {
       </header>
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
-        {loadError ? (
-          <p
-            role="alert"
-            style={{
-              color: ROUGE,
-              fontSize: "0.9rem",
-              marginBottom: "1rem",
-            }}
-          >
-            {loadError}
-          </p>
-        ) : null}
+        {loadError ? <p role="alert" style={{ color: ROUGE }}>{loadError}</p> : null}
 
-        <section
-          style={{
-            borderRadius: "14px",
-            padding: "1.75rem 1.5rem",
-            marginBottom: "1.25rem",
-            background:
-              "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)",
-            border: "1px solid rgba(245, 240, 232, 0.1)",
-          }}
-        >
-          <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>
-            Communauté LEVE
-          </p>
-          <h1
-            style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "clamp(2rem, 7vw, 3rem)",
-              letterSpacing: "0.04em",
-              margin: "0.35rem 0 0.75rem",
-              lineHeight: 1.05,
-              color: TEXT,
-            }}
-          >
-            Concours
+        <section style={{ borderRadius: "14px", padding: "1.5rem", marginBottom: "1rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+          <h1 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2.2rem" }}>
+            CONCOURS PMQ
           </h1>
-          <p style={{ margin: 0, opacity: 0.8, fontSize: "0.95rem", maxWidth: "36rem" }}>
-            Participez aux tirages et événements réservés aux membres. Chaque concours indique
-            le seuil de points PMQ requis et la date limite.
+          <p style={{ margin: "0.75rem 0 0", opacity: 0.85 }}>
+            Solde PMQ: <strong style={{ color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</strong>
           </p>
         </section>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "0.85rem",
-            marginBottom: "1.75rem",
-          }}
-        >
-          <article
-            style={{
-              borderRadius: "12px",
-              padding: "1.1rem",
-              background: "rgba(245, 240, 232, 0.04)",
-              border: "1px solid rgba(212, 160, 23, 0.35)",
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.72rem",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: GOLD,
-                opacity: 0.95,
-              }}
-            >
-              Vos points PMQ
-            </p>
-            <p
-              style={{
-                margin: "0.5rem 0 0",
-                fontSize: "1.65rem",
-                fontWeight: 700,
-                color: GOLD,
-              }}
-            >
-              {pointsFmt.format(totalPointsPmq)}
-            </p>
-          </article>
-          <article
-            style={{
-              borderRadius: "12px",
-              padding: "1.1rem",
-              background: "rgba(245, 240, 232, 0.04)",
-              border: "1px solid rgba(245, 240, 232, 0.12)",
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.72rem",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                opacity: 0.55,
-              }}
-            >
-              Concours ouverts
-            </p>
-            <p
-              style={{
-                margin: "0.5rem 0 0",
-                fontSize: "1.65rem",
-                fontWeight: 700,
-                color: TEXT,
-              }}
-            >
-              {concours.length}
-            </p>
-          </article>
-        </div>
+        {concours.map((row) => {
+          const req = Math.max(0, pts(row.points_requis));
+          const already = participatedIds.has(row.id);
+          const canParticiper = totalPointsPmq >= req && !already;
+          const end = new Date(row.date_fin);
+          const msg = participationMsg?.concoursId === row.id ? participationMsg : null;
+          return (
+            <section key={row.id} style={{ borderRadius: "14px", padding: "1.25rem", marginBottom: "0.9rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+              <h2 style={{ margin: "0 0 0.5rem", color: ROUGE, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.06em" }}>
+                {row.titre || "Concours"}
+              </h2>
+              {row.description ? <p style={{ margin: "0 0 0.5rem", opacity: 0.85 }}>{row.description}</p> : null}
+              <p style={{ margin: 0, opacity: 0.7 }}>Date de fin: {Number.isNaN(end.getTime()) ? "?" : dateFmt.format(end)}</p>
+              <p style={{ margin: "0.4rem 0 0.9rem", opacity: 0.8 }}>Points requis: {pointsFmt.format(req)} PMQ</p>
+              <button
+                type="button"
+                disabled={participatingId === row.id || !canParticiper}
+                onClick={() => handleParticiper(row)}
+                style={{
+                  background: canParticiper ? ROUGE : "rgba(192, 57, 43, 0.25)",
+                  color: TEXT,
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "0.65rem 1.2rem",
+                  cursor: canParticiper ? "pointer" : "not-allowed",
+                }}
+              >
+                {participatingId === row.id ? "Envoi..." : already ? "Participation envoyée" : "Participer"}
+              </button>
+              {msg ? <p style={{ margin: "0.65rem 0 0", color: msg.kind === "ok" ? GOLD : ROUGE }}>{msg.text}</p> : null}
+            </section>
+          );
+        })}
 
-        {concours.length === 0 ? (
-          <section
-            aria-live="polite"
-            style={{
-              borderRadius: "16px",
-              padding: "2.5rem 1.75rem",
-              textAlign: "center",
-              background:
-                "linear-gradient(180deg, rgba(212, 160, 23, 0.07) 0%, rgba(8, 8, 8, 0.95) 55%)",
-              border: "1px solid rgba(212, 160, 23, 0.22)",
-              boxShadow: "0 0 0 1px rgba(245, 240, 232, 0.04) inset",
-            }}
-          >
-            <p
-              style={{
-                margin: "0 0 0.75rem",
-                fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "1.5rem",
-                letterSpacing: "0.12em",
-                color: GOLD,
-                textTransform: "uppercase",
-              }}
-            >
-              Prochainement
+        {flagConcoursArtistes ? (
+          <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
+              CONCOURS ARTISTES
+            </h2>
+            <p style={{ margin: "0.65rem 0 1rem", opacity: 0.82 }}>
+              Votes utilisés: {votesArtistesUsed}/3
+              {isFounderBonusEligible ? " (1er vote gratuit bonus fondateur)" : ""}
             </p>
-            <p
-              style={{
-                margin: "0 auto",
-                maxWidth: "28rem",
-                fontSize: "1rem",
-                lineHeight: 1.65,
-                opacity: 0.82,
-              }}
-            >
-              Aucun concours actif pour le moment. Revenez bientôt : les prochaines éditions
-              seront annoncées ici, en toute transparence, pour la communauté LEVE.
-            </p>
-            <div
-              style={{
-                marginTop: "1.75rem",
-                height: "1px",
-                maxWidth: "120px",
-                marginLeft: "auto",
-                marginRight: "auto",
-                background: `linear-gradient(90deg, transparent, ${ROUGE}, transparent)`,
-                opacity: 0.65,
-              }}
-            />
-          </section>
-        ) : (
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: "1rem",
-            }}
-          >
-            {concours.map((row) => {
-              const req = pointsRequis(row);
-              const already = participatedIds.has(row.id);
-              const canParticiper = totalPointsPmq >= req && !already;
-              const end = new Date(row.date_fin);
-              const endLabel = Number.isNaN(end.getTime())
-                ? "?"
-                : dateFinFmt.format(end);
-              const msg =
-                participationMsg?.concoursId === row.id ? participationMsg : null;
-
-              return (
-                <li
-                  key={row.id}
+            {artistes.map((artiste) => (
+              <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+                <h3 style={{ margin: 0, color: GOLD }}>{artiste.nom?.trim() || "Artiste"}</h3>
+                <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
+                  {artiste.pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"} · {pointsFmt.format(pts(artiste.total_votes_pts))} votes
+                </p>
+                <button
+                  type="button"
+                  disabled={votingArtisteId === artiste.id || votesArtistesUsed >= 3}
+                  onClick={() => void handleVoteArtiste(artiste.id)}
                   style={{
-                    borderRadius: "14px",
-                    padding: "1.35rem 1.25rem",
-                    background: "#111",
-                    border: "1px solid rgba(245, 240, 232, 0.1)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "1rem",
+                    background: ROUGE,
+                    color: TEXT,
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "0.6rem 1rem",
+                    cursor: votesArtistesUsed >= 3 ? "not-allowed" : "pointer",
+                    opacity: votesArtistesUsed >= 3 ? 0.55 : 1,
                   }}
                 >
-                  <div>
-                    <h2
-                      style={{
-                        fontFamily: "var(--font-bebas), Impact, sans-serif",
-                        fontSize: "1.65rem",
-                        letterSpacing: "0.05em",
-                        margin: "0 0 0.5rem",
-                        color: ROUGE,
-                        lineHeight: 1.1,
-                      }}
-                    >
-                      {row.titre?.trim() || "Concours"}
-                    </h2>
-                    {row.description?.trim() ? (
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.95rem",
-                          lineHeight: 1.55,
-                          opacity: 0.88,
-                          whiteSpace: "pre-wrap",
-                        }}
-                      >
-                        {row.description.trim()}
-                      </p>
-                    ) : null}
-                  </div>
+                  {votingArtisteId === artiste.id ? "Vote..." : "Voter (5 pts PA)"}
+                </button>
+              </article>
+            ))}
+            {voteArtisteMsg ? (
+              <p role={voteArtisteMsg.kind === "err" ? "alert" : "status"} style={{ color: voteArtisteMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.35rem 0 0" }}>
+                {voteArtisteMsg.text}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
-                  <dl
-                    style={{
-                      margin: 0,
-                      display: "grid",
-                      gap: "0.65rem",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        justifyContent: "space-between",
-                        gap: "0.5rem",
-                        padding: "0.65rem 0.75rem",
-                        borderRadius: "10px",
-                        background: "rgba(245, 240, 232, 0.04)",
-                        border: "1px solid rgba(245, 240, 232, 0.08)",
-                      }}
-                    >
-                      <dt style={{ opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.72rem" }}>
-                        Date de fin
-                      </dt>
-                      <dd style={{ margin: 0, fontWeight: 600 }}>{endLabel}</dd>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        justifyContent: "space-between",
-                        gap: "0.5rem",
-                        padding: "0.65rem 0.75rem",
-                        borderRadius: "10px",
-                        background: "rgba(212, 160, 23, 0.08)",
-                        border: "1px solid rgba(212, 160, 23, 0.28)",
-                      }}
-                    >
-                      <dt style={{ opacity: 0.75, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.72rem", color: GOLD }}>
-                        Points requis
-                      </dt>
-                      <dd style={{ margin: 0, fontWeight: 700, color: GOLD }}>
-                        {pointsFmt.format(req)} PMQ
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-                    <button
-                      type="button"
-                      disabled={participatingId === row.id || !canParticiper}
-                      onClick={() => handleParticiper(row)}
-                      style={{
-                        alignSelf: "flex-start",
-                        background: already
-                          ? "rgba(46, 204, 113, 0.15)"
-                          : canParticiper
-                            ? ROUGE
-                            : "rgba(192, 57, 43, 0.25)",
-                        color: TEXT,
-                        border: already ? `1px solid ${VERT}` : "none",
-                        borderRadius: "8px",
-                        padding: "0.65rem 1.35rem",
-                        fontSize: "0.95rem",
-                        fontWeight: 600,
-                        letterSpacing: "0.04em",
-                        cursor:
-                          participatingId === row.id
-                            ? "wait"
-                            : canParticiper
-                              ? "pointer"
-                              : "not-allowed",
-                        opacity: already ? 0.9 : canParticiper ? 1 : 0.65,
-                      }}
-                    >
-                      {participatingId === row.id
-                        ? "Envoi…"
-                        : already
-                          ? "Participation envoyée"
-                          : "Participer"}
-                    </button>
-                    {totalPointsPmq < req ? (
-                      <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.65 }}>
-                        Solde insuffisant : il manque{" "}
-                        <span style={{ color: GOLD, fontWeight: 600 }}>
-                          {pointsFmt.format(Math.max(0, req - totalPointsPmq))} pts
-                        </span>{" "}
-                        pour atteindre le seuil.
-                      </p>
-                    ) : null}
-                    {msg ? (
-                      <p
-                        role={msg.kind === "err" ? "alert" : "status"}
-                        style={{
-                          margin: 0,
-                          fontSize: "0.85rem",
-                          color: msg.kind === "ok" ? GOLD : ROUGE,
-                          lineHeight: 1.45,
-                        }}
-                      >
-                        {msg.text}
-                      </p>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {flagTirage ? (
+          <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
+              TIRAGE TRIMESTRIEL
+            </h2>
+            <p style={{ margin: "0.65rem 0 0.35rem", opacity: 0.82 }}>
+              Trimestre: {tirageActif?.trimestre || "-"}
+            </p>
+            <p style={{ margin: "0 0 0.35rem", opacity: 0.82 }}>
+              Date tirage: {tirageActif?.date_tirage ? dateFmt.format(new Date(tirageActif.date_tirage)) : "-"}
+            </p>
+            <p style={{ margin: "0 0 0.85rem", opacity: 0.82 }}>
+              Vos tickets: {ticketsTirage}/10
+            </p>
+            <button
+              type="button"
+              disabled={buyingTicket || !tirageActif?.id || ticketsTirage >= 10}
+              onClick={() => void handleAcheterTicket()}
+              style={{
+                background: ROUGE,
+                color: TEXT,
+                border: "none",
+                borderRadius: "8px",
+                padding: "0.6rem 1rem",
+                cursor: ticketsTirage >= 10 ? "not-allowed" : "pointer",
+                opacity: ticketsTirage >= 10 ? 0.55 : 1,
+              }}
+            >
+              {buyingTicket ? "Achat..." : "Acheter un ticket (10 pts PA)"}
+            </button>
+            {ticketMsg ? (
+              <p role={ticketMsg.kind === "err" ? "alert" : "status"} style={{ color: ticketMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.6rem 0 0" }}>
+                {ticketMsg.text}
+              </p>
+            ) : null}
+          </section>
+        ) : null}
       </main>
 
       <nav
@@ -957,32 +669,9 @@ export default function ConcoursPage(): JSX.Element | null {
           zIndex: 30,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            gap: "0.5rem",
-            justifyContent: "flex-start",
-            maxWidth: "960px",
-            margin: "0 auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-          }}
-        >
+        <div style={{ display: "flex", overflowX: "auto", gap: "0.5rem", maxWidth: "960px", margin: "0 auto" }}>
           {navPages.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              style={{
-                flex: "0 0 auto",
-                fontSize: "0.68rem",
-                color: p.href === "/concours" ? GOLD : TEXT,
-                opacity: p.href === "/concours" ? 1 : 0.75,
-                textDecoration: "none",
-                padding: "0.35rem 0.5rem",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <Link key={p.href} href={p.href} style={{ flex: "0 0 auto", fontSize: "0.68rem", color: p.href === "/concours" ? GOLD : TEXT, opacity: p.href === "/concours" ? 1 : 0.75, textDecoration: "none", padding: "0.35rem 0.5rem", whiteSpace: "nowrap" }}>
               {p.label}
             </Link>
           ))}
