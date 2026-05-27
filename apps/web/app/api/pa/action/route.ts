@@ -11,10 +11,6 @@ const TAX_RATE = 0.02;
 
 type ActionType = "vote_concours" | "tirage" | "pourboire";
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
 async function resolveAuthUser(request: NextRequest): Promise<{ uid: string } | NextResponse> {
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
   if (bearer) {
@@ -75,8 +71,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const supabase = getServiceSupabase();
 
-  let effectiveDebit = ptsPa;
-  let tax = round2(effectiveDebit * TAX_RATE);
+  const pts = Math.round(ptsPa);
+  let effectiveDebit = pts;
+  let tax = Math.round(pts * TAX_RATE);
 
   if (type === "vote_concours") {
     const { data: artistForLimit, error: artistLimitErr } = await supabase
@@ -135,13 +132,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const totalDebit = round2(effectiveDebit + tax);
-  const { data: paRows, error: paSumError } = await supabase
+  const totalDebit = effectiveDebit + tax;
+  const { data: paSumRows, error: paSumError } = await supabase
     .from("pa_transactions")
-    .select("amount")
+    .select("amount.sum()")
     .eq("membre_id", membreId);
   if (paSumError) return NextResponse.json({ error: paSumError.message }, { status: 500 });
-  const solde = (paRows ?? []).reduce((acc, row) => acc + Number(row.amount ?? 0), 0);
+  const solde = Number(paSumRows?.[0]?.sum ?? 0);
   if (solde < totalDebit) {
     return NextResponse.json({ error: "Solde PA insuffisant" }, { status: 400 });
   }
@@ -149,18 +146,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { error: spendErr } = await supabase.from("pa_transactions").insert({
     membre_id: membreId,
     type: "spend",
-    amount: -effectiveDebit,
+    amount: -Math.round(effectiveDebit),
     description: `Dépense PA: ${type}`,
   });
   if (spendErr) return NextResponse.json({ error: spendErr.message }, { status: 500 });
 
   if (tax > 0) {
+    const taxRounded = Math.round(tax);
     const { error: taxErr } = await supabase.from("pa_transactions").insert({
       membre_id: membreId,
       type: "tax",
-      amount: -tax,
+      amount: -taxRounded,
       description: "Taxe 2% sur action PA",
-      tax_usd: tax,
+      tax_usd: taxRounded,
     });
     if (taxErr) return NextResponse.json({ error: taxErr.message }, { status: 500 });
   }
