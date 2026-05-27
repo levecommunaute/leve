@@ -133,12 +133,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const totalDebit = effectiveDebit + tax;
-  const { data: paSumRows, error: paSumError } = await supabase
+  const { data: txs, error: paTxError } = await supabase
     .from("pa_transactions")
-    .select("amount.sum()")
+    .select("amount")
     .eq("membre_id", membreId);
-  if (paSumError) return NextResponse.json({ error: paSumError.message }, { status: 500 });
-  const solde = Number(paSumRows?.[0]?.sum ?? 0);
+  if (paTxError) return NextResponse.json({ error: paTxError.message }, { status: 500 });
+  const solde = (txs ?? []).reduce((sum, tx) => sum + Number(tx.amount), 0);
   if (solde < totalDebit) {
     return NextResponse.json({ error: "Solde PA insuffisant" }, { status: 400 });
   }
