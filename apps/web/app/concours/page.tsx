@@ -180,7 +180,7 @@ export default function ConcoursPage(): JSX.Element | null {
           tirageRes.json(),
         ])) as Array<{ actif?: boolean }>;
         if (cancelled) return;
-        setFeatureFlagsState(concoursJson.actif ? "enabled" : "disabled");
+        setFeatureFlagsState((concoursJson?.actif ?? false) ? "enabled" : "disabled");
         setFlagConcoursArtistes(Boolean(artistesJson.actif));
         setFlagTirage(Boolean(tirageJson.actif));
       } catch {
