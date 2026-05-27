@@ -151,7 +151,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     type: "spend",
     amount: -effectiveDebit,
     description: `Dépense PA: ${type}`,
-    source: "api/pa/action",
   });
   if (spendErr) return NextResponse.json({ error: spendErr.message }, { status: 500 });
 
@@ -161,8 +160,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       type: "tax",
       amount: -tax,
       description: "Taxe 2% sur action PA",
-      source: "api/pa/action",
-      taxe: tax,
+      tax_usd: tax,
     });
     if (taxErr) return NextResponse.json({ error: taxErr.message }, { status: 500 });
   }
