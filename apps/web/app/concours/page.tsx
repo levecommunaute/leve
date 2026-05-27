@@ -47,6 +47,7 @@ type TirageRow = {
 
 type VoteArtisteRow = {
   id: string;
+  concours_artiste_id: string;
 };
 
 type TirageTicketRow = {
@@ -130,6 +131,11 @@ function pts(n: number | string | null | undefined): number {
   return Number.isFinite(num) ? num : 0;
 }
 
+function voteCountLabel(count: number): string {
+  const n = Math.max(0, Math.round(count));
+  return n <= 1 ? `${n} vote` : `${n} votes`;
+}
+
 export default function ConcoursPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -140,6 +146,7 @@ export default function ConcoursPage(): JSX.Element | null {
   const [concours, setConcours] = useState<ConcoursRow[]>([]);
   const [artistes, setArtistes] = useState<ConcoursArtisteRow[]>([]);
   const [votesArtistesUsed, setVotesArtistesUsed] = useState(0);
+  const [votedArtisteIds, setVotedArtisteIds] = useState<Set<string>>(() => new Set());
   const [tirageActif, setTirageActif] = useState<TirageRow | null>(null);
   const [ticketsTirage, setTicketsTirage] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -229,7 +236,7 @@ export default function ConcoursPage(): JSX.Element | null {
           : Promise.resolve({ data: [] as ConcoursArtisteRow[], error: null }),
         flagConcoursArtistes
           ? fetchRest<VoteArtisteRow[]>(
-              `votes_concours_artistes?select=id&membre_id=eq.${encodeURIComponent(uid)}`,
+              `votes_concours_artistes?select=id,concours_artiste_id&membre_id=eq.${encodeURIComponent(uid)}`,
               token,
             )
           : Promise.resolve({ data: [] as VoteArtisteRow[], error: null }),
@@ -284,8 +291,17 @@ export default function ConcoursPage(): JSX.Element | null {
 
       if (votesRes.error) {
         setVotesArtistesUsed(0);
+        setVotedArtisteIds(new Set());
       } else {
-        setVotesArtistesUsed((votesRes.data ?? []).length);
+        const voteRows = votesRes.data ?? [];
+        setVotesArtistesUsed(voteRows.length);
+        setVotedArtisteIds(
+          new Set(
+            voteRows
+              .map((row) => row.concours_artiste_id)
+              .filter((id): id is string => typeof id === "string" && id.length > 0),
+          ),
+        );
       }
 
       setTirageActif(activeTirage);
@@ -321,6 +337,8 @@ export default function ConcoursPage(): JSX.Element | null {
         setTirageActif(null);
         setTicketsTirage(0);
         setTotalPointsPmq(0);
+        setVotesArtistesUsed(0);
+        setVotedArtisteIds(new Set());
         setLoadError(null);
         return;
       }
@@ -378,6 +396,10 @@ export default function ConcoursPage(): JSX.Element | null {
   }
 
   async function handleVoteArtiste(artisteId: string): Promise<void> {
+    if (votedArtisteIds.has(artisteId)) {
+      setVoteArtisteMsg({ kind: "err", text: "Vous avez déjà voté pour cet artiste" });
+      return;
+    }
     if (votesArtistesUsed >= 3) {
       setVoteArtisteMsg({ kind: "err", text: "Maximum 3 votes atteint pour ce concours." });
       return;
@@ -601,30 +623,42 @@ export default function ConcoursPage(): JSX.Element | null {
             {artistes.length === 0 ? (
               <p style={{ margin: 0, opacity: 0.75 }}>Aucun artiste actif pour le moment.</p>
             ) : (
-              artistes.map((artiste) => (
+              artistes.map((artiste) => {
+                const alreadyVoted = votedArtisteIds.has(artiste.id);
+                const votesMaxed = votesArtistesUsed >= 3;
+                const canVote = !alreadyVoted && !votesMaxed;
+                return (
                 <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
                   <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
                   <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
-                    {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"} · {pointsFmt.format(pts(artiste.total_votes_pts))} votes
+                    {artiste.artiste_nom?.trim() || "Artiste"} · {voteCountLabel(pts(artiste.total_votes_pts))}
+                  </p>
+                  <p style={{ margin: "0 0 0.75rem", opacity: 0.7, fontSize: "0.9rem" }}>
+                    {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"}
                   </p>
                   <button
                     type="button"
-                    disabled={votingArtisteId === artiste.id || votesArtistesUsed >= 3}
+                    disabled={votingArtisteId === artiste.id || !canVote}
                     onClick={() => void handleVoteArtiste(artiste.id)}
                     style={{
-                      background: ROUGE,
+                      background: canVote ? ROUGE : "rgba(192, 57, 43, 0.25)",
                       color: TEXT,
                       border: "none",
                       borderRadius: "8px",
                       padding: "0.6rem 1rem",
-                      cursor: votesArtistesUsed >= 3 ? "not-allowed" : "pointer",
-                      opacity: votesArtistesUsed >= 3 ? 0.55 : 1,
+                      cursor: canVote ? "pointer" : "not-allowed",
+                      opacity: canVote ? 1 : 0.55,
                     }}
                   >
-                    {votingArtisteId === artiste.id ? "Vote..." : "Voter (5 pts PA)"}
+                    {votingArtisteId === artiste.id
+                      ? "Vote..."
+                      : alreadyVoted
+                        ? "Déjà voté"
+                        : "Voter (5 pts PA)"}
                   </button>
                 </article>
-              ))
+                );
+              })
             )}
             {voteArtisteMsg ? (
               <p role={voteArtisteMsg.kind === "err" ? "alert" : "status"} style={{ color: voteArtisteMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.35rem 0 0" }}>

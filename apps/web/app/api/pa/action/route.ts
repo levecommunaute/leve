@@ -88,11 +88,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Artiste introuvable" }, { status: 404 });
     }
 
-    const [{ data: votes, error: votesErr }, { data: profile, error: profileErr }] = await Promise.all([
+    const [
+      { data: votes, error: votesErr },
+      { data: existingVoteForArtist, error: duplicateErr },
+      { data: profile, error: profileErr },
+    ] = await Promise.all([
       supabase
         .from("votes_concours_artistes")
         .select("id")
         .eq("membre_id", membreId),
+      supabase
+        .from("votes_concours_artistes")
+        .select("id")
+        .eq("membre_id", membreId)
+        .eq("concours_artiste_id", targetId)
+        .maybeSingle(),
       supabase
         .from("profiles")
         .select("member_type, multiplier")
@@ -100,7 +110,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .maybeSingle(),
     ]);
     if (votesErr) return NextResponse.json({ error: votesErr.message }, { status: 500 });
+    if (duplicateErr) return NextResponse.json({ error: duplicateErr.message }, { status: 500 });
     if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 500 });
+    if (existingVoteForArtist?.id) {
+      return NextResponse.json(
+        { error: "Vous avez déjà voté pour cet artiste" },
+        { status: 400 },
+      );
+    }
     if ((votes ?? []).length >= 3) {
       return NextResponse.json(
         { error: "Maximum 3 votes par membre pour ce concours" },
@@ -181,7 +198,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!artistRow?.id) {
       return NextResponse.json({ error: "Artiste introuvable" }, { status: 404 });
     }
-    const nextVotes = Number(artistRow.total_votes_pts ?? 0) + ptsPa;
+    const nextVotes = Number(artistRow.total_votes_pts ?? 0) + 1;
     const { error: updateArtistErr } = await supabase
       .from("concours_artistes")
       .update({ total_votes_pts: nextVotes })
