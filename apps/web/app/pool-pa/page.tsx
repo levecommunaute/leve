@@ -141,7 +141,7 @@ export default function PoolPaPage(): JSX.Element | null {
     const uid = activeSession.user.id;
     const sb = createAuthedSupabase(activeSession.access_token);
 
-    const [profileRes, banqueRes, achatSumRes] = await Promise.all([
+    const [profileRes, banqueRes, paSumRes] = await Promise.all([
       sb
         .from("profiles")
         .select("display_name, member_type")
@@ -155,8 +155,7 @@ export default function PoolPaPage(): JSX.Element | null {
       sb
         .from("pa_transactions")
         .select("amount")
-        .eq("membre_id", uid)
-        .eq("type", "purchase"),
+        .eq("membre_id", uid),
     ]);
 
     const historyRes = await sb
@@ -169,7 +168,7 @@ export default function PoolPaPage(): JSX.Element | null {
     const errMsg =
       profileRes.error?.message ??
       banqueRes.error?.message ??
-      achatSumRes.error?.message ??
+      paSumRes.error?.message ??
       historyRes.error?.message ??
       null;
     setLoadError(errMsg);
@@ -186,10 +185,10 @@ export default function PoolPaPage(): JSX.Element | null {
       );
     }
 
-    if (achatSumRes.error) {
+    if (paSumRes.error) {
       setSoldePa(0);
     } else {
-      const total = (achatSumRes.data ?? []).reduce(
+      const total = (paSumRes.data ?? []).reduce(
         (acc, row) => acc + Number(row.amount ?? 0),
         0,
       );
@@ -517,7 +516,7 @@ export default function PoolPaPage(): JSX.Element | null {
                 {ptsFmt.format(soldePa)} pt{soldePa !== 1 ? "s" : ""}
               </p>
               <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", opacity: 0.8 }}>
-                Total des achats
+                Somme des transactions PA
               </p>
             </section>
 

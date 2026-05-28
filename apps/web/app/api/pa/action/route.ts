@@ -11,6 +11,12 @@ const TAX_RATE = 0.02;
 
 type ActionType = "vote_concours" | "tirage" | "pourboire";
 
+function paActionDescription(type: ActionType): string {
+  if (type === "vote_concours") return "Vote — Concours Artistes";
+  if (type === "tirage") return "Ticket Tirage Trimestriel";
+  return "Pourboire créateur";
+}
+
 async function resolveAuthUser(request: NextRequest): Promise<{ uid: string } | NextResponse> {
   const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
   if (bearer) {
@@ -160,11 +166,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Solde PA insuffisant" }, { status: 400 });
   }
 
+  const actionDescription = paActionDescription(type);
+
   const { error: spendErr } = await supabase.from("pa_transactions").insert({
     membre_id: membreId,
     type: "spend",
     amount: -Math.round(effectiveDebit),
-    description: `Dépense PA: ${type}`,
+    description: actionDescription,
   });
   if (spendErr) return NextResponse.json({ error: spendErr.message }, { status: 500 });
 
