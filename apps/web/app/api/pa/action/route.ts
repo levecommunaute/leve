@@ -183,7 +183,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     amount: -ptsDebit,
     description: actionDescription,
     cost_usd: 0,
-    tax_usd: taxUsd,
+    tax_usd: 0,
   });
   if (spendErr) return NextResponse.json({ error: spendErr.message }, { status: 500 });
 
@@ -195,8 +195,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       description: `Taxe 2% — ${actionDescription}`,
       cost_usd: 0,
       tax_usd: taxUsd,
-      taxe_communaute,
-      taxe_fonctionnement,
     });
     if (taxErr) return NextResponse.json({ error: taxErr.message }, { status: 500 });
 
