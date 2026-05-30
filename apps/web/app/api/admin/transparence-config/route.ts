@@ -36,16 +36,16 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const denied = requireAdminSecret(request);
   if (denied) return denied;
 
-  let body: { pool_key?: string; visible?: unknown };
+  let body: { cle?: string; visible?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Corps JSON invalide" }, { status: 400 });
   }
 
-  const poolKey = typeof body.pool_key === "string" ? body.pool_key.trim() : "";
-  if (!poolKey || !VALID_KEYS.includes(poolKey as TransparencePoolKey)) {
-    return NextResponse.json({ error: "pool_key invalide" }, { status: 400 });
+  const cle = typeof body.cle === "string" ? body.cle.trim() : "";
+  if (!cle || !VALID_KEYS.includes(cle as TransparencePoolKey)) {
+    return NextResponse.json({ error: "cle invalide" }, { status: 400 });
   }
   if (typeof body.visible !== "boolean") {
     return NextResponse.json({ error: "visible (boolean) requis" }, { status: 400 });
@@ -56,8 +56,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     const { data, error } = await supabase
       .from("transparence_config")
       .update({ visible: body.visible })
-      .eq("pool_key", poolKey)
-      .select("pool_key, label, section, visible, ordre, updated_at")
+      .eq("cle", cle)
+      .select("id, cle, label, visible, ordre")
       .maybeSingle();
 
     if (error) {

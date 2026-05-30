@@ -119,12 +119,18 @@ type PoolCurrent = {
 };
 
 type TransparenceConfigRow = {
-  pool_key: string;
+  id: number;
+  cle: string;
   label: string;
-  section: "banque" | "frais";
   visible: boolean;
   ordre: number;
 };
+
+function transparenceConfigSectionLabel(cle: string): string {
+  return cle === "frais_plateforme" || cle === "taxe_pa"
+    ? "Section Frais plateforme"
+    : "Section Soldes banque LEVE";
+}
 
 type PaTaxStats = {
   total: number;
@@ -1093,13 +1099,13 @@ export default function AdminPage(): JSX.Element {
 
   async function handleToggleTransparencePool(pool: TransparenceConfigRow): Promise<void> {
     const nextVisible = !pool.visible;
-    setTogglingTransparencePool(pool.pool_key);
+    setTogglingTransparencePool(pool.cle);
     setTransparencePoolsError(null);
     try {
       const r = await fetch("/api/admin/transparence-config", {
         method: "PATCH",
         headers: adminHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ pool_key: pool.pool_key, visible: nextVisible }),
+        body: JSON.stringify({ cle: pool.cle, visible: nextVisible }),
       });
       const j = (await r.json()) as { pool?: TransparenceConfigRow; error?: string };
       if (!r.ok) {
@@ -1108,7 +1114,7 @@ export default function AdminPage(): JSX.Element {
       }
       if (j.pool) {
         setTransparencePools((prev) =>
-          prev.map((p) => (p.pool_key === j.pool!.pool_key ? j.pool! : p)),
+          prev.map((p) => (p.cle === j.pool!.cle ? j.pool! : p)),
         );
       } else {
         await loadTransparencePools();
@@ -2841,10 +2847,10 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "0.75rem" }}>
                 {transparencePools.map((pool) => {
-                  const busy = togglingTransparencePool === pool.pool_key;
+                  const busy = togglingTransparencePool === pool.cle;
                   return (
                     <li
-                      key={pool.pool_key}
+                      key={pool.id}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -2859,7 +2865,7 @@ export default function AdminPage(): JSX.Element {
                       <div style={{ minWidth: 0 }}>
                         <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{pool.label}</p>
                         <p style={{ margin: "0.2rem 0 0", fontSize: "0.75rem", opacity: 0.55 }}>
-                          {pool.section === "frais" ? "Section Frais plateforme" : "Section Soldes banque LEVE"}
+                          {transparenceConfigSectionLabel(pool.cle)}
                         </p>
                       </div>
                       <button

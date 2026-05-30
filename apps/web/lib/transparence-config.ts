@@ -12,19 +12,18 @@ export type TransparencePoolKey =
   | "taxe_pa";
 
 export type TransparenceConfigRow = {
-  pool_key: TransparencePoolKey;
+  id: number;
+  cle: TransparencePoolKey;
   label: string;
-  section: "banque" | "frais";
   visible: boolean;
   ordre: number;
-  updated_at: string;
 };
 
 export async function getTransparenceConfig(): Promise<TransparenceConfigRow[]> {
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
     .from("transparence_config")
-    .select("pool_key, label, section, visible, ordre, updated_at")
+    .select("id, cle, label, visible, ordre")
     .order("ordre", { ascending: true });
 
   if (error) throw new Error(error.message);
@@ -46,7 +45,7 @@ export function transparenceVisibilityMap(
     taxe_pa: true,
   };
   for (const row of rows) {
-    defaults[row.pool_key] = row.visible;
+    defaults[row.cle] = row.visible;
   }
   return defaults;
 }
