@@ -4,8 +4,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
   PA_USD_PER_PT,
-  calculerTaxePaUtilisation,
   crediterTaxePaUtilisation,
+  roundUSD,
 } from "../../../../lib/frais-plateforme";
 
 export const dynamic = "force-dynamic";
@@ -157,9 +157,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const { coutUSD, taxe, taxe_communaute, taxe_fonctionnement } =
-    calculerTaxePaUtilisation(effectiveDebit);
-  const totalDebit = effectiveDebit + taxe;
+  const ptsDebit = Math.round(effectiveDebit);
+  const taxUsd =
+    ptsDebit > 0
+      ? Math.round(ptsDebit * PA_USD_PER_PT * 0.02 * 100) / 100
+      : 0;
+  const taxe_communaute = roundUSD(taxUsd * 0.75);
+  const taxe_fonctionnement = roundUSD(taxUsd * 0.25);
 
   const { data: txs, error: paTxError } = await supabase
     .from("pa_transactions")
@@ -167,7 +171,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .eq("membre_id", membreId);
   if (paTxError) return NextResponse.json({ error: paTxError.message }, { status: 500 });
   const solde = (txs ?? []).reduce((sum, tx) => sum + Number(tx.amount), 0);
-  if (solde < totalDebit) {
+  if (solde < ptsDebit) {
     return NextResponse.json({ error: "Solde PA insuffisant" }, { status: 400 });
   }
 
@@ -176,19 +180,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { error: spendErr } = await supabase.from("pa_transactions").insert({
     membre_id: membreId,
     type: "spend",
-    amount: -Math.round(effectiveDebit),
+    amount: -ptsDebit,
     description: actionDescription,
-    cost_usd: coutUSD > 0 ? coutUSD : null,
+    cost_usd: 0,
+    tax_usd: taxUsd,
   });
   if (spendErr) return NextResponse.json({ error: spendErr.message }, { status: 500 });
 
-  if (taxe > 0) {
+  if (taxUsd > 0) {
     const { error: taxErr } = await supabase.from("pa_transactions").insert({
       membre_id: membreId,
       type: "spend",
-      amount: -taxe,
+      amount: 0,
       description: `Taxe 2% — ${actionDescription}`,
-      taxe: taxe * PA_USD_PER_PT,
+      cost_usd: 0,
+      tax_usd: taxUsd,
+      taxe: taxUsd,
       taxe_communaute,
       taxe_fonctionnement,
     });
