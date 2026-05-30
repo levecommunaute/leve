@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 type PatchPalierInput = {
   id?: unknown;
-  montant_min?: unknown;
-  montant_max?: unknown;
+  palier_min?: unknown;
+  palier_max?: unknown;
   pourcentage?: unknown;
   actif?: unknown;
 };
@@ -29,7 +29,7 @@ function parseOptionalMax(raw: unknown): { ok: true; value: number | null } | { 
   }
   const n = typeof raw === "number" ? raw : Number(String(raw).trim().replace(",", "."));
   if (!Number.isFinite(n) || n < 0) {
-    return { ok: false, error: "montant_max invalide" };
+    return { ok: false, error: "palier_max invalide" };
   }
   return { ok: true, value: Math.round(n * 100) / 100 };
 }
@@ -75,8 +75,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
   const updates: Array<{
     id: string;
-    montant_min: number;
-    montant_max: number | null;
+    palier_min: number;
+    palier_max: number | null;
     pourcentage: number;
     actif: boolean;
   }> = [];
@@ -87,15 +87,15 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "id requis pour chaque palier" }, { status: 400 });
     }
 
-    const minParsed = parseAmount(item.montant_min, "montant_min");
+    const minParsed = parseAmount(item.palier_min, "palier_min");
     if (!minParsed.ok) return NextResponse.json({ error: minParsed.error }, { status: 400 });
 
-    const maxParsed = parseOptionalMax(item.montant_max);
+    const maxParsed = parseOptionalMax(item.palier_max);
     if (!maxParsed.ok) return NextResponse.json({ error: maxParsed.error }, { status: 400 });
 
     if (maxParsed.value != null && maxParsed.value < minParsed.value) {
       return NextResponse.json(
-        { error: "montant_max doit être supérieur ou égal à montant_min" },
+        { error: "palier_max doit être supérieur ou égal à palier_min" },
         { status: 400 },
       );
     }
@@ -109,8 +109,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
     updates.push({
       id,
-      montant_min: minParsed.value,
-      montant_max: maxParsed.value,
+      palier_min: minParsed.value,
+      palier_max: maxParsed.value,
       pourcentage: pctParsed.value,
       actif: item.actif,
     });
@@ -124,8 +124,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       const { data, error } = await supabase
         .from("frais_plateforme_config")
         .update({
-          montant_min: u.montant_min,
-          montant_max: u.montant_max,
+          palier_min: u.palier_min,
+          palier_max: u.palier_max,
           pourcentage: u.pourcentage,
           actif: u.actif,
         })

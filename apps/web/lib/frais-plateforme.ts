@@ -3,9 +3,9 @@ import { getFeatureFlag } from "./feature-flags";
 
 export type FraisPlateformePalier = {
   id: string;
-  nom: string;
-  montant_min: number;
-  montant_max: number | null;
+  palier_nom: string;
+  palier_min: number;
+  palier_max: number | null;
   pourcentage: number;
   actif: boolean;
   ordre: number;
@@ -17,12 +17,12 @@ function toNumber(value: unknown): number {
 }
 
 function mapPalierRow(row: Record<string, unknown>): FraisPlateformePalier {
-  const maxRaw = row.montant_max;
+  const maxRaw = row.palier_max;
   return {
     id: String(row.id ?? ""),
-    nom: String(row.nom ?? ""),
-    montant_min: toNumber(row.montant_min),
-    montant_max: maxRaw == null || maxRaw === "" ? null : toNumber(maxRaw),
+    palier_nom: String(row.palier_nom ?? ""),
+    palier_min: toNumber(row.palier_min),
+    palier_max: maxRaw == null || maxRaw === "" ? null : toNumber(maxRaw),
     pourcentage: toNumber(row.pourcentage),
     actif: Boolean(row.actif),
     ordre: Math.trunc(toNumber(row.ordre)),
@@ -34,7 +34,7 @@ export async function getFraisPlateformePaliersActifs(): Promise<FraisPlateforme
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
     .from("frais_plateforme_config")
-    .select("id, nom, montant_min, montant_max, pourcentage, actif, ordre")
+    .select("id, palier_nom, palier_min, palier_max, pourcentage, actif, ordre")
     .eq("actif", true)
     .order("ordre", { ascending: true });
 
@@ -47,7 +47,7 @@ export async function getAllFraisPlateformePaliers(): Promise<FraisPlateformePal
   const supabase = getServiceSupabase();
   const { data, error } = await supabase
     .from("frais_plateforme_config")
-    .select("id, nom, montant_min, montant_max, pourcentage, actif, ordre")
+    .select("id, palier_nom, palier_min, palier_max, pourcentage, actif, ordre")
     .order("ordre", { ascending: true });
 
   if (error) throw new Error(error.message);
@@ -62,8 +62,8 @@ export function trouverPalierPourMontant(
 
   const sorted = [...paliers].sort((a, b) => a.ordre - b.ordre);
   for (const p of sorted) {
-    if (montantUSD < p.montant_min) continue;
-    if (p.montant_max != null && montantUSD > p.montant_max) continue;
+    if (montantUSD < p.palier_min) continue;
+    if (p.palier_max != null && montantUSD > p.palier_max) continue;
     return p;
   }
   return null;

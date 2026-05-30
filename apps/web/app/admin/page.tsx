@@ -58,17 +58,17 @@ type FeatureFlagRow = {
 
 type FraisPlateformePalierRow = {
   id: string;
-  nom: string;
-  montant_min: number;
-  montant_max: number | null;
+  palier_nom: string;
+  palier_min: number;
+  palier_max: number | null;
   pourcentage: number;
   actif: boolean;
   ordre: number;
 };
 
 type FraisPalierDraft = {
-  montant_min: string;
-  montant_max: string;
+  palier_min: string;
+  palier_max: string;
   pourcentage: string;
   actif: boolean;
 };
@@ -77,8 +77,8 @@ const FRAIS_PLATEFORME_FLAG_NOM = "frais-plateforme";
 
 function palierToDraft(p: FraisPlateformePalierRow): FraisPalierDraft {
   return {
-    montant_min: String(p.montant_min),
-    montant_max: p.montant_max == null ? "" : String(p.montant_max),
+    palier_min: String(p.palier_min),
+    palier_max: p.palier_max == null ? "" : String(p.palier_max),
     pourcentage: String(p.pourcentage),
     actif: p.actif,
   };
@@ -86,8 +86,8 @@ function palierToDraft(p: FraisPlateformePalierRow): FraisPalierDraft {
 
 function fraisPalierDraftDirty(p: FraisPlateformePalierRow, d: FraisPalierDraft): boolean {
   return (
-    String(p.montant_min) !== d.montant_min.trim() ||
-    (p.montant_max == null ? d.montant_max.trim() !== "" : String(p.montant_max) !== d.montant_max.trim()) ||
+    String(p.palier_min) !== d.palier_min.trim() ||
+    (p.palier_max == null ? d.palier_max.trim() !== "" : String(p.palier_max) !== d.palier_max.trim()) ||
     String(p.pourcentage) !== d.pourcentage.trim() ||
     p.actif !== d.actif
   );
@@ -1013,8 +1013,8 @@ export default function AdminPage(): JSX.Element {
         const d = fraisPalierDrafts[p.id] ?? palierToDraft(p);
         return {
           id: p.id,
-          montant_min: d.montant_min.trim() === "" ? 0 : Number(d.montant_min),
-          montant_max: d.montant_max.trim() === "" ? null : Number(d.montant_max),
+          palier_min: d.palier_min.trim() === "" ? 0 : Number(d.palier_min),
+          palier_max: d.palier_max.trim() === "" ? null : Number(d.palier_max),
           pourcentage: Number(d.pourcentage),
           actif: d.actif,
         };
@@ -3006,20 +3006,20 @@ export default function AdminPage(): JSX.Element {
                               background: dirty ? "rgba(212, 160, 23, 0.06)" : undefined,
                             }}
                           >
-                            <td style={{ padding: "0.6rem 0.5rem", fontWeight: 600 }}>{p.nom}</td>
+                            <td style={{ padding: "0.6rem 0.5rem", fontWeight: 600 }}>{p.palier_nom}</td>
                             <td style={{ padding: "0.6rem 0.5rem" }}>
                               <input
                                 type="number"
                                 min={0}
                                 step="0.01"
-                                value={d.montant_min}
+                                value={d.palier_min}
                                 onChange={(e) =>
                                   setFraisPalierDrafts((prev) => ({
                                     ...prev,
-                                    [p.id]: { ...d, montant_min: e.target.value },
+                                    [p.id]: { ...d, palier_min: e.target.value },
                                   }))
                                 }
-                                aria-label={`${p.nom} — minimum`}
+                                aria-label={`${p.palier_nom} — minimum`}
                                 style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
                               />
                             </td>
@@ -3028,15 +3028,15 @@ export default function AdminPage(): JSX.Element {
                                 type="number"
                                 min={0}
                                 step="0.01"
-                                value={d.montant_max}
+                                value={d.palier_max}
                                 onChange={(e) =>
                                   setFraisPalierDrafts((prev) => ({
                                     ...prev,
-                                    [p.id]: { ...d, montant_max: e.target.value },
+                                    [p.id]: { ...d, palier_max: e.target.value },
                                   }))
                                 }
                                 placeholder="et plus"
-                                aria-label={`${p.nom} — maximum`}
+                                aria-label={`${p.palier_nom} — maximum`}
                                 style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
                               />
                             </td>
@@ -3053,14 +3053,14 @@ export default function AdminPage(): JSX.Element {
                                     [p.id]: { ...d, pourcentage: e.target.value },
                                   }))
                                 }
-                                aria-label={`${p.nom} — pourcentage`}
+                                aria-label={`${p.palier_nom} — pourcentage`}
                                 style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
                               />
                             </td>
                             <td style={{ padding: "0.6rem 0.5rem", textAlign: "center" }}>
                               {onOffSwitch({
                                 checked: d.actif,
-                                label: `${p.nom} — palier ${d.actif ? "actif" : "inactif"}`,
+                                label: `${p.palier_nom} — palier ${d.actif ? "actif" : "inactif"}`,
                                 onToggle: () =>
                                   setFraisPalierDrafts((prev) => ({
                                     ...prev,
