@@ -29,7 +29,6 @@ const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
 const PA_PRICE_CAD = 5;
-const TAX_RATE = 0.02;
 
 function createAuthedSupabase(accessToken: string): SupabaseClient {
   return createClient(SB, KEY, {
@@ -185,7 +184,6 @@ export default function PoolPaPage(): JSX.Element | null {
   }, [soldeBanque]);
 
   const cout = round2(ptsPa * PA_PRICE_CAD);
-  const taxe = round2(cout * TAX_RATE);
   const canBuy =
     maxPtsAffordable >= 1 &&
     ptsPa >= 1 &&
@@ -333,7 +331,6 @@ export default function PoolPaPage(): JSX.Element | null {
         success?: boolean;
         error?: string;
         pts_credites?: number;
-        taxe?: number;
       };
 
       if (!res.ok) {
@@ -341,9 +338,7 @@ export default function PoolPaPage(): JSX.Element | null {
         return;
       }
 
-      setBuySuccess(
-        `${json.pts_credites ?? ptsPa} pt(s) PA crédité(s). Taxe : ${cad.format(json.taxe ?? taxe)}`,
-      );
+      setBuySuccess(`${json.pts_credites ?? ptsPa} pt(s) PA crédité(s).`);
       await loadPoolPa(session);
     } catch {
       setBuyError("Erreur réseau");
@@ -496,7 +491,7 @@ export default function PoolPaPage(): JSX.Element | null {
           POOL ACTIVITÉS
         </h1>
         <p style={{ margin: "0 0 1.25rem", opacity: 0.75, fontSize: "0.95rem", lineHeight: 1.5 }}>
-          Points d&apos;accès (PA) — {cad.format(PA_PRICE_CAD)} / pt · taxe {TAX_RATE * 100} % sur chaque achat
+          Points d&apos;accès (PA) — {cad.format(PA_PRICE_CAD)} / pt
         </p>
 
         {featureFlagState === "loading" ? (
@@ -667,10 +662,6 @@ export default function PoolPaPage(): JSX.Element | null {
                   <span style={{ opacity: 0.8 }}>Coût ({ptsPa} × {cad.format(PA_PRICE_CAD)})</span>
                   <strong>{cad.format(cout)}</strong>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ opacity: 0.8 }}>Taxe 2 %</span>
-                  <strong>{cad.format(taxe)}</strong>
-                </div>
                 <div
                   style={{
                     display: "flex",
@@ -683,9 +674,6 @@ export default function PoolPaPage(): JSX.Element | null {
                   <span>Total débité banque</span>
                   <span style={{ color: GOLD }}>{cad.format(cout)}</span>
                 </div>
-                <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", opacity: 0.6, lineHeight: 1.45 }}>
-                  Taxe de 2 % sur le montant : 75 % → pool PA communauté, 25 % → fonctionnement LEVE.
-                </p>
               </div>
 
               {buyError ? (
