@@ -100,10 +100,30 @@ function displayNameFrom(
 }
 
 function paTxLabel(row: PaTxRow): string {
-  if (row.description?.trim()) return row.description.trim();
   const t = (row.type ?? "").toLowerCase();
-  if (t === "purchase") return "Achat de points PA";
+  const desc = row.description?.trim() ?? "";
+  const descLower = desc.toLowerCase();
+
+  if (t === "purchase") {
+    return desc || "Achat de points PA";
+  }
+
+  if (descLower.includes("vote_concours")) {
+    return "Vote — Concours Artistes";
+  }
+  if (descLower.includes("tirage")) {
+    return "Ticket Tirage Trimestriel";
+  }
+  if (desc === "Vote — Concours Artistes") {
+    return desc;
+  }
+
+  if (t === "spend") {
+    return "Dépense PA";
+  }
+
   if (t === "depense" || t === "utilisation") return "Utilisation PA";
+  if (desc) return desc;
   return row.type?.replace(/_/g, " ") ?? "Transaction PA";
 }
 
