@@ -3,7 +3,6 @@ import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
-  PA_USD_PER_PT,
   calculerFraisPlateforme,
   crediterOperationsBalance,
   roundUSD,
@@ -13,12 +12,7 @@ export const dynamic = "force-dynamic";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const PA_PRICE_CAD = PA_USD_PER_PT;
-
-function round2(n: number): number {
-  return roundUSD(n);
-}
+const MIN_RETRAIT_CAD = 100;
 
 async function resolveAuthUser(
   request: NextRequest,
@@ -55,7 +49,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const auth = await resolveAuthUser(request);
   if (auth instanceof NextResponse) return auth;
 
-  let body: { membre_id?: string; pts_pa?: number };
+  let body: { membre_id?: string };
   try {
     body = await request.json();
   } catch {
@@ -63,19 +57,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const membreId = typeof body.membre_id === "string" ? body.membre_id.trim() : "";
-  const ptsPa = Number(body.pts_pa);
-
   if (!membreId || membreId !== auth.uid) {
     return NextResponse.json({ error: "membre_id invalide" }, { status: 403 });
   }
-  if (!Number.isInteger(ptsPa) || ptsPa < 1) {
-    return NextResponse.json({ error: "pts_pa invalide (entier ≥ 1)" }, { status: 400 });
-  }
-
-  const cout = round2(ptsPa * PA_PRICE_CAD);
-  const { pourcentage: fraisPct, frais: fraisPlateforme } =
-    await calculerFraisPlateforme(cout);
-  const totalDebit = round2(cout + fraisPlateforme);
 
   const supabase = getServiceSupabase();
 
@@ -89,72 +73,56 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: banqueError.message }, { status: 500 });
   }
 
-  const solde = Number(banque?.solde_dollars ?? 0);
-  if (!Number.isFinite(solde) || solde < totalDebit) {
-    return NextResponse.json({ error: "Solde insuffisant" }, { status: 400 });
+  const montant = roundUSD(Number(banque?.solde_dollars ?? 0));
+  if (montant < MIN_RETRAIT_CAD) {
+    return NextResponse.json(
+      { error: `Minimum ${MIN_RETRAIT_CAD.toFixed(2)} $ requis pour un retrait` },
+      { status: 400 },
+    );
   }
 
-  const nextSolde = round2(solde - totalDebit);
+  const { pourcentage, frais } = await calculerFraisPlateforme(montant);
+  const net = roundUSD(Math.max(0, montant - frais));
   const now = new Date().toISOString();
 
-  const { error: updateBanqueError } = await supabase
+  const { error: updateErr } = await supabase
     .from("banque_membres")
-    .update({ solde_dollars: nextSolde, updated_at: now })
+    .update({ solde_dollars: 0, updated_at: now })
     .eq("membre_id", membreId);
 
-  if (updateBanqueError) {
-    return NextResponse.json({ error: updateBanqueError.message }, { status: 500 });
+  if (updateErr) {
+    return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
-  const { error: mouvementError } = await supabase.from("banque_membres_mouvements").insert({
+  const { error: mvtErr } = await supabase.from("banque_membres_mouvements").insert({
     membre_id: membreId,
-    montant: -cout,
-    type: "achat_pa",
-    description: `Achat ${ptsPa} pt(s) PA · ${cout.toFixed(2)} $`,
+    montant: -montant,
+    type: "retrait",
+    description:
+      frais > 0
+        ? `Retrait vers compte · net ${net.toFixed(2)} $ (frais plateforme ${pourcentage}% : -${frais.toFixed(2)} $)`
+        : `Retrait vers compte · ${net.toFixed(2)} $`,
   });
 
-  if (mouvementError) {
-    return NextResponse.json({ error: mouvementError.message }, { status: 500 });
+  if (mvtErr) {
+    return NextResponse.json({ error: mvtErr.message }, { status: 500 });
   }
 
-  if (fraisPlateforme > 0) {
-    const { error: fraisMvtErr } = await supabase.from("banque_membres_mouvements").insert({
-      membre_id: membreId,
-      montant: -fraisPlateforme,
-      type: "frais_plateforme",
-      description: `Frais plateforme ${fraisPct}% · ${fraisPlateforme.toFixed(2)} $`,
-    });
-    if (fraisMvtErr) {
-      return NextResponse.json({ error: fraisMvtErr.message }, { status: 500 });
-    }
-
+  if (frais > 0) {
     try {
-      await crediterOperationsBalance(supabase, fraisPlateforme);
+      await crediterOperationsBalance(supabase, frais);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 
-  const { error: paError } = await supabase.from("pa_transactions").insert({
-    membre_id: membreId,
-    type: "purchase",
-    amount: ptsPa,
-    description: `Achat ${ptsPa} pt(s) PA`,
-    cost_usd: cout,
-  });
-
-  if (paError) {
-    return NextResponse.json({ error: paError.message }, { status: 500 });
-  }
-
   return NextResponse.json({
     success: true,
-    pts_credites: ptsPa,
-    cout,
-    frais_plateforme: fraisPlateforme,
-    frais_plateforme_pct: fraisPct,
-    total_debite: totalDebit,
-    solde_banque: nextSolde,
+    montant,
+    frais_plateforme: frais,
+    frais_plateforme_pct: pourcentage,
+    net,
+    solde_banque: 0,
   });
 }

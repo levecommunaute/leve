@@ -2,6 +2,12 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
+import {
+  PA_USD_PER_PT,
+  calculerFraisPlateforme,
+  crediterOperationsBalance,
+  roundUSD,
+} from "../../../../lib/frais-plateforme";
 
 export const dynamic = "force-dynamic";
 
@@ -166,6 +172,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Solde PA insuffisant" }, { status: 400 });
   }
 
+  const coutUSD = roundUSD(effectiveDebit * PA_USD_PER_PT);
+  const { pourcentage: fraisPct, frais: fraisPlateforme } =
+    await calculerFraisPlateforme(coutUSD);
+
+  if (fraisPlateforme > 0) {
+    const { data: banque, error: banqueErr } = await supabase
+      .from("banque_membres")
+      .select("solde_dollars")
+      .eq("membre_id", membreId)
+      .maybeSingle();
+    if (banqueErr) return NextResponse.json({ error: banqueErr.message }, { status: 500 });
+    const soldeBanque = Number(banque?.solde_dollars ?? 0);
+    if (!Number.isFinite(soldeBanque) || soldeBanque < fraisPlateforme) {
+      return NextResponse.json(
+        { error: "Solde banque insuffisant pour les frais plateforme" },
+        { status: 400 },
+      );
+    }
+  }
+
   const actionDescription = paActionDescription(type);
 
   const { error: spendErr } = await supabase.from("pa_transactions").insert({
@@ -186,6 +212,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       tax_usd: taxRounded,
     });
     if (taxErr) return NextResponse.json({ error: taxErr.message }, { status: 500 });
+  }
+
+  if (fraisPlateforme > 0) {
+    const { data: banque, error: banqueFetchErr } = await supabase
+      .from("banque_membres")
+      .select("solde_dollars")
+      .eq("membre_id", membreId)
+      .maybeSingle();
+    if (banqueFetchErr) {
+      return NextResponse.json({ error: banqueFetchErr.message }, { status: 500 });
+    }
+    const soldeBanque = Number(banque?.solde_dollars ?? 0);
+    const nextSoldeBanque = roundUSD(soldeBanque - fraisPlateforme);
+    const now = new Date().toISOString();
+
+    const { error: banqueUpdErr } = await supabase
+      .from("banque_membres")
+      .update({ solde_dollars: nextSoldeBanque, updated_at: now })
+      .eq("membre_id", membreId);
+    if (banqueUpdErr) return NextResponse.json({ error: banqueUpdErr.message }, { status: 500 });
+
+    const { error: fraisTxErr } = await supabase.from("pa_transactions").insert({
+      membre_id: membreId,
+      type: "spend",
+      amount: 0,
+      description: `Frais plateforme ${fraisPct}%`,
+      cost_usd: fraisPlateforme,
+    });
+    if (fraisTxErr) return NextResponse.json({ error: fraisTxErr.message }, { status: 500 });
+
+    try {
+      await crediterOperationsBalance(supabase, fraisPlateforme);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
 
   if (type === "vote_concours") {

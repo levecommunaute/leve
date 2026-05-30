@@ -1,5 +1,12 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceSupabase } from "./admin-server";
 import { getFeatureFlag } from "./feature-flags";
+
+export const PA_USD_PER_PT = 5;
+
+export function roundUSD(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 export type FraisPlateformePalier = {
   id: string;
@@ -88,6 +95,32 @@ export async function calculerFraisPlateforme(
   }
 
   const pourcentage = palier.pourcentage;
-  const frais = Math.round(montantUSD * (pourcentage / 100) * 100) / 100;
+  const frais = roundUSD(montantUSD * (pourcentage / 100));
   return { pourcentage, frais };
+}
+
+/** Crédite le pool opérations LEVE (frais plateforme collectés). */
+export async function crediterOperationsBalance(
+  supabase: SupabaseClient,
+  frais: number,
+): Promise<void> {
+  if (!Number.isFinite(frais) || frais <= 0) return;
+
+  const { data: bank, error: fetchErr } = await supabase
+    .from("banque_leve")
+    .select("id, operations_balance")
+    .limit(1)
+    .maybeSingle();
+
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!bank?.id) throw new Error("banque_leve introuvable");
+
+  const { error: updateErr } = await supabase
+    .from("banque_leve")
+    .update({
+      operations_balance: roundUSD(Number(bank.operations_balance ?? 0) + frais),
+    })
+    .eq("id", bank.id);
+
+  if (updateErr) throw new Error(updateErr.message);
 }
