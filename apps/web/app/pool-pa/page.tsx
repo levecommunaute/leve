@@ -149,6 +149,10 @@ function paTxTax(row: PaTxRow): number {
   return Number(row.tax_usd ?? row.taxe ?? 0);
 }
 
+function isPaTaxLine(row: PaTxRow): boolean {
+  return (row.description ?? "").includes("Taxe 2%");
+}
+
 const cad = new Intl.NumberFormat("fr-CA", {
   style: "currency",
   currency: "CAD",
@@ -804,8 +808,13 @@ export default function PoolPaPage(): JSX.Element | null {
                     {history.map((row) => {
                       const amt = Number(row.amount ?? 0);
                       const isAchat = (row.type ?? "").toLowerCase() === "purchase";
-                      const signed =
-                        amt > 0
+                      const isTaxLine = isPaTaxLine(row);
+                      const taxeRow = paTxTax(row);
+                      const signed = isTaxLine
+                        ? taxeRow > 0
+                          ? `-${cad.format(taxeRow)}`
+                          : "—"
+                        : amt > 0
                           ? `+${ptsFmt.format(amt)} pt`
                           : `${ptsFmt.format(amt)} pt`;
                       let dateLabel = "—";
@@ -815,7 +824,6 @@ export default function PoolPaPage(): JSX.Element | null {
                         dateLabel = row.created_at;
                       }
                       const coutRow = paTxCost(row);
-                      const taxeRow = paTxTax(row);
                       return (
                         <tr
                           key={row.id}
@@ -834,7 +842,18 @@ export default function PoolPaPage(): JSX.Element | null {
                           </td>
                           <td style={{ padding: "0.7rem 1rem", maxWidth: "360px" }}>
                             {paTxLabel(row)}
-                            {coutRow > 0 ? (
+                            {isTaxLine && taxeRow > 0 ? (
+                              <span
+                                style={{
+                                  display: "block",
+                                  marginTop: "0.2rem",
+                                  fontSize: "0.78rem",
+                                  opacity: 0.65,
+                                }}
+                              >
+                                Taxe : {cad.format(taxeRow)}
+                              </span>
+                            ) : coutRow > 0 ? (
                               <span
                                 style={{
                                   display: "block",
