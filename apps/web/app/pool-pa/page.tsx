@@ -38,6 +38,31 @@ function createAuthedSupabase(accessToken: string): SupabaseClient {
   });
 }
 
+async function restJson<T>(
+  path: string,
+  accessToken: string,
+): Promise<{ data: T; error: string | null }> {
+  const res = await fetch(`${SB}/rest/v1/${path}`, {
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  });
+  const json = (await res.json()) as unknown;
+  if (!res.ok) {
+    const msg =
+      json &&
+      typeof json === "object" &&
+      "message" in json &&
+      typeof (json as { message: unknown }).message === "string"
+        ? (json as { message: string }).message
+        : res.statusText || "Erreur réseau";
+    return { data: null as T, error: msg };
+  }
+  return { data: json as T, error: null };
+}
+
 type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
@@ -53,8 +78,10 @@ type PaTxRow = {
   type: string | null;
   amount: number | string | null;
   description: string | null;
-  cost_usd: number | string | null;
-  tax_usd: number | string | null;
+  cost_usd?: number | string | null;
+  tax_usd?: number | string | null;
+  cout_dollars?: number | string | null;
+  taxe?: number | string | null;
 };
 
 function displayNameFrom(
@@ -84,7 +111,16 @@ function paTxTypeLabel(type: string | null): string {
   const t = (type ?? "").toLowerCase();
   if (t === "purchase") return "Achat";
   if (t === "spend") return "Dépense";
+  if (t === "tax") return "Taxe";
   return type ?? "PA";
+}
+
+function paTxCost(row: PaTxRow): number {
+  return Number(row.cost_usd ?? row.cout_dollars ?? 0);
+}
+
+function paTxTax(row: PaTxRow): number {
+  return Number(row.tax_usd ?? row.taxe ?? 0);
 }
 
 const cad = new Intl.NumberFormat("fr-CA", {
@@ -138,10 +174,12 @@ export default function PoolPaPage(): JSX.Element | null {
     !buying;
 
   const loadPoolPa = useCallback(async (activeSession: Session) => {
+    const token = activeSession.access_token;
     const uid = activeSession.user.id;
-    const sb = createAuthedSupabase(activeSession.access_token);
+    const sb = createAuthedSupabase(token);
+    const paPathBase = `pa_transactions?membre_id=eq.${encodeURIComponent(uid)}`;
 
-    const [profileRes, banqueRes, paSumRes] = await Promise.all([
+    const [profileRes, banqueRes, paSumRes, historyRes] = await Promise.all([
       sb
         .from("profiles")
         .select("display_name, member_type")
@@ -152,24 +190,15 @@ export default function PoolPaPage(): JSX.Element | null {
         .select("solde_dollars")
         .eq("membre_id", uid)
         .maybeSingle(),
-      sb
-        .from("pa_transactions")
-        .select("amount")
-        .eq("membre_id", uid),
+      restJson<{ amount?: unknown }[]>(`${paPathBase}&select=amount`, token),
+      restJson<PaTxRow[]>(`${paPathBase}&select=*&order=created_at.desc`, token),
     ]);
-
-    const historyRes = await sb
-      .from("pa_transactions")
-      .select("id, created_at, type, amount, description, cost_usd, tax_usd")
-      .eq("membre_id", uid)
-      .order("created_at", { ascending: false })
-      .limit(30);
 
     const errMsg =
       profileRes.error?.message ??
       banqueRes.error?.message ??
-      paSumRes.error?.message ??
-      historyRes.error?.message ??
+      paSumRes.error ??
+      historyRes.error ??
       null;
     setLoadError(errMsg);
 
@@ -198,7 +227,7 @@ export default function PoolPaPage(): JSX.Element | null {
     if (historyRes.error) {
       setHistory([]);
     } else {
-      setHistory((historyRes.data ?? []) as PaTxRow[]);
+      setHistory(historyRes.data ?? []);
     }
   }, []);
 
@@ -770,8 +799,8 @@ export default function PoolPaPage(): JSX.Element | null {
                       } catch {
                         dateLabel = row.created_at;
                       }
-                      const coutRow = Number(row.cost_usd ?? 0);
-                      const taxeRow = Number(row.tax_usd ?? 0);
+                      const coutRow = paTxCost(row);
+                      const taxeRow = paTxTax(row);
                       return (
                         <tr
                           key={row.id}
