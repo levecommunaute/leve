@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
   calculerFraisPlateforme,
-  crediterOperationsBalance,
+  crediterFraisPlateformeBalance,
   roundUSD,
 } from "../../../../lib/frais-plateforme";
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (frais > 0) {
     try {
-      await crediterOperationsBalance(supabase, frais);
+      await crediterFraisPlateformeBalance(supabase, frais);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: message }, { status: 500 });

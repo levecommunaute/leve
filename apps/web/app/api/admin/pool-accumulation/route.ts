@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
-import { PA_USD_PER_PT } from "../../../../lib/frais-plateforme";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +76,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { data: bank, error: bankError } = await supabase
       .from("banque_leve")
       .select(
-        "pmq_balance, production_balance, fondation_balance, operations_balance, pa_balance, total_revenue",
+        "pmq_balance, production_balance, fondation_balance, operations_balance, pa_balance, frais_plateforme_balance, taxe_pa_balance, total_revenue",
       )
       .limit(1)
       .maybeSingle();
@@ -88,28 +87,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const { data: paTaxRows, error: paTaxError } = await supabase
       .from("pa_transactions")
-      .select("taxe, taxe_communaute, taxe_fonctionnement, amount")
-      .or("description.like.Taxe 2% —%,type.eq.tax");
+      .select("tax_usd")
+      .like("description", "Taxe 2% —%");
 
     if (paTaxError) {
       return NextResponse.json({ error: paTaxError.message }, { status: 500 });
     }
 
     let pa_tax_total = 0;
-    let pa_tax_communaute = 0;
-    let pa_tax_fonctionnement = 0;
     for (const row of paTaxRows ?? []) {
-      const taxeUsd = Number(row.taxe ?? 0);
-      if (taxeUsd > 0) {
-        pa_tax_total += taxeUsd;
-      } else {
-        pa_tax_total += Math.abs(Number(row.amount ?? 0)) * PA_USD_PER_PT;
-      }
-      pa_tax_communaute += Number(row.taxe_communaute ?? 0);
-      pa_tax_fonctionnement += Number(row.taxe_fonctionnement ?? 0);
+      const taxeUsd = Number(row.tax_usd ?? 0);
+      if (taxeUsd > 0) pa_tax_total += taxeUsd;
     }
 
     const round2 = (n: number) => Math.round(n * 100) / 100;
+    const paTaxCommunauteFromTx = round2(pa_tax_total * 0.75);
+    const paTaxFonctionnementFromTx = round2(pa_tax_total * 0.25);
 
     const current = bank
       ? {
@@ -118,14 +111,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           fondation_balance: Number(bank.fondation_balance ?? 0),
           operations_balance: Number(bank.operations_balance ?? 0),
           pa_balance: Number(bank.pa_balance ?? 0),
+          frais_plateforme_balance: Number(bank.frais_plateforme_balance ?? 0),
+          taxe_pa_balance: Number(bank.taxe_pa_balance ?? 0),
           total_revenue: Number(bank.total_revenue ?? 0),
         }
       : null;
 
     const pa_tax_stats = {
       total: round2(pa_tax_total),
-      communaute: round2(pa_tax_communaute),
-      fonctionnement: round2(pa_tax_fonctionnement),
+      communaute: current
+        ? Number(current.taxe_pa_balance)
+        : paTaxCommunauteFromTx,
+      fonctionnement: paTaxFonctionnementFromTx,
     };
 
     return NextResponse.json({ series, current, pa_tax_stats });

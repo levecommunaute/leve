@@ -113,7 +113,17 @@ type PoolCurrent = {
   fondation_balance: number;
   operations_balance: number;
   pa_balance: number;
+  frais_plateforme_balance: number;
+  taxe_pa_balance: number;
   total_revenue: number;
+};
+
+type TransparenceConfigRow = {
+  pool_key: string;
+  label: string;
+  section: "banque" | "frais";
+  visible: boolean;
+  ordre: number;
 };
 
 type PaTaxStats = {
@@ -619,6 +629,11 @@ export default function AdminPage(): JSX.Element {
   const [transparencyLoading, setTransparencyLoading] = useState(false);
   const [transparencyError, setTransparencyError] = useState<string | null>(null);
 
+  const [transparencePools, setTransparencePools] = useState<TransparenceConfigRow[]>([]);
+  const [transparencePoolsLoading, setTransparencePoolsLoading] = useState(false);
+  const [transparencePoolsError, setTransparencePoolsError] = useState<string | null>(null);
+  const [togglingTransparencePool, setTogglingTransparencePool] = useState<string | null>(null);
+
   const [productionVideos, setProductionVideos] = useState<ProductionVideoRow[]>([]);
   const [productionLoading, setProductionLoading] = useState(false);
   const [productionError, setProductionError] = useState<string | null>(null);
@@ -837,6 +852,29 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders, transparencyYear, transparencyMonth]);
 
+  const loadTransparencePools = useCallback(async (): Promise<void> => {
+    setTransparencePoolsLoading(true);
+    setTransparencePoolsError(null);
+    try {
+      const r = await fetch("/api/admin/transparence-config", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { pools?: TransparenceConfigRow[]; error?: string };
+      if (!r.ok) {
+        setTransparencePoolsError(j.error ?? "Erreur visibilité transparence");
+        setTransparencePools([]);
+        return;
+      }
+      setTransparencePools(j.pools ?? []);
+    } catch (e) {
+      setTransparencePoolsError(e instanceof Error ? e.message : "Erreur réseau");
+      setTransparencePools([]);
+    } finally {
+      setTransparencePoolsLoading(false);
+    }
+  }, [adminHeaders]);
+
   const loadProduction = useCallback(async (): Promise<void> => {
     setProductionLoading(true);
     setProductionError(null);
@@ -897,6 +935,7 @@ export default function AdminPage(): JSX.Element {
     void loadFraisPlateforme();
     void loadMemberMap();
     void loadPoolAccumulation();
+    void loadTransparencePools();
     void loadProduction();
   }, [
     hydrated,
@@ -908,6 +947,7 @@ export default function AdminPage(): JSX.Element {
     loadFraisPlateforme,
     loadMemberMap,
     loadPoolAccumulation,
+    loadTransparencePools,
     loadProduction,
   ]);
 
@@ -1048,6 +1088,35 @@ export default function AdminPage(): JSX.Element {
       setFraisPlateformeError(e instanceof Error ? e.message : "Erreur réseau");
     } finally {
       setFraisPlateformeSaving(false);
+    }
+  }
+
+  async function handleToggleTransparencePool(pool: TransparenceConfigRow): Promise<void> {
+    const nextVisible = !pool.visible;
+    setTogglingTransparencePool(pool.pool_key);
+    setTransparencePoolsError(null);
+    try {
+      const r = await fetch("/api/admin/transparence-config", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ pool_key: pool.pool_key, visible: nextVisible }),
+      });
+      const j = (await r.json()) as { pool?: TransparenceConfigRow; error?: string };
+      if (!r.ok) {
+        setTransparencePoolsError(j.error ?? "Échec mise à jour");
+        return;
+      }
+      if (j.pool) {
+        setTransparencePools((prev) =>
+          prev.map((p) => (p.pool_key === j.pool!.pool_key ? j.pool! : p)),
+        );
+      } else {
+        await loadTransparencePools();
+      }
+    } catch (e) {
+      setTransparencePoolsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setTogglingTransparencePool(null);
     }
   }
 
@@ -2638,6 +2707,36 @@ export default function AdminPage(): JSX.Element {
                           {cad.format(poolCurrent.pa_balance)}
                         </p>
                       </div>
+                      <div
+                        style={{
+                          padding: "0.85rem 1rem",
+                          borderRadius: "10px",
+                          background: "rgba(245, 240, 232, 0.04)",
+                          border: "1px solid rgba(212, 160, 23, 0.35)",
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
+                          Frais plateforme (actuel)
+                        </p>
+                        <p style={{ margin: "0.35rem 0 0", color: GOLD, fontWeight: 600, fontSize: "0.95rem" }}>
+                          {cad.format(poolCurrent.frais_plateforme_balance)}
+                        </p>
+                      </div>
+                      <div
+                        style={{
+                          padding: "0.85rem 1rem",
+                          borderRadius: "10px",
+                          background: "rgba(245, 240, 232, 0.04)",
+                          border: "1px solid rgba(46, 204, 113, 0.35)",
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
+                          Taxe PA communauté (actuel)
+                        </p>
+                        <p style={{ margin: "0.35rem 0 0", color: "#2ECC71", fontWeight: 600, fontSize: "0.95rem" }}>
+                          {cad.format(poolCurrent.taxe_pa_balance)}
+                        </p>
+                      </div>
                     </div>
                     {paTaxStats && paTaxStats.total > 0 ? (
                       <div
@@ -2666,12 +2765,12 @@ export default function AdminPage(): JSX.Element {
                             <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.total)}</strong>
                           </li>
                           <li>
-                            → Pool PA (75 %) :{" "}
+                            → Taxe PA communauté (75 %) :{" "}
                             <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.communaute)}</strong>
                           </li>
                           <li>
-                            → Opérations (25 %) :{" "}
-                            <strong style={{ color: "#7F8C8D" }}>{cad.format(paTaxStats.fonctionnement)}</strong>
+                            → Frais plateforme (25 %) :{" "}
+                            <strong style={{ color: GOLD }}>{cad.format(paTaxStats.fonctionnement)}</strong>
                           </li>
                         </ul>
                       </div>
@@ -2721,14 +2820,97 @@ export default function AdminPage(): JSX.Element {
             )}
           </section>
 
+          {/* VISIBILITÉ PAGE TRANSPARENCE */}
+          <section style={cardStyle()}>
+            {sectionTitle("VISIBILITÉ PAGE /TRANSPARENCE")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Contrôle quels soldes sont affichés sur la page publique{" "}
+              <em>Transparence</em> (table <code style={{ fontSize: "0.82rem" }}>transparence_config</code>
+              ).
+            </p>
+            {transparencePoolsError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{transparencePoolsError}</p>
+            ) : null}
+            {transparencePoolsLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : transparencePools.length === 0 ? (
+              <p style={{ opacity: 0.6 }}>
+                Aucune config. Exécutez la migration{" "}
+                <code style={{ fontSize: "0.82rem" }}>banque_leve_frais_taxe_balance</code>.
+              </p>
+            ) : (
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "0.75rem" }}>
+                {transparencePools.map((pool) => {
+                  const busy = togglingTransparencePool === pool.pool_key;
+                  return (
+                    <li
+                      key={pool.pool_key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                        padding: "0.85rem 1rem",
+                        borderRadius: "10px",
+                        background: "rgba(245, 240, 232, 0.04)",
+                        border: "1px solid rgba(245, 240, 232, 0.1)",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{pool.label}</p>
+                        <p style={{ margin: "0.2rem 0 0", fontSize: "0.75rem", opacity: 0.55 }}>
+                          {pool.section === "frais" ? "Section Frais plateforme" : "Section Soldes banque LEVE"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={pool.visible}
+                        aria-label={`${pool.label} — ${pool.visible ? "visible" : "masqué"}`}
+                        disabled={busy}
+                        onClick={() => void handleToggleTransparencePool(pool)}
+                        style={{
+                          flexShrink: 0,
+                          position: "relative",
+                          width: "3.25rem",
+                          height: "1.75rem",
+                          borderRadius: "999px",
+                          border: `1px solid ${pool.visible ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
+                          background: pool.visible ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
+                          cursor: busy ? "wait" : "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: pool.visible ? "calc(100% - 1.35rem)" : "0.2rem",
+                            transform: "translateY(-50%)",
+                            width: "1.15rem",
+                            height: "1.15rem",
+                            borderRadius: "50%",
+                            background: pool.visible ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
+                          }}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
           {/* TRANSPARENCE AVANCÉE */}
           <section style={cardStyle()}>
             {sectionTitle("TRANSPARENCE AVANCÉE")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Historique complet des redistributions avec filtres par année et par mois. Total annuel et
               détail mensuel depuis <code style={{ fontSize: "0.82rem" }}>redistribution_history</code>.
-              Les taxes 2&nbsp;% sur les utilisations PA alimentent le pool PA (75&nbsp;%) et les opérations
-              (25&nbsp;%) — visibles aussi sur la page publique <em>Transparence</em>.
+              Les taxes 2&nbsp;% sur les utilisations PA alimentent{" "}
+              <code style={{ fontSize: "0.82rem" }}>taxe_pa_balance</code> (75&nbsp;%) et{" "}
+              <code style={{ fontSize: "0.82rem" }}>frais_plateforme_balance</code> (25&nbsp;%) — visibles
+              sur la page publique <em>Transparence</em> si activés ci-dessus.
             </p>
             {paTaxStats && paTaxStats.total > 0 ? (
               <div
@@ -2743,12 +2925,16 @@ export default function AdminPage(): JSX.Element {
                 }}
               >
                 <strong style={{ color: "#2ECC71" }}>Taxes PA 2 % (cumul)</strong> —{" "}
-                {cad.format(paTaxStats.total)} collectées · {cad.format(paTaxStats.communaute)} → pool PA ·{" "}
-                {cad.format(paTaxStats.fonctionnement)} → opérations
+                {cad.format(paTaxStats.total)} collectées · {cad.format(paTaxStats.communaute)} → taxe PA ·{" "}
+                {cad.format(paTaxStats.fonctionnement)} → frais plateforme (part taxe)
                 {poolCurrent ? (
                   <>
                     {" "}
-                    · solde pool PA actuel : <strong style={{ color: "#2ECC71" }}>{cad.format(poolCurrent.pa_balance)}</strong>
+                    · soldes : taxe PA{" "}
+                    <strong style={{ color: "#2ECC71" }}>{cad.format(poolCurrent.taxe_pa_balance)}</strong>
+                    {" "}
+                    · frais plateforme{" "}
+                    <strong style={{ color: GOLD }}>{cad.format(poolCurrent.frais_plateforme_balance)}</strong>
                   </>
                 ) : null}
               </div>

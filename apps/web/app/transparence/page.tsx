@@ -77,6 +77,33 @@ type BanqueLeveRow = {
   ptc_balance: number | string | null;
   pcol_balance: number | string | null;
   pa_balance: number | string | null;
+  frais_plateforme_balance: number | string | null;
+  taxe_pa_balance: number | string | null;
+};
+
+type TransparencePoolKey =
+  | "pmq"
+  | "production"
+  | "fondation"
+  | "operations"
+  | "ptc"
+  | "pcol"
+  | "pa"
+  | "frais_plateforme"
+  | "taxe_pa";
+
+type TransparenceVisibility = Record<TransparencePoolKey, boolean>;
+
+const DEFAULT_TRANSPARENCE_VISIBILITY: TransparenceVisibility = {
+  pmq: true,
+  production: true,
+  fondation: true,
+  operations: true,
+  ptc: true,
+  pcol: true,
+  pa: true,
+  frais_plateforme: true,
+  taxe_pa: true,
 };
 
 function displayNameFrom(
@@ -161,6 +188,9 @@ export default function TransparencePage(): JSX.Element {
   const [authChecked, setAuthChecked] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [banque, setBanque] = useState<BanqueLeveRow | null>(null);
+  const [poolVisibility, setPoolVisibility] = useState<TransparenceVisibility>(
+    DEFAULT_TRANSPARENCE_VISIBILITY,
+  );
   const [history, setHistory] = useState<RedistributionMois[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -180,7 +210,7 @@ export default function TransparencePage(): JSX.Element {
     setLoadError(null);
 
     const bankRes = await fetch(
-      `${SB}/rest/v1/banque_leve?select=id,total_revenue,pmq_balance,production_balance,fondation_balance,operations_balance,ptc_balance,pcol_balance,pa_balance&limit=1`,
+      `${SB}/rest/v1/banque_leve?select=id,total_revenue,pmq_balance,production_balance,fondation_balance,operations_balance,ptc_balance,pcol_balance,pa_balance,frais_plateforme_balance,taxe_pa_balance&limit=1`,
       {
         headers: {
           apikey: KEY,
@@ -203,6 +233,22 @@ export default function TransparencePage(): JSX.Element {
     } else {
       const arr = Array.isArray(bankJson) ? bankJson : [];
       setBanque((arr[0] ?? null) as BanqueLeveRow | null);
+    }
+
+    try {
+      const configRes = await fetch("/api/transparence/config", { cache: "no-store" });
+      const configJson = (await configRes.json()) as {
+        visibility?: Partial<TransparenceVisibility>;
+        error?: string;
+      };
+      if (configRes.ok && configJson.visibility) {
+        setPoolVisibility({
+          ...DEFAULT_TRANSPARENCE_VISIBILITY,
+          ...configJson.visibility,
+        });
+      }
+    } catch {
+      setPoolVisibility(DEFAULT_TRANSPARENCE_VISIBILITY);
     }
 
     try {
@@ -310,6 +356,71 @@ export default function TransparencePage(): JSX.Element {
   const poolPtc = Number(banque?.ptc_balance ?? 0);
   const poolPcol = Number(banque?.pcol_balance ?? 0);
   const poolPa = Number(banque?.pa_balance ?? 0);
+  const poolFraisPlateforme = Number(banque?.frais_plateforme_balance ?? 0);
+  const poolTaxePa = Number(banque?.taxe_pa_balance ?? 0);
+
+  const banquePoolRows = [
+    {
+      key: "pmq" as const,
+      label: "PMQ — Pool Mensuelle Quiz",
+      value: poolPmq,
+      accent: GOLD,
+    },
+    {
+      key: "production" as const,
+      label: "Production — Équipe fondatrice (20%)",
+      value: poolProduction,
+      accent: ROUGE,
+    },
+    {
+      key: "fondation" as const,
+      label: "Fondation LEVE (10%)",
+      value: poolFondation,
+      accent: VERT,
+    },
+    {
+      key: "operations" as const,
+      label: "Opérations — LEVE MÉDIA INC. (25%)",
+      value: poolOps,
+      accent: GRIS_OPS,
+    },
+    {
+      key: "ptc" as const,
+      label: "PTC — Pool de Croissance",
+      value: poolPtc,
+      accent: GOLD,
+    },
+    {
+      key: "pcol" as const,
+      label: "PCOL — Pool Collaborateur",
+      value: poolPcol,
+      accent: ROUGE,
+    },
+    {
+      key: "pa" as const,
+      label: "PA — Pool Activités",
+      value: poolPa,
+      accent: VERT,
+    },
+  ].filter((row) => poolVisibility[row.key]);
+
+  const fraisPoolRows = [
+    {
+      key: "frais_plateforme" as const,
+      label: "Frais plateforme collectés (5-8%)",
+      value: poolFraisPlateforme,
+      accent: GOLD,
+    },
+    {
+      key: "taxe_pa" as const,
+      label: "Taxe 2% PA — communauté (75%)",
+      value: poolTaxePa,
+      accent: VERT,
+    },
+  ].filter((row) => poolVisibility[row.key]);
+
+  const showBanqueSection = banquePoolRows.length > 0;
+  const showFraisSection = fraisPoolRows.length > 0;
 
   return (
     <div
@@ -535,133 +646,162 @@ export default function TransparencePage(): JSX.Element {
           </div>
         </section>
 
-        <section style={{ marginBottom: "2.25rem" }}>
-          <h2
-            style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "1.2rem",
-              letterSpacing: "0.14em",
-              margin: "0 0 1rem",
-              color: ROUGE,
-            }}
-          >
-            Soldes banque LEVE
-          </h2>
-          {banque == null ? (
-            <p style={{ opacity: 0.75, fontSize: "0.95rem" }}>
-              Aucune donnée banque pour le moment.
-            </p>
-          ) : (
-            <div
+        {showBanqueSection ? (
+          <section style={{ marginBottom: "2.25rem" }}>
+            <h2
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                gap: "0.85rem",
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "1.2rem",
+                letterSpacing: "0.14em",
+                margin: "0 0 1rem",
+                color: ROUGE,
               }}
             >
-              <article
+              Soldes banque LEVE
+            </h2>
+            {banque == null ? (
+              <p style={{ opacity: 0.75, fontSize: "0.95rem" }}>
+                Aucune donnée banque pour le moment.
+              </p>
+            ) : (
+              <div
                 style={{
-                  gridColumn: "1 / -1",
-                  borderRadius: "16px",
-                  padding: "1.35rem 1.25rem",
-                  background: `linear-gradient(125deg, rgba(212, 160, 23, 0.14) 0%, rgba(8,8,8,0.95) 55%, rgba(192, 57, 43, 0.08) 100%)`,
-                  border: "1px solid rgba(245, 240, 232, 0.12)",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "0.85rem",
                 }}
               >
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.72rem",
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    opacity: 0.65,
-                  }}
-                >
-                  Revenu total (référence)
-                </p>
-                <p
-                  style={{
-                    margin: "0.4rem 0 0",
-                    fontSize: "clamp(1.75rem, 5vw, 2.35rem)",
-                    fontWeight: 800,
-                    color: GOLD,
-                  }}
-                >
-                  {cad.format(Number.isFinite(tr) ? tr : 0)}
-                </p>
-              </article>
-              {[
-                {
-                  label: "PMQ — Pool Mensuelle Quiz",
-                  value: poolPmq,
-                  accent: GOLD,
-                },
-                {
-                  label: "Production — Équipe fondatrice (20%)",
-                  value: poolProduction,
-                  accent: ROUGE,
-                },
-                {
-                  label: "Fondation LEVE (10%)",
-                  value: poolFondation,
-                  accent: VERT,
-                },
-                {
-                  label: "Opérations — LEVE MÉDIA INC. (25%)",
-                  value: poolOps,
-                  accent: GRIS_OPS,
-                },
-                {
-                  label: "PTC — Pool de Croissance",
-                  value: poolPtc,
-                  accent: GOLD,
-                },
-                {
-                  label: "PCOL — Pool Collaborateur",
-                  value: poolPcol,
-                  accent: ROUGE,
-                },
-                {
-                  label: "PA — Pool Activités",
-                  value: poolPa,
-                  accent: VERT,
-                },
-              ].map((row) => (
                 <article
-                  key={row.label}
                   style={{
-                    borderRadius: "12px",
-                    padding: "1.05rem",
-                    background: "rgba(245, 240, 232, 0.04)",
-                    border: `1px solid rgba(245, 240, 232, 0.1)`,
-                    borderLeft: `3px solid ${row.accent}`,
+                    gridColumn: "1 / -1",
+                    borderRadius: "16px",
+                    padding: "1.35rem 1.25rem",
+                    background: `linear-gradient(125deg, rgba(212, 160, 23, 0.14) 0%, rgba(8,8,8,0.95) 55%, rgba(192, 57, 43, 0.08) 100%)`,
+                    border: "1px solid rgba(245, 240, 232, 0.12)",
                   }}
                 >
                   <p
                     style={{
                       margin: 0,
                       fontSize: "0.72rem",
-                      letterSpacing: "0.1em",
+                      letterSpacing: "0.14em",
                       textTransform: "uppercase",
-                      opacity: 0.6,
+                      opacity: 0.65,
                     }}
                   >
-                    {row.label}
+                    Revenu total (référence)
                   </p>
                   <p
                     style={{
-                      margin: "0.45rem 0 0",
-                      fontSize: "1.25rem",
-                      fontWeight: 700,
+                      margin: "0.4rem 0 0",
+                      fontSize: "clamp(1.75rem, 5vw, 2.35rem)",
+                      fontWeight: 800,
+                      color: GOLD,
                     }}
                   >
-                    {cad.format(Number.isFinite(row.value) ? row.value : 0)}
+                    {cad.format(Number.isFinite(tr) ? tr : 0)}
                   </p>
                 </article>
-              ))}
-            </div>
-          )}
-        </section>
+                {banquePoolRows.map((row) => (
+                  <article
+                    key={row.key}
+                    style={{
+                      borderRadius: "12px",
+                      padding: "1.05rem",
+                      background: "rgba(245, 240, 232, 0.04)",
+                      border: `1px solid rgba(245, 240, 232, 0.1)`,
+                      borderLeft: `3px solid ${row.accent}`,
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.72rem",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        opacity: 0.6,
+                      }}
+                    >
+                      {row.label}
+                    </p>
+                    <p
+                      style={{
+                        margin: "0.45rem 0 0",
+                        fontSize: "1.25rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {cad.format(Number.isFinite(row.value) ? row.value : 0)}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {showFraisSection ? (
+          <section style={{ marginBottom: "2.25rem" }}>
+            <h2
+              style={{
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "1.2rem",
+                letterSpacing: "0.14em",
+                margin: "0 0 1rem",
+                color: GOLD,
+              }}
+            >
+              Frais plateforme
+            </h2>
+            {banque == null ? (
+              <p style={{ opacity: 0.75, fontSize: "0.95rem" }}>
+                Aucune donnée pour le moment.
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "0.85rem",
+                }}
+              >
+                {fraisPoolRows.map((row) => (
+                  <article
+                    key={row.key}
+                    style={{
+                      borderRadius: "12px",
+                      padding: "1.05rem",
+                      background: "rgba(245, 240, 232, 0.04)",
+                      border: `1px solid rgba(245, 240, 232, 0.1)`,
+                      borderLeft: `3px solid ${row.accent}`,
+                    }}
+                  >
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.72rem",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        opacity: 0.6,
+                      }}
+                    >
+                      {row.label}
+                    </p>
+                    <p
+                      style={{
+                        margin: "0.45rem 0 0",
+                        fontSize: "1.25rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {cad.format(Number.isFinite(row.value) ? row.value : 0)}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
 
         <section>
           <h2

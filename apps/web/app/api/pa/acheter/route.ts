@@ -5,7 +5,7 @@ import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
   PA_USD_PER_PT,
   calculerFraisPlateforme,
-  crediterOperationsBalance,
+  crediterFraisPlateformeBalance,
   roundUSD,
 } from "../../../../lib/frais-plateforme";
 
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     try {
-      await crediterOperationsBalance(supabase, fraisPlateforme);
+      await crediterFraisPlateformeBalance(supabase, fraisPlateforme);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: message }, { status: 500 });

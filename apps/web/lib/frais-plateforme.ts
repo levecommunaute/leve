@@ -127,19 +127,19 @@ export function calculerTaxePaUtilisation(ptsEffectifs: number): TaxePaUtilisati
   };
 }
 
-/** Répartit la taxe 2 % PA : 75 % pool PA, 25 % opérations. */
+/** Répartit la taxe 2 % PA : 75 % taxe_pa_balance, 25 % frais_plateforme_balance. */
 export async function crediterTaxePaUtilisation(
   supabase: SupabaseClient,
   taxe_communaute: number,
   taxe_fonctionnement: number,
 ): Promise<void> {
-  const paAdd = roundUSD(taxe_communaute);
-  const opsAdd = roundUSD(taxe_fonctionnement);
-  if (paAdd <= 0 && opsAdd <= 0) return;
+  const taxePaAdd = roundUSD(taxe_communaute);
+  const fraisAdd = roundUSD(taxe_fonctionnement);
+  if (taxePaAdd <= 0 && fraisAdd <= 0) return;
 
   const { data: bank, error: fetchErr } = await supabase
     .from("banque_leve")
-    .select("id, pa_balance, operations_balance")
+    .select("id, taxe_pa_balance, frais_plateforme_balance")
     .limit(1)
     .maybeSingle();
 
@@ -149,13 +149,17 @@ export async function crediterTaxePaUtilisation(
   const { error: updateErr } = await supabase
     .from("banque_leve")
     .update({
-      ...(paAdd > 0
-        ? { pa_balance: roundUSD(Number(bank.pa_balance ?? 0) + paAdd) }
-        : {}),
-      ...(opsAdd > 0
+      ...(taxePaAdd > 0
         ? {
-            operations_balance: roundUSD(
-              Number(bank.operations_balance ?? 0) + opsAdd,
+            taxe_pa_balance: roundUSD(
+              Number(bank.taxe_pa_balance ?? 0) + taxePaAdd,
+            ),
+          }
+        : {}),
+      ...(fraisAdd > 0
+        ? {
+            frais_plateforme_balance: roundUSD(
+              Number(bank.frais_plateforme_balance ?? 0) + fraisAdd,
             ),
           }
         : {}),
@@ -165,8 +169,8 @@ export async function crediterTaxePaUtilisation(
   if (updateErr) throw new Error(updateErr.message);
 }
 
-/** Crédite le pool opérations LEVE (frais plateforme collectés). */
-export async function crediterOperationsBalance(
+/** Crédite frais_plateforme_balance (frais plateforme collectés). */
+export async function crediterFraisPlateformeBalance(
   supabase: SupabaseClient,
   frais: number,
 ): Promise<void> {
@@ -174,7 +178,7 @@ export async function crediterOperationsBalance(
 
   const { data: bank, error: fetchErr } = await supabase
     .from("banque_leve")
-    .select("id, operations_balance")
+    .select("id, frais_plateforme_balance")
     .limit(1)
     .maybeSingle();
 
@@ -184,9 +188,14 @@ export async function crediterOperationsBalance(
   const { error: updateErr } = await supabase
     .from("banque_leve")
     .update({
-      operations_balance: roundUSD(Number(bank.operations_balance ?? 0) + frais),
+      frais_plateforme_balance: roundUSD(
+        Number(bank.frais_plateforme_balance ?? 0) + frais,
+      ),
     })
     .eq("id", bank.id);
 
   if (updateErr) throw new Error(updateErr.message);
 }
+
+/** @deprecated Utiliser crediterFraisPlateformeBalance */
+export const crediterOperationsBalance = crediterFraisPlateformeBalance;
