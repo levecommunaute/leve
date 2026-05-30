@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
+import { PA_USD_PER_PT } from "../../../../lib/frais-plateforme";
 
 export const dynamic = "force-dynamic";
 
@@ -87,8 +88,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const { data: paTaxRows, error: paTaxError } = await supabase
       .from("pa_transactions")
-      .select("taxe, taxe_communaute, taxe_fonctionnement")
-      .eq("type", "tax");
+      .select("taxe, taxe_communaute, taxe_fonctionnement, amount")
+      .or("description.like.Taxe 2% —%,type.eq.tax");
 
     if (paTaxError) {
       return NextResponse.json({ error: paTaxError.message }, { status: 500 });
@@ -98,7 +99,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let pa_tax_communaute = 0;
     let pa_tax_fonctionnement = 0;
     for (const row of paTaxRows ?? []) {
-      pa_tax_total += Number(row.taxe ?? 0);
+      const taxeUsd = Number(row.taxe ?? 0);
+      if (taxeUsd > 0) {
+        pa_tax_total += taxeUsd;
+      } else {
+        pa_tax_total += Math.abs(Number(row.amount ?? 0)) * PA_USD_PER_PT;
+      }
       pa_tax_communaute += Number(row.taxe_communaute ?? 0);
       pa_tax_fonctionnement += Number(row.taxe_fonctionnement ?? 0);
     }

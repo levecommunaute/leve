@@ -118,6 +118,7 @@ function paTxLabel(row: PaTxRow): string {
   }
 
   if (t === "spend") {
+    if (desc.startsWith("Taxe 2% — ")) return desc.slice("Taxe 2% — ".length);
     return "Dépense PA";
   }
 
@@ -130,9 +131,11 @@ function paTxLabel(row: PaTxRow): string {
   return row.type?.replace(/_/g, " ") ?? "Transaction PA";
 }
 
-function paTxTypeLabel(type: string | null): string {
+function paTxTypeLabel(type: string | null, description?: string | null): string {
   const t = (type ?? "").toLowerCase();
+  const desc = description?.trim() ?? "";
   if (t === "purchase") return "Achat";
+  if (t === "spend" && desc.startsWith("Taxe 2% —")) return "Taxe 2%";
   if (t === "spend") return "Dépense";
   if (t === "tax") return "Taxe 2%";
   return type ?? "PA";
@@ -854,7 +857,7 @@ export default function PoolPaPage(): JSX.Element | null {
                                 letterSpacing: "0.06em",
                               }}
                             >
-                              {paTxTypeLabel(row.type)}
+                              {paTxTypeLabel(row.type, row.description)}
                             </span>
                           </td>
                           <td

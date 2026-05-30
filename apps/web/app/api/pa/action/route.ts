@@ -3,11 +3,9 @@ import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
-  calculerFraisPlateforme,
+  PA_USD_PER_PT,
   calculerTaxePaUtilisation,
-  crediterOperationsBalance,
   crediterTaxePaUtilisation,
-  roundUSD,
 } from "../../../../lib/frais-plateforme";
 
 export const dynamic = "force-dynamic";
@@ -159,14 +157,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const {
-    coutUSD,
-    taxe2pct,
-    taxe_communaute,
-    taxe_fonctionnement,
-    taxDebitPts,
-  } = calculerTaxePaUtilisation(effectiveDebit);
-  const totalDebit = roundUSD(effectiveDebit + taxDebitPts);
+  const { coutUSD, taxe, taxe_communaute, taxe_fonctionnement } =
+    calculerTaxePaUtilisation(effectiveDebit);
+  const totalDebit = effectiveDebit + taxe;
 
   const { data: txs, error: paTxError } = await supabase
     .from("pa_transactions")
@@ -176,25 +169,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const solde = (txs ?? []).reduce((sum, tx) => sum + Number(tx.amount), 0);
   if (solde < totalDebit) {
     return NextResponse.json({ error: "Solde PA insuffisant" }, { status: 400 });
-  }
-
-  const { pourcentage: fraisPct, frais: fraisPlateforme } =
-    await calculerFraisPlateforme(coutUSD);
-
-  if (fraisPlateforme > 0) {
-    const { data: banque, error: banqueErr } = await supabase
-      .from("banque_membres")
-      .select("solde_dollars")
-      .eq("membre_id", membreId)
-      .maybeSingle();
-    if (banqueErr) return NextResponse.json({ error: banqueErr.message }, { status: 500 });
-    const soldeBanque = Number(banque?.solde_dollars ?? 0);
-    if (!Number.isFinite(soldeBanque) || soldeBanque < fraisPlateforme) {
-      return NextResponse.json(
-        { error: "Solde banque insuffisant pour les frais plateforme" },
-        { status: 400 },
-      );
-    }
   }
 
   const actionDescription = paActionDescription(type);
@@ -208,15 +182,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   });
   if (spendErr) return NextResponse.json({ error: spendErr.message }, { status: 500 });
 
-  if (taxe2pct > 0 && taxDebitPts > 0) {
+  if (taxe > 0) {
     const { error: taxErr } = await supabase.from("pa_transactions").insert({
       membre_id: membreId,
-      type: "tax",
-      amount: -taxDebitPts,
+      type: "spend",
+      amount: -taxe,
       description: `Taxe 2% — ${actionDescription}`,
-      cost_usd: coutUSD,
-      tax_usd: taxe2pct,
-      taxe: taxe2pct,
+      taxe: taxe * PA_USD_PER_PT,
       taxe_communaute,
       taxe_fonctionnement,
     });
@@ -224,42 +196,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     try {
       await crediterTaxePaUtilisation(supabase, taxe_communaute, taxe_fonctionnement);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      return NextResponse.json({ error: message }, { status: 500 });
-    }
-  }
-
-  if (fraisPlateforme > 0) {
-    const { data: banque, error: banqueFetchErr } = await supabase
-      .from("banque_membres")
-      .select("solde_dollars")
-      .eq("membre_id", membreId)
-      .maybeSingle();
-    if (banqueFetchErr) {
-      return NextResponse.json({ error: banqueFetchErr.message }, { status: 500 });
-    }
-    const soldeBanque = Number(banque?.solde_dollars ?? 0);
-    const nextSoldeBanque = roundUSD(soldeBanque - fraisPlateforme);
-    const now = new Date().toISOString();
-
-    const { error: banqueUpdErr } = await supabase
-      .from("banque_membres")
-      .update({ solde_dollars: nextSoldeBanque, updated_at: now })
-      .eq("membre_id", membreId);
-    if (banqueUpdErr) return NextResponse.json({ error: banqueUpdErr.message }, { status: 500 });
-
-    const { error: fraisTxErr } = await supabase.from("pa_transactions").insert({
-      membre_id: membreId,
-      type: "spend",
-      amount: 0,
-      description: `Frais plateforme ${fraisPct}%`,
-      cost_usd: fraisPlateforme,
-    });
-    if (fraisTxErr) return NextResponse.json({ error: fraisTxErr.message }, { status: 500 });
-
-    try {
-      await crediterOperationsBalance(supabase, fraisPlateforme);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: message }, { status: 500 });

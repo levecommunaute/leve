@@ -105,28 +105,25 @@ const PA_TAX_FONCTIONNEMENT_SHARE = 0.25;
 
 export type TaxePaUtilisation = {
   coutUSD: number;
-  taxe2pct: number;
+  /** Taxe en pts : Math.round(pts × 2 %). */
+  taxe: number;
   taxe_communaute: number;
   taxe_fonctionnement: number;
-  /** Débit PA équivalent (pts) : taxe2pct ÷ $/pt. */
-  taxDebitPts: number;
 };
 
-/** Taxe 2 % sur la valeur USD d'une utilisation PA (pts × $5/pt). */
+/** Taxe 2 % sur l'utilisation PA, débitée en pts (pas de frais plateforme). */
 export function calculerTaxePaUtilisation(ptsEffectifs: number): TaxePaUtilisation {
   const pts = Math.max(0, Math.round(ptsEffectifs));
   const coutUSD = roundUSD(pts * PA_USD_PER_PT);
-  const taxe2pct = roundUSD(coutUSD * PA_TAX_RATE);
-  const taxe_communaute = roundUSD(taxe2pct * PA_TAX_COMMUNAUTE_SHARE);
-  const taxe_fonctionnement = roundUSD(taxe2pct * PA_TAX_FONCTIONNEMENT_SHARE);
-  const taxDebitPts =
-    taxe2pct > 0 ? roundUSD(taxe2pct / PA_USD_PER_PT) : 0;
+  const taxe = pts > 0 ? Math.round(pts * PA_TAX_RATE) : 0;
+  const taxeUsd = roundUSD(taxe * PA_USD_PER_PT);
+  const taxe_communaute = roundUSD(taxeUsd * PA_TAX_COMMUNAUTE_SHARE);
+  const taxe_fonctionnement = roundUSD(taxeUsd * PA_TAX_FONCTIONNEMENT_SHARE);
   return {
     coutUSD,
-    taxe2pct,
+    taxe,
     taxe_communaute,
     taxe_fonctionnement,
-    taxDebitPts,
   };
 }
 
