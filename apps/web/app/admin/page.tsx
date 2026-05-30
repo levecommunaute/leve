@@ -56,6 +56,43 @@ type FeatureFlagRow = {
   updated_at: string;
 };
 
+type FraisPlateformePalierRow = {
+  id: string;
+  nom: string;
+  montant_min: number;
+  montant_max: number | null;
+  pourcentage: number;
+  actif: boolean;
+  ordre: number;
+};
+
+type FraisPalierDraft = {
+  montant_min: string;
+  montant_max: string;
+  pourcentage: string;
+  actif: boolean;
+};
+
+const FRAIS_PLATEFORME_FLAG_NOM = "frais-plateforme";
+
+function palierToDraft(p: FraisPlateformePalierRow): FraisPalierDraft {
+  return {
+    montant_min: String(p.montant_min),
+    montant_max: p.montant_max == null ? "" : String(p.montant_max),
+    pourcentage: String(p.pourcentage),
+    actif: p.actif,
+  };
+}
+
+function fraisPalierDraftDirty(p: FraisPlateformePalierRow, d: FraisPalierDraft): boolean {
+  return (
+    String(p.montant_min) !== d.montant_min.trim() ||
+    (p.montant_max == null ? d.montant_max.trim() !== "" : String(p.montant_max) !== d.montant_max.trim()) ||
+    String(p.pourcentage) !== d.pourcentage.trim() ||
+    p.actif !== d.actif
+  );
+}
+
 type CountryCount = {
   country: string;
   count: number;
@@ -267,6 +304,68 @@ function yesNoBadge(value: boolean): JSX.Element {
     >
       {value ? "Oui" : "Non"}
     </span>
+  );
+}
+
+function onOffSwitch(props: {
+  checked: boolean;
+  disabled?: boolean;
+  busy?: boolean;
+  label: string;
+  onToggle: () => void;
+}): JSX.Element {
+  const { checked, disabled, busy, label, onToggle } = props;
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled || busy}
+      onClick={onToggle}
+      style={{
+        flexShrink: 0,
+        position: "relative",
+        width: "3.25rem",
+        height: "1.75rem",
+        borderRadius: "999px",
+        border: `1px solid ${checked ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
+        background: checked ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
+        cursor: disabled || busy ? "wait" : "pointer",
+        padding: 0,
+        transition: "background 0.2s ease",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: checked ? "calc(100% - 1.35rem)" : "0.2rem",
+          transform: "translateY(-50%)",
+          width: "1.15rem",
+          height: "1.15rem",
+          borderRadius: "50%",
+          background: checked ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+          transition: "left 0.2s ease, background 0.2s ease",
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0,0,0,0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        {checked ? "ON" : "OFF"}
+      </span>
+    </button>
   );
 }
 
@@ -487,6 +586,13 @@ export default function AdminPage(): JSX.Element {
   const [featureFlagsError, setFeatureFlagsError] = useState<string | null>(null);
   const [togglingFlagNom, setTogglingFlagNom] = useState<string | null>(null);
 
+  const [fraisPaliers, setFraisPaliers] = useState<FraisPlateformePalierRow[]>([]);
+  const [fraisPalierDrafts, setFraisPalierDrafts] = useState<Record<string, FraisPalierDraft>>({});
+  const [fraisPlateformeLoading, setFraisPlateformeLoading] = useState(false);
+  const [fraisPlateformeError, setFraisPlateformeError] = useState<string | null>(null);
+  const [fraisPlateformeSaving, setFraisPlateformeSaving] = useState(false);
+  const [fraisPlateformeSaveMsg, setFraisPlateformeSaveMsg] = useState<string | null>(null);
+
   const [memberMapCountries, setMemberMapCountries] = useState<CountryCount[]>([]);
   const [memberMapTotal, setMemberMapTotal] = useState(0);
   const [memberMapLoading, setMemberMapLoading] = useState(false);
@@ -598,6 +704,29 @@ export default function AdminPage(): JSX.Element {
       setFeatureFlags([]);
     } finally {
       setFeatureFlagsLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadFraisPlateforme = useCallback(async (): Promise<void> => {
+    setFraisPlateformeLoading(true);
+    setFraisPlateformeError(null);
+    try {
+      const r = await fetch("/api/admin/frais-plateforme", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { paliers?: FraisPlateformePalierRow[]; error?: string };
+      if (!r.ok) {
+        setFraisPlateformeError(j.error ?? "Erreur frais plateforme");
+        setFraisPaliers([]);
+        return;
+      }
+      setFraisPaliers(j.paliers ?? []);
+    } catch (e) {
+      setFraisPlateformeError(e instanceof Error ? e.message : "Erreur réseau");
+      setFraisPaliers([]);
+    } finally {
+      setFraisPlateformeLoading(false);
     }
   }, [adminHeaders]);
 
@@ -753,6 +882,7 @@ export default function AdminPage(): JSX.Element {
     void loadLinkedVideoCodes();
     void loadMembers();
     void loadFeatureFlags();
+    void loadFraisPlateforme();
     void loadMemberMap();
     void loadPoolAccumulation();
     void loadProduction();
@@ -763,6 +893,7 @@ export default function AdminPage(): JSX.Element {
     loadLinkedVideoCodes,
     loadMembers,
     loadFeatureFlags,
+    loadFraisPlateforme,
     loadMemberMap,
     loadPoolAccumulation,
     loadProduction,
@@ -790,6 +921,14 @@ export default function AdminPage(): JSX.Element {
     }
     setMemberDrafts(next);
   }, [members]);
+
+  useEffect(() => {
+    const next: Record<string, FraisPalierDraft> = {};
+    for (const p of fraisPaliers) {
+      next[p.id] = palierToDraft(p);
+    }
+    setFraisPalierDrafts(next);
+  }, [fraisPaliers]);
 
   async function handleLogin(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -847,6 +986,10 @@ export default function AdminPage(): JSX.Element {
     setCollaborateurError({});
     setFeatureFlags([]);
     setFeatureFlagsError(null);
+    setFraisPaliers([]);
+    setFraisPalierDrafts({});
+    setFraisPlateformeError(null);
+    setFraisPlateformeSaveMsg(null);
     setMemberMapCountries([]);
     setMemberMapTotal(0);
     setMemberMapError(null);
@@ -859,6 +1002,41 @@ export default function AdminPage(): JSX.Element {
     setTransparencyError(null);
     setProductionVideos([]);
     setProductionError(null);
+  }
+
+  async function handleSaveFraisPlateforme(): Promise<void> {
+    setFraisPlateformeSaving(true);
+    setFraisPlateformeError(null);
+    setFraisPlateformeSaveMsg(null);
+    try {
+      const paliers = fraisPaliers.map((p) => {
+        const d = fraisPalierDrafts[p.id] ?? palierToDraft(p);
+        return {
+          id: p.id,
+          montant_min: d.montant_min.trim() === "" ? 0 : Number(d.montant_min),
+          montant_max: d.montant_max.trim() === "" ? null : Number(d.montant_max),
+          pourcentage: Number(d.pourcentage),
+          actif: d.actif,
+        };
+      });
+      const r = await fetch("/api/admin/frais-plateforme", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ paliers }),
+      });
+      const j = (await r.json()) as { paliers?: FraisPlateformePalierRow[]; error?: string };
+      if (!r.ok) {
+        setFraisPlateformeError(j.error ?? "Échec de la sauvegarde");
+        return;
+      }
+      setFraisPaliers(j.paliers ?? []);
+      setFraisPlateformeSaveMsg("Configuration enregistrée.");
+      window.setTimeout(() => setFraisPlateformeSaveMsg(null), 3000);
+    } catch (e) {
+      setFraisPlateformeError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setFraisPlateformeSaving(false);
+    }
   }
 
   async function handleToggleFeatureFlag(flag: FeatureFlagRow): Promise<void> {
@@ -2726,6 +2904,212 @@ export default function AdminPage(): JSX.Element {
                   <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucune vidéo.</p>
                 ) : null}
               </div>
+            )}
+          </section>
+
+          {/* SECTION FRAIS DE PLATEFORME */}
+          <section style={cardStyle()}>
+            {sectionTitle("FRAIS DE PLATEFORME")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Paliers de pourcentage appliqués selon le montant en USD. Le toggle principal active ou
+              désactive le calcul côté serveur (feature flag{" "}
+              <code style={{ fontSize: "0.82rem" }}>{FRAIS_PLATEFORME_FLAG_NOM}</code>).
+            </p>
+            {fraisPlateformeError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{fraisPlateformeError}</p>
+            ) : null}
+            {fraisPlateformeSaveMsg ? (
+              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{fraisPlateformeSaveMsg}</p>
+            ) : null}
+
+            {(() => {
+              const fraisFlag = featureFlags.find((f) => f.nom === FRAIS_PLATEFORME_FLAG_NOM);
+              const flagBusy = togglingFlagNom === FRAIS_PLATEFORME_FLAG_NOM;
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "1rem",
+                    padding: "1rem 1.1rem",
+                    marginBottom: "1.25rem",
+                    borderRadius: "10px",
+                    background: "rgba(245, 240, 232, 0.04)",
+                    border: "1px solid rgba(245, 240, 232, 0.1)",
+                  }}
+                >
+                  <div>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontFamily: "var(--font-bebas), Impact, sans-serif",
+                        fontSize: "1.25rem",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Frais plateforme (global)
+                    </p>
+                    <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", opacity: 0.65 }}>
+                      {fraisFlag?.description ?? "Active le calcul des frais sur les montants USD"}
+                    </p>
+                  </div>
+                  {fraisFlag ? (
+                    onOffSwitch({
+                      checked: fraisFlag.actif,
+                      busy: flagBusy,
+                      label: `${FRAIS_PLATEFORME_FLAG_NOM} — ${fraisFlag.actif ? "activé" : "désactivé"}`,
+                      onToggle: () => void handleToggleFeatureFlag(fraisFlag),
+                    })
+                  ) : (
+                    <span style={{ fontSize: "0.85rem", opacity: 0.55 }}>Flag non chargé</span>
+                  )}
+                </div>
+              );
+            })()}
+
+            {fraisPlateformeLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement des paliers…</p>
+            ) : (
+              <>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        {["Palier", "Min ($)", "Max ($)", "%", "Actif", ""].map((h, i) => (
+                          <th
+                            key={`frais-h-${i}`}
+                            style={{
+                              padding: "0.65rem 0.5rem",
+                              letterSpacing: "0.08em",
+                              fontSize: "0.65rem",
+                              textTransform: "uppercase",
+                              opacity: 0.55,
+                              minWidth: i === 0 ? "7rem" : i === 4 ? "4rem" : "5.5rem",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fraisPaliers.map((p) => {
+                        const d = fraisPalierDrafts[p.id] ?? palierToDraft(p);
+                        const dirty = fraisPalierDraftDirty(p, d);
+                        return (
+                          <tr
+                            key={p.id}
+                            style={{
+                              borderBottom: "1px solid rgba(245,240,232,0.06)",
+                              background: dirty ? "rgba(212, 160, 23, 0.06)" : undefined,
+                            }}
+                          >
+                            <td style={{ padding: "0.6rem 0.5rem", fontWeight: 600 }}>{p.nom}</td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={d.montant_min}
+                                onChange={(e) =>
+                                  setFraisPalierDrafts((prev) => ({
+                                    ...prev,
+                                    [p.id]: { ...d, montant_min: e.target.value },
+                                  }))
+                                }
+                                aria-label={`${p.nom} — minimum`}
+                                style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                              />
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={d.montant_max}
+                                onChange={(e) =>
+                                  setFraisPalierDrafts((prev) => ({
+                                    ...prev,
+                                    [p.id]: { ...d, montant_max: e.target.value },
+                                  }))
+                                }
+                                placeholder="et plus"
+                                aria-label={`${p.nom} — maximum`}
+                                style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                              />
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step="0.001"
+                                value={d.pourcentage}
+                                onChange={(e) =>
+                                  setFraisPalierDrafts((prev) => ({
+                                    ...prev,
+                                    [p.id]: { ...d, pourcentage: e.target.value },
+                                  }))
+                                }
+                                aria-label={`${p.nom} — pourcentage`}
+                                style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                              />
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem", textAlign: "center" }}>
+                              {onOffSwitch({
+                                checked: d.actif,
+                                label: `${p.nom} — palier ${d.actif ? "actif" : "inactif"}`,
+                                onToggle: () =>
+                                  setFraisPalierDrafts((prev) => ({
+                                    ...prev,
+                                    [p.id]: { ...d, actif: !d.actif },
+                                  })),
+                              })}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem", fontSize: "0.72rem", opacity: 0.45 }}>
+                              {dirty ? "modifié" : ""}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {fraisPaliers.length === 0 ? (
+                  <p style={{ opacity: 0.6, marginTop: "1rem" }}>
+                    Aucun palier. Exécutez la migration{" "}
+                    <code style={{ fontSize: "0.82rem" }}>frais_plateforme_config</code>.
+                  </p>
+                ) : (
+                  <div style={{ marginTop: "1.25rem", display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      disabled={fraisPlateformeSaving || fraisPaliers.length === 0}
+                      onClick={() => void handleSaveFraisPlateforme()}
+                      style={{
+                        padding: "0.65rem 1.35rem",
+                        borderRadius: "8px",
+                        border: "none",
+                        background: ROUGE,
+                        color: TEXT,
+                        fontWeight: 600,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        fontSize: "0.78rem",
+                        cursor: fraisPlateformeSaving ? "wait" : "pointer",
+                        opacity: fraisPlateformeSaving ? 0.7 : 1,
+                      }}
+                    >
+                      {fraisPlateformeSaving ? "Sauvegarde…" : "Sauvegarder"}
+                    </button>
+                    <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
+                      Max vide = « et plus » (sans plafond)
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </section>
 
