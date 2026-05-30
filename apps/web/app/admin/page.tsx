@@ -119,7 +119,6 @@ type PoolCurrent = {
 };
 
 type TransparenceConfigRow = {
-  id: number;
   cle: string;
   label: string;
   visible: boolean;
@@ -2850,7 +2849,7 @@ export default function AdminPage(): JSX.Element {
                   const busy = togglingTransparencePool === pool.cle;
                   return (
                     <li
-                      key={pool.id}
+                      key={pool.cle}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -2868,38 +2867,12 @@ export default function AdminPage(): JSX.Element {
                           {transparenceConfigSectionLabel(pool.cle)}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={pool.visible}
-                        aria-label={`${pool.label} — ${pool.visible ? "visible" : "masqué"}`}
-                        disabled={busy}
-                        onClick={() => void handleToggleTransparencePool(pool)}
-                        style={{
-                          flexShrink: 0,
-                          position: "relative",
-                          width: "3.25rem",
-                          height: "1.75rem",
-                          borderRadius: "999px",
-                          border: `1px solid ${pool.visible ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
-                          background: pool.visible ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
-                          cursor: busy ? "wait" : "pointer",
-                          padding: 0,
-                        }}
-                      >
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "50%",
-                            left: pool.visible ? "calc(100% - 1.35rem)" : "0.2rem",
-                            transform: "translateY(-50%)",
-                            width: "1.15rem",
-                            height: "1.15rem",
-                            borderRadius: "50%",
-                            background: pool.visible ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
-                          }}
-                        />
-                      </button>
+                      {onOffSwitch({
+                        checked: pool.visible,
+                        busy,
+                        label: `${pool.label} — ${pool.visible ? "visible" : "masqué"}`,
+                        onToggle: () => void handleToggleTransparencePool(pool),
+                      })}
                     </li>
                   );
                 })}
