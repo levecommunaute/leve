@@ -3,9 +3,10 @@ import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
-  PA_USD_PER_PT,
   calculerFraisPlateforme,
+  calculerTaxePaUtilisation,
   crediterOperationsBalance,
+  crediterTaxePaUtilisation,
   roundUSD,
 } from "../../../../lib/frais-plateforme";
 
@@ -13,7 +14,6 @@ export const dynamic = "force-dynamic";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const TAX_RATE = 0.02;
 
 type ActionType = "vote_concours" | "tirage" | "pourboire";
 
@@ -85,7 +85,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const pts = Math.round(ptsPa);
   let effectiveDebit = pts;
-  let tax = Math.round(pts * TAX_RATE);
 
   if (type === "vote_concours") {
     const { data: artistForLimit, error: artistLimitErr } = await supabase
@@ -141,7 +140,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       Number(profile?.multiplier ?? 1) >= 2;
     if (isFounder && (votes ?? []).length === 0) {
       effectiveDebit = 0;
-      tax = 0;
     }
   }
 
@@ -161,7 +159,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const totalDebit = effectiveDebit + tax;
+  const {
+    coutUSD,
+    taxe2pct,
+    taxe_communaute,
+    taxe_fonctionnement,
+    taxDebitPts,
+  } = calculerTaxePaUtilisation(effectiveDebit);
+  const totalDebit = roundUSD(effectiveDebit + taxDebitPts);
+
   const { data: txs, error: paTxError } = await supabase
     .from("pa_transactions")
     .select("amount")
@@ -172,7 +178,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Solde PA insuffisant" }, { status: 400 });
   }
 
-  const coutUSD = roundUSD(effectiveDebit * PA_USD_PER_PT);
   const { pourcentage: fraisPct, frais: fraisPlateforme } =
     await calculerFraisPlateforme(coutUSD);
 
@@ -199,19 +204,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     type: "spend",
     amount: -Math.round(effectiveDebit),
     description: actionDescription,
+    cost_usd: coutUSD > 0 ? coutUSD : null,
   });
   if (spendErr) return NextResponse.json({ error: spendErr.message }, { status: 500 });
 
-  if (tax > 0) {
-    const taxRounded = Math.round(tax);
+  if (taxe2pct > 0 && taxDebitPts > 0) {
     const { error: taxErr } = await supabase.from("pa_transactions").insert({
       membre_id: membreId,
       type: "tax",
-      amount: -taxRounded,
-      description: "Taxe 2% sur action PA",
-      tax_usd: taxRounded,
+      amount: -taxDebitPts,
+      description: `Taxe 2% — ${actionDescription}`,
+      cost_usd: coutUSD,
+      tax_usd: taxe2pct,
+      taxe: taxe2pct,
+      taxe_communaute,
+      taxe_fonctionnement,
     });
     if (taxErr) return NextResponse.json({ error: taxErr.message }, { status: 500 });
+
+    try {
+      await crediterTaxePaUtilisation(supabase, taxe_communaute, taxe_fonctionnement);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
 
   if (fraisPlateforme > 0) {

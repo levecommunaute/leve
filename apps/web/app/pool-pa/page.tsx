@@ -121,6 +121,10 @@ function paTxLabel(row: PaTxRow): string {
     return "Dépense PA";
   }
 
+  if (t === "tax") {
+    if (desc.startsWith("Taxe 2% — ")) return desc.slice("Taxe 2% — ".length);
+    return desc || "Taxe 2%";
+  }
   if (t === "depense" || t === "utilisation") return "Utilisation PA";
   if (desc) return desc;
   return row.type?.replace(/_/g, " ") ?? "Transaction PA";
@@ -130,7 +134,7 @@ function paTxTypeLabel(type: string | null): string {
   const t = (type ?? "").toLowerCase();
   if (t === "purchase") return "Achat";
   if (t === "spend") return "Dépense";
-  if (t === "tax") return "Taxe";
+  if (t === "tax") return "Taxe 2%";
   return type ?? "PA";
 }
 

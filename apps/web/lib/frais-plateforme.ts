@@ -99,6 +99,75 @@ export async function calculerFraisPlateforme(
   return { pourcentage, frais };
 }
 
+const PA_TAX_RATE = 0.02;
+const PA_TAX_COMMUNAUTE_SHARE = 0.75;
+const PA_TAX_FONCTIONNEMENT_SHARE = 0.25;
+
+export type TaxePaUtilisation = {
+  coutUSD: number;
+  taxe2pct: number;
+  taxe_communaute: number;
+  taxe_fonctionnement: number;
+  /** Débit PA équivalent (pts) : taxe2pct ÷ $/pt. */
+  taxDebitPts: number;
+};
+
+/** Taxe 2 % sur la valeur USD d'une utilisation PA (pts × $5/pt). */
+export function calculerTaxePaUtilisation(ptsEffectifs: number): TaxePaUtilisation {
+  const pts = Math.max(0, Math.round(ptsEffectifs));
+  const coutUSD = roundUSD(pts * PA_USD_PER_PT);
+  const taxe2pct = roundUSD(coutUSD * PA_TAX_RATE);
+  const taxe_communaute = roundUSD(taxe2pct * PA_TAX_COMMUNAUTE_SHARE);
+  const taxe_fonctionnement = roundUSD(taxe2pct * PA_TAX_FONCTIONNEMENT_SHARE);
+  const taxDebitPts =
+    taxe2pct > 0 ? roundUSD(taxe2pct / PA_USD_PER_PT) : 0;
+  return {
+    coutUSD,
+    taxe2pct,
+    taxe_communaute,
+    taxe_fonctionnement,
+    taxDebitPts,
+  };
+}
+
+/** Répartit la taxe 2 % PA : 75 % pool PA, 25 % opérations. */
+export async function crediterTaxePaUtilisation(
+  supabase: SupabaseClient,
+  taxe_communaute: number,
+  taxe_fonctionnement: number,
+): Promise<void> {
+  const paAdd = roundUSD(taxe_communaute);
+  const opsAdd = roundUSD(taxe_fonctionnement);
+  if (paAdd <= 0 && opsAdd <= 0) return;
+
+  const { data: bank, error: fetchErr } = await supabase
+    .from("banque_leve")
+    .select("id, pa_balance, operations_balance")
+    .limit(1)
+    .maybeSingle();
+
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!bank?.id) throw new Error("banque_leve introuvable");
+
+  const { error: updateErr } = await supabase
+    .from("banque_leve")
+    .update({
+      ...(paAdd > 0
+        ? { pa_balance: roundUSD(Number(bank.pa_balance ?? 0) + paAdd) }
+        : {}),
+      ...(opsAdd > 0
+        ? {
+            operations_balance: roundUSD(
+              Number(bank.operations_balance ?? 0) + opsAdd,
+            ),
+          }
+        : {}),
+    })
+    .eq("id", bank.id);
+
+  if (updateErr) throw new Error(updateErr.message);
+}
+
 /** Crédite le pool opérations LEVE (frais plateforme collectés). */
 export async function crediterOperationsBalance(
   supabase: SupabaseClient,

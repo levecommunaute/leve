@@ -112,7 +112,14 @@ type PoolCurrent = {
   production_balance: number;
   fondation_balance: number;
   operations_balance: number;
+  pa_balance: number;
   total_revenue: number;
+};
+
+type PaTaxStats = {
+  total: number;
+  communaute: number;
+  fonctionnement: number;
 };
 
 type TransparencyRow = {
@@ -600,6 +607,7 @@ export default function AdminPage(): JSX.Element {
 
   const [poolSeries, setPoolSeries] = useState<PoolMonthPoint[]>([]);
   const [poolCurrent, setPoolCurrent] = useState<PoolCurrent | null>(null);
+  const [paTaxStats, setPaTaxStats] = useState<PaTaxStats | null>(null);
   const [poolLoading, setPoolLoading] = useState(false);
   const [poolError, setPoolError] = useState<string | null>(null);
 
@@ -768,20 +776,24 @@ export default function AdminPage(): JSX.Element {
       const j = (await r.json()) as {
         series?: PoolMonthPoint[];
         current?: PoolCurrent | null;
+        pa_tax_stats?: PaTaxStats | null;
         error?: string;
       };
       if (!r.ok) {
         setPoolError(j.error ?? "Erreur pools");
         setPoolSeries([]);
         setPoolCurrent(null);
+        setPaTaxStats(null);
         return;
       }
       setPoolSeries(j.series ?? []);
       setPoolCurrent(j.current ?? null);
+      setPaTaxStats(j.pa_tax_stats ?? null);
     } catch (e) {
       setPoolError(e instanceof Error ? e.message : "Erreur réseau");
       setPoolSeries([]);
       setPoolCurrent(null);
+      setPaTaxStats(null);
     } finally {
       setPoolLoading(false);
     }
@@ -2584,33 +2596,87 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <>
                 {poolCurrent ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                      gap: "0.75rem",
-                      marginBottom: "1.35rem",
-                    }}
-                  >
-                    {POOL_SERIES.map((s) => (
+                  <>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                        gap: "0.75rem",
+                        marginBottom: "1.35rem",
+                      }}
+                    >
+                      {POOL_SERIES.map((s) => (
+                        <div
+                          key={s.key}
+                          style={{
+                            padding: "0.85rem 1rem",
+                            borderRadius: "10px",
+                            background: "rgba(245, 240, 232, 0.04)",
+                            border: `1px solid ${s.color}33`,
+                          }}
+                        >
+                          <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
+                            {s.label} (actuel)
+                          </p>
+                          <p style={{ margin: "0.35rem 0 0", color: s.color, fontWeight: 600, fontSize: "0.95rem" }}>
+                            {cad.format(poolCurrent[s.key])}
+                          </p>
+                        </div>
+                      ))}
                       <div
-                        key={s.key}
                         style={{
                           padding: "0.85rem 1rem",
                           borderRadius: "10px",
                           background: "rgba(245, 240, 232, 0.04)",
-                          border: `1px solid ${s.color}33`,
+                          border: "1px solid rgba(46, 204, 113, 0.35)",
                         }}
                       >
                         <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
-                          {s.label} (actuel)
+                          Pool PA (actuel)
                         </p>
-                        <p style={{ margin: "0.35rem 0 0", color: s.color, fontWeight: 600, fontSize: "0.95rem" }}>
-                          {cad.format(poolCurrent[s.key])}
+                        <p style={{ margin: "0.35rem 0 0", color: "#2ECC71", fontWeight: 600, fontSize: "0.95rem" }}>
+                          {cad.format(poolCurrent.pa_balance)}
                         </p>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                    {paTaxStats && paTaxStats.total > 0 ? (
+                      <div
+                        style={{
+                          marginBottom: "1.35rem",
+                          padding: "1rem 1.15rem",
+                          borderRadius: "10px",
+                          background: "rgba(46, 204, 113, 0.06)",
+                          border: "1px solid rgba(46, 204, 113, 0.22)",
+                        }}
+                      >
+                        <p
+                          style={{
+                            margin: "0 0 0.5rem",
+                            fontSize: "0.68rem",
+                            letterSpacing: "0.16em",
+                            textTransform: "uppercase",
+                            opacity: 0.55,
+                          }}
+                        >
+                          Taxes 2 % — utilisations PA (cumul)
+                        </p>
+                        <ul style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.85, fontSize: "0.88rem" }}>
+                          <li>
+                            Total collecté :{" "}
+                            <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.total)}</strong>
+                          </li>
+                          <li>
+                            → Pool PA (75 %) :{" "}
+                            <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.communaute)}</strong>
+                          </li>
+                          <li>
+                            → Opérations (25 %) :{" "}
+                            <strong style={{ color: "#7F8C8D" }}>{cad.format(paTaxStats.fonctionnement)}</strong>
+                          </li>
+                        </ul>
+                      </div>
+                    ) : null}
+                  </>
                 ) : null}
                 <PoolAccumulationChart series={poolSeries} />
                 {poolSeries.length > 0 ? (
@@ -2661,7 +2727,32 @@ export default function AdminPage(): JSX.Element {
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Historique complet des redistributions avec filtres par année et par mois. Total annuel et
               détail mensuel depuis <code style={{ fontSize: "0.82rem" }}>redistribution_history</code>.
+              Les taxes 2&nbsp;% sur les utilisations PA alimentent le pool PA (75&nbsp;%) et les opérations
+              (25&nbsp;%) — visibles aussi sur la page publique <em>Transparence</em>.
             </p>
+            {paTaxStats && paTaxStats.total > 0 ? (
+              <div
+                style={{
+                  marginBottom: "1.25rem",
+                  padding: "0.9rem 1.1rem",
+                  borderRadius: "10px",
+                  background: "rgba(46, 204, 113, 0.06)",
+                  border: "1px solid rgba(46, 204, 113, 0.2)",
+                  fontSize: "0.88rem",
+                  lineHeight: 1.7,
+                }}
+              >
+                <strong style={{ color: "#2ECC71" }}>Taxes PA 2 % (cumul)</strong> —{" "}
+                {cad.format(paTaxStats.total)} collectées · {cad.format(paTaxStats.communaute)} → pool PA ·{" "}
+                {cad.format(paTaxStats.fonctionnement)} → opérations
+                {poolCurrent ? (
+                  <>
+                    {" "}
+                    · solde pool PA actuel : <strong style={{ color: "#2ECC71" }}>{cad.format(poolCurrent.pa_balance)}</strong>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             <div
               style={{
                 display: "grid",
