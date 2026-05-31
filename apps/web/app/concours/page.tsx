@@ -107,6 +107,8 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const VOTE_PA_COST = 5;
+const TICKET_PA_COST = 10;
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
 const dateFmt = new Intl.DateTimeFormat("fr-CA", {
@@ -136,6 +138,15 @@ function voteCountLabel(count: number): string {
   return n <= 1 ? `${n} vote` : `${n} votes`;
 }
 
+function paRechargeMessage(requiredPts: number, soldePa: number): string {
+  const missing = Math.max(0, requiredPts - soldePa);
+  return `Solde PA insuffisant — rechargez votre compte PA pour continuer. Il vous manque ${pointsFmt.format(missing)} pts PA`;
+}
+
+function isPaInsufficientError(message: string): boolean {
+  return message.trim().toLowerCase() === "solde pa insuffisant";
+}
+
 export default function ConcoursPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -143,6 +154,7 @@ export default function ConcoursPage(): JSX.Element | null {
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
+  const [soldePa, setSoldePa] = useState(0);
   const [concours, setConcours] = useState<ConcoursRow[]>([]);
   const [artistes, setArtistes] = useState<ConcoursArtisteRow[]>([]);
   const [votesArtistesUsed, setVotesArtistesUsed] = useState(0);
@@ -224,6 +236,10 @@ export default function ConcoursPage(): JSX.Element | null {
           `points_transactions?select=amount&membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz`,
           token,
         ),
+        fetchRest<{ amount?: unknown }[]>(
+          `pa_transactions?select=amount&membre_id=eq.${encodeURIComponent(uid)}`,
+          token,
+        ),
         fetchRest<ConcoursRow[]>(
           `concours?select=id,titre,description,date_fin,points_requis&date_fin=gte.${encodeURIComponent(nowIso)}&order=date_fin.asc`,
           token,
@@ -248,7 +264,8 @@ export default function ConcoursPage(): JSX.Element | null {
           : Promise.resolve({ data: [] as TirageRow[], error: null }),
       ]);
 
-      const [profileRes, txRes, concoursRes, artistesRes, votesRes, tiragesRes] = baseReqs;
+      const [profileRes, txRes, paTxRes, concoursRes, artistesRes, votesRes, tiragesRes] =
+        baseReqs;
       let ticketsRes:
         | { data: TirageTicketRow[]; error: null }
         | { data: null; error: RestErr } = { data: [], error: null };
@@ -264,6 +281,7 @@ export default function ConcoursPage(): JSX.Element | null {
       const errMsg =
         profileRes.error?.message ??
         txRes.error?.message ??
+        paTxRes.error?.message ??
         concoursRes.error?.message ??
         artistesRes.error?.message ??
         votesRes.error?.message ??
@@ -278,6 +296,15 @@ export default function ConcoursPage(): JSX.Element | null {
         setTotalPointsPmq(sum);
       } else {
         setTotalPointsPmq(0);
+      }
+      if (!paTxRes.error) {
+        const paSum = (paTxRes.data ?? []).reduce(
+          (acc, row) => acc + Number(row.amount ?? 0),
+          0,
+        );
+        setSoldePa(paSum);
+      } else {
+        setSoldePa(0);
       }
       setConcours(concoursRes.error ? [] : (concoursRes.data ?? []));
       const artistesList = artistesRes.error ? [] : (artistesRes.data ?? []);
@@ -337,6 +364,7 @@ export default function ConcoursPage(): JSX.Element | null {
         setTirageActif(null);
         setTicketsTirage(0);
         setTotalPointsPmq(0);
+        setSoldePa(0);
         setVotesArtistesUsed(0);
         setVotedArtisteIds(new Set());
         setLoadError(null);
@@ -367,6 +395,11 @@ export default function ConcoursPage(): JSX.Element | null {
     const memberType = (profile?.member_type ?? "").toLowerCase().trim();
     return memberType === "fondateur" && Number(profile?.multiplier ?? 1) >= 2;
   }, [profile?.member_type, profile?.multiplier]);
+
+  const votePaRequired = useMemo(() => {
+    if (isFounderBonusEligible && votesArtistesUsed === 0) return 0;
+    return VOTE_PA_COST;
+  }, [isFounderBonusEligible, votesArtistesUsed]);
 
   async function spendPa(
     action: ActionType,
@@ -406,9 +439,13 @@ export default function ConcoursPage(): JSX.Element | null {
     }
     setVotingArtisteId(artisteId);
     setVoteArtisteMsg(null);
-    const result = await spendPa("vote_concours", 5, artisteId);
+    const result = await spendPa("vote_concours", VOTE_PA_COST, artisteId);
     setVotingArtisteId(null);
     if (!result.success) {
+      if (isPaInsufficientError(result.message)) {
+        if (session) await loadPage(session);
+        return;
+      }
       setVoteArtisteMsg({ kind: "err", text: result.message });
       return;
     }
@@ -432,9 +469,13 @@ export default function ConcoursPage(): JSX.Element | null {
     }
     setBuyingTicket(true);
     setTicketMsg(null);
-    const result = await spendPa("tirage", 10, tirageActif.id);
+    const result = await spendPa("tirage", TICKET_PA_COST, tirageActif.id);
     setBuyingTicket(false);
     if (!result.success) {
+      if (isPaInsufficientError(result.message)) {
+        if (session) await loadPage(session);
+        return;
+      }
       setTicketMsg({ kind: "err", text: result.message });
       return;
     }
@@ -627,6 +668,7 @@ export default function ConcoursPage(): JSX.Element | null {
                 const alreadyVoted = votedArtisteIds.has(artiste.id);
                 const votesMaxed = votesArtistesUsed >= 3;
                 const canVote = !alreadyVoted && !votesMaxed;
+                const needsPaRecharge = canVote && soldePa < votePaRequired;
                 return (
                 <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
                   <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
@@ -636,26 +678,50 @@ export default function ConcoursPage(): JSX.Element | null {
                   <p style={{ margin: "0 0 0.75rem", opacity: 0.7, fontSize: "0.9rem" }}>
                     {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"}
                   </p>
-                  <button
-                    type="button"
-                    disabled={votingArtisteId === artiste.id || !canVote}
-                    onClick={() => void handleVoteArtiste(artiste.id)}
-                    style={{
-                      background: canVote ? ROUGE : "rgba(192, 57, 43, 0.25)",
-                      color: TEXT,
-                      border: "none",
-                      borderRadius: "8px",
-                      padding: "0.6rem 1rem",
-                      cursor: canVote ? "pointer" : "not-allowed",
-                      opacity: canVote ? 1 : 0.55,
-                    }}
-                  >
-                    {votingArtisteId === artiste.id
-                      ? "Vote..."
-                      : alreadyVoted
-                        ? "Déjà voté"
-                        : "Voter (5 pts PA)"}
-                  </button>
+                  {needsPaRecharge ? (
+                    <>
+                      <Link
+                        href="/pool-pa"
+                        style={{
+                          display: "inline-block",
+                          background: GOLD,
+                          color: BG,
+                          border: "none",
+                          borderRadius: "8px",
+                          padding: "0.6rem 1rem",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                        }}
+                      >
+                        Recharger PA
+                      </Link>
+                      <p role="alert" style={{ margin: "0.55rem 0 0", color: ROUGE, fontSize: "0.9rem" }}>
+                        {paRechargeMessage(votePaRequired, soldePa)}
+                      </p>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={votingArtisteId === artiste.id || !canVote}
+                      onClick={() => void handleVoteArtiste(artiste.id)}
+                      style={{
+                        background: canVote ? ROUGE : "rgba(192, 57, 43, 0.25)",
+                        color: TEXT,
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "0.6rem 1rem",
+                        cursor: canVote ? "pointer" : "not-allowed",
+                        opacity: canVote ? 1 : 0.55,
+                      }}
+                    >
+                      {votingArtisteId === artiste.id
+                        ? "Vote..."
+                        : alreadyVoted
+                          ? "Déjà voté"
+                          : "Voter (5 pts PA)"}
+                    </button>
+                  )}
                 </article>
                 );
               })
@@ -682,22 +748,53 @@ export default function ConcoursPage(): JSX.Element | null {
             <p style={{ margin: "0 0 0.85rem", opacity: 0.82 }}>
               Vos tickets: {ticketsTirage}/10
             </p>
-            <button
-              type="button"
-              disabled={buyingTicket || !tirageActif?.id || ticketsTirage >= 10}
-              onClick={() => void handleAcheterTicket()}
-              style={{
-                background: ROUGE,
-                color: TEXT,
-                border: "none",
-                borderRadius: "8px",
-                padding: "0.6rem 1rem",
-                cursor: ticketsTirage >= 10 ? "not-allowed" : "pointer",
-                opacity: ticketsTirage >= 10 ? 0.55 : 1,
-              }}
-            >
-              {buyingTicket ? "Achat..." : "Acheter un ticket (10 pts PA)"}
-            </button>
+            {(() => {
+              const canBuyTicket = Boolean(tirageActif?.id) && ticketsTirage < 10;
+              const needsPaRecharge = canBuyTicket && soldePa < TICKET_PA_COST;
+              if (needsPaRecharge) {
+                return (
+                  <>
+                    <Link
+                      href="/pool-pa"
+                      style={{
+                        display: "inline-block",
+                        background: GOLD,
+                        color: BG,
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "0.6rem 1rem",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Recharger PA
+                    </Link>
+                    <p role="alert" style={{ color: ROUGE, margin: "0.6rem 0 0", fontSize: "0.9rem" }}>
+                      {paRechargeMessage(TICKET_PA_COST, soldePa)}
+                    </p>
+                  </>
+                );
+              }
+              return (
+                <button
+                  type="button"
+                  disabled={buyingTicket || !canBuyTicket}
+                  onClick={() => void handleAcheterTicket()}
+                  style={{
+                    background: ROUGE,
+                    color: TEXT,
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "0.6rem 1rem",
+                    cursor: canBuyTicket ? "pointer" : "not-allowed",
+                    opacity: canBuyTicket ? 1 : 0.55,
+                  }}
+                >
+                  {buyingTicket ? "Achat..." : "Acheter un ticket (10 pts PA)"}
+                </button>
+              );
+            })()}
             {ticketMsg ? (
               <p role={ticketMsg.kind === "err" ? "alert" : "status"} style={{ color: ticketMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.6rem 0 0" }}>
                 {ticketMsg.text}
