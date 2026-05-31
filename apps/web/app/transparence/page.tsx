@@ -81,30 +81,84 @@ type BanqueLeveRow = {
   taxe_pa_balance: number | string | null;
 };
 
-type TransparencePoolKey =
-  | "pmq"
-  | "production"
-  | "fondation"
-  | "operations"
-  | "ptc"
-  | "pcol"
-  | "pa"
-  | "frais_plateforme"
-  | "taxe_pa";
-
-type TransparenceVisibility = Record<TransparencePoolKey, boolean>;
-
-const DEFAULT_TRANSPARENCE_VISIBILITY: TransparenceVisibility = {
-  pmq: true,
-  production: true,
-  fondation: true,
-  operations: true,
-  ptc: true,
-  pcol: true,
-  pa: true,
-  frais_plateforme: true,
-  taxe_pa: true,
+type TransparenceConfigRow = {
+  cle: string;
+  label: string;
+  visible: boolean;
+  ordre: number;
 };
+
+/** Colonnes `banque_leve` contrôlées par `transparence_config.cle`. */
+const BANQUE_BALANCE_COLUMN: Record<string, keyof BanqueLeveRow> = {
+  pmq: "pmq_balance",
+  production: "production_balance",
+  fondation: "fondation_balance",
+  operations: "operations_balance",
+  ptc: "ptc_balance",
+  pcol: "pcol_balance",
+  pa: "pa_balance",
+  frais_plateforme: "frais_plateforme_balance",
+  taxe_pa: "taxe_pa_balance",
+  pmq_balance: "pmq_balance",
+  production_balance: "production_balance",
+  fondation_balance: "fondation_balance",
+  operations_balance: "operations_balance",
+  ptc_balance: "ptc_balance",
+  pcol_balance: "pcol_balance",
+  pa_balance: "pa_balance",
+};
+
+const BANQUE_POOL_ACCENT: Record<string, string> = {
+  pmq: GOLD,
+  production: ROUGE,
+  fondation: VERT,
+  operations: GRIS_OPS,
+  ptc: GOLD,
+  pcol: ROUGE,
+  pa: VERT,
+  frais_plateforme: GOLD,
+  taxe_pa: VERT,
+};
+
+const DEFAULT_TRANSPARENCE_CONFIG: TransparenceConfigRow[] = [
+  { cle: "pmq", label: "PMQ — Pool Mensuelle Quiz", visible: true, ordre: 1 },
+  {
+    cle: "production",
+    label: "Production — Équipe fondatrice (20%)",
+    visible: true,
+    ordre: 2,
+  },
+  { cle: "fondation", label: "Fondation LEVE (10%)", visible: true, ordre: 3 },
+  {
+    cle: "operations",
+    label: "Opérations — LEVE MÉDIA INC. (25%)",
+    visible: true,
+    ordre: 4,
+  },
+  { cle: "ptc", label: "PTC — Pool de Croissance", visible: true, ordre: 5 },
+  { cle: "pcol", label: "PCOL — Pool Collaborateur", visible: true, ordre: 6 },
+  { cle: "pa", label: "PA — Pool Activités", visible: true, ordre: 7 },
+  {
+    cle: "frais_plateforme",
+    label: "Frais plateforme collectés (5-8%)",
+    visible: true,
+    ordre: 8,
+  },
+  {
+    cle: "taxe_pa",
+    label: "Taxe 2% PA — communauté (75%)",
+    visible: true,
+    ordre: 9,
+  },
+];
+
+function poolAccentForCle(cle: string): string {
+  return BANQUE_POOL_ACCENT[cle] ?? TEXT;
+}
+
+function sectionForCle(cle: string): "banque" | "frais" {
+  return cle === "frais_plateforme" || cle === "taxe_pa" ? "frais" : "banque";
+}
 
 function displayNameFrom(
   profile: ProfileRow | null,
@@ -188,9 +242,9 @@ export default function TransparencePage(): JSX.Element {
   const [authChecked, setAuthChecked] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [banque, setBanque] = useState<BanqueLeveRow | null>(null);
-  const [poolVisibility, setPoolVisibility] = useState<TransparenceVisibility>(
-    DEFAULT_TRANSPARENCE_VISIBILITY,
-  );
+  const [transparenceConfig, setTransparenceConfig] = useState<
+    TransparenceConfigRow[]
+  >(DEFAULT_TRANSPARENCE_CONFIG);
   const [history, setHistory] = useState<RedistributionMois[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -235,20 +289,30 @@ export default function TransparencePage(): JSX.Element {
       setBanque((arr[0] ?? null) as BanqueLeveRow | null);
     }
 
-    try {
-      const configRes = await fetch("/api/transparence/config", { cache: "no-store" });
-      const configJson = (await configRes.json()) as {
-        visibility?: Partial<TransparenceVisibility>;
-        error?: string;
-      };
-      if (configRes.ok && configJson.visibility) {
-        setPoolVisibility({
-          ...DEFAULT_TRANSPARENCE_VISIBILITY,
-          ...configJson.visibility,
-        });
-      }
-    } catch {
-      setPoolVisibility(DEFAULT_TRANSPARENCE_VISIBILITY);
+    const configRes = await fetch(
+      `${SB}/rest/v1/transparence_config?select=cle,label,visible,ordre&order=ordre.asc`,
+      {
+        headers: {
+          apikey: KEY,
+          Authorization: `Bearer ${KEY}`,
+          Accept: "application/json",
+        },
+      },
+    );
+    const configJson = (await configRes.json()) as unknown;
+    if (!configRes.ok) {
+      setTransparenceConfig(DEFAULT_TRANSPARENCE_CONFIG);
+    } else {
+      const rows = Array.isArray(configJson) ? configJson : [];
+      setTransparenceConfig(
+        rows.filter(
+          (row): row is TransparenceConfigRow =>
+            row != null &&
+            typeof row === "object" &&
+            typeof (row as TransparenceConfigRow).cle === "string" &&
+            typeof (row as TransparenceConfigRow).visible === "boolean",
+        ),
+      );
     }
 
     try {
@@ -349,75 +413,35 @@ export default function TransparencePage(): JSX.Element {
   const name = session ? displayNameFrom(profile, session) : null;
 
   const tr = Number(banque?.total_revenue ?? 0);
-  const poolPmq = Number(banque?.pmq_balance ?? 0);
-  const poolProduction = Number(banque?.production_balance ?? 0);
-  const poolFondation = Number(banque?.fondation_balance ?? 0);
-  const poolOps = Number(banque?.operations_balance ?? 0);
-  const poolPtc = Number(banque?.ptc_balance ?? 0);
-  const poolPcol = Number(banque?.pcol_balance ?? 0);
-  const poolPa = Number(banque?.pa_balance ?? 0);
-  const poolFraisPlateforme = Number(banque?.frais_plateforme_balance ?? 0);
-  const poolTaxePa = Number(banque?.taxe_pa_balance ?? 0);
 
-  const banquePoolRows = [
-    {
-      key: "pmq" as const,
-      label: "PMQ — Pool Mensuelle Quiz",
-      value: poolPmq,
-      accent: GOLD,
-    },
-    {
-      key: "production" as const,
-      label: "Production — Équipe fondatrice (20%)",
-      value: poolProduction,
-      accent: ROUGE,
-    },
-    {
-      key: "fondation" as const,
-      label: "Fondation LEVE (10%)",
-      value: poolFondation,
-      accent: VERT,
-    },
-    {
-      key: "operations" as const,
-      label: "Opérations — LEVE MÉDIA INC. (25%)",
-      value: poolOps,
-      accent: GRIS_OPS,
-    },
-    {
-      key: "ptc" as const,
-      label: "PTC — Pool de Croissance",
-      value: poolPtc,
-      accent: GOLD,
-    },
-    {
-      key: "pcol" as const,
-      label: "PCOL — Pool Collaborateur",
-      value: poolPcol,
-      accent: ROUGE,
-    },
-    {
-      key: "pa" as const,
-      label: "PA — Pool Activités",
-      value: poolPa,
-      accent: VERT,
-    },
-  ].filter((row) => poolVisibility[row.key]);
+  type BalanceRow = {
+    cle: string;
+    label: string;
+    value: number;
+    accent: string;
+    section: "banque" | "frais";
+  };
 
-  const fraisPoolRows = [
-    {
-      key: "frais_plateforme" as const,
-      label: "Frais plateforme collectés (5-8%)",
-      value: poolFraisPlateforme,
-      accent: GOLD,
-    },
-    {
-      key: "taxe_pa" as const,
-      label: "Taxe 2% PA — communauté (75%)",
-      value: poolTaxePa,
-      accent: VERT,
-    },
-  ].filter((row) => poolVisibility[row.key]);
+  const balanceRows: BalanceRow[] = transparenceConfig
+    .filter((cfg) => cfg.visible)
+    .flatMap((cfg) => {
+      const column = BANQUE_BALANCE_COLUMN[cfg.cle];
+      if (!column || banque == null) return [];
+      const raw = banque[column];
+      const value = Number(raw ?? 0);
+      return [
+        {
+          cle: cfg.cle,
+          label: cfg.label,
+          value,
+          accent: poolAccentForCle(cfg.cle),
+          section: sectionForCle(cfg.cle),
+        },
+      ];
+    });
+
+  const banquePoolRows = balanceRows.filter((row) => row.section === "banque");
+  const fraisPoolRows = balanceRows.filter((row) => row.section === "frais");
 
   const showBanqueSection = banquePoolRows.length > 0;
   const showFraisSection = fraisPoolRows.length > 0;
@@ -704,7 +728,7 @@ export default function TransparencePage(): JSX.Element {
                 </article>
                 {banquePoolRows.map((row) => (
                   <article
-                    key={row.key}
+                    key={row.cle}
                     style={{
                       borderRadius: "12px",
                       padding: "1.05rem",
@@ -767,7 +791,7 @@ export default function TransparencePage(): JSX.Element {
               >
                 {fraisPoolRows.map((row) => (
                   <article
-                    key={row.key}
+                    key={row.cle}
                     style={{
                       borderRadius: "12px",
                       padding: "1.05rem",
