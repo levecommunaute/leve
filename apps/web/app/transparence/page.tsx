@@ -99,6 +99,8 @@ const BANQUE_BALANCE_COLUMN: Record<string, keyof BanqueLeveRow> = {
   pa: "pa_balance",
   frais_plateforme: "frais_plateforme_balance",
   taxe_pa: "taxe_pa_balance",
+  frais_plateforme_balance: "frais_plateforme_balance",
+  taxe_pa_balance: "taxe_pa_balance",
   pmq_balance: "pmq_balance",
   production_balance: "production_balance",
   fondation_balance: "fondation_balance",
@@ -106,6 +108,20 @@ const BANQUE_BALANCE_COLUMN: Record<string, keyof BanqueLeveRow> = {
   ptc_balance: "ptc_balance",
   pcol_balance: "pcol_balance",
   pa_balance: "pa_balance",
+};
+
+const FRAIS_CONFIG_CLES = new Set([
+  "frais_plateforme_balance",
+  "taxe_pa_balance",
+  "frais_plateforme",
+  "taxe_pa",
+]);
+
+const FRAIS_LABEL_BY_CLE: Record<string, string> = {
+  frais_plateforme_balance: "Frais plateforme collectés (5-8%)",
+  frais_plateforme: "Frais plateforme collectés (5-8%)",
+  taxe_pa_balance: "Taxe 2% PA — communauté (75%)",
+  taxe_pa: "Taxe 2% PA — communauté (75%)",
 };
 
 const BANQUE_POOL_ACCENT: Record<string, string> = {
@@ -118,6 +134,8 @@ const BANQUE_POOL_ACCENT: Record<string, string> = {
   pa: VERT,
   frais_plateforme: GOLD,
   taxe_pa: VERT,
+  frais_plateforme_balance: GOLD,
+  taxe_pa_balance: VERT,
 };
 
 const DEFAULT_TRANSPARENCE_CONFIG: TransparenceConfigRow[] = [
@@ -139,13 +157,13 @@ const DEFAULT_TRANSPARENCE_CONFIG: TransparenceConfigRow[] = [
   { cle: "pcol", label: "PCOL — Pool Collaborateur", visible: true, ordre: 6 },
   { cle: "pa", label: "PA — Pool Activités", visible: true, ordre: 7 },
   {
-    cle: "frais_plateforme",
+    cle: "frais_plateforme_balance",
     label: "Frais plateforme collectés (5-8%)",
     visible: true,
     ordre: 8,
   },
   {
-    cle: "taxe_pa",
+    cle: "taxe_pa_balance",
     label: "Taxe 2% PA — communauté (75%)",
     visible: true,
     ordre: 9,
@@ -156,8 +174,16 @@ function poolAccentForCle(cle: string): string {
   return BANQUE_POOL_ACCENT[cle] ?? TEXT;
 }
 
+function isFraisCle(cle: string): boolean {
+  return FRAIS_CONFIG_CLES.has(cle);
+}
+
 function sectionForCle(cle: string): "banque" | "frais" {
-  return cle === "frais_plateforme" || cle === "taxe_pa" ? "frais" : "banque";
+  return isFraisCle(cle) ? "frais" : "banque";
+}
+
+function labelForCle(cle: string, fallback: string): string {
+  return FRAIS_LABEL_BY_CLE[cle] ?? fallback;
 }
 
 function displayNameFrom(
@@ -432,7 +458,7 @@ export default function TransparencePage(): JSX.Element {
       return [
         {
           cle: cfg.cle,
-          label: cfg.label,
+          label: labelForCle(cfg.cle, cfg.label),
           value,
           accent: poolAccentForCle(cfg.cle),
           section: sectionForCle(cfg.cle),
@@ -444,7 +470,9 @@ export default function TransparencePage(): JSX.Element {
   const fraisPoolRows = balanceRows.filter((row) => row.section === "frais");
 
   const showBanqueSection = banquePoolRows.length > 0;
-  const showFraisSection = fraisPoolRows.length > 0;
+  const showFraisSection = transparenceConfig.some(
+    (cfg) => isFraisCle(cfg.cle) && cfg.visible,
+  );
 
   return (
     <div
