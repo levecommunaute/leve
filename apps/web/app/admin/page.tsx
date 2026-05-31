@@ -104,6 +104,8 @@ type PoolMonthPoint = {
   production_balance: number;
   fondation_balance: number;
   operations_balance: number;
+  ptc_balance: number;
+  pcol_balance: number;
   total_revenue: number;
 };
 
@@ -112,6 +114,8 @@ type PoolCurrent = {
   production_balance: number;
   fondation_balance: number;
   operations_balance: number;
+  ptc_balance: number;
+  pcol_balance: number;
   pa_balance: number;
   frais_plateforme_balance: number;
   taxe_pa_balance: number;
@@ -392,10 +396,37 @@ function onOffSwitch(props: {
 }
 
 const POOL_SERIES = [
-  { key: "pmq_balance" as const, color: GOLD, label: "PMQ" },
-  { key: "production_balance" as const, color: "#3498DB", label: "Production" },
-  { key: "fondation_balance" as const, color: "#9B59B6", label: "Fondation" },
-  { key: "operations_balance" as const, color: "#7F8C8D", label: "Opérations" },
+  { key: "pmq_balance" as const, color: GOLD, label: "PMQ", cardLabel: "PMQ" },
+  {
+    key: "production_balance" as const,
+    color: "#3498DB",
+    label: "Production",
+    cardLabel: "Production",
+  },
+  {
+    key: "fondation_balance" as const,
+    color: "#9B59B6",
+    label: "Fondation",
+    cardLabel: "Fondation",
+  },
+  {
+    key: "operations_balance" as const,
+    color: "#7F8C8D",
+    label: "Opérations",
+    cardLabel: "Opérations",
+  },
+  {
+    key: "ptc_balance" as const,
+    color: "#E67E22",
+    label: "PTC",
+    cardLabel: "PTC — Pool de Croissance",
+  },
+  {
+    key: "pcol_balance" as const,
+    color: "#1ABC9C",
+    label: "PCOL",
+    cardLabel: "PCOL — Pool Collaborateur",
+  },
 ];
 
 function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): JSX.Element {
@@ -2658,9 +2689,9 @@ export default function AdminPage(): JSX.Element {
           <section style={cardStyle()}>
             {sectionTitle("ACCUMULATION DES POOLS")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
-              Évolution mensuelle cumulative des pools PMQ, production, fondation et opérations, calculée
-              depuis <code style={{ fontSize: "0.82rem" }}>redistribution_history</code> et comparée aux
-              soldes actuels de <code style={{ fontSize: "0.82rem" }}>banque_leve</code>.
+              Évolution mensuelle cumulative des pools PMQ, production, fondation, opérations, PTC et
+              PCOL, calculée depuis <code style={{ fontSize: "0.82rem" }}>redistribution_history</code>{" "}
+              et comparée aux soldes actuels de <code style={{ fontSize: "0.82rem" }}>banque_leve</code>.
             </p>
             {poolError ? (
               <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{poolError}</p>
@@ -2690,7 +2721,7 @@ export default function AdminPage(): JSX.Element {
                           }}
                         >
                           <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
-                            {s.label} (actuel)
+                            {s.cardLabel} (actuel)
                           </p>
                           <p style={{ margin: "0.35rem 0 0", color: s.color, fontWeight: 600, fontSize: "0.95rem" }}>
                             {cad.format(poolCurrent[s.key])}
@@ -2788,8 +2819,15 @@ export default function AdminPage(): JSX.Element {
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                       <thead>
                         <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
-                          {["Mois", "PMQ cumul.", "Production cumul.", "Fondation cumul.", "Opérations cumul."].map(
-                            (h) => (
+                          {[
+                            "Mois",
+                            "PMQ cumul.",
+                            "Production cumul.",
+                            "Fondation cumul.",
+                            "Opérations cumul.",
+                            "PTC cumul.",
+                            "PCOL cumul.",
+                          ].map((h) => (
                               <th
                                 key={h}
                                 style={{
@@ -2815,6 +2853,8 @@ export default function AdminPage(): JSX.Element {
                             <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.production_balance)}</td>
                             <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.fondation_balance)}</td>
                             <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.operations_balance)}</td>
+                            <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.ptc_balance)}</td>
+                            <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.pcol_balance)}</td>
                           </tr>
                         ))}
                       </tbody>
