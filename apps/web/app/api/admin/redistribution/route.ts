@@ -23,23 +23,23 @@ function parseMonthInput(raw: string): { monthKey: string; monthDate: string } |
   return { monthKey, monthDate: `${monthKey}-01` };
 }
 
-type MemberWeight = {
-  membre_id: string;
-  pts_ponderes: number;
+type MemberPonderes = {
+  quiz: number;
+  ptc: number;
 };
 
-/** SUM(pts_ponderes) par membre_id pour type = quiz. */
-async function aggregateQuizPonderes(
+/** SUM(pts_ponderes) par membre_id, séparé quiz / ptc. */
+async function aggregatePonderesByMember(
   supabase: SupabaseClient,
-): Promise<Map<string, number>> {
-  const totals = new Map<string, number>();
+): Promise<Map<string, MemberPonderes>> {
+  const totals = new Map<string, MemberPonderes>();
   let offset = 0;
 
   for (;;) {
     const { data, error } = await supabase
       .from("points_ponderes")
-      .select("membre_id, pts_ponderes")
-      .eq("type", "quiz")
+      .select("membre_id, pts_ponderes, type")
+      .in("type", ["quiz", "ptc"])
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (error) {
@@ -52,7 +52,14 @@ async function aggregateQuizPonderes(
       if (!membreId) continue;
       const amt = Number(row.pts_ponderes ?? 0);
       if (!Number.isFinite(amt)) continue;
-      totals.set(membreId, (totals.get(membreId) ?? 0) + amt);
+      const type = String(row.type ?? "").trim();
+      const entry = totals.get(membreId) ?? { quiz: 0, ptc: 0 };
+      if (type === "quiz") {
+        entry.quiz += amt;
+      } else if (type === "ptc") {
+        entry.ptc += amt;
+      }
+      totals.set(membreId, entry);
     }
 
     if (rows.length < PAGE_SIZE) break;
@@ -175,7 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { data: bank, error: bankError } = await supabase
       .from("banque_leve")
       .select(
-        "id, total_revenue, pmq_balance, production_balance, fondation_balance, operations_balance",
+        "id, total_revenue, pmq_balance, production_balance, fondation_balance, operations_balance, ptc_balance",
       )
       .limit(1)
       .maybeSingle();
@@ -192,38 +199,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const fondationPool = totalRevenue * FONDATION_RATE;
     const operationsPool = totalRevenue * OPERATIONS_RATE;
 
-    const ponderesByMember = await aggregateQuizPonderes(supabase);
+    const ponderesByMember = await aggregatePonderesByMember(supabase);
 
-    const weights: MemberWeight[] = [];
     let totalPoids = 0;
+    let totalPtcPonderes = 0;
+    const quizWeights: { membre_id: string; quiz_pts: number }[] = [];
 
-    for (const [membreId, ptsPonderes] of ponderesByMember) {
-      if (ptsPonderes > 0) {
-        totalPoids += ptsPonderes;
-        weights.push({ membre_id: membreId, pts_ponderes: ptsPonderes });
+    for (const [membreId, { quiz, ptc }] of ponderesByMember) {
+      totalPoids += quiz + ptc;
+      totalPtcPonderes += ptc;
+      if (quiz > 0) {
+        quizWeights.push({ membre_id: membreId, quiz_pts: quiz });
       }
     }
 
-    if (weights.length === 0 || totalPoids <= 0) {
+    if (totalPoids <= 0) {
       return NextResponse.json(
         {
           pmq_pool: pmqPool,
           value_per_point: null,
           total_distributed: 0,
           total_members: 0,
-          error: "Aucun point quiz pondéré",
+          ptc_total: 0,
+          error: "Aucun point pondéré (quiz ou ptc)",
         },
         { status: 422 },
       );
     }
 
     const valuePerPoint = pmqPool / totalPoids;
+    const ptcTotal = totalPtcPonderes * valuePerPoint;
     let totalDistributed = 0;
     const bankCredits: { membre_id: string; gain: number; description: string }[] =
       [];
 
-    for (const m of weights) {
-      const payout = (pmqPool * m.pts_ponderes) / totalPoids;
+    for (const m of quizWeights) {
+      const payout = m.quiz_pts * valuePerPoint;
       totalDistributed += payout;
       bankCredits.push({
         membre_id: m.membre_id,
@@ -236,10 +247,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       month: monthDate,
       total_revenue: totalRevenue,
       pmq_pool: pmqPool,
-      ptc_pool: 0,
+      ptc_pool: ptcTotal,
       pcol_pool: 0,
       pa_pool: 0,
-      total_members: weights.length,
+      total_members: quizWeights.length,
       value_per_point: valuePerPoint,
     });
 
@@ -265,6 +276,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         production_balance: Number(bank.production_balance ?? 0) + productionPool,
         fondation_balance: Number(bank.fondation_balance ?? 0) + fondationPool,
         operations_balance: Number(bank.operations_balance ?? 0) + operationsPool,
+        ptc_balance: Number(bank.ptc_balance ?? 0) + ptcTotal,
       })
       .eq("id", bank.id);
 
@@ -276,7 +288,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       pmq_pool: pmqPool,
       value_per_point: valuePerPoint,
       total_distributed: totalDistributed,
-      total_members: weights.length,
+      total_members: quizWeights.length,
+      ptc_total: ptcTotal,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
