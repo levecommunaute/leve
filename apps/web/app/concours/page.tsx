@@ -613,9 +613,22 @@ export default function ConcoursPage(): JSX.Element | null {
           <h1 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2.2rem" }}>
             CONCOURS PMQ
           </h1>
-          <p style={{ margin: "0.75rem 0 0", opacity: 0.85 }}>
-            Solde PMQ: <strong style={{ color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</strong>
-          </p>
+          <div
+            style={{
+              margin: "0.75rem 0 0",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.35rem 1.5rem",
+              opacity: 0.85,
+            }}
+          >
+            <p style={{ margin: 0 }}>
+              Solde PMQ: <strong style={{ color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</strong>
+            </p>
+            <p style={{ margin: 0 }}>
+              Solde PA: <strong style={{ color: GOLD }}>{pointsFmt.format(soldePa)} pts</strong>
+            </p>
+          </div>
         </section>
 
         {concours.map((row) => {
