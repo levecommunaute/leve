@@ -2795,20 +2795,14 @@ export default function AdminPage(): JSX.Element {
                         >
                           Taxes 2 % — utilisations PA (cumul)
                         </p>
-                        <ul style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.85, fontSize: "0.88rem" }}>
-                          <li>
-                            Total collecté :{" "}
-                            <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.total)}</strong>
-                          </li>
-                          <li>
-                            → Taxe PA communauté (75 %) :{" "}
-                            <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.communaute)}</strong>
-                          </li>
-                          <li>
-                            → Frais plateforme (25 %) :{" "}
-                            <strong style={{ color: GOLD }}>{cad.format(paTaxStats.fonctionnement)}</strong>
-                          </li>
-                        </ul>
+                        <p style={{ margin: 0, lineHeight: 1.85, fontSize: "0.88rem" }}>
+                          Total collecté :{" "}
+                          <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.total)}</strong>
+                          {" · → Communauté (75 %) : "}
+                          <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.communaute)}</strong>
+                          {" · → Fonctionnement (25 %) : "}
+                          <strong style={{ color: GOLD }}>{cad.format(paTaxStats.fonctionnement)}</strong>
+                        </p>
                       </div>
                     ) : null}
                   </>

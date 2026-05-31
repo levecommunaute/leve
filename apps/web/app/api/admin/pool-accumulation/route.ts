@@ -108,7 +108,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { data: paTaxRows, error: paTaxError } = await supabase
       .from("pa_transactions")
       .select("tax_usd")
-      .like("description", "Taxe 2% —%");
+      .like("description", "Taxe 2%");
 
     if (paTaxError) {
       return NextResponse.json({ error: paTaxError.message }, { status: 500 });
@@ -117,10 +117,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let pa_tax_total = 0;
     for (const row of paTaxRows ?? []) {
       const taxeUsd = Number(row.tax_usd ?? 0);
-      if (taxeUsd > 0) pa_tax_total += taxeUsd;
+      if (Number.isFinite(taxeUsd)) pa_tax_total += taxeUsd;
     }
 
     const round2 = (n: number) => Math.round(n * 100) / 100;
+    pa_tax_total = round2(pa_tax_total);
     const paTaxCommunauteFromTx = round2(pa_tax_total * 0.75);
     const paTaxFonctionnementFromTx = round2(pa_tax_total * 0.25);
 
@@ -140,10 +141,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       : null;
 
     const pa_tax_stats = {
-      total: round2(pa_tax_total),
-      communaute: current
-        ? Number(current.taxe_pa_balance)
-        : paTaxCommunauteFromTx,
+      total: pa_tax_total,
+      communaute: paTaxCommunauteFromTx,
       fonctionnement: paTaxFonctionnementFromTx,
     };
 
