@@ -146,7 +146,8 @@ export default function BanquePage(): JSX.Element | null {
     montant: number;
     pourcentage: number;
     frais: number;
-    net: number;
+    montant_net: number;
+    actif: boolean;
   } | null>(null);
   const [retraitLoading, setRetraitLoading] = useState(false);
   const [retraitSubmitting, setRetraitSubmitting] = useState(false);
@@ -334,27 +335,25 @@ export default function BanquePage(): JSX.Element | null {
 
     try {
       const res = await fetch(
-        `/api/banque/frais-preview?montant=${encodeURIComponent(String(soldeDollars))}`,
-        {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        },
+        `/api/frais-plateforme?montant=${encodeURIComponent(String(soldeDollars))}`,
       );
       const json = (await res.json()) as {
         error?: string;
-        montant?: number;
         pourcentage?: number;
         frais?: number;
-        net?: number;
+        montant_net?: number;
+        actif?: boolean;
       };
       if (!res.ok) {
         setRetraitError(json.error ?? "Impossible de calculer les frais");
         return;
       }
       setRetraitPreview({
-        montant: Number(json.montant ?? soldeDollars),
+        montant: soldeDollars,
         pourcentage: Number(json.pourcentage ?? 0),
         frais: Number(json.frais ?? 0),
-        net: Number(json.net ?? soldeDollars),
+        montant_net: Number(json.montant_net ?? soldeDollars),
+        actif: Boolean(json.actif),
       });
     } catch {
       setRetraitError("Erreur réseau");
@@ -389,7 +388,7 @@ export default function BanquePage(): JSX.Element | null {
         return;
       }
       setRetraitSuccess(
-        `Retrait confirmé — vous recevrez ${cad.format(Number(json.net ?? retraitPreview.net))}.`,
+        `Retrait confirmé — vous recevrez ${cad.format(Number(json.net ?? retraitPreview.montant_net))}.`,
       );
       setRetraitOpen(false);
       setRetraitPreview(null);
@@ -673,175 +672,225 @@ export default function BanquePage(): JSX.Element | null {
         </section>
 
         <div style={{ marginBottom: "2rem" }}>
-          {!retraitOpen ? (
-            <>
-              <button
-                type="button"
-                disabled={!canTransfer}
-                onClick={() => void openRetraitConfirm()}
-                style={{
-                  width: "100%",
-                  maxWidth: "420px",
-                  padding: "0.85rem 1.25rem",
-                  borderRadius: "10px",
-                  fontWeight: 700,
-                  fontSize: "0.95rem",
-                  letterSpacing: "0.04em",
-                  border: `2px solid ${canTransfer ? ROUGE : "rgba(245, 240, 232, 0.2)"}`,
-                  background: canTransfer ? ROUGE : "rgba(245, 240, 232, 0.06)",
-                  color: canTransfer ? TEXT : "rgba(245, 240, 232, 0.45)",
-                  cursor: canTransfer ? "pointer" : "not-allowed",
-                }}
-              >
-                Transférer vers mon compte
-              </button>
-              {!canTransfer ? (
-                <p
-                  style={{
-                    margin: "0.5rem 0 0",
-                    fontSize: "0.82rem",
-                    color: ROUGE,
-                    opacity: 0.95,
-                  }}
-                >
-                  Minimum {cad.format(MIN_TRANSFER_CAD)} requis
-                  <span style={{ display: "block", marginTop: "0.25rem", opacity: 0.85 }}>
-                    Solde banque : {cad.format(soldeDollars)}
-                  </span>
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <section
+          <button
+            type="button"
+            disabled={!canTransfer}
+            onClick={() => void openRetraitConfirm()}
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              padding: "0.85rem 1.25rem",
+              borderRadius: "10px",
+              fontWeight: 700,
+              fontSize: "0.95rem",
+              letterSpacing: "0.04em",
+              border: `2px solid ${canTransfer ? ROUGE : "rgba(245, 240, 232, 0.2)"}`,
+              background: canTransfer ? ROUGE : "rgba(245, 240, 232, 0.06)",
+              color: canTransfer ? TEXT : "rgba(245, 240, 232, 0.45)",
+              cursor: canTransfer ? "pointer" : "not-allowed",
+            }}
+          >
+            Transférer vers mon compte
+          </button>
+          {!canTransfer ? (
+            <p
               style={{
-                maxWidth: "420px",
-                padding: "1.25rem",
-                borderRadius: "12px",
-                border: "1px solid rgba(245, 240, 232, 0.15)",
-                background: "rgba(245, 240, 232, 0.04)",
+                margin: "0.5rem 0 0",
+                fontSize: "0.82rem",
+                color: ROUGE,
+                opacity: 0.95,
               }}
             >
-              <h3
+              Minimum {cad.format(MIN_TRANSFER_CAD)} requis
+              <span style={{ display: "block", marginTop: "0.25rem", opacity: 0.85 }}>
+                Solde banque : {cad.format(soldeDollars)}
+              </span>
+            </p>
+          ) : null}
+
+          {retraitOpen ? (
+            <div
+              role="presentation"
+              onClick={cancelRetrait}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 100,
+                background: "rgba(0, 0, 0, 0.72)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "1.25rem",
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="retrait-confirm-title"
+                onClick={(e) => e.stopPropagation()}
                 style={{
-                  margin: "0 0 1rem",
-                  fontFamily: "var(--font-bebas), Impact, sans-serif",
-                  fontSize: "1.2rem",
-                  letterSpacing: "0.08em",
+                  maxWidth: "28rem",
+                  width: "100%",
+                  background: "#121212",
+                  border: "1px solid rgba(245, 240, 232, 0.18)",
+                  borderRadius: "12px",
+                  padding: "1.35rem 1.5rem",
+                  boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
                 }}
               >
-                Confirmer le retrait
-              </h3>
+                <h3
+                  id="retrait-confirm-title"
+                  style={{
+                    margin: "0 0 1rem",
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.25rem",
+                    letterSpacing: "0.08em",
+                    color: GOLD,
+                  }}
+                >
+                  Confirmer le transfert
+                </h3>
 
-              {retraitLoading ? (
-                <p style={{ opacity: 0.7, margin: 0 }}>Calcul des frais…</p>
-              ) : retraitPreview ? (
-                <div style={{ fontSize: "0.92rem", lineHeight: 1.7 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "1rem",
-                    }}
-                  >
-                    <span style={{ opacity: 0.85 }}>Montant demandé</span>
-                    <span style={{ fontWeight: 700 }}>{cad.format(retraitPreview.montant)}</span>
-                  </div>
-                  {retraitPreview.frais > 0 ? (
+                {retraitLoading ? (
+                  <p style={{ opacity: 0.7, margin: 0 }}>Calcul des frais…</p>
+                ) : retraitPreview ? (
+                  <div style={{ fontSize: "0.92rem", lineHeight: 1.7 }}>
                     <div
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
                         gap: "1rem",
-                        color: ROUGE,
                       }}
                     >
-                      <span>
-                        Frais plateforme {retraitPreview.pourcentage % 1 === 0
-                          ? retraitPreview.pourcentage.toFixed(0)
-                          : retraitPreview.pourcentage}
-                        %
-                      </span>
+                      <span style={{ opacity: 0.85 }}>Montant demandé</span>
                       <span style={{ fontWeight: 700 }}>
-                        -{cad.format(retraitPreview.frais)}
+                        {cad.format(retraitPreview.montant)}
                       </span>
                     </div>
-                  ) : null}
-                  <div
+                    {retraitPreview.actif && retraitPreview.frais > 0 ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                          color: ROUGE,
+                        }}
+                      >
+                        <span>
+                          Frais plateforme{" "}
+                          {retraitPreview.pourcentage % 1 === 0
+                            ? retraitPreview.pourcentage.toFixed(0)
+                            : retraitPreview.pourcentage}
+                          %
+                        </span>
+                        <span style={{ fontWeight: 700 }}>
+                          -{cad.format(retraitPreview.frais)}
+                        </span>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                        }}
+                      >
+                        <span style={{ opacity: 0.85 }}>Frais plateforme</span>
+                        <span style={{ fontWeight: 700 }}>{cad.format(0)}</span>
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "1rem",
+                        marginTop: "0.5rem",
+                        paddingTop: "0.65rem",
+                        borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+                      }}
+                    >
+                      <span style={{ fontWeight: 700 }}>Vous recevrez</span>
+                      <span
+                        style={{
+                          fontWeight: 800,
+                          color: GOLD,
+                          fontSize: "1.05rem",
+                        }}
+                      >
+                        {cad.format(retraitPreview.montant_net)}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {retraitError ? (
+                  <p
+                    role="alert"
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "1rem",
-                      marginTop: "0.5rem",
-                      paddingTop: "0.65rem",
-                      borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+                      color: ROUGE,
+                      margin: "0.85rem 0 0",
+                      fontSize: "0.88rem",
                     }}
                   >
-                    <span style={{ fontWeight: 700 }}>Vous recevrez</span>
-                    <span style={{ fontWeight: 800, color: GOLD, fontSize: "1.05rem" }}>
-                      {cad.format(retraitPreview.net)}
-                    </span>
-                  </div>
+                    {retraitError}
+                  </p>
+                ) : null}
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.65rem",
+                    marginTop: "1.15rem",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={retraitSubmitting || retraitLoading || !retraitPreview}
+                    onClick={() => void confirmRetrait()}
+                    style={{
+                      flex: "1 1 140px",
+                      padding: "0.75rem 1rem",
+                      borderRadius: "8px",
+                      fontWeight: 700,
+                      fontSize: "0.9rem",
+                      border: "none",
+                      background: ROUGE,
+                      color: TEXT,
+                      cursor:
+                        retraitSubmitting || retraitLoading || !retraitPreview
+                          ? "wait"
+                          : "pointer",
+                      opacity:
+                        retraitSubmitting || retraitLoading || !retraitPreview
+                          ? 0.6
+                          : 1,
+                    }}
+                  >
+                    {retraitSubmitting ? "En cours…" : "Confirmer le transfert"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={retraitSubmitting}
+                    onClick={cancelRetrait}
+                    style={{
+                      flex: "1 1 100px",
+                      padding: "0.75rem 1rem",
+                      borderRadius: "8px",
+                      fontWeight: 600,
+                      fontSize: "0.9rem",
+                      border: "1px solid rgba(245, 240, 232, 0.25)",
+                      background: "transparent",
+                      color: TEXT,
+                      cursor: retraitSubmitting ? "wait" : "pointer",
+                    }}
+                  >
+                    Annuler
+                  </button>
                 </div>
-              ) : null}
-
-              {retraitError ? (
-                <p role="alert" style={{ color: ROUGE, margin: "0.85rem 0 0", fontSize: "0.88rem" }}>
-                  {retraitError}
-                </p>
-              ) : null}
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: "0.65rem",
-                  marginTop: "1.15rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={retraitSubmitting || retraitLoading || !retraitPreview}
-                  onClick={() => void confirmRetrait()}
-                  style={{
-                    flex: "1 1 140px",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "8px",
-                    fontWeight: 700,
-                    fontSize: "0.9rem",
-                    border: "none",
-                    background: ROUGE,
-                    color: TEXT,
-                    cursor:
-                      retraitSubmitting || retraitLoading || !retraitPreview
-                        ? "wait"
-                        : "pointer",
-                    opacity:
-                      retraitSubmitting || retraitLoading || !retraitPreview ? 0.6 : 1,
-                  }}
-                >
-                  {retraitSubmitting ? "En cours…" : "Confirmer"}
-                </button>
-                <button
-                  type="button"
-                  disabled={retraitSubmitting}
-                  onClick={cancelRetrait}
-                  style={{
-                    flex: "1 1 100px",
-                    padding: "0.75rem 1rem",
-                    borderRadius: "8px",
-                    fontWeight: 600,
-                    fontSize: "0.9rem",
-                    border: "1px solid rgba(245, 240, 232, 0.25)",
-                    background: "transparent",
-                    color: TEXT,
-                    cursor: retraitSubmitting ? "wait" : "pointer",
-                  }}
-                >
-                  Annuler
-                </button>
               </div>
-            </section>
-          )}
+            </div>
+          ) : null}
 
           {retraitSuccess ? (
             <p
