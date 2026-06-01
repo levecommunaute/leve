@@ -44,7 +44,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: pending, error: fetchErr } = await svc
       .from("pending_pcol")
-      .select("id, collaborateur_id, video_id, pts_pending, date_expiration, recupere")
+      .select(
+        "id, collaborateur_id, video_id, points_amount, expires_at, status, pts_pending, date_expiration, recupere",
+      )
       .eq("id", pendingId)
       .maybeSingle();
 
@@ -57,11 +59,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (String(pending.collaborateur_id) !== user.id) {
       return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
     }
-    if (pending.recupere) {
+
+    const status = String(pending.status ?? "");
+    if (status === "recovered" || pending.recupere === true) {
       return NextResponse.json({ error: "Déjà récupéré" }, { status: 409 });
     }
 
-    const expiresAt = new Date(String(pending.date_expiration));
+    const expiresRaw = pending.expires_at ?? pending.date_expiration;
+    const expiresAt = new Date(String(expiresRaw ?? ""));
     if (Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
       return NextResponse.json(
         { error: "expired", message: "Ce pending a expiré (> 1 an)" },
@@ -69,14 +74,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const pts = Number(pending.pts_pending ?? 0);
+    const pts = Number(pending.points_amount ?? pending.pts_pending ?? 0);
     if (pts <= 0) {
       return NextResponse.json({ error: "Aucun point à récupérer" }, { status: 400 });
     }
 
     const { error: updErr } = await svc
       .from("pending_pcol")
-      .update({ recupere: true })
+      .update({ status: "recovered", recupere: true })
       .eq("id", pendingId);
 
     if (updErr) {
@@ -90,11 +95,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       pts_membres_gagnes: 0,
       pts_collab: pts,
       pts_membres_nets: 0,
+      pts_membres_gagnes_ponderes: 0,
+      pts_collab_ponderes: pts,
+      pts_membres_nets_ponderes: 0,
       type: "pending",
     });
 
     if (pcolErr) {
-      await svc.from("pending_pcol").update({ recupere: false }).eq("id", pendingId);
+      await svc
+        .from("pending_pcol")
+        .update({ status: "pending", recupere: false })
+        .eq("id", pendingId);
       return NextResponse.json({ error: pcolErr.message }, { status: 500 });
     }
 

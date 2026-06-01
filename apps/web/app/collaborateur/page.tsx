@@ -23,6 +23,11 @@ const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
+const cadFmt = new Intl.NumberFormat("fr-CA", {
+  style: "currency",
+  currency: "CAD",
+  maximumFractionDigits: 2,
+});
 
 type ProfileRow = {
   display_name: string | null;
@@ -32,7 +37,8 @@ type ProfileRow = {
 type PendingRow = {
   id: string;
   video_id: string;
-  points_amount: number | string;
+  video_title: string;
+  points_amount: number;
   expires_at: string;
   status: string;
   created_at: string;
@@ -42,12 +48,19 @@ type VideoStats = {
   videoId: string;
   title: string;
   quizCount: number;
-  ptsGeneres: number;
-  pending: PendingRow | null;
+  ptsPcolGeneres: number;
+  pendingAmount: number;
+  pendingExpiresAt: string | null;
 };
 
 function msUntil(iso: string): number {
   return new Date(iso).getTime() - Date.now();
+}
+
+function daysRemaining(iso: string): number {
+  const ms = msUntil(iso);
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / 86_400_000);
 }
 
 function formatCountdown(ms: number): string {
@@ -63,10 +76,13 @@ export default function CollaborateurPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [soldePcol, setSoldePcol] = useState(0);
+  const [soldePcolDollars, setSoldePcolDollars] = useState<number | null>(null);
+  const [pcolGenerePonderes, setPcolGenerePonderes] = useState(0);
+  const [valeurParPt, setValeurParPt] = useState<number | null>(null);
   const [videoStats, setVideoStats] = useState<VideoStats[]>([]);
+  const [pendingList, setPendingList] = useState<PendingRow[]>([]);
   const [totalQuizMembres, setTotalQuizMembres] = useState(0);
-  const [totalPtsGeneres, setTotalPtsGeneres] = useState(0);
+  const [totalPtsGeneresPonderes, setTotalPtsGeneresPonderes] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [recoveringId, setRecoveringId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
@@ -99,15 +115,19 @@ export default function CollaborateurPage(): JSX.Element | null {
     const statsRes = await fetch("/api/collaborateur/stats", { cache: "no-store" });
     const statsJson = (await statsRes.json()) as {
       error?: string;
-      solde_pcol?: number;
-      total_pts_generes?: number;
+      solde_pcol_dollars?: number | null;
+      pcol_genere_ponderes?: number;
+      valeur_par_pt?: number | null;
+      total_pts_generes_ponderes?: number;
       total_quiz_membres?: number;
+      pending?: PendingRow[];
       videos?: {
         videoId: string;
         title: string;
         quizCount: number;
-        ptsGeneres: number;
-        pending: PendingRow | null;
+        ptsPcolGeneres: number;
+        pendingAmount: number;
+        pendingExpiresAt: string | null;
       }[];
     };
 
@@ -116,16 +136,24 @@ export default function CollaborateurPage(): JSX.Element | null {
       return;
     }
 
-    setSoldePcol(Number(statsJson.solde_pcol ?? 0));
-    setTotalPtsGeneres(Number(statsJson.total_pts_generes ?? 0));
+    setSoldePcolDollars(
+      statsJson.solde_pcol_dollars != null ? Number(statsJson.solde_pcol_dollars) : null,
+    );
+    setPcolGenerePonderes(Number(statsJson.pcol_genere_ponderes ?? 0));
+    setValeurParPt(
+      statsJson.valeur_par_pt != null ? Number(statsJson.valeur_par_pt) : null,
+    );
+    setTotalPtsGeneresPonderes(Number(statsJson.total_pts_generes_ponderes ?? 0));
     setTotalQuizMembres(Number(statsJson.total_quiz_membres ?? 0));
+    setPendingList(statsJson.pending ?? []);
     setVideoStats(
       (statsJson.videos ?? []).map((v) => ({
         videoId: v.videoId,
         title: v.title,
         quizCount: v.quizCount,
-        ptsGeneres: v.ptsGeneres,
-        pending: v.pending,
+        ptsPcolGeneres: v.ptsPcolGeneres,
+        pendingAmount: v.pendingAmount,
+        pendingExpiresAt: v.pendingExpiresAt,
       })),
     );
     setLoadError(null);
@@ -272,7 +300,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                 border: "1px solid rgba(212, 160, 23, 0.35)",
               }}
             >
-              <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>Solde PCOL total</p>
+              <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>Solde PCOL total ($)</p>
               <p
                 style={{
                   margin: "0.35rem 0 0",
@@ -283,10 +311,29 @@ export default function CollaborateurPage(): JSX.Element | null {
                   letterSpacing: "0.04em",
                 }}
               >
-                {pointsFmt.format(soldePcol)} pts
+                {soldePcolDollars != null ? cadFmt.format(soldePcolDollars) : "—"}
+              </p>
+              {valeurParPt != null ? (
+                <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", opacity: 0.5 }}>
+                  Valeur par pt (dernière redistribution) : {cadFmt.format(valeurParPt)}
+                </p>
+              ) : null}
+              <p style={{ margin: "1rem 0 0", opacity: 0.65, fontSize: "0.85rem" }}>
+                PCOL généré (pts pondérés)
+              </p>
+              <p
+                style={{
+                  margin: "0.25rem 0 0",
+                  fontSize: "1.5rem",
+                  fontWeight: 700,
+                  color: TEXT,
+                }}
+              >
+                {pointsFmt.format(pcolGenerePonderes)} pts
               </p>
               <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", opacity: 0.6, lineHeight: 1.5 }}>
-                12 % crédités à chaque quiz · 8 % en pending récupérable pendant 1 an
+                20 % des points pondérés gagnés par les membres sur vos vidéos · 12 % crédité
+                directement · 8 % en pending récupérable 1 an
               </p>
             </section>
 
@@ -317,7 +364,9 @@ export default function CollaborateurPage(): JSX.Element | null {
                 >
                   Quiz complétés (membres)
                 </p>
-                <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700 }}>{totalQuizMembres}</p>
+                <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700 }}>
+                  {totalQuizMembres}
+                </p>
               </article>
               <article
                 style={{
@@ -336,13 +385,103 @@ export default function CollaborateurPage(): JSX.Element | null {
                     opacity: 0.55,
                   }}
                 >
-                  Points générés (bruts)
+                  Points générés (pondérés)
                 </p>
                 <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>
-                  {pointsFmt.format(totalPtsGeneres)}
+                  {pointsFmt.format(totalPtsGeneresPonderes)}
                 </p>
               </article>
             </div>
+
+            <section style={{ marginBottom: "2rem" }}>
+              <h2
+                style={{
+                  fontFamily: "var(--font-bebas), Impact, sans-serif",
+                  fontSize: "1.35rem",
+                  letterSpacing: "0.08em",
+                  margin: "0 0 0.75rem",
+                  color: GOLD,
+                }}
+              >
+                Pending PCOL
+              </h2>
+              {pendingList.length === 0 ? (
+                <p style={{ opacity: 0.65 }}>Aucun pending actif.</p>
+              ) : (
+                <ul
+                  style={{
+                    listStyle: "none",
+                    margin: 0,
+                    padding: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                  }}
+                >
+                  {pendingList.map((p) => {
+                    const expired = msUntil(p.expires_at) <= 0;
+                    const canRecover =
+                      p.status === "pending" && !expired && p.points_amount > 0;
+                    const daysLeft = daysRemaining(p.expires_at);
+
+                    return (
+                      <li
+                        key={p.id}
+                        style={{
+                          borderRadius: "12px",
+                          padding: "1.1rem",
+                          background: expired
+                            ? "rgba(192, 57, 43, 0.12)"
+                            : "rgba(212, 160, 23, 0.1)",
+                          border: `1px solid ${expired ? ROUGE : "rgba(212, 160, 23, 0.35)"}`,
+                        }}
+                      >
+                        <p style={{ margin: 0, fontWeight: 600 }}>{p.video_title}</p>
+                        <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem" }}>
+                          <strong style={{ color: GOLD }}>
+                            {pointsFmt.format(p.points_amount)} pts
+                          </strong>{" "}
+                          (8 %)
+                        </p>
+                        <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
+                          Expire le{" "}
+                          {new Date(p.expires_at).toLocaleDateString("fr-CA", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </p>
+                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
+                          {expired
+                            ? "Expiré — points transférés au pool PTC"
+                            : `${daysLeft} jour${daysLeft !== 1 ? "s" : ""} restant${daysLeft !== 1 ? "s" : ""} · ${formatCountdown(new Date(p.expires_at).getTime() - nowTick)}`}
+                        </p>
+                        {canRecover ? (
+                          <button
+                            type="button"
+                            disabled={recoveringId === p.id}
+                            onClick={() => void handleRecuperer(p.id)}
+                            style={{
+                              marginTop: "0.65rem",
+                              background: VERT,
+                              color: BG,
+                              border: "none",
+                              borderRadius: "6px",
+                              padding: "0.5rem 1rem",
+                              fontWeight: 700,
+                              fontSize: "0.85rem",
+                              cursor: recoveringId === p.id ? "wait" : "pointer",
+                            }}
+                          >
+                            {recoveringId === p.id ? "…" : "Récupérer"}
+                          </button>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
 
             <section style={{ marginBottom: "2rem" }}>
               <h2
@@ -359,16 +498,20 @@ export default function CollaborateurPage(): JSX.Element | null {
               {videoStats.length === 0 ? (
                 <p style={{ opacity: 0.65 }}>Aucune vidéo associée à votre compte.</p>
               ) : (
-                <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    margin: 0,
+                    padding: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                  }}
+                >
                   {videoStats.map((v) => {
-                    const pending = v.pending;
+                    const hasPending = v.pendingAmount > 0 && v.pendingExpiresAt;
                     const expired =
-                      pending && msUntil(pending.expires_at) <= 0;
-                    const canRecover =
-                      pending &&
-                      pending.status === "pending" &&
-                      !expired &&
-                      Number(pending.points_amount) > 0;
+                      hasPending && msUntil(v.pendingExpiresAt!) <= 0;
 
                     return (
                       <li
@@ -395,10 +538,13 @@ export default function CollaborateurPage(): JSX.Element | null {
                           </span>
                         </div>
                         <p style={{ margin: "0 0 0.5rem", fontSize: "0.88rem", opacity: 0.75 }}>
-                          Points générés :{" "}
-                          <strong style={{ color: GOLD }}>{pointsFmt.format(v.ptsGeneres)}</strong>
+                          Points PCOL générés :{" "}
+                          <strong style={{ color: GOLD }}>
+                            {pointsFmt.format(v.ptsPcolGeneres)}
+                          </strong>{" "}
+                          pts pondérés
                         </p>
-                        {pending && pending.status === "pending" ? (
+                        {hasPending ? (
                           <div
                             style={{
                               marginTop: "0.5rem",
@@ -411,37 +557,19 @@ export default function CollaborateurPage(): JSX.Element | null {
                             }}
                           >
                             <p style={{ margin: 0, fontSize: "0.85rem" }}>
-                              Pending :{" "}
-                              <strong>{pointsFmt.format(Number(pending.points_amount))} pts</strong> (8 %)
+                              Pending actif :{" "}
+                              <strong>{pointsFmt.format(v.pendingAmount)} pts</strong>
                             </p>
                             <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
                               {expired
-                                ? "Expiré — points transférés au pool PTC"
-                                : `Expire dans : ${formatCountdown(new Date(pending.expires_at).getTime() - nowTick)}`}
+                                ? "Expiré"
+                                : `Expire dans : ${formatCountdown(new Date(v.pendingExpiresAt!).getTime() - nowTick)} · ${daysRemaining(v.pendingExpiresAt!)} jour${daysRemaining(v.pendingExpiresAt!) !== 1 ? "s" : ""}`}
                             </p>
-                            {canRecover ? (
-                              <button
-                                type="button"
-                                disabled={recoveringId === pending.id}
-                                onClick={() => void handleRecuperer(pending.id)}
-                                style={{
-                                  marginTop: "0.65rem",
-                                  background: VERT,
-                                  color: BG,
-                                  border: "none",
-                                  borderRadius: "6px",
-                                  padding: "0.5rem 1rem",
-                                  fontWeight: 700,
-                                  fontSize: "0.85rem",
-                                  cursor: recoveringId === pending.id ? "wait" : "pointer",
-                                }}
-                              >
-                                {recoveringId === pending.id ? "…" : "Récupérer"}
-                              </button>
-                            ) : null}
                           </div>
                         ) : (
-                          <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.5 }}>Aucun pending actif</p>
+                          <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.5 }}>
+                            Aucun pending actif
+                          </p>
                         )}
                       </li>
                     );

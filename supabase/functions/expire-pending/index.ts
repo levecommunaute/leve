@@ -36,9 +36,10 @@ Deno.serve(async (req) => {
   try {
     const { data: pending, error: fetchError } = await supabase
       .from("pending_pcol")
-      .select("id, pts_pending")
+      .select("id, points_amount, pts_pending")
+      .neq("status", "recovered")
       .eq("recupere", false)
-      .lt("date_expiration", nowIso);
+      .lt("expires_at", nowIso);
 
     if (fetchError) throw fetchError;
 
@@ -49,13 +50,13 @@ Deno.serve(async (req) => {
 
     const ids = rows.map((r) => r.id);
     const totalExpired = rows.reduce(
-      (sum, r) => sum + Number(r.pts_pending ?? 0),
+      (sum, r) => sum + Number(r.points_amount ?? r.pts_pending ?? 0),
       0,
     );
 
     const { error: deleteError } = await supabase
       .from("pending_pcol")
-      .delete()
+      .update({ status: "expired", recupere: true })
       .in("id", ids);
 
     if (deleteError) throw deleteError;

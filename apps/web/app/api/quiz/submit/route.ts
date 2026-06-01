@@ -1,7 +1,14 @@
 import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
-import { currentMonthKey } from "../../../../lib/pcol";
+import {
+  currentMonthKey,
+  PCOL_COLLAB_IMMEDIATE_SHARE,
+  PCOL_COLLAB_PENDING_SHARE,
+  PCOL_COLLAB_TOTAL_SHARE,
+  PCOL_MEMBER_SHARE,
+  splitPcolQuizPoints,
+} from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
 
@@ -260,18 +267,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
+      const split = splitPcolQuizPoints(pointsEarned);
       const ptsPonderes = pointsEarned * multiplicateur;
-      const ptsCollabBrut = Math.round(pointsEarned * 0.2);
-      const ptsMembresNetsBrut = Math.round(pointsEarned * 0.8);
-      const ptsCollabPonderes = Math.round(ptsPonderes * 0.2);
-      const ptsMembresNetsPonderes = Math.round(ptsPonderes * 0.8);
+      const ptsCollabImmediateBrut = Math.round(pointsEarned * PCOL_COLLAB_IMMEDIATE_SHARE);
+      const ptsMembresNetsBrut = Math.round(pointsEarned * PCOL_MEMBER_SHARE);
+      const ptsCollabPonderes = Math.round(ptsPonderes * PCOL_COLLAB_TOTAL_SHARE);
+      const ptsCollabImmediatePonderes = Math.round(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
+      const ptsPendingPonderes = Math.round(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
+      const ptsMembresNetsPonderes = Math.round(ptsPonderes * PCOL_MEMBER_SHARE);
+      const expiresAt = new Date();
+      expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
+        membre_id: user.id,
         video_id: videoId,
         mois,
-        pts_membres_gagnes: pointsEarned,
-        pts_collab: ptsCollabBrut,
+        pts_membres_gagnes: split.ptsMembresGagnes,
+        pts_collab: ptsCollabImmediateBrut,
         pts_membres_nets: ptsMembresNetsBrut,
         multiplicateur_membre: multiplicateur,
         pts_membres_gagnes_ponderes: ptsPonderes,
@@ -282,6 +295,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       if (pcolErr) {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
+      }
+
+      if (ptsPendingPonderes > 0) {
+        const { error: pendingErr } = await svc.from("pending_pcol").insert({
+          collaborateur_id: collaborateurId,
+          video_id: videoId,
+          points_amount: ptsPendingPonderes,
+          pts_pending: split.ptsPending,
+          expires_at: expiresAt.toISOString(),
+          date_expiration: expiresAt.toISOString(),
+          status: "pending",
+          recupere: false,
+        });
+
+        if (pendingErr) {
+          return NextResponse.json({ error: pendingErr.message }, { status: 500 });
+        }
       }
     }
 

@@ -5,6 +5,10 @@ import { isCollaborateurMemberType } from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export async function GET(_request: NextRequest): Promise<NextResponse> {
   const authClient = await createServerClient();
   const {
@@ -31,10 +35,12 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
 
     const uid = user.id;
 
-    const [pcolRes, videosRes, pendingRes] = await Promise.all([
+    const [pcolRes, videosRes, pendingRes, redistRes] = await Promise.all([
       svc
         .from("pcol_transactions")
-        .select("video_id, pts_collab, pts_membres_gagnes, type, created_at")
+        .select(
+          "video_id, membre_id, pts_collab_ponderes, pts_membres_gagnes_ponderes, type, created_at",
+        )
         .eq("collaborateur_id", uid)
         .order("created_at", { ascending: false }),
       svc
@@ -46,7 +52,13 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
         .from("pending_pcol")
         .select("id, video_id, points_amount, expires_at, status, created_at")
         .eq("collaborateur_id", uid)
-        .eq("status", "pending"),
+        .neq("status", "recovered"),
+      svc
+        .from("redistribution_history")
+        .select("value_per_point, created_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (pcolRes.error) {
@@ -58,68 +70,111 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
     if (pendingRes.error) {
       return NextResponse.json({ error: pendingRes.error.message }, { status: 500 });
     }
+    if (redistRes.error) {
+      return NextResponse.json({ error: redistRes.error.message }, { status: 500 });
+    }
 
     const pcolRows = pcolRes.data ?? [];
-    const soldePcol = pcolRows.reduce((acc, r) => acc + Number(r.pts_collab ?? 0), 0);
-    const totalPtsGeneres = pcolRows.reduce(
-      (acc, r) => acc + Number(r.pts_membres_gagnes ?? 0),
+    const valeurParPtRaw = redistRes.data?.value_per_point;
+    const valeurParPt =
+      valeurParPtRaw != null && valeurParPtRaw !== ""
+        ? Number(valeurParPtRaw)
+        : null;
+    const valeurParPtFinite =
+      valeurParPt != null && Number.isFinite(valeurParPt) ? valeurParPt : null;
+
+    const pcolGenerePonderes = pcolRows.reduce(
+      (acc, r) => acc + Number(r.pts_collab_ponderes ?? 0),
+      0,
+    );
+    const soldePcolDollars =
+      valeurParPtFinite != null
+        ? round2(pcolGenerePonderes * valeurParPtFinite)
+        : null;
+
+    const totalPtsGeneresPonderes = pcolRows.reduce(
+      (acc, r) => acc + Number(r.pts_membres_gagnes_ponderes ?? 0),
       0,
     );
 
-    const videos = videosRes.data ?? [];
-    const videoIds = videos.map((v) => String(v.id));
+    const membresQuiz = new Set<string>();
+    for (const row of pcolRows) {
+      const mid = row.membre_id != null ? String(row.membre_id) : "";
+      if (mid) membresQuiz.add(mid);
+    }
+    const totalQuizMembres = membresQuiz.size;
 
-    const pendingByVideo = new Map(
-      (pendingRes.data ?? []).map((p) => [String(p.video_id), p]),
+    const videos = videosRes.data ?? [];
+    const videoTitleById = new Map(
+      videos.map((v) => [String(v.id), String(v.title ?? "Vidéo")]),
     );
 
-    const ptsByVideo = new Map<string, number>();
+    const ptsCollabByVideo = new Map<string, number>();
     for (const row of pcolRows) {
       const vid = String(row.video_id ?? "");
       if (!vid) continue;
-      ptsByVideo.set(vid, (ptsByVideo.get(vid) ?? 0) + Number(row.pts_membres_gagnes ?? 0));
+      ptsCollabByVideo.set(
+        vid,
+        (ptsCollabByVideo.get(vid) ?? 0) + Number(row.pts_collab_ponderes ?? 0),
+      );
     }
 
-    const quizCountByVideo = new Map<string, number>();
-    if (videoIds.length > 0) {
-      const { data: subs } = await svc
-        .from("quiz_submissions")
-        .select("video_id, membre_id")
-        .in("video_id", videoIds);
+    const pendingRows = pendingRes.data ?? [];
+    const pendingList = pendingRows.map((p) => ({
+      id: String(p.id),
+      video_id: String(p.video_id),
+      video_title: videoTitleById.get(String(p.video_id)) ?? "Vidéo",
+      points_amount: Number(p.points_amount ?? 0),
+      expires_at: String(p.expires_at ?? ""),
+      status: String(p.status ?? "pending"),
+      created_at: String(p.created_at ?? ""),
+    }));
 
-      const seen = new Map<string, Set<string>>();
-      for (const s of subs ?? []) {
-        const vid = String(s.video_id ?? "");
-        const mid = String(s.membre_id ?? "");
-        if (!vid || !mid) continue;
-        if (!seen.has(vid)) seen.set(vid, new Set());
-        seen.get(vid)!.add(mid);
-      }
-      for (const [vid, members] of seen) {
-        quizCountByVideo.set(vid, members.size);
+    const pendingSumByVideo = new Map<string, number>();
+    const pendingEarliestExpiryByVideo = new Map<string, string>();
+    for (const p of pendingRows) {
+      const vid = String(p.video_id ?? "");
+      if (!vid) continue;
+      const amt = Number(p.points_amount ?? 0);
+      pendingSumByVideo.set(vid, (pendingSumByVideo.get(vid) ?? 0) + amt);
+      const exp = String(p.expires_at ?? "");
+      if (!exp) continue;
+      const prev = pendingEarliestExpiryByVideo.get(vid);
+      if (!prev || new Date(exp).getTime() < new Date(prev).getTime()) {
+        pendingEarliestExpiryByVideo.set(vid, exp);
       }
     }
 
-    let totalQuizMembres = 0;
+    const quizCountByVideo = new Map<string, Set<string>>();
+    for (const row of pcolRows) {
+      const vid = String(row.video_id ?? "");
+      const mid = row.membre_id != null ? String(row.membre_id) : "";
+      if (!vid || !mid) continue;
+      if (!quizCountByVideo.has(vid)) quizCountByVideo.set(vid, new Set());
+      quizCountByVideo.get(vid)!.add(mid);
+    }
+
     const videoStats = videos.map((v) => {
       const vid = String(v.id);
-      const quizCount = quizCountByVideo.get(vid) ?? 0;
-      totalQuizMembres += quizCount;
       return {
         videoId: vid,
         title: String(v.title ?? "Vidéo"),
         youtube_id: v.youtube_id,
-        quizCount,
-        ptsGeneres: ptsByVideo.get(vid) ?? 0,
-        pending: pendingByVideo.get(vid) ?? null,
+        quizCount: quizCountByVideo.get(vid)?.size ?? 0,
+        ptsPcolGeneres: ptsCollabByVideo.get(vid) ?? 0,
+        pendingAmount: pendingSumByVideo.get(vid) ?? 0,
+        pendingExpiresAt: pendingEarliestExpiryByVideo.get(vid) ?? null,
       };
     });
 
     return NextResponse.json({
       display_name: profile?.display_name ?? null,
-      solde_pcol: soldePcol,
-      total_pts_generes: totalPtsGeneres,
+      solde_pcol_dollars: soldePcolDollars,
+      pcol_genere_ponderes: pcolGenerePonderes,
+      valeur_par_pt: valeurParPtFinite,
+      total_pts_generes_ponderes: totalPtsGeneresPonderes,
       total_quiz_membres: totalQuizMembres,
+      pending: pendingList,
       videos: videoStats,
     });
   } catch (e) {
