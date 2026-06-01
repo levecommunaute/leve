@@ -84,7 +84,7 @@ type VideoStats = {
 
 type PcolTxRow = {
   video_id: string | null;
-  membre_id: string | null;
+  collaborateur_id: string | null;
   pts_collab_ponderes: number | string | null;
   pts_membres_gagnes_ponderes: number | string | null;
 };
@@ -173,7 +173,7 @@ export default function CollaborateurPage(): JSX.Element | null {
 
     const [pcolRes, videosRes, pendingRes, redistRes] = await Promise.all([
       restJson<PcolTxRow[]>(
-        `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,membre_id,pts_collab_ponderes,pts_membres_gagnes_ponderes&order=created_at.desc`,
+        `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,collaborateur_id,pts_collab_ponderes,pts_membres_gagnes_ponderes&order=created_at.desc`,
         token,
       ),
       restJson<VideoRow[]>(
@@ -223,7 +223,7 @@ export default function CollaborateurPage(): JSX.Element | null {
 
     const membresQuiz = new Set<string>();
     for (const row of pcolRows) {
-      const mid = row.membre_id != null ? String(row.membre_id) : "";
+      const mid = row.collaborateur_id != null ? String(row.collaborateur_id) : "";
       if (mid) membresQuiz.add(mid);
     }
 
@@ -269,7 +269,7 @@ export default function CollaborateurPage(): JSX.Element | null {
     const quizCountByVideo = new Map<string, Set<string>>();
     for (const row of pcolRows) {
       const vid = String(row.video_id ?? "");
-      const mid = row.membre_id != null ? String(row.membre_id) : "";
+      const mid = row.collaborateur_id != null ? String(row.collaborateur_id) : "";
       if (!vid || !mid) continue;
       if (!quizCountByVideo.has(vid)) quizCountByVideo.set(vid, new Set());
       quizCountByVideo.get(vid)!.add(mid);
