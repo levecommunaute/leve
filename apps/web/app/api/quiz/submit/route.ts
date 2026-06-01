@@ -283,7 +283,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
-        membre_id: user.id,
         video_id: videoId,
         mois,
         pts_membres_gagnes: split.ptsMembresGagnes,
