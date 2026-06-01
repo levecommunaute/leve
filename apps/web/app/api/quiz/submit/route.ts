@@ -5,7 +5,6 @@ import {
   currentMonthKey,
   PCOL_COLLAB_IMMEDIATE_SHARE,
   PCOL_COLLAB_PENDING_SHARE,
-  PCOL_COLLAB_TOTAL_SHARE,
   PCOL_MEMBER_SHARE,
   splitPcolQuizPoints,
 } from "../../../../lib/pcol";
@@ -170,7 +169,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: videoRow } = await svc
       .from("videos")
-      .select("id, collaborateur_id")
+      .select("id, collaborateur_id, created_at")
       .eq("id", videoId)
       .maybeSingle();
 
@@ -269,14 +268,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const mois = currentMonthKey();
       const split = splitPcolQuizPoints(pointsEarned);
       const ptsPonderes = pointsEarned * multiplicateur;
-      const ptsCollabImmediateBrut = Math.round(pointsEarned * PCOL_COLLAB_IMMEDIATE_SHARE);
+      const ptsCollabDirect = Math.round(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
+      const ptsCollabPending = Math.round(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
       const ptsMembresNetsBrut = Math.round(pointsEarned * PCOL_MEMBER_SHARE);
-      const ptsCollabPonderes = Math.round(ptsPonderes * PCOL_COLLAB_TOTAL_SHARE);
-      const ptsCollabImmediatePonderes = Math.round(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
-      const ptsPendingPonderes = Math.round(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
       const ptsMembresNetsPonderes = Math.round(ptsPonderes * PCOL_MEMBER_SHARE);
-      const expiresAt = new Date();
+
+      const videoPublishedAt = videoRow?.created_at
+        ? new Date(String(videoRow.created_at))
+        : new Date();
+      const expiresAt = new Date(videoPublishedAt);
       expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
+      const expiresAtIso = expiresAt.toISOString();
+      const earnedAtIso = new Date().toISOString();
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
@@ -284,11 +287,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         video_id: videoId,
         mois,
         pts_membres_gagnes: split.ptsMembresGagnes,
-        pts_collab: ptsCollabImmediateBrut,
+        pts_collab: ptsCollabDirect,
         pts_membres_nets: ptsMembresNetsBrut,
         multiplicateur_membre: multiplicateur,
         pts_membres_gagnes_ponderes: ptsPonderes,
-        pts_collab_ponderes: ptsCollabPonderes,
+        pts_collab_ponderes: ptsCollabDirect,
         pts_membres_nets_ponderes: ptsMembresNetsPonderes,
         type: "quiz",
       });
@@ -297,16 +300,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
       }
 
-      if (ptsPendingPonderes > 0) {
+      if (ptsCollabPending > 0) {
         const { error: pendingErr } = await svc.from("pending_pcol").insert({
           collaborateur_id: collaborateurId,
           video_id: videoId,
-          points_amount: ptsPendingPonderes,
-          pts_pending: split.ptsPending,
-          expires_at: expiresAt.toISOString(),
-          date_expiration: expiresAt.toISOString(),
+          points_amount: ptsCollabPending,
+          earned_date: earnedAtIso,
+          expires_at: expiresAtIso,
+          date_expiration: expiresAtIso,
+          pts_pending: ptsCollabPending,
           status: "pending",
-          recupere: false,
         });
 
         if (pendingErr) {
