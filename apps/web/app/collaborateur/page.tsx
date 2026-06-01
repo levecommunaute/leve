@@ -126,6 +126,10 @@ function formatCountdown(ms: number): string {
   return `${days}j ${hours.toString().padStart(2, "0")}h ${minutes.toString().padStart(2, "0")}m`;
 }
 
+function isActivePendingStatus(status: string): boolean {
+  return status === "pending";
+}
+
 export default function CollaborateurPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -181,7 +185,7 @@ export default function CollaborateurPage(): JSX.Element | null {
         token,
       ),
       restJson<PendingDbRow[]>(
-        `pending_pcol?collaborateur_id=eq.${uidEnc}&status=neq.recovered&select=id,video_id,points_amount,expires_at,status,created_at&order=created_at.desc`,
+        `pending_pcol?collaborateur_id=eq.${uidEnc}&or=(status.eq.pending,status.in.(transferred,expired))&select=id,video_id,points_amount,expires_at,status,created_at&order=created_at.desc`,
         token,
       ),
       restJson<RedistRow[]>(
@@ -254,6 +258,8 @@ export default function CollaborateurPage(): JSX.Element | null {
     const pendingSumByVideo = new Map<string, number>();
     const pendingEarliestExpiryByVideo = new Map<string, string>();
     for (const p of pendingRows) {
+      const status = String(p.status ?? "pending");
+      if (!isActivePendingStatus(status)) continue;
       const vid = String(p.video_id ?? "");
       if (!vid) continue;
       const amt = Number(p.points_amount ?? 0);
@@ -557,9 +563,11 @@ export default function CollaborateurPage(): JSX.Element | null {
                   }}
                 >
                   {pendingList.map((p) => {
-                    const expired = msUntil(p.expires_at) <= 0;
+                    const expired =
+                      p.status === "expired" ||
+                      (isActivePendingStatus(p.status) && msUntil(p.expires_at) <= 0);
                     const canRecover =
-                      p.status === "pending" && !expired && p.points_amount > 0;
+                      isActivePendingStatus(p.status) && !expired && p.points_amount > 0;
                     const daysLeft = daysRemaining(p.expires_at);
 
                     return (
@@ -590,9 +598,11 @@ export default function CollaborateurPage(): JSX.Element | null {
                           })}
                         </p>
                         <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
-                          {expired
-                            ? "Expiré — points transférés au pool PTC"
-                            : `${daysLeft} jour${daysLeft !== 1 ? "s" : ""} restant${daysLeft !== 1 ? "s" : ""} · ${formatCountdown(new Date(p.expires_at).getTime() - nowTick)}`}
+                          {p.status === "transferred"
+                            ? "Récupéré"
+                            : expired
+                              ? "Expiré — points transférés au pool PTC"
+                              : `${daysLeft} jour${daysLeft !== 1 ? "s" : ""} restant${daysLeft !== 1 ? "s" : ""} · ${formatCountdown(new Date(p.expires_at).getTime() - nowTick)}`}
                         </p>
                         {canRecover ? (
                           <button
