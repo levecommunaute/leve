@@ -306,8 +306,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           points_amount: ptsCollabPending,
           earned_date: earnedAtIso,
           expires_at: expiresAtIso,
-          date_expiration: expiresAtIso,
-          pts_pending: ptsCollabPending,
           status: "pending",
         });
 
