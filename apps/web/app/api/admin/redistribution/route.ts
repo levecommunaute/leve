@@ -69,6 +69,42 @@ async function aggregatePonderesByMember(
   return totals;
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** SUM(pts_collab_ponderes) pour un mois PCOL (AAAA-MM). */
+async function sumPcolCollabPonderesForMonth(
+  supabase: SupabaseClient,
+  monthKey: string,
+): Promise<number> {
+  let total = 0;
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("pcol_transactions")
+      .select("pts_collab_ponderes")
+      .eq("mois", monthKey)
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const amt = Number(row.pts_collab_ponderes ?? 0);
+      if (Number.isFinite(amt)) total += amt;
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return total;
+}
+
 /** Crédite le solde $ et journalise le mouvement pour chaque membre. */
 async function creditBanqueMembres(
   supabase: SupabaseClient,
@@ -182,7 +218,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { data: bank, error: bankError } = await supabase
       .from("banque_leve")
       .select(
-        "id, total_revenue, pmq_balance, production_balance, fondation_balance, operations_balance, ptc_balance",
+        "id, total_revenue, pmq_balance, production_balance, fondation_balance, operations_balance, ptc_balance, pcol_balance",
       )
       .limit(1)
       .maybeSingle();
@@ -229,6 +265,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const valuePerPoint = pmqPool / totalPoids;
     const ptcTotal = totalPtcPonderes * valuePerPoint;
+    const totalPcolPtsPonderes = await sumPcolCollabPonderesForMonth(
+      supabase,
+      monthKey,
+    );
+    const totalPcolDollars = round2(totalPcolPtsPonderes * valuePerPoint);
     let totalDistributed = 0;
     const bankCredits: { membre_id: string; gain: number; description: string }[] =
       [];
@@ -248,7 +289,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       total_revenue: totalRevenue,
       pmq_pool: pmqPool,
       ptc_pool: ptcTotal,
-      pcol_pool: 0,
+      pcol_pool: totalPcolDollars,
       pa_pool: 0,
       total_members: quizWeights.length,
       value_per_point: valuePerPoint,
@@ -277,6 +318,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         fondation_balance: Number(bank.fondation_balance ?? 0) + fondationPool,
         operations_balance: Number(bank.operations_balance ?? 0) + operationsPool,
         ptc_balance: Number(bank.ptc_balance ?? 0) + ptcTotal,
+        pcol_balance: Number(bank.pcol_balance ?? 0) + totalPcolDollars,
       })
       .eq("id", bank.id);
 
@@ -290,6 +332,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       total_distributed: totalDistributed,
       total_members: quizWeights.length,
       ptc_total: ptcTotal,
+      pcol_total: totalPcolDollars,
+      pcol_pts_ponderes: totalPcolPtsPonderes,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

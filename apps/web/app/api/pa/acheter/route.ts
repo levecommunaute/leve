@@ -6,6 +6,7 @@ import {
   PA_USD_PER_PT,
   calculerFraisPlateforme,
   crediterFraisPlateformeBalance,
+  crediterPaBalance,
   roundUSD,
 } from "../../../../lib/frais-plateforme";
 
@@ -146,6 +147,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (paError) {
     return NextResponse.json({ error: paError.message }, { status: 500 });
+  }
+
+  try {
+    await crediterPaBalance(supabase, cout);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   return NextResponse.json({

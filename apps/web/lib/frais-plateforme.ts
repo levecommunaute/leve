@@ -169,6 +169,32 @@ export async function crediterTaxePaUtilisation(
   if (updateErr) throw new Error(updateErr.message);
 }
 
+/** Crédite pa_balance (achats PA : pts × 5 $). */
+export async function crediterPaBalance(
+  supabase: SupabaseClient,
+  costUsd: number,
+): Promise<void> {
+  if (!Number.isFinite(costUsd) || costUsd <= 0) return;
+
+  const { data: bank, error: fetchErr } = await supabase
+    .from("banque_leve")
+    .select("id, pa_balance")
+    .limit(1)
+    .maybeSingle();
+
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!bank?.id) throw new Error("banque_leve introuvable");
+
+  const { error: updateErr } = await supabase
+    .from("banque_leve")
+    .update({
+      pa_balance: roundUSD(Number(bank.pa_balance ?? 0) + costUsd),
+    })
+    .eq("id", bank.id);
+
+  if (updateErr) throw new Error(updateErr.message);
+}
+
 /** Crédite frais_plateforme_balance (frais plateforme collectés). */
 export async function crediterFraisPlateformeBalance(
   supabase: SupabaseClient,
