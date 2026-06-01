@@ -29,6 +29,35 @@ const cadFmt = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 2,
 });
 
+async function restJson<T>(
+  path: string,
+  accessToken: string,
+): Promise<{ data: T; error: string | null }> {
+  const res = await fetch(`${SB}/rest/v1/${path}`, {
+    headers: {
+      apikey: KEY,
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+  });
+  const json = (await res.json()) as unknown;
+  if (!res.ok) {
+    const msg =
+      json &&
+      typeof json === "object" &&
+      "message" in json &&
+      typeof (json as { message: unknown }).message === "string"
+        ? (json as { message: string }).message
+        : res.statusText || "Erreur réseau";
+    return { data: null as T, error: msg };
+  }
+  return { data: json as T, error: null };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
@@ -51,6 +80,31 @@ type VideoStats = {
   ptsPcolGeneres: number;
   pendingAmount: number;
   pendingExpiresAt: string | null;
+};
+
+type PcolTxRow = {
+  video_id: string | null;
+  membre_id: string | null;
+  pts_collab_ponderes: number | string | null;
+  pts_membres_gagnes_ponderes: number | string | null;
+};
+
+type VideoRow = {
+  id: string;
+  title: string | null;
+};
+
+type PendingDbRow = {
+  id: string;
+  video_id: string;
+  points_amount: number | string | null;
+  expires_at: string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
+type RedistRow = {
+  value_per_point: number | string | null;
 };
 
 function msUntil(iso: string): number {
@@ -97,14 +151,19 @@ export default function CollaborateurPage(): JSX.Element | null {
   const loadCollaborateur = useCallback(async (activeSession: Session) => {
     const uid = activeSession.user.id;
     const token = activeSession.access_token;
-    const headers = { apikey: KEY, Authorization: `Bearer ${token}` };
+    const uidEnc = encodeURIComponent(uid);
 
-    const profileRes = await fetch(
-      `${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,member_type`,
-      { headers },
-    ).then((r) => r.json());
+    const profileRes = await restJson<ProfileRow[]>(
+      `profiles?id=eq.${uidEnc}&select=display_name,member_type`,
+      token,
+    );
 
-    const prof = Array.isArray(profileRes) ? (profileRes[0] as ProfileRow) : null;
+    if (profileRes.error) {
+      setLoadError(profileRes.error);
+      return;
+    }
+
+    const prof = profileRes.data?.[0] ?? null;
     setProfile(prof);
 
     if (!isCollaborateurMemberType(prof?.member_type)) {
@@ -112,50 +171,129 @@ export default function CollaborateurPage(): JSX.Element | null {
       return;
     }
 
-    const statsRes = await fetch("/api/collaborateur/stats", { cache: "no-store" });
-    const statsJson = (await statsRes.json()) as {
-      error?: string;
-      solde_pcol_dollars?: number | null;
-      pcol_genere_ponderes?: number;
-      valeur_par_pt?: number | null;
-      total_pts_generes_ponderes?: number;
-      total_quiz_membres?: number;
-      pending?: PendingRow[];
-      videos?: {
-        videoId: string;
-        title: string;
-        quizCount: number;
-        ptsPcolGeneres: number;
-        pendingAmount: number;
-        pendingExpiresAt: string | null;
-      }[];
-    };
+    const [pcolRes, videosRes, pendingRes, redistRes] = await Promise.all([
+      restJson<PcolTxRow[]>(
+        `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,membre_id,pts_collab_ponderes,pts_membres_gagnes_ponderes&order=created_at.desc`,
+        token,
+      ),
+      restJson<VideoRow[]>(
+        `videos?collaborateur_id=eq.${uidEnc}&select=id,title&order=created_at.desc`,
+        token,
+      ),
+      restJson<PendingDbRow[]>(
+        `pending_pcol?collaborateur_id=eq.${uidEnc}&status=neq.recovered&select=id,video_id,points_amount,expires_at,status,created_at&order=created_at.desc`,
+        token,
+      ),
+      restJson<RedistRow[]>(
+        `redistribution_history?select=value_per_point&order=created_at.desc&limit=1`,
+        token,
+      ),
+    ]);
 
-    if (!statsRes.ok) {
-      setLoadError(statsJson.error ?? "Impossible de charger les statistiques");
+    const errMsg =
+      pcolRes.error ?? videosRes.error ?? pendingRes.error ?? redistRes.error ?? null;
+    if (errMsg) {
+      setLoadError(errMsg);
       return;
     }
 
-    setSoldePcolDollars(
-      statsJson.solde_pcol_dollars != null ? Number(statsJson.solde_pcol_dollars) : null,
+    const pcolRows = pcolRes.data ?? [];
+    const videos = videosRes.data ?? [];
+    const pendingRows = pendingRes.data ?? [];
+
+    const valeurParPtRaw = redistRes.data?.[0]?.value_per_point;
+    const valeurParPtNum =
+      valeurParPtRaw != null && valeurParPtRaw !== ""
+        ? Number(valeurParPtRaw)
+        : null;
+    const valeurParPtFinite =
+      valeurParPtNum != null && Number.isFinite(valeurParPtNum) ? valeurParPtNum : null;
+
+    const pcolGenere = pcolRows.reduce(
+      (acc, r) => acc + Number(r.pts_collab_ponderes ?? 0),
+      0,
     );
-    setPcolGenerePonderes(Number(statsJson.pcol_genere_ponderes ?? 0));
-    setValeurParPt(
-      statsJson.valeur_par_pt != null ? Number(statsJson.valeur_par_pt) : null,
+    const soldeDollars =
+      valeurParPtFinite != null ? round2(pcolGenere * valeurParPtFinite) : null;
+
+    const totalPtsGeneres = pcolRows.reduce(
+      (acc, r) => acc + Number(r.pts_membres_gagnes_ponderes ?? 0),
+      0,
     );
-    setTotalPtsGeneresPonderes(Number(statsJson.total_pts_generes_ponderes ?? 0));
-    setTotalQuizMembres(Number(statsJson.total_quiz_membres ?? 0));
-    setPendingList(statsJson.pending ?? []);
-    setVideoStats(
-      (statsJson.videos ?? []).map((v) => ({
-        videoId: v.videoId,
-        title: v.title,
-        quizCount: v.quizCount,
-        ptsPcolGeneres: v.ptsPcolGeneres,
-        pendingAmount: v.pendingAmount,
-        pendingExpiresAt: v.pendingExpiresAt,
-      })),
+
+    const membresQuiz = new Set<string>();
+    for (const row of pcolRows) {
+      const mid = row.membre_id != null ? String(row.membre_id) : "";
+      if (mid) membresQuiz.add(mid);
+    }
+
+    const videoTitleById = new Map(
+      videos.map((v) => [String(v.id), String(v.title ?? "Vidéo")]),
     );
+
+    const ptsCollabByVideo = new Map<string, number>();
+    for (const row of pcolRows) {
+      const vid = String(row.video_id ?? "");
+      if (!vid) continue;
+      ptsCollabByVideo.set(
+        vid,
+        (ptsCollabByVideo.get(vid) ?? 0) + Number(row.pts_collab_ponderes ?? 0),
+      );
+    }
+
+    const pendingListMapped: PendingRow[] = pendingRows.map((p) => ({
+      id: String(p.id),
+      video_id: String(p.video_id),
+      video_title: videoTitleById.get(String(p.video_id)) ?? "Vidéo",
+      points_amount: Number(p.points_amount ?? 0),
+      expires_at: String(p.expires_at ?? ""),
+      status: String(p.status ?? "pending"),
+      created_at: String(p.created_at ?? ""),
+    }));
+
+    const pendingSumByVideo = new Map<string, number>();
+    const pendingEarliestExpiryByVideo = new Map<string, string>();
+    for (const p of pendingRows) {
+      const vid = String(p.video_id ?? "");
+      if (!vid) continue;
+      const amt = Number(p.points_amount ?? 0);
+      pendingSumByVideo.set(vid, (pendingSumByVideo.get(vid) ?? 0) + amt);
+      const exp = String(p.expires_at ?? "");
+      if (!exp) continue;
+      const prev = pendingEarliestExpiryByVideo.get(vid);
+      if (!prev || new Date(exp).getTime() < new Date(prev).getTime()) {
+        pendingEarliestExpiryByVideo.set(vid, exp);
+      }
+    }
+
+    const quizCountByVideo = new Map<string, Set<string>>();
+    for (const row of pcolRows) {
+      const vid = String(row.video_id ?? "");
+      const mid = row.membre_id != null ? String(row.membre_id) : "";
+      if (!vid || !mid) continue;
+      if (!quizCountByVideo.has(vid)) quizCountByVideo.set(vid, new Set());
+      quizCountByVideo.get(vid)!.add(mid);
+    }
+
+    const videoStatsMapped: VideoStats[] = videos.map((v) => {
+      const vid = String(v.id);
+      return {
+        videoId: vid,
+        title: String(v.title ?? "Vidéo"),
+        quizCount: quizCountByVideo.get(vid)?.size ?? 0,
+        ptsPcolGeneres: ptsCollabByVideo.get(vid) ?? 0,
+        pendingAmount: pendingSumByVideo.get(vid) ?? 0,
+        pendingExpiresAt: pendingEarliestExpiryByVideo.get(vid) ?? null,
+      };
+    });
+
+    setSoldePcolDollars(soldeDollars);
+    setPcolGenerePonderes(pcolGenere);
+    setValeurParPt(valeurParPtFinite);
+    setTotalPtsGeneresPonderes(totalPtsGeneres);
+    setTotalQuizMembres(membresQuiz.size);
+    setPendingList(pendingListMapped);
+    setVideoStats(videoStatsMapped);
     setLoadError(null);
   }, []);
 
