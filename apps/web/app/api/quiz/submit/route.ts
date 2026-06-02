@@ -351,7 +351,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { error: recupErr } = await svc
           .from("pending_pcol")
           .update({
-            statut: "recupere",
+            statut: "transferred",
             pourcentage_fixe: pourcentageFixe,
             recupere_le: recupereLe,
           })
@@ -367,7 +367,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           points_pending_cumul: 0,
           valeur_dollars_cumul: 0,
           date_expiration: dateExpiration.toISOString(),
-          statut: "recupere",
+          statut: "transferred",
           pourcentage_fixe: pourcentageFixe,
           recupere_le: recupereLe,
         });
