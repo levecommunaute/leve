@@ -85,6 +85,7 @@ type VideoStats = {
   dateExpiration: string | null;
   statut: string | null;
   pourcentageFixe: number | null;
+  recupereLe: string | null;
 };
 
 type PcolTxRow = {
@@ -138,7 +139,25 @@ function isActivePendingStatut(statut: string): boolean {
 }
 
 function isInactiveStatut(statut: string): boolean {
-  return statut === "recupere" || statut === "expired";
+  return statut === "transferred" || statut === "recupere" || statut === "expired";
+}
+
+function isTransferredStatut(statut: string): boolean {
+  return statut === "transferred" || statut === "recupere";
+}
+
+function formatRecupereLe(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("fr-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function transferredLabel(pourcentageFixe: number | null, recupereLe: string | null): string {
+  const pct = pourcentageFixe != null ? `${pourcentageFixe}` : "—";
+  return `✅ ${pct} % fixé — Récupéré le ${formatRecupereLe(recupereLe)}`;
 }
 
 export default function CollaborateurPage(): JSX.Element | null {
@@ -297,6 +316,7 @@ export default function CollaborateurPage(): JSX.Element | null {
         dateExpiration: pending?.date_expiration ?? null,
         statut: pending?.statut ?? null,
         pourcentageFixe: pending?.pourcentage_fixe ?? null,
+        recupereLe: pending?.recupere_le ?? null,
       };
     });
 
@@ -612,13 +632,13 @@ export default function CollaborateurPage(): JSX.Element | null {
                               Regarder la vidéo et faire le quiz pour récupérer
                             </Link>
                           </>
-                        ) : p.statut === "recupere" ? (
+                        ) : isTransferredStatut(p.statut) ? (
                           <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", color: VERT, textDecoration: "none" }}>
-                            {p.pourcentage_fixe != null ? `${p.pourcentage_fixe} % fixé ✓` : "Récupéré ✓"}
+                            {transferredLabel(p.pourcentage_fixe, p.recupere_le)}
                           </p>
                         ) : (
                           <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", color: ROUGE, textDecoration: "none" }}>
-                            Expiré — points transférés en PTC
+                            ❌ Expiré — points transférés en PTC
                           </p>
                         )}
                       </li>
@@ -744,15 +764,13 @@ export default function CollaborateurPage(): JSX.Element | null {
                                   Regarder la vidéo et faire le quiz pour récupérer
                                 </Link>
                               </>
-                            ) : v.statut === "recupere" ? (
+                            ) : v.statut != null && isTransferredStatut(v.statut) ? (
                               <p style={{ margin: 0, fontSize: "0.85rem", color: VERT }}>
-                                {v.pourcentageFixe != null
-                                  ? `${v.pourcentageFixe} % fixé ✓`
-                                  : "Récupéré ✓"}
+                                {transferredLabel(v.pourcentageFixe, v.recupereLe)}
                               </p>
                             ) : (
                               <p style={{ margin: 0, fontSize: "0.85rem", color: ROUGE }}>
-                                Expiré — points transférés en PTC
+                                ❌ Expiré — points transférés en PTC
                               </p>
                             )}
                           </div>
