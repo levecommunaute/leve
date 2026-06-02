@@ -50,9 +50,11 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
         .order("created_at", { ascending: false }),
       svc
         .from("pending_pcol")
-        .select("id, video_id, points_amount, expires_at, status, created_at")
+        .select(
+          "id, video_id, points_pending_cumul, valeur_dollars_cumul, date_expiration, statut, pourcentage_fixe, recupere_le",
+        )
         .eq("collaborateur_id", uid)
-        .neq("status", "recovered"),
+        .order("date_expiration", { ascending: false }),
       svc
         .from("redistribution_history")
         .select("value_per_point, created_at")
@@ -124,26 +126,18 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
       id: String(p.id),
       video_id: String(p.video_id),
       video_title: videoTitleById.get(String(p.video_id)) ?? "Vidéo",
-      points_amount: Number(p.points_amount ?? 0),
-      expires_at: String(p.expires_at ?? ""),
-      status: String(p.status ?? "pending"),
-      created_at: String(p.created_at ?? ""),
+      points_pending_cumul: Number(p.points_pending_cumul ?? 0),
+      valeur_dollars_cumul: Number(p.valeur_dollars_cumul ?? 0),
+      date_expiration: String(p.date_expiration ?? ""),
+      statut: String(p.statut ?? "pending"),
+      pourcentage_fixe:
+        p.pourcentage_fixe != null ? Number(p.pourcentage_fixe) : null,
+      recupere_le: p.recupere_le ? String(p.recupere_le) : null,
     }));
 
-    const pendingSumByVideo = new Map<string, number>();
-    const pendingEarliestExpiryByVideo = new Map<string, string>();
-    for (const p of pendingRows) {
-      const vid = String(p.video_id ?? "");
-      if (!vid) continue;
-      const amt = Number(p.points_amount ?? 0);
-      pendingSumByVideo.set(vid, (pendingSumByVideo.get(vid) ?? 0) + amt);
-      const exp = String(p.expires_at ?? "");
-      if (!exp) continue;
-      const prev = pendingEarliestExpiryByVideo.get(vid);
-      if (!prev || new Date(exp).getTime() < new Date(prev).getTime()) {
-        pendingEarliestExpiryByVideo.set(vid, exp);
-      }
-    }
+    const pendingByVideo = new Map(
+      pendingList.map((p) => [p.video_id, p]),
+    );
 
     const quizCountByVideo = new Map<string, Set<string>>();
     for (const row of pcolRows) {
@@ -156,14 +150,18 @@ export async function GET(_request: NextRequest): Promise<NextResponse> {
 
     const videoStats = videos.map((v) => {
       const vid = String(v.id);
+      const pending = pendingByVideo.get(vid);
       return {
         videoId: vid,
         title: String(v.title ?? "Vidéo"),
         youtube_id: v.youtube_id,
         quizCount: quizCountByVideo.get(vid)?.size ?? 0,
         ptsPcolGeneres: ptsCollabByVideo.get(vid) ?? 0,
-        pendingAmount: pendingSumByVideo.get(vid) ?? 0,
-        pendingExpiresAt: pendingEarliestExpiryByVideo.get(vid) ?? null,
+        pendingPoints: pending?.points_pending_cumul ?? 0,
+        pendingDollars: pending?.valeur_dollars_cumul ?? 0,
+        dateExpiration: pending?.date_expiration ?? null,
+        statut: pending?.statut ?? null,
+        pourcentageFixe: pending?.pourcentage_fixe ?? null,
       };
     });
 

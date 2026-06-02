@@ -3,9 +3,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
   currentMonthKey,
-  PCOL_COLLAB_IMMEDIATE_SHARE,
-  PCOL_COLLAB_PENDING_SHARE,
+  pcolEffectiveShares,
   PCOL_MEMBER_SHARE,
+  pourcentageFixeFromErrors,
   splitPcolQuizPoints,
 } from "../../../../lib/pcol";
 
@@ -64,6 +64,50 @@ async function alreadySubmittedQuiz(
   return false;
 }
 
+async function creditBanqueMembre(
+  svc: ReturnType<typeof getServiceSupabase>,
+  membreId: string,
+  montant: number,
+  description: string,
+): Promise<void> {
+  if (!Number.isFinite(montant) || montant <= 0) return;
+
+  const { data: existing, error: fetchError } = await svc
+    .from("banque_membres")
+    .select("solde_dollars")
+    .eq("membre_id", membreId)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(fetchError.message);
+
+  const previous = Number(existing?.solde_dollars ?? 0);
+  const nextSolde = Math.round((previous + montant) * 100) / 100;
+  const now = new Date().toISOString();
+
+  if (existing) {
+    const { error: updateError } = await svc
+      .from("banque_membres")
+      .update({ solde_dollars: nextSolde, updated_at: now })
+      .eq("membre_id", membreId);
+    if (updateError) throw new Error(updateError.message);
+  } else {
+    const { error: insertError } = await svc.from("banque_membres").insert({
+      membre_id: membreId,
+      solde_dollars: montant,
+      updated_at: now,
+    });
+    if (insertError) throw new Error(insertError.message);
+  }
+
+  const { error: mvtError } = await svc.from("banque_membres_mouvements").insert({
+    membre_id: membreId,
+    montant,
+    type: "pcol_recuperation",
+    description,
+  });
+  if (mvtError) throw new Error(mvtError.message);
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const authClient = await createServerClient();
   const {
@@ -90,7 +134,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const videoId = typeof body.video_id === "string" ? body.video_id.trim() : "";
   const membreId = typeof body.membre_id === "string" ? body.membre_id.trim() : "";
   const answers = Array.isArray(body.answers) ? body.answers : [];
-  const timeLeft = Number(body.time_remaining_seconds ?? 0);
 
   if (!videoId || !membreId) {
     return NextResponse.json(
@@ -106,7 +149,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const svc = getServiceSupabase();
 
-    if (await alreadySubmittedQuiz(svc, user.id, videoId)) {
+    const { data: videoRow } = await svc
+      .from("videos")
+      .select("id, collaborateur_id, created_at")
+      .eq("id", videoId)
+      .maybeSingle();
+
+    const collaborateurId =
+      videoRow?.collaborateur_id != null ? String(videoRow.collaborateur_id) : null;
+    const isCollaborateurVideo = Boolean(collaborateurId);
+    const isOwnVideoQuiz = collaborateurId === user.id;
+
+    const { data: pendingForRecovery } =
+      isOwnVideoQuiz && collaborateurId
+        ? await svc
+            .from("pending_pcol")
+            .select("id, statut")
+            .eq("collaborateur_id", collaborateurId)
+            .eq("video_id", videoId)
+            .eq("statut", "pending")
+            .maybeSingle()
+        : { data: null };
+
+    const allowRecoveryResubmit = Boolean(pendingForRecovery?.id);
+    const previouslySubmitted =
+      !allowRecoveryResubmit && (await alreadySubmittedQuiz(svc, user.id, videoId));
+
+    if (previouslySubmitted) {
       return NextResponse.json(
         {
           error: "already_submitted",
@@ -159,6 +228,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const denom = Math.max(rows?.length ?? 0, 1);
+    const errors = denom - correct;
 
     const { data: profile } = await svc
       .from("profiles")
@@ -166,16 +236,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .eq("id", user.id)
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
-
-    const { data: videoRow } = await svc
-      .from("videos")
-      .select("id, collaborateur_id, created_at")
-      .eq("id", videoId)
-      .maybeSingle();
-
-    const collaborateurId =
-      videoRow?.collaborateur_id != null ? String(videoRow.collaborateur_id) : null;
-    const isCollaborateurVideo = Boolean(collaborateurId);
 
     const pointsEarned = correct * POINTS_PER_CORRECT;
     const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
@@ -215,12 +275,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const { error: ptError } = await svc.from("points_transactions").insert(ptRows);
-
-    if (ptError) {
-      return NextResponse.json({ error: ptError.message }, { status: 500 });
-    }
-
     const ppRows: {
       membre_id: string;
       pts_bruts: number;
@@ -247,39 +301,118 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const { error: ppError } = await svc.from("points_ponderes").insert(ppRows);
+    const skipMemberCredits = allowRecoveryResubmit;
 
-    if (ppError) {
-      return NextResponse.json({ error: ppError.message }, { status: 500 });
+    if (!skipMemberCredits) {
+      const { error: ptError } = await svc.from("points_transactions").insert(ptRows);
+
+      if (ptError) {
+        return NextResponse.json({ error: ptError.message }, { status: 500 });
+      }
+
+      const { error: ppError } = await svc.from("points_ponderes").insert(ppRows);
+
+      if (ppError) {
+        return NextResponse.json({ error: ppError.message }, { status: 500 });
+      }
+
+      const { error: qsError } = await svc.from("quiz_submissions").insert({
+        membre_id: user.id,
+        video_id: videoId,
+        score: correct,
+        points_awarded: memberPointsEarned,
+      });
+
+      if (qsError) {
+        return NextResponse.json({ error: qsError.message }, { status: 500 });
+      }
     }
 
-    const { error: qsError } = await svc.from("quiz_submissions").insert({
-      membre_id: user.id,
-      video_id: videoId,
-      score: correct,
-      points_awarded: memberPointsEarned,
-    });
+    if (isOwnVideoQuiz && collaborateurId) {
+      const pourcentageFixe = pourcentageFixeFromErrors(errors);
+      const recupereLe = new Date().toISOString();
 
-    if (qsError) {
-      return NextResponse.json({ error: qsError.message }, { status: 500 });
-    }
-
-    if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
-      const mois = currentMonthKey();
-      const split = splitPcolQuizPoints(pointsEarned);
-      const ptsPonderes = pointsEarned * multiplicateur;
-      const ptsCollabDirect = Math.round(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
-      const ptsCollabPending = Math.round(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
-      const ptsMembresNetsBrut = Math.round(pointsEarned * PCOL_MEMBER_SHARE);
-      const ptsMembresNetsPonderes = Math.round(ptsPonderes * PCOL_MEMBER_SHARE);
+      const { data: pendingRow } = await svc
+        .from("pending_pcol")
+        .select(
+          "id, points_pending_cumul, valeur_dollars_cumul, statut, points_amount, pts_pending",
+        )
+        .eq("collaborateur_id", collaborateurId)
+        .eq("video_id", videoId)
+        .maybeSingle();
 
       const videoPublishedAt = videoRow?.created_at
         ? new Date(String(videoRow.created_at))
         : new Date();
-      const expiresAt = new Date(videoPublishedAt);
-      expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 1);
-      const expiresAtIso = expiresAt.toISOString();
-      const earnedAtIso = new Date().toISOString();
+      const dateExpiration = new Date(videoPublishedAt);
+      dateExpiration.setUTCFullYear(dateExpiration.getUTCFullYear() + 1);
+
+      const dollarsToCredit = Number(pendingRow?.valeur_dollars_cumul ?? 0);
+
+      if (pendingRow?.id) {
+        const { error: recupErr } = await svc
+          .from("pending_pcol")
+          .update({
+            statut: "recupere",
+            pourcentage_fixe: pourcentageFixe,
+            recupere_le: recupereLe,
+            recupere: true,
+            status: "recovered",
+          })
+          .eq("id", pendingRow.id);
+
+        if (recupErr) {
+          return NextResponse.json({ error: recupErr.message }, { status: 500 });
+        }
+      } else {
+        const { error: insertErr } = await svc.from("pending_pcol").insert({
+          collaborateur_id: collaborateurId,
+          video_id: videoId,
+          points_pending_cumul: 0,
+          valeur_dollars_cumul: 0,
+          date_expiration: dateExpiration.toISOString(),
+          statut: "recupere",
+          pourcentage_fixe: pourcentageFixe,
+          recupere_le: recupereLe,
+          recupere: true,
+          status: "recovered",
+        });
+
+        if (insertErr) {
+          return NextResponse.json({ error: insertErr.message }, { status: 500 });
+        }
+      }
+
+      if (dollarsToCredit > 0) {
+        await creditBanqueMembre(
+          svc,
+          collaborateurId,
+          Math.round(dollarsToCredit * 100) / 100,
+          `Récupération PCOL pending — vidéo ${videoId.slice(0, 8)}… (${pourcentageFixe} % fixé)`,
+        );
+      }
+    } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
+      const mois = currentMonthKey();
+      const split = splitPcolQuizPoints(pointsEarned);
+      const ptsPonderes = pointsEarned * multiplicateur;
+
+      const { data: existingPending } = await svc
+        .from("pending_pcol")
+        .select("id, statut, pourcentage_fixe, points_pending_cumul, valeur_dollars_cumul")
+        .eq("collaborateur_id", collaborateurId)
+        .eq("video_id", videoId)
+        .maybeSingle();
+
+      const pourcentageFixe =
+        existingPending?.pourcentage_fixe != null
+          ? Number(existingPending.pourcentage_fixe)
+          : null;
+      const shares = pcolEffectiveShares(pourcentageFixe);
+
+      const ptsCollabDirect = Math.round(ptsPonderes * shares.immediateShare);
+      const ptsCollabPending = Math.round(ptsPonderes * shares.pendingShare);
+      const ptsMembresNetsBrut = Math.round(pointsEarned * PCOL_MEMBER_SHARE);
+      const ptsMembresNetsPonderes = Math.round(ptsPonderes * PCOL_MEMBER_SHARE);
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
@@ -299,18 +432,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
       }
 
-      if (ptsCollabPending > 0) {
-        const { error: pendingErr } = await svc.from("pending_pcol").insert({
-          collaborateur_id: collaborateurId,
-          video_id: videoId,
-          points_amount: ptsCollabPending,
-          earned_date: earnedAtIso,
-          expires_at: expiresAtIso,
-          status: "pending",
-        });
+      const pendingStatut = String(existingPending?.statut ?? "pending");
+      const canAccumulatePending = !existingPending || pendingStatut === "pending";
 
-        if (pendingErr) {
-          return NextResponse.json({ error: pendingErr.message }, { status: 500 });
+      if (ptsCollabPending > 0 && canAccumulatePending) {
+        const { data: redistRow } = await svc
+          .from("redistribution_history")
+          .select("value_per_point")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const valeurParPt = Number(redistRow?.value_per_point ?? 0);
+        const ptsPending = ptsCollabPending;
+        const valeurDollars =
+          valeurParPt > 0 ? Math.round(ptsPending * valeurParPt * 100) / 100 : 0;
+
+        const videoPublishedAt = videoRow?.created_at
+          ? new Date(String(videoRow.created_at))
+          : new Date();
+        const dateExpiration = new Date(videoPublishedAt);
+        dateExpiration.setUTCFullYear(dateExpiration.getUTCFullYear() + 1);
+
+        if (existingPending?.id) {
+          const prevPts = Number(existingPending.points_pending_cumul ?? 0);
+          const prevDollars = Number(existingPending.valeur_dollars_cumul ?? 0);
+
+          const { error: pendingErr } = await svc
+            .from("pending_pcol")
+            .update({
+              points_pending_cumul: prevPts + ptsPending,
+              valeur_dollars_cumul: Math.round((prevDollars + valeurDollars) * 100) / 100,
+              points_amount: prevPts + ptsPending,
+            })
+            .eq("id", existingPending.id);
+
+          if (pendingErr) {
+            return NextResponse.json({ error: pendingErr.message }, { status: 500 });
+          }
+        } else {
+          const { error: pendingErr } = await svc.from("pending_pcol").insert({
+            collaborateur_id: collaborateurId,
+            video_id: videoId,
+            points_pending_cumul: ptsPending,
+            valeur_dollars_cumul: valeurDollars,
+            date_expiration: dateExpiration.toISOString(),
+            statut: "pending",
+            status: "pending",
+            points_amount: ptsPending,
+          });
+
+          if (pendingErr) {
+            return NextResponse.json({ error: pendingErr.message }, { status: 500 });
+          }
         }
       }
     }
@@ -326,6 +500,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       points_perdus_ponderes: pointsPerdusPonderes,
       multiplicateur,
       collaborateur_video: isCollaborateurVideo,
+      own_video_recovery: isOwnVideoQuiz,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

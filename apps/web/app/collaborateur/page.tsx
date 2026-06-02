@@ -67,10 +67,12 @@ type PendingRow = {
   id: string;
   video_id: string;
   video_title: string;
-  points_amount: number;
-  expires_at: string;
-  status: string;
-  created_at: string;
+  points_pending_cumul: number;
+  valeur_dollars_cumul: number;
+  date_expiration: string;
+  statut: string;
+  pourcentage_fixe: number | null;
+  recupere_le: string | null;
 };
 
 type VideoStats = {
@@ -78,8 +80,11 @@ type VideoStats = {
   title: string;
   quizCount: number;
   ptsPcolGeneres: number;
-  pendingAmount: number;
-  pendingExpiresAt: string | null;
+  pendingPoints: number;
+  pendingDollars: number;
+  dateExpiration: string | null;
+  statut: string | null;
+  pourcentageFixe: number | null;
 };
 
 type PcolTxRow = {
@@ -97,10 +102,12 @@ type VideoRow = {
 type PendingDbRow = {
   id: string;
   video_id: string;
-  points_amount: number | string | null;
-  expires_at: string | null;
-  status: string | null;
-  created_at: string | null;
+  points_pending_cumul: number | string | null;
+  valeur_dollars_cumul: number | string | null;
+  date_expiration: string | null;
+  statut: string | null;
+  pourcentage_fixe: number | string | null;
+  recupere_le: string | null;
 };
 
 type RedistRow = {
@@ -126,8 +133,12 @@ function formatCountdown(ms: number): string {
   return `${days}j ${hours.toString().padStart(2, "0")}h ${minutes.toString().padStart(2, "0")}m`;
 }
 
-function isActivePendingStatus(status: string): boolean {
-  return status === "pending";
+function isActivePendingStatut(statut: string): boolean {
+  return statut === "pending";
+}
+
+function isInactiveStatut(statut: string): boolean {
+  return statut === "recupere" || statut === "expired";
 }
 
 export default function CollaborateurPage(): JSX.Element | null {
@@ -142,7 +153,6 @@ export default function CollaborateurPage(): JSX.Element | null {
   const [totalQuizMembres, setTotalQuizMembres] = useState(0);
   const [totalPtsGeneresPonderes, setTotalPtsGeneresPonderes] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [recoveringId, setRecoveringId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
 
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
@@ -185,7 +195,7 @@ export default function CollaborateurPage(): JSX.Element | null {
         token,
       ),
       restJson<PendingDbRow[]>(
-        `pending_pcol?collaborateur_id=eq.${uidEnc}&or=(status.eq.pending,status.in.(transferred,expired))&select=id,video_id,points_amount,expires_at,status,created_at&order=created_at.desc`,
+        `pending_pcol?collaborateur_id=eq.${uidEnc}&select=id,video_id,points_pending_cumul,valeur_dollars_cumul,date_expiration,statut,pourcentage_fixe,recupere_le&order=date_expiration.desc`,
         token,
       ),
       restJson<RedistRow[]>(
@@ -249,27 +259,20 @@ export default function CollaborateurPage(): JSX.Element | null {
       id: String(p.id),
       video_id: String(p.video_id),
       video_title: videoTitleById.get(String(p.video_id)) ?? "Vidéo",
-      points_amount: Number(p.points_amount ?? 0),
-      expires_at: String(p.expires_at ?? ""),
-      status: String(p.status ?? "pending"),
-      created_at: String(p.created_at ?? ""),
+      points_pending_cumul: Number(p.points_pending_cumul ?? 0),
+      valeur_dollars_cumul: Number(p.valeur_dollars_cumul ?? 0),
+      date_expiration: String(p.date_expiration ?? ""),
+      statut: String(p.statut ?? "pending"),
+      pourcentage_fixe:
+        p.pourcentage_fixe != null && p.pourcentage_fixe !== ""
+          ? Number(p.pourcentage_fixe)
+          : null,
+      recupere_le: p.recupere_le ? String(p.recupere_le) : null,
     }));
 
-    const pendingSumByVideo = new Map<string, number>();
-    const pendingEarliestExpiryByVideo = new Map<string, string>();
-    for (const p of pendingRows) {
-      const status = String(p.status ?? "pending");
-      if (!isActivePendingStatus(status)) continue;
-      const vid = String(p.video_id ?? "");
-      if (!vid) continue;
-      const amt = Number(p.points_amount ?? 0);
-      pendingSumByVideo.set(vid, (pendingSumByVideo.get(vid) ?? 0) + amt);
-      const exp = String(p.expires_at ?? "");
-      if (!exp) continue;
-      const prev = pendingEarliestExpiryByVideo.get(vid);
-      if (!prev || new Date(exp).getTime() < new Date(prev).getTime()) {
-        pendingEarliestExpiryByVideo.set(vid, exp);
-      }
+    const pendingByVideo = new Map<string, PendingRow>();
+    for (const p of pendingListMapped) {
+      pendingByVideo.set(p.video_id, p);
     }
 
     const quizCountByVideo = new Map<string, Set<string>>();
@@ -283,13 +286,17 @@ export default function CollaborateurPage(): JSX.Element | null {
 
     const videoStatsMapped: VideoStats[] = videos.map((v) => {
       const vid = String(v.id);
+      const pending = pendingByVideo.get(vid);
       return {
         videoId: vid,
         title: String(v.title ?? "Vidéo"),
         quizCount: quizCountByVideo.get(vid)?.size ?? 0,
         ptsPcolGeneres: ptsCollabByVideo.get(vid) ?? 0,
-        pendingAmount: pendingSumByVideo.get(vid) ?? 0,
-        pendingExpiresAt: pendingEarliestExpiryByVideo.get(vid) ?? null,
+        pendingPoints: pending?.points_pending_cumul ?? 0,
+        pendingDollars: pending?.valeur_dollars_cumul ?? 0,
+        dateExpiration: pending?.date_expiration ?? null,
+        statut: pending?.statut ?? null,
+        pourcentageFixe: pending?.pourcentage_fixe ?? null,
       };
     });
 
@@ -335,27 +342,6 @@ export default function CollaborateurPage(): JSX.Element | null {
       window.clearInterval(pollId);
     };
   }, [loadCollaborateur, router]);
-
-  async function handleRecuperer(pendingId: string): Promise<void> {
-    setRecoveringId(pendingId);
-    try {
-      const res = await fetch("/api/collaborateur/recuperer-pending", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pending_id: pendingId }),
-      });
-      const json = (await res.json()) as { error?: string; pts_recuperes?: number };
-      if (!res.ok) {
-        setLoadError(json.error ?? "Échec de la récupération");
-        return;
-      }
-      if (session) await loadCollaborateur(session);
-    } catch {
-      setLoadError("Erreur réseau");
-    } finally {
-      setRecoveringId(null);
-    }
-  }
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
@@ -550,7 +536,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                 Pending PCOL
               </h2>
               {pendingList.length === 0 ? (
-                <p style={{ opacity: 0.65 }}>Aucun pending actif.</p>
+                <p style={{ opacity: 0.65 }}>Aucun pending.</p>
               ) : (
                 <ul
                   style={{
@@ -563,12 +549,11 @@ export default function CollaborateurPage(): JSX.Element | null {
                   }}
                 >
                   {pendingList.map((p) => {
+                    const inactive = isInactiveStatut(p.statut);
                     const expired =
-                      p.status === "expired" ||
-                      (isActivePendingStatus(p.status) && msUntil(p.expires_at) <= 0);
-                    const canRecover =
-                      isActivePendingStatus(p.status) && !expired && p.points_amount > 0;
-                    const daysLeft = daysRemaining(p.expires_at);
+                      p.statut === "expired" ||
+                      (isActivePendingStatut(p.statut) && msUntil(p.date_expiration) <= 0);
+                    const daysLeft = daysRemaining(p.date_expiration);
 
                     return (
                       <li
@@ -578,52 +563,64 @@ export default function CollaborateurPage(): JSX.Element | null {
                           padding: "1.1rem",
                           background: expired
                             ? "rgba(192, 57, 43, 0.12)"
-                            : "rgba(212, 160, 23, 0.1)",
-                          border: `1px solid ${expired ? ROUGE : "rgba(212, 160, 23, 0.35)"}`,
+                            : inactive
+                              ? "rgba(245, 240, 232, 0.04)"
+                              : "rgba(212, 160, 23, 0.1)",
+                          border: `1px solid ${expired ? ROUGE : inactive ? "rgba(245, 240, 232, 0.15)" : "rgba(212, 160, 23, 0.35)"}`,
+                          opacity: inactive ? 0.55 : 1,
+                          textDecoration: inactive ? "line-through" : "none",
                         }}
                       >
-                        <p style={{ margin: 0, fontWeight: 600 }}>{p.video_title}</p>
-                        <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem" }}>
-                          <strong style={{ color: GOLD }}>
-                            {pointsFmt.format(p.points_amount)} pts
-                          </strong>{" "}
-                          (8 %)
+                        <p style={{ margin: 0, fontWeight: 600, textDecoration: inactive ? "line-through" : "none" }}>
+                          {p.video_title}
                         </p>
-                        <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
-                          Expire le{" "}
-                          {new Date(p.expires_at).toLocaleDateString("fr-CA", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </p>
-                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
-                          {p.status === "transferred"
-                            ? "Récupéré"
-                            : expired
-                              ? "Expiré — points transférés au pool PTC"
-                              : `${daysLeft} jour${daysLeft !== 1 ? "s" : ""} restant${daysLeft !== 1 ? "s" : ""} · ${formatCountdown(new Date(p.expires_at).getTime() - nowTick)}`}
-                        </p>
-                        {canRecover ? (
-                          <button
-                            type="button"
-                            disabled={recoveringId === p.id}
-                            onClick={() => void handleRecuperer(p.id)}
-                            style={{
-                              marginTop: "0.65rem",
-                              background: VERT,
-                              color: BG,
-                              border: "none",
-                              borderRadius: "6px",
-                              padding: "0.5rem 1rem",
-                              fontWeight: 700,
-                              fontSize: "0.85rem",
-                              cursor: recoveringId === p.id ? "wait" : "pointer",
-                            }}
-                          >
-                            {recoveringId === p.id ? "…" : "Récupérer"}
-                          </button>
-                        ) : null}
+                        {isActivePendingStatut(p.statut) && !expired ? (
+                          <>
+                            <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", textDecoration: "none" }}>
+                              <strong style={{ color: GOLD }}>
+                                {pointsFmt.format(p.points_pending_cumul)} pts
+                              </strong>{" "}
+                              · {cadFmt.format(p.valeur_dollars_cumul)}
+                            </p>
+                            <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65, textDecoration: "none" }}>
+                              Expire le{" "}
+                              {new Date(p.date_expiration).toLocaleDateString("fr-CA", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              })}
+                            </p>
+                            <p style={{ margin: "0.25rem 0 0", fontSize: "0.8rem", opacity: 0.65, textDecoration: "none" }}>
+                              {daysLeft} jour{daysLeft !== 1 ? "s" : ""} restant{daysLeft !== 1 ? "s" : ""} ·{" "}
+                              {formatCountdown(new Date(p.date_expiration).getTime() - nowTick)}
+                            </p>
+                            <Link
+                              href={`/videos/${p.video_id}`}
+                              style={{
+                                marginTop: "0.65rem",
+                                display: "inline-block",
+                                background: VERT,
+                                color: BG,
+                                border: "none",
+                                borderRadius: "6px",
+                                padding: "0.5rem 1rem",
+                                fontWeight: 700,
+                                fontSize: "0.85rem",
+                                textDecoration: "none",
+                              }}
+                            >
+                              Regarder la vidéo et faire le quiz pour récupérer
+                            </Link>
+                          </>
+                        ) : p.statut === "recupere" ? (
+                          <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", color: VERT, textDecoration: "none" }}>
+                            {p.pourcentage_fixe != null ? `${p.pourcentage_fixe} % fixé ✓` : "Récupéré ✓"}
+                          </p>
+                        ) : (
+                          <p style={{ margin: "0.5rem 0 0", fontSize: "0.88rem", color: ROUGE, textDecoration: "none" }}>
+                            Expiré — points transférés en PTC
+                          </p>
+                        )}
                       </li>
                     );
                   })}
@@ -657,9 +654,13 @@ export default function CollaborateurPage(): JSX.Element | null {
                   }}
                 >
                   {videoStats.map((v) => {
-                    const hasPending = v.pendingAmount > 0 && v.pendingExpiresAt;
+                    const inactive = v.statut != null && isInactiveStatut(v.statut);
+                    const hasPending = v.statut != null;
                     const expired =
-                      hasPending && msUntil(v.pendingExpiresAt!) <= 0;
+                      v.statut === "expired" ||
+                      (v.statut === "pending" &&
+                        v.dateExpiration != null &&
+                        msUntil(v.dateExpiration) <= 0);
 
                     return (
                       <li
@@ -669,6 +670,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                           padding: "1.1rem",
                           background: "rgba(245, 240, 232, 0.04)",
                           border: "1px solid rgba(245, 240, 232, 0.1)",
+                          opacity: inactive ? 0.55 : 1,
                         }}
                       >
                         <div
@@ -680,7 +682,16 @@ export default function CollaborateurPage(): JSX.Element | null {
                             marginBottom: "0.65rem",
                           }}
                         >
-                          <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem" }}>{v.title}</p>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: 600,
+                              fontSize: "1rem",
+                              textDecoration: inactive ? "line-through" : "none",
+                            }}
+                          >
+                            {v.title}
+                          </p>
                           <span style={{ fontSize: "0.85rem", opacity: 0.7 }}>
                             {v.quizCount} membre{v.quizCount !== 1 ? "s" : ""} · quiz
                           </span>
@@ -700,23 +711,54 @@ export default function CollaborateurPage(): JSX.Element | null {
                               borderRadius: "8px",
                               background: expired
                                 ? "rgba(192, 57, 43, 0.12)"
-                                : "rgba(212, 160, 23, 0.1)",
-                              border: `1px solid ${expired ? ROUGE : "rgba(212, 160, 23, 0.35)"}`,
+                                : inactive
+                                  ? "rgba(245, 240, 232, 0.04)"
+                                  : "rgba(212, 160, 23, 0.1)",
+                              border: `1px solid ${expired ? ROUGE : inactive ? "rgba(245, 240, 232, 0.15)" : "rgba(212, 160, 23, 0.35)"}`,
                             }}
                           >
-                            <p style={{ margin: 0, fontSize: "0.85rem" }}>
-                              Pending actif :{" "}
-                              <strong>{pointsFmt.format(v.pendingAmount)} pts</strong>
-                            </p>
-                            <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
-                              {expired
-                                ? "Expiré"
-                                : `Expire dans : ${formatCountdown(new Date(v.pendingExpiresAt!).getTime() - nowTick)} · ${daysRemaining(v.pendingExpiresAt!)} jour${daysRemaining(v.pendingExpiresAt!) !== 1 ? "s" : ""}`}
-                            </p>
+                            {v.statut === "pending" && !expired ? (
+                              <>
+                                <p style={{ margin: 0, fontSize: "0.85rem" }}>
+                                  Pending :{" "}
+                                  <strong>{pointsFmt.format(v.pendingPoints)} pts</strong>
+                                  {" · "}
+                                  {cadFmt.format(v.pendingDollars)}
+                                </p>
+                                <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
+                                  {v.dateExpiration
+                                    ? `${daysRemaining(v.dateExpiration)} jour${daysRemaining(v.dateExpiration) !== 1 ? "s" : ""} restant${daysRemaining(v.dateExpiration) !== 1 ? "s" : ""} · ${formatCountdown(new Date(v.dateExpiration).getTime() - nowTick)}`
+                                    : "—"}
+                                </p>
+                                <Link
+                                  href={`/videos/${v.videoId}`}
+                                  style={{
+                                    marginTop: "0.5rem",
+                                    display: "inline-block",
+                                    fontSize: "0.8rem",
+                                    color: VERT,
+                                    fontWeight: 600,
+                                    textDecoration: "none",
+                                  }}
+                                >
+                                  Regarder la vidéo et faire le quiz pour récupérer
+                                </Link>
+                              </>
+                            ) : v.statut === "recupere" ? (
+                              <p style={{ margin: 0, fontSize: "0.85rem", color: VERT }}>
+                                {v.pourcentageFixe != null
+                                  ? `${v.pourcentageFixe} % fixé ✓`
+                                  : "Récupéré ✓"}
+                              </p>
+                            ) : (
+                              <p style={{ margin: 0, fontSize: "0.85rem", color: ROUGE }}>
+                                Expiré — points transférés en PTC
+                              </p>
+                            )}
                           </div>
                         ) : (
                           <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.5 }}>
-                            Aucun pending actif
+                            Aucun pending
                           </p>
                         )}
                       </li>

@@ -42,3 +42,31 @@ export function isCollaborateurMemberType(raw: string | null | undefined): boole
   const lower = raw.trim().toLowerCase();
   return lower === "collaborateur" || raw.trim() === "Collaborateur";
 }
+
+/** Pourcentage PCOL fixé après quiz de récupération par le collaborateur (erreurs = total − bonnes). */
+export function pourcentageFixeFromErrors(errors: number): number {
+  if (errors <= 1) return 20;
+  if (errors === 2) return 18;
+  if (errors === 4) return 15;
+  if (errors >= 5) return 12;
+  return 18;
+}
+
+export type PcolEffectiveShares = {
+  totalShare: number;
+  immediateShare: number;
+  pendingShare: number;
+};
+
+/** Répartition effective (12 % / 8 % du total collaborateur) selon pourcentage fixé ou 20 % par défaut. */
+export function pcolEffectiveShares(pourcentageFixe: number | null | undefined): PcolEffectiveShares {
+  const totalPct = pourcentageFixe != null && Number.isFinite(pourcentageFixe)
+    ? pourcentageFixe / 100
+    : PCOL_COLLAB_TOTAL_SHARE;
+  const ratio = totalPct / PCOL_COLLAB_TOTAL_SHARE;
+  return {
+    totalShare: totalPct,
+    immediateShare: PCOL_COLLAB_IMMEDIATE_SHARE * ratio,
+    pendingShare: PCOL_COLLAB_PENDING_SHARE * ratio,
+  };
+}
