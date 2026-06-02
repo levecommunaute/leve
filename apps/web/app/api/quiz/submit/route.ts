@@ -334,9 +334,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const { data: pendingRow } = await svc
         .from("pending_pcol")
-        .select(
-          "id, points_pending_cumul, valeur_dollars_cumul, statut, points_amount, pts_pending",
-        )
+        .select("id, points_pending_cumul, valeur_dollars_cumul, statut")
         .eq("collaborateur_id", collaborateurId)
         .eq("video_id", videoId)
         .maybeSingle();
@@ -356,8 +354,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             statut: "recupere",
             pourcentage_fixe: pourcentageFixe,
             recupere_le: recupereLe,
-            recupere: true,
-            status: "recovered",
           })
           .eq("id", pendingRow.id);
 
@@ -374,8 +370,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           statut: "recupere",
           pourcentage_fixe: pourcentageFixe,
           recupere_le: recupereLe,
-          recupere: true,
-          status: "recovered",
         });
 
         if (insertErr) {
@@ -463,7 +457,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             .update({
               points_pending_cumul: prevPts + ptsPending,
               valeur_dollars_cumul: Math.round((prevDollars + valeurDollars) * 100) / 100,
-              points_amount: prevPts + ptsPending,
             })
             .eq("id", existingPending.id);
 
@@ -476,10 +469,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             video_id: videoId,
             points_pending_cumul: ptsPending,
             valeur_dollars_cumul: valeurDollars,
+            earned_date: new Date().toISOString(),
             date_expiration: dateExpiration.toISOString(),
             statut: "pending",
-            status: "pending",
-            points_amount: ptsPending,
           });
 
           if (pendingErr) {
