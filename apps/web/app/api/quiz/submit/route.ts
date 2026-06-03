@@ -449,23 +449,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const pendingStatut = String(existingPending?.statut ?? "pending");
       const isTransferred = pendingStatut === "transferred";
+      const isExpired = pendingStatut === "expired";
+      const isTransferredOrExpired = isTransferred || isExpired;
 
       let ptsCollab: number;
       let ptsPending: number;
       let ptsMembresNets: number;
       let ptsPtc = 0;
 
-      if (isTransferred) {
-        const pourcentageFixe = Number(
-          existingPending?.pourcentage_fixe ?? PCOL_COLLAB_IMMEDIATE_SHARE * 100,
-        );
+      if (isTransferredOrExpired) {
+        const pourcentageFixe = isExpired
+          ? 12
+          : Number(
+              existingPending?.pourcentage_fixe ??
+                PCOL_COLLAB_IMMEDIATE_SHARE * 100,
+            );
         const collabShare = pourcentageFixe / 100;
         ptsMembresNets = pcolNum(ptsPonderes * PCOL_MEMBER_SHARE);
         ptsCollab = pcolNum(ptsPonderes * collabShare);
         ptsPending = 0;
-        const ptcShare = PCOL_COLLAB_TOTAL_SHARE - collabShare;
-        if (ptcShare > 0) {
-          ptsPtc = pcolNum(ptsPonderes * ptcShare);
+        if (isExpired) {
+          ptsPtc = pcolNum(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
+        } else {
+          const ptcShare = PCOL_COLLAB_TOTAL_SHARE - collabShare;
+          if (ptcShare > 0) {
+            ptsPtc = pcolNum(ptsPonderes * ptcShare);
+          }
         }
       } else {
         ptsCollab = pcolNum(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
@@ -499,7 +508,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
 
-      const canAccumulatePending = !isTransferred && pendingStatut === "pending";
+      const canAccumulatePending = pendingStatut === "pending";
 
       if (ptsPending > 0 && canAccumulatePending) {
         const valeurParPt = await latestValeurParPt(svc);
