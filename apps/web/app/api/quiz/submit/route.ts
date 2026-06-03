@@ -8,7 +8,6 @@ import {
   PCOL_MEMBER_SHARE,
   pctRecupereFromErrors,
   pourcentageFixeFromPctRecupere,
-  splitPcolQuizPointsPonderes,
 } from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
@@ -280,15 +279,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const pointsEarned = correct * POINTS_PER_CORRECT;
     const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
 
-    const memberPointsEarned = isCollaborateurVideo
-      ? pointsEarned * 0.8
-      : pointsEarned;
-
-    const pointsEarnedPonderes = memberPointsEarned * multiplicateur;
+    const pointsEarnedPonderes = pointsEarned * multiplicateur;
     const pointsPerdusPonderes = pointsPerdus * multiplicateur;
 
     const multSuffix = ` · ×${multiplicateur}`;
-    const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur (80 %)" : "";
+    const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur" : "";
     const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses${multSuffix}${collabSuffix}`;
     const ptcDescription = `Quiz vidéo — points non obtenus${multSuffix}`;
 
@@ -300,7 +295,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }[] = [
       {
         membre_id: user.id,
-        amount: memberPointsEarned,
+        amount: pointsEarned,
         type: "quiz",
         description: quizDescription,
       },
@@ -324,7 +319,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }[] = [
       {
         membre_id: user.id,
-        pts_bruts: memberPointsEarned,
+        pts_bruts: pointsEarned,
         multiplicateur,
         pts_ponderes: pointsEarnedPonderes,
         type: "quiz",
@@ -360,7 +355,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         membre_id: user.id,
         video_id: videoId,
         score: correct,
-        points_awarded: memberPointsEarned,
+        points_awarded: pointsEarned,
       });
 
       if (qsError) {
@@ -437,8 +432,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
-      const ptsPonderes = pointsEarned * multiplicateur;
-      const pcolSplit = splitPcolQuizPointsPonderes(ptsPonderes);
+      const ptsPonderes = pointsEarnedPonderes;
 
       const ptsCollab = ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE;
       const ptsPending = ptsPonderes * PCOL_COLLAB_PENDING_SHARE;
@@ -448,7 +442,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         collaborateur_id: collaborateurId,
         video_id: videoId,
         mois,
-        pts_membres_gagnes: pcolSplit.ptsMembresGagnes,
+        pts_membres_gagnes: pointsEarned,
         pts_collab: ptsCollab,
         pts_membres_nets: ptsMembresNets,
         multiplicateur_membre: multiplicateur,
@@ -519,7 +513,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       success: true,
       score_correct: correct,
       score_total: denom,
-      points_earned: memberPointsEarned,
+      points_earned: pointsEarned,
       points_earned_bruts: pointsEarned,
       points_earned_ponderes: pointsEarnedPonderes,
       points_perdus: pointsPerdus,
