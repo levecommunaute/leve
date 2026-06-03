@@ -453,19 +453,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       let ptsCollab: number;
       let ptsPending: number;
       let ptsMembresNets: number;
-      let ptsPcolToPtc = 0;
+      let ptsPtc = 0;
 
       if (isTransferred) {
         const pourcentageFixe = Number(
           existingPending?.pourcentage_fixe ?? PCOL_COLLAB_IMMEDIATE_SHARE * 100,
         );
         const collabShare = pourcentageFixe / 100;
+        ptsMembresNets = pcolNum(ptsPonderes * PCOL_MEMBER_SHARE);
         ptsCollab = pcolNum(ptsPonderes * collabShare);
-        ptsMembresNets = pcolNum(ptsPonderes * (1 - pourcentageFixe / 100));
         ptsPending = 0;
-        const missingPct = pcolNum(PCOL_COLLAB_TOTAL_SHARE * 100 - pourcentageFixe);
-        if (missingPct > 0) {
-          ptsPcolToPtc = pcolNum(ptsPonderes * (missingPct / 100));
+        const ptcShare = PCOL_COLLAB_TOTAL_SHARE - collabShare;
+        if (ptcShare > 0) {
+          ptsPtc = pcolNum(ptsPonderes * ptcShare);
         }
       } else {
         ptsCollab = pcolNum(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
@@ -491,18 +491,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
       }
 
-      if (ptsPcolToPtc > 0 && !skipMemberCredits) {
-        const ptsBrutsPtc =
-          multiplicateur > 0 ? pcolNum(ptsPcolToPtc / multiplicateur) : 0;
-        const { error: ptcPpErr } = await svc.from("points_ponderes").insert({
-          membre_id: user.id,
-          pts_bruts: ptsBrutsPtc,
-          multiplicateur: pcolNum(multiplicateur),
-          pts_ponderes: ptsPcolToPtc,
-          type: "ptc",
-        });
-        if (ptcPpErr) {
-          return NextResponse.json({ error: ptcPpErr.message }, { status: 500 });
+      if (ptsPtc > 0 && !skipMemberCredits) {
+        const valeurParPt = await latestValeurParPt(svc);
+        const valeurPtc = pcolNum(ptsPtc * valeurParPt);
+        if (valeurPtc > 0) {
+          await crediterPtcBalance(svc, valeurPtc);
         }
       }
 
