@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
-import { PCOL_COLLAB_PENDING_SHARE } from "../../../../lib/pcol";
+import {
+  isCollaborateurMemberType,
+  PCOL_COLLAB_PENDING_SHARE,
+} from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +105,112 @@ async function sumPcolCollabPonderesForMonth(
   return total;
 }
 
+/** IDs des profils de type Collaborateur. */
+async function fetchActiveCollaborateurIds(
+  supabase: SupabaseClient,
+): Promise<Set<string>> {
+  const ids = new Set<string>();
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, member_type")
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const id = String(row.id ?? "").trim();
+      if (id && isCollaborateurMemberType(row.member_type)) {
+        ids.add(id);
+      }
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return ids;
+}
+
+/** SUM(pts_collab_ponderes) par collaborateur pour un mois PCOL (AAAA-MM). */
+async function aggregatePtsCollabByCollaborateurForMonth(
+  supabase: SupabaseClient,
+  monthKey: string,
+): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("pcol_transactions")
+      .select("collaborateur_id, pts_collab_ponderes")
+      .eq("mois", monthKey)
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const collaborateurId = String(row.collaborateur_id ?? "").trim();
+      if (!collaborateurId) continue;
+      const pts = Number(row.pts_collab_ponderes ?? 0);
+      if (!Number.isFinite(pts) || pts <= 0) continue;
+      totals.set(collaborateurId, (totals.get(collaborateurId) ?? 0) + pts);
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return totals;
+}
+
+type BankCredit = { membre_id: string; gain: number; description: string };
+
+/**
+ * Scénario B — 12 % garanti : crédite banque_membres pour chaque collaborateur actif
+ * (pts_collab_ponderes du mois × valeur_par_pt).
+ */
+async function crediterPcol12Garanti(
+  supabase: SupabaseClient,
+  monthKey: string,
+  valuePerPoint: number,
+): Promise<{ credits: BankCredit[]; totalDollars: number }> {
+  if (!Number.isFinite(valuePerPoint) || valuePerPoint <= 0) {
+    return { credits: [], totalDollars: 0 };
+  }
+
+  const actifs = await fetchActiveCollaborateurIds(supabase);
+  const ptsByCollab = await aggregatePtsCollabByCollaborateurForMonth(
+    supabase,
+    monthKey,
+  );
+
+  const credits: BankCredit[] = [];
+  let totalDollars = 0;
+
+  for (const [collaborateurId, ptsCollab] of ptsByCollab) {
+    if (!actifs.has(collaborateurId) || ptsCollab <= 0) continue;
+    const gain = ptsCollab * valuePerPoint;
+    if (!Number.isFinite(gain) || gain <= 0) continue;
+    totalDollars += gain;
+    credits.push({
+      membre_id: collaborateurId,
+      gain,
+      description: `PCOL 12% garanti — ${monthKey}`,
+    });
+  }
+
+  return { credits, totalDollars };
+}
+
 type PendingVideoKey = `${string}:${string}`;
 
 function pendingVideoKey(collaborateurId: string, videoId: string): PendingVideoKey {
@@ -155,7 +264,10 @@ async function aggregatePendingPtsByVideo(
   return totals;
 }
 
-/** Crédite valeur_dollars_cumul du pending actif avec la valeur_par_pt du mois. */
+/**
+ * Pending 8 % : pour chaque pending_pcol (statut pending), cumule
+ * pts_pending du mois × valeur_par_pt dans valeur_dollars_cumul.
+ */
 async function crediterPendingMensuel(
   supabase: SupabaseClient,
   monthKey: string,
@@ -202,7 +314,7 @@ async function crediterPendingMensuel(
 /** Crédite le solde $ et journalise le mouvement pour chaque membre. */
 async function creditBanqueMembres(
   supabase: SupabaseClient,
-  credits: { membre_id: string; gain: number; description: string }[],
+  credits: BankCredit[],
 ): Promise<void> {
   for (const { membre_id, gain, description } of credits) {
     if (!Number.isFinite(gain) || gain <= 0) continue;
@@ -365,8 +477,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
     const totalPcolDollars = totalPcolPtsPonderes * valuePerPoint;
     let totalDistributed = 0;
-    const bankCredits: { membre_id: string; gain: number; description: string }[] =
-      [];
+    const bankCredits: BankCredit[] = [];
 
     for (const m of quizWeights) {
       const payout = m.quiz_pts * valuePerPoint;
@@ -393,8 +504,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: histError.message }, { status: 500 });
     }
 
+    let pcol12DollarsCredites = 0;
     let pendingDollarsCredites = 0;
     try {
+      const { credits: pcol12Credits, totalDollars: pcol12Total } =
+        await crediterPcol12Garanti(supabase, monthKey, valuePerPoint);
+      pcol12DollarsCredites = pcol12Total;
+      bankCredits.push(...pcol12Credits);
+
       pendingDollarsCredites = await crediterPendingMensuel(
         supabase,
         monthKey,
@@ -440,6 +557,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ptc_total: ptcTotal,
       pcol_total: totalPcolDollars,
       pcol_pts_ponderes: totalPcolPtsPonderes,
+      pcol_12_dollars_credites: pcol12DollarsCredites,
       pending_dollars_credites: pendingDollarsCredites,
     });
   } catch (e) {
