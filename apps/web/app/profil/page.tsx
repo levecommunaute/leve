@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
@@ -201,7 +202,10 @@ export default function ProfilPage(): JSX.Element | null {
 
         <section style={{ borderRadius: "14px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
           <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}</p>
-          <h1 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0.75rem", lineHeight: 1.05, color: TEXT }}>{name}</h1>
+          <h1 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0.75rem", lineHeight: 1.05, color: TEXT, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
+            <span>{name}</span>
+            <RankBadge ptsPonderes={weightedPointsPmq} memberType={profile?.member_type} size="md" />
+          </h1>
           <span style={{ display: "inline-block", background: ROUGE, color: TEXT, fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0.35rem 0.75rem", borderRadius: "999px" }}>{memberLabel}</span>
         </section>
 

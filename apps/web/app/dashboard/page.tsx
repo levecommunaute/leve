@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
@@ -453,9 +454,18 @@ export default function DashboardPage(): JSX.Element | null {
               letterSpacing: "0.04em",
               margin: "0.35rem 0 0.75rem",
               lineHeight: 1.05,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "0.5rem",
             }}
           >
-            Bonjour {name}
+            <span>Bonjour {name}</span>
+            <RankBadge
+              ptsPonderes={weightedPointsPmq}
+              memberType={profile?.member_type}
+              size="md"
+            />
           </h1>
           <span
             style={{

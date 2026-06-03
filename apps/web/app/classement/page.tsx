@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 
@@ -67,6 +68,7 @@ type ClassementRow = {
   membre_id: string;
   display_name: string;
   member_type: string;
+  member_type_raw: string | null;
   multiplier: number;
   total_pts_ponderes: number;
 };
@@ -241,6 +243,7 @@ async function fetchClassementRows(
       membre_id: membreId,
       display_name: display,
       member_type: label,
+      member_type_raw: p?.member_type ?? null,
       multiplier: Number.isFinite(multiplier) ? multiplier : 1,
       total_pts_ponderes: totalPts,
     };
@@ -314,9 +317,18 @@ function PodiumCard({
           textAlign: "center",
           lineHeight: 1.25,
           wordBreak: "break-word",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.35rem",
         }}
       >
-        {row.display_name}
+        <span>{row.display_name}</span>
+        <RankBadge
+          ptsPonderes={row.total_pts_ponderes}
+          memberType={row.member_type_raw}
+        />
       </p>
       <span
         style={{
@@ -990,19 +1002,31 @@ export default function ClassementPage(): JSX.Element | null {
                               fontWeight: isMe ? 700 : 500,
                             }}
                           >
-                            {row.display_name}
-                            {isMe ? (
-                              <span
-                                style={{
-                                  marginLeft: "0.35rem",
-                                  fontSize: "0.65rem",
-                                  opacity: 0.65,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                (vous)
-                              </span>
-                            ) : null}
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                gap: "0.35rem",
+                              }}
+                            >
+                              <span>{row.display_name}</span>
+                              <RankBadge
+                                ptsPonderes={row.total_pts_ponderes}
+                                memberType={row.member_type_raw}
+                              />
+                              {isMe ? (
+                                <span
+                                  style={{
+                                    fontSize: "0.65rem",
+                                    opacity: 0.65,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  (vous)
+                                </span>
+                              ) : null}
+                            </span>
                           </td>
                           <td style={{ padding: "0.65rem 0.85rem" }}>
                             <span
