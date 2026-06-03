@@ -3,10 +3,12 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
   currentMonthKey,
-  pcolEffectiveShares,
+  PCOL_COLLAB_IMMEDIATE_SHARE,
+  PCOL_COLLAB_PENDING_SHARE,
   PCOL_MEMBER_SHARE,
-  pourcentageFixeFromErrors,
-  splitPcolQuizPoints,
+  pctRecupereFromErrors,
+  pourcentageFixeFromPctRecupere,
+  splitPcolQuizPointsPonderes,
 } from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +83,7 @@ async function creditBanqueMembre(
   if (fetchError) throw new Error(fetchError.message);
 
   const previous = Number(existing?.solde_dollars ?? 0);
-  const nextSolde = Math.round((previous + montant) * 100) / 100;
+  const nextSolde = previous + montant;
   const now = new Date().toISOString();
 
   if (existing) {
@@ -106,6 +108,44 @@ async function creditBanqueMembre(
     description,
   });
   if (mvtError) throw new Error(mvtError.message);
+}
+
+async function crediterPtcBalance(
+  svc: ReturnType<typeof getServiceSupabase>,
+  montant: number,
+): Promise<void> {
+  if (!Number.isFinite(montant) || montant <= 0) return;
+
+  const { data: bank, error: fetchErr } = await svc
+    .from("banque_leve")
+    .select("id, ptc_balance")
+    .limit(1)
+    .maybeSingle();
+
+  if (fetchErr) throw new Error(fetchErr.message);
+  if (!bank?.id) throw new Error("banque_leve introuvable");
+
+  const { error: updateErr } = await svc
+    .from("banque_leve")
+    .update({
+      ptc_balance: Number(bank.ptc_balance ?? 0) + montant,
+    })
+    .eq("id", bank.id);
+
+  if (updateErr) throw new Error(updateErr.message);
+}
+
+async function latestValeurParPt(
+  svc: ReturnType<typeof getServiceSupabase>,
+): Promise<number> {
+  const { data: redistRow } = await svc
+    .from("redistribution_history")
+    .select("value_per_point")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return Number(redistRow?.value_per_point ?? 0);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -241,7 +281,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
 
     const memberPointsEarned = isCollaborateurVideo
-      ? Math.round(pointsEarned * 0.8)
+      ? pointsEarned * 0.8
       : pointsEarned;
 
     const pointsEarnedPonderes = memberPointsEarned * multiplicateur;
@@ -329,7 +369,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (isOwnVideoQuiz && collaborateurId) {
-      const pourcentageFixe = pourcentageFixeFromErrors(errors);
+      const pctRecupere = pctRecupereFromErrors(errors);
+      const pourcentageFixe = pourcentageFixeFromPctRecupere(pctRecupere);
       const recupereLe = new Date().toISOString();
 
       const { data: pendingRow } = await svc
@@ -345,7 +386,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const dateExpiration = new Date(videoPublishedAt);
       dateExpiration.setUTCFullYear(dateExpiration.getUTCFullYear() + 1);
 
-      const dollarsToCredit = Number(pendingRow?.valeur_dollars_cumul ?? 0);
+      const valeurDollarsCumul = Number(pendingRow?.valeur_dollars_cumul ?? 0);
+      const valeurRecuperee =
+        valeurDollarsCumul > 0 && pctRecupere > 0
+          ? valeurDollarsCumul * (pctRecupere / PCOL_COLLAB_PENDING_SHARE)
+          : 0;
+      const valeurPtc = valeurDollarsCumul - valeurRecuperee;
 
       if (pendingRow?.id) {
         const { error: recupErr } = await svc
@@ -377,48 +423,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
 
-      if (dollarsToCredit > 0) {
+      if (valeurRecuperee > 0) {
         await creditBanqueMembre(
           svc,
           collaborateurId,
-          Math.round(dollarsToCredit * 100) / 100,
+          valeurRecuperee,
           `Récupération PCOL pending — vidéo ${videoId.slice(0, 8)}… (${pourcentageFixe} % fixé)`,
         );
       }
+
+      if (valeurPtc > 0) {
+        await crediterPtcBalance(svc, valeurPtc);
+      }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
-      const split = splitPcolQuizPoints(pointsEarned);
       const ptsPonderes = pointsEarned * multiplicateur;
+      const pcolSplit = splitPcolQuizPointsPonderes(ptsPonderes);
 
-      const { data: existingPending } = await svc
-        .from("pending_pcol")
-        .select("id, statut, pourcentage_fixe, points_pending_cumul, valeur_dollars_cumul")
-        .eq("collaborateur_id", collaborateurId)
-        .eq("video_id", videoId)
-        .maybeSingle();
-
-      const pourcentageFixe =
-        existingPending?.pourcentage_fixe != null
-          ? Number(existingPending.pourcentage_fixe)
-          : null;
-      const shares = pcolEffectiveShares(pourcentageFixe);
-
-      const ptsCollabDirect = Math.round(ptsPonderes * shares.immediateShare);
-      const ptsCollabPending = Math.round(ptsPonderes * shares.pendingShare);
-      const ptsMembresNetsBrut = Math.round(pointsEarned * PCOL_MEMBER_SHARE);
-      const ptsMembresNetsPonderes = Math.round(ptsPonderes * PCOL_MEMBER_SHARE);
+      const ptsCollab = ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE;
+      const ptsPending = ptsPonderes * PCOL_COLLAB_PENDING_SHARE;
+      const ptsMembresNets = ptsPonderes * PCOL_MEMBER_SHARE;
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
         video_id: videoId,
         mois,
-        pts_membres_gagnes: split.ptsMembresGagnes,
-        pts_collab: ptsCollabDirect,
-        pts_membres_nets: ptsMembresNetsBrut,
+        pts_membres_gagnes: pcolSplit.ptsMembresGagnes,
+        pts_collab: ptsCollab,
+        pts_membres_nets: ptsMembresNets,
         multiplicateur_membre: multiplicateur,
         pts_membres_gagnes_ponderes: ptsPonderes,
-        pts_collab_ponderes: ptsCollabDirect,
-        pts_membres_nets_ponderes: ptsMembresNetsPonderes,
+        pts_collab_ponderes: ptsCollab,
+        pts_membres_nets_ponderes: ptsMembresNets,
         type: "quiz",
       });
 
@@ -426,21 +462,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
       }
 
+      const { data: existingPending } = await svc
+        .from("pending_pcol")
+        .select("id, statut, points_pending_cumul, valeur_dollars_cumul")
+        .eq("collaborateur_id", collaborateurId)
+        .eq("video_id", videoId)
+        .maybeSingle();
+
       const pendingStatut = String(existingPending?.statut ?? "pending");
       const canAccumulatePending = !existingPending || pendingStatut === "pending";
 
-      if (ptsCollabPending > 0 && canAccumulatePending) {
-        const { data: redistRow } = await svc
-          .from("redistribution_history")
-          .select("value_per_point")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        const valeurParPt = Number(redistRow?.value_per_point ?? 0);
-        const ptsPending = ptsCollabPending;
-        const valeurDollars =
-          valeurParPt > 0 ? Math.round(ptsPending * valeurParPt * 100) / 100 : 0;
+      if (ptsPending > 0 && canAccumulatePending) {
+        const valeurParPt = await latestValeurParPt(svc);
+        const valeurDollarsNouveaux = ptsPending * valeurParPt;
 
         const videoPublishedAt = videoRow?.created_at
           ? new Date(String(videoRow.created_at))
@@ -456,7 +490,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             .from("pending_pcol")
             .update({
               points_pending_cumul: prevPts + ptsPending,
-              valeur_dollars_cumul: Math.round((prevDollars + valeurDollars) * 100) / 100,
+              valeur_dollars_cumul: prevDollars + valeurDollarsNouveaux,
             })
             .eq("id", existingPending.id);
 
@@ -468,7 +502,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             collaborateur_id: collaborateurId,
             video_id: videoId,
             points_pending_cumul: ptsPending,
-            valeur_dollars_cumul: valeurDollars,
+            valeur_dollars_cumul: valeurDollarsNouveaux,
             earned_date: new Date().toISOString(),
             date_expiration: dateExpiration.toISOString(),
             statut: "pending",

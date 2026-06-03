@@ -4,8 +4,9 @@ import { getFeatureFlag } from "./feature-flags";
 
 export const PA_USD_PER_PT = 5;
 
+/** Identité : valeurs NUMERIC sans arrondi centimes. */
 export function roundUSD(n: number): number {
-  return Math.round(n * 100) / 100;
+  return n;
 }
 
 export type FraisPlateformePalier = {
@@ -95,7 +96,7 @@ export async function calculerFraisPlateforme(
   }
 
   const pourcentage = palier.pourcentage;
-  const frais = roundUSD(montantUSD * (pourcentage / 100));
+  const frais = montantUSD * (pourcentage / 100);
   return { pourcentage, frais };
 }
 
@@ -105,20 +106,19 @@ const PA_TAX_FONCTIONNEMENT_SHARE = 0.25;
 
 export type TaxePaUtilisation = {
   coutUSD: number;
-  /** Taxe en pts : Math.round(pts × 2 %). */
   taxe: number;
   taxe_communaute: number;
   taxe_fonctionnement: number;
 };
 
-/** Taxe 2 % sur l'utilisation PA, débitée en pts (pas de frais plateforme). */
+/** Taxe 2 % sur l'utilisation PA, en pts et USD sans arrondi. */
 export function calculerTaxePaUtilisation(ptsEffectifs: number): TaxePaUtilisation {
-  const pts = Math.max(0, Math.round(ptsEffectifs));
-  const coutUSD = roundUSD(pts * PA_USD_PER_PT);
-  const taxe = pts > 0 ? Math.round(pts * PA_TAX_RATE) : 0;
-  const taxeUsd = roundUSD(taxe * PA_USD_PER_PT);
-  const taxe_communaute = roundUSD(taxeUsd * PA_TAX_COMMUNAUTE_SHARE);
-  const taxe_fonctionnement = roundUSD(taxeUsd * PA_TAX_FONCTIONNEMENT_SHARE);
+  const pts = Math.max(0, ptsEffectifs);
+  const coutUSD = pts * PA_USD_PER_PT;
+  const taxe = pts > 0 ? pts * PA_TAX_RATE : 0;
+  const taxeUsd = taxe * PA_USD_PER_PT;
+  const taxe_communaute = taxeUsd * PA_TAX_COMMUNAUTE_SHARE;
+  const taxe_fonctionnement = taxeUsd * PA_TAX_FONCTIONNEMENT_SHARE;
   return {
     coutUSD,
     taxe,
@@ -133,8 +133,8 @@ export async function crediterTaxePaUtilisation(
   taxe_communaute: number,
   taxe_fonctionnement: number,
 ): Promise<void> {
-  const taxePaAdd = roundUSD(taxe_communaute);
-  const fraisAdd = roundUSD(taxe_fonctionnement);
+  const taxePaAdd = taxe_communaute;
+  const fraisAdd = taxe_fonctionnement;
   if (taxePaAdd <= 0 && fraisAdd <= 0) return;
 
   const { data: bank, error: fetchErr } = await supabase
@@ -151,16 +151,12 @@ export async function crediterTaxePaUtilisation(
     .update({
       ...(taxePaAdd > 0
         ? {
-            taxe_pa_balance: roundUSD(
-              Number(bank.taxe_pa_balance ?? 0) + taxePaAdd,
-            ),
+            taxe_pa_balance: Number(bank.taxe_pa_balance ?? 0) + taxePaAdd,
           }
         : {}),
       ...(fraisAdd > 0
         ? {
-            frais_plateforme_balance: roundUSD(
-              Number(bank.frais_plateforme_balance ?? 0) + fraisAdd,
-            ),
+            frais_plateforme_balance: Number(bank.frais_plateforme_balance ?? 0) + fraisAdd,
           }
         : {}),
     })
@@ -188,7 +184,7 @@ export async function crediterPaBalance(
   const { error: updateErr } = await supabase
     .from("banque_leve")
     .update({
-      pa_balance: roundUSD(Number(bank.pa_balance ?? 0) + costUsd),
+      pa_balance: Number(bank.pa_balance ?? 0) + costUsd,
     })
     .eq("id", bank.id);
 
@@ -214,9 +210,7 @@ export async function crediterFraisPlateformeBalance(
   const { error: updateErr } = await supabase
     .from("banque_leve")
     .update({
-      frais_plateforme_balance: roundUSD(
-        Number(bank.frais_plateforme_balance ?? 0) + frais,
-      ),
+      frais_plateforme_balance: Number(bank.frais_plateforme_balance ?? 0) + frais,
     })
     .eq("id", bank.id);
 

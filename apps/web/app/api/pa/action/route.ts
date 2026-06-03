@@ -4,8 +4,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
   PA_USD_PER_PT,
+  calculerTaxePaUtilisation,
   crediterTaxePaUtilisation,
-  roundUSD,
 } from "../../../../lib/frais-plateforme";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const supabase = getServiceSupabase();
 
-  const pts = Math.round(ptsPa);
+  const pts = ptsPa;
   let effectiveDebit = pts;
 
   if (type === "vote_concours") {
@@ -157,13 +157,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const ptsDebit = Math.round(effectiveDebit);
-  const taxUsd =
-    ptsDebit > 0
-      ? Math.round(ptsDebit * PA_USD_PER_PT * 0.02 * 100) / 100
-      : 0;
-  const taxe_communaute = roundUSD(taxUsd * 0.75);
-  const taxe_fonctionnement = roundUSD(taxUsd * 0.25);
+  const ptsDebit = effectiveDebit;
+  const { taxe_communaute, taxe_fonctionnement } = calculerTaxePaUtilisation(ptsDebit);
+  const taxUsd = ptsDebit > 0 ? ptsDebit * PA_USD_PER_PT * 0.02 : 0;
 
   const { data: txs, error: paTxError } = await supabase
     .from("pa_transactions")

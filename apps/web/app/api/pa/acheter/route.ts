@@ -7,7 +7,6 @@ import {
   calculerFraisPlateforme,
   crediterFraisPlateformeBalance,
   crediterPaBalance,
-  roundUSD,
 } from "../../../../lib/frais-plateforme";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +15,6 @@ const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const PA_PRICE_CAD = PA_USD_PER_PT;
-
-function round2(n: number): number {
-  return roundUSD(n);
-}
 
 async function resolveAuthUser(
   request: NextRequest,
@@ -73,10 +68,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "pts_pa invalide (entier ≥ 1)" }, { status: 400 });
   }
 
-  const cout = round2(ptsPa * PA_PRICE_CAD);
+  const cout = ptsPa * PA_PRICE_CAD;
   const { pourcentage: fraisPct, frais: fraisPlateforme } =
     await calculerFraisPlateforme(cout);
-  const totalDebit = round2(cout + fraisPlateforme);
+  const totalDebit = cout + fraisPlateforme;
 
   const supabase = getServiceSupabase();
 
@@ -95,7 +90,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Solde insuffisant" }, { status: 400 });
   }
 
-  const nextSolde = round2(solde - totalDebit);
+  const nextSolde = solde - totalDebit;
   const now = new Date().toISOString();
 
   const { error: updateBanqueError } = await supabase

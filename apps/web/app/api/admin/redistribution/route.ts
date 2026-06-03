@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
+import { PCOL_COLLAB_PENDING_SHARE } from "../../../../lib/pcol";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +70,6 @@ async function aggregatePonderesByMember(
   return totals;
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
 /** SUM(pts_collab_ponderes) pour un mois PCOL (AAAA-MM). */
 async function sumPcolCollabPonderesForMonth(
   supabase: SupabaseClient,
@@ -103,6 +100,103 @@ async function sumPcolCollabPonderesForMonth(
   }
 
   return total;
+}
+
+type PendingVideoKey = `${string}:${string}`;
+
+function pendingVideoKey(collaborateurId: string, videoId: string): PendingVideoKey {
+  return `${collaborateurId}:${videoId}`;
+}
+
+/** Points pending (8 % pondérés) par vidéo / collaborateur pour le mois PCOL. */
+async function aggregatePendingPtsByVideo(
+  supabase: SupabaseClient,
+  monthKey: string,
+): Promise<Map<PendingVideoKey, { collaborateurId: string; videoId: string; pts: number }>> {
+  const totals = new Map<
+    PendingVideoKey,
+    { collaborateurId: string; videoId: string; pts: number }
+  >();
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("pcol_transactions")
+      .select("collaborateur_id, video_id, pts_membres_gagnes_ponderes")
+      .eq("mois", monthKey)
+      .eq("type", "quiz")
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const collaborateurId = String(row.collaborateur_id ?? "").trim();
+      const videoId = String(row.video_id ?? "").trim();
+      if (!collaborateurId || !videoId) continue;
+      const ptsPonderes = Number(row.pts_membres_gagnes_ponderes ?? 0);
+      if (!Number.isFinite(ptsPonderes) || ptsPonderes <= 0) continue;
+      const pendingPts = ptsPonderes * PCOL_COLLAB_PENDING_SHARE;
+      const key = pendingVideoKey(collaborateurId, videoId);
+      const prev = totals.get(key);
+      totals.set(key, {
+        collaborateurId,
+        videoId,
+        pts: (prev?.pts ?? 0) + pendingPts,
+      });
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return totals;
+}
+
+/** Crédite valeur_dollars_cumul du pending actif avec la valeur_par_pt du mois. */
+async function crediterPendingMensuel(
+  supabase: SupabaseClient,
+  monthKey: string,
+  valuePerPoint: number,
+): Promise<number> {
+  if (!Number.isFinite(valuePerPoint) || valuePerPoint <= 0) return 0;
+
+  const pendingPtsByVideo = await aggregatePendingPtsByVideo(supabase, monthKey);
+  if (pendingPtsByVideo.size === 0) return 0;
+
+  let totalDollarsCredites = 0;
+
+  for (const { collaborateurId, videoId, pts: nouveauxPtsPending } of pendingPtsByVideo.values()) {
+    if (nouveauxPtsPending <= 0) continue;
+
+    const { data: pendingRow, error: fetchErr } = await supabase
+      .from("pending_pcol")
+      .select("id, valeur_dollars_cumul")
+      .eq("collaborateur_id", collaborateurId)
+      .eq("video_id", videoId)
+      .eq("statut", "pending")
+      .maybeSingle();
+
+    if (fetchErr) throw new Error(fetchErr.message);
+    if (!pendingRow?.id) continue;
+
+    const dollarAdd = nouveauxPtsPending * valuePerPoint;
+    totalDollarsCredites += dollarAdd;
+    const prevDollars = Number(pendingRow.valeur_dollars_cumul ?? 0);
+
+    const { error: updErr } = await supabase
+      .from("pending_pcol")
+      .update({
+        valeur_dollars_cumul: prevDollars + dollarAdd,
+      })
+      .eq("id", pendingRow.id);
+
+    if (updErr) throw new Error(updErr.message);
+  }
+
+  return totalDollarsCredites;
 }
 
 /** Crédite le solde $ et journalise le mouvement pour chaque membre. */
@@ -269,7 +363,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       supabase,
       monthKey,
     );
-    const totalPcolDollars = round2(totalPcolPtsPonderes * valuePerPoint);
+    const totalPcolDollars = totalPcolPtsPonderes * valuePerPoint;
     let totalDistributed = 0;
     const bankCredits: { membre_id: string; gain: number; description: string }[] =
       [];
@@ -297,6 +391,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (histError) {
       return NextResponse.json({ error: histError.message }, { status: 500 });
+    }
+
+    let pendingDollarsCredites = 0;
+    try {
+      pendingDollarsCredites = await crediterPendingMensuel(
+        supabase,
+        monthKey,
+        valuePerPoint,
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
     for (let i = 0; i < bankCredits.length; i += MOUVEMENT_BATCH_SIZE) {
@@ -334,6 +440,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ptc_total: ptcTotal,
       pcol_total: totalPcolDollars,
       pcol_pts_ponderes: totalPcolPtsPonderes,
+      pending_dollars_credites: pendingDollarsCredites,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

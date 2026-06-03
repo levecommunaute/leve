@@ -12,22 +12,29 @@ export type PcolQuizSplit = {
   ptsCollabTotal: number;
 };
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
 export function splitPcolQuizPoints(pointsEarned: number): PcolQuizSplit {
   const ptsMembresGagnes = pointsEarned;
-  const ptsMembresNets = round2(pointsEarned * PCOL_MEMBER_SHARE);
-  const ptsPending = round2(pointsEarned * PCOL_COLLAB_PENDING_SHARE);
-  const ptsCollabImmediate = round2(pointsEarned * PCOL_COLLAB_IMMEDIATE_SHARE);
-  const ptsCollabTotal = round2(ptsCollabImmediate + ptsPending);
+  const ptsMembresNets = pointsEarned * PCOL_MEMBER_SHARE;
+  const ptsPending = pointsEarned * PCOL_COLLAB_PENDING_SHARE;
+  const ptsCollabImmediate = pointsEarned * PCOL_COLLAB_IMMEDIATE_SHARE;
+  const ptsCollabTotal = ptsCollabImmediate + ptsPending;
   return {
     ptsMembresGagnes,
     ptsMembresNets,
     ptsCollabImmediate,
     ptsPending,
     ptsCollabTotal,
+  };
+}
+
+/** Répartition PCOL sur points pondérés (pts_bruts × multiplicateur). */
+export function splitPcolQuizPointsPonderes(ptsPonderes: number): PcolQuizSplit {
+  return {
+    ptsMembresGagnes: ptsPonderes,
+    ptsMembresNets: ptsPonderes * PCOL_MEMBER_SHARE,
+    ptsCollabImmediate: ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE,
+    ptsPending: ptsPonderes * PCOL_COLLAB_PENDING_SHARE,
+    ptsCollabTotal: ptsPonderes * PCOL_COLLAB_TOTAL_SHARE,
   };
 }
 
@@ -43,13 +50,23 @@ export function isCollaborateurMemberType(raw: string | null | undefined): boole
   return lower === "collaborateur" || raw.trim() === "Collaborateur";
 }
 
-/** Pourcentage PCOL fixé après quiz de récupération par le collaborateur (erreurs = total − bonnes). */
+/** Part du pending (8 %) récupérable selon le nombre d'erreurs au quiz de récupération. */
+export function pctRecupereFromErrors(errors: number): number {
+  if (errors <= 1) return PCOL_COLLAB_PENDING_SHARE;
+  if (errors === 2) return 0.06;
+  if (errors === 4) return 0.03;
+  if (errors >= 5) return 0;
+  return 0.06;
+}
+
+/** Pourcentage PCOL fixé : 12 % + part pending récupérée (× 100). */
+export function pourcentageFixeFromPctRecupere(pctRecupere: number): number {
+  return 12 + pctRecupere * 100;
+}
+
+/** @deprecated Utiliser pourcentageFixeFromPctRecupere(pctRecupereFromErrors(errors)). */
 export function pourcentageFixeFromErrors(errors: number): number {
-  if (errors <= 1) return 20;
-  if (errors === 2) return 18;
-  if (errors === 4) return 15;
-  if (errors >= 5) return 12;
-  return 18;
+  return pourcentageFixeFromPctRecupere(pctRecupereFromErrors(errors));
 }
 
 export type PcolEffectiveShares = {
