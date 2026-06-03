@@ -5,6 +5,7 @@ import {
   currentMonthKey,
   PCOL_COLLAB_IMMEDIATE_SHARE,
   PCOL_COLLAB_PENDING_SHARE,
+  PCOL_COLLAB_TOTAL_SHARE,
   PCOL_MEMBER_SHARE,
   pctRecupereFromErrors,
   pourcentageFixeFromPctRecupere,
@@ -439,9 +440,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const mois = currentMonthKey();
       const ptsPonderes = pcolNum(pointsEarnedPonderes);
 
-      const ptsCollab = pcolNum(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
-      const ptsPending = pcolNum(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
-      const ptsMembresNets = pcolNum(ptsPonderes * PCOL_MEMBER_SHARE);
+      const { data: existingPending } = await svc
+        .from("pending_pcol")
+        .select("id, statut, pourcentage_fixe, points_pending_cumul, valeur_dollars_cumul")
+        .eq("collaborateur_id", collaborateurId)
+        .eq("video_id", videoId)
+        .maybeSingle();
+
+      const pendingStatut = String(existingPending?.statut ?? "pending");
+      const isTransferred = pendingStatut === "transferred";
+
+      let ptsCollab: number;
+      let ptsPending: number;
+      let ptsMembresNets: number;
+      let ptsPcolToPtc = 0;
+
+      if (isTransferred) {
+        const pourcentageFixe = Number(
+          existingPending?.pourcentage_fixe ?? PCOL_COLLAB_IMMEDIATE_SHARE * 100,
+        );
+        const collabShare = pourcentageFixe / 100;
+        ptsCollab = pcolNum(ptsPonderes * collabShare);
+        ptsMembresNets = pcolNum(ptsPonderes * (1 - pourcentageFixe / 100));
+        ptsPending = 0;
+        const missingPct = pcolNum(PCOL_COLLAB_TOTAL_SHARE * 100 - pourcentageFixe);
+        if (missingPct > 0) {
+          ptsPcolToPtc = pcolNum(ptsPonderes * (missingPct / 100));
+        }
+      } else {
+        ptsCollab = pcolNum(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
+        ptsPending = pcolNum(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
+        ptsMembresNets = pcolNum(ptsPonderes * PCOL_MEMBER_SHARE);
+      }
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
@@ -461,15 +491,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: pcolErr.message }, { status: 500 });
       }
 
-      const { data: existingPending } = await svc
-        .from("pending_pcol")
-        .select("id, statut, points_pending_cumul, valeur_dollars_cumul")
-        .eq("collaborateur_id", collaborateurId)
-        .eq("video_id", videoId)
-        .maybeSingle();
+      if (ptsPcolToPtc > 0 && !skipMemberCredits) {
+        const ptsBrutsPtc =
+          multiplicateur > 0 ? pcolNum(ptsPcolToPtc / multiplicateur) : 0;
+        const { error: ptcPpErr } = await svc.from("points_ponderes").insert({
+          membre_id: user.id,
+          pts_bruts: ptsBrutsPtc,
+          multiplicateur: pcolNum(multiplicateur),
+          pts_ponderes: ptsPcolToPtc,
+          type: "ptc",
+        });
+        if (ptcPpErr) {
+          return NextResponse.json({ error: ptcPpErr.message }, { status: 500 });
+        }
+      }
 
-      const pendingStatut = String(existingPending?.statut ?? "pending");
-      const canAccumulatePending = !existingPending || pendingStatut === "pending";
+      const canAccumulatePending = !isTransferred && pendingStatut === "pending";
 
       if (ptsPending > 0 && canAccumulatePending) {
         const valeurParPt = await latestValeurParPt(svc);
