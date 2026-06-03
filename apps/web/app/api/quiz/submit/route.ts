@@ -14,6 +14,11 @@ export const dynamic = "force-dynamic";
 
 const POINTS_PER_CORRECT = 4;
 
+/** Évite les artefacts flottants (ex. 19.200000000000003) en base PCOL. */
+function pcolNum(v: number): number {
+  return parseFloat(Number(v).toPrecision(10));
+}
+
 /** "a" | "b" | "c" | "d" → index 0–3 dans le tableau choix. */
 function letterToIndex(letter: string): number {
   const l = letter.trim().toLowerCase();
@@ -432,20 +437,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
-      const ptsPonderes = pointsEarnedPonderes;
+      const ptsPonderes = pcolNum(pointsEarnedPonderes);
 
-      const ptsCollab = ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE;
-      const ptsPending = ptsPonderes * PCOL_COLLAB_PENDING_SHARE;
-      const ptsMembresNets = ptsPonderes * PCOL_MEMBER_SHARE;
+      const ptsCollab = pcolNum(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
+      const ptsPending = pcolNum(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
+      const ptsMembresNets = pcolNum(ptsPonderes * PCOL_MEMBER_SHARE);
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
         collaborateur_id: collaborateurId,
         video_id: videoId,
         mois,
-        pts_membres_gagnes: pointsEarned,
+        pts_membres_gagnes: pcolNum(pointsEarned),
         pts_collab: ptsCollab,
         pts_membres_nets: ptsMembresNets,
-        multiplicateur_membre: multiplicateur,
+        multiplicateur_membre: pcolNum(multiplicateur),
         pts_membres_gagnes_ponderes: ptsPonderes,
         pts_collab_ponderes: ptsCollab,
         pts_membres_nets_ponderes: ptsMembresNets,
