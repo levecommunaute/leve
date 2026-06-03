@@ -1,6 +1,12 @@
 import type { CSSProperties, JSX } from "react";
 import { getRankBadge, rankBadgeStyle } from "../lib/rank-badge";
 
+const badgeStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.25rem",
+} as const;
+
 type RankBadgeProps = {
   ptsPonderes: number;
   memberType?: string | null;
@@ -22,9 +28,7 @@ export function RankBadge({
     <span
       title={`Rang : ${info.label}`}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.25rem",
+        ...badgeStyle,
         fontSize: isSmall ? "0.62rem" : "0.72rem",
         fontWeight: 600,
         letterSpacing: "0.06em",
