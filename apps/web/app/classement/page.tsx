@@ -67,7 +67,8 @@ type ClassementRow = {
   membre_id: string;
   display_name: string;
   member_type: string;
-  total_points: number;
+  multiplier: number;
+  total_pts_ponderes: number;
 };
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", {
@@ -98,6 +99,26 @@ function formatMemberTypeLabel(raw: string | null | undefined): string {
   if (lower === "fondateur" || n === "Fondateur") return "Fondateur";
   if (lower === "collaborateur" || n === "Collaborateur") return "Collaborateur";
   return n;
+}
+
+function formatMultiplier(raw: number | string | null | undefined): string {
+  const n = Number(raw ?? 1);
+  const val = Number.isFinite(n) ? n : 1;
+  return `×${val.toFixed(1)}`;
+}
+
+function rankLabel(rank: number): string {
+  if (rank === 1) return "🥇 #1";
+  if (rank === 2) return "🥈 #2";
+  if (rank === 3) return "🥉 #3";
+  return `#${rank}`;
+}
+
+function currentMonthLabel(): string {
+  return new Date().toLocaleDateString("fr-CA", {
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function memberTypeBadgeStyle(label: string): {
@@ -133,16 +154,16 @@ function memberTypeBadgeStyle(label: string): {
   }
 }
 
-async function aggregatePointsByUser(
+async function aggregateQuizPtsPonderesByMember(
   accessToken: string,
 ): Promise<Map<string, number>> {
   const totals = new Map<string, number>();
   let offset = 0;
   for (;;) {
     const { data, error } = await restJson<
-      { membre_id?: unknown; amount?: unknown }[]
+      { membre_id?: unknown; pts_ponderes?: unknown }[]
     >(
-      `points_transactions?type=eq.quiz&select=membre_id,amount&offset=${offset}&limit=${PAGE_SIZE}`,
+      `points_ponderes?type=eq.quiz&select=membre_id,pts_ponderes&offset=${offset}&limit=${PAGE_SIZE}`,
       accessToken,
     );
 
@@ -152,9 +173,10 @@ async function aggregatePointsByUser(
 
     const rows = data ?? [];
     for (const row of rows) {
-      const uid = String(row.membre_id ?? "");
+      const uid = String(row.membre_id ?? "").trim();
       if (!uid) continue;
-      const amt = Number(row.amount ?? 0);
+      const amt = Number(row.pts_ponderes ?? 0);
+      if (!Number.isFinite(amt)) continue;
       totals.set(uid, (totals.get(uid) ?? 0) + amt);
     }
 
@@ -169,30 +191,32 @@ async function aggregatePointsByUser(
 async function fetchClassementRows(
   accessToken: string,
 ): Promise<ClassementRow[]> {
-  const totals = await aggregatePointsByUser(accessToken);
+  const totals = await aggregateQuizPtsPonderesByMember(accessToken);
 
-  const sortedIds = [...totals.entries()]
+  const sortedEntries = [...totals.entries()]
+    .filter(([, pts]) => pts > 0)
     .sort((a, b) => {
       if (b[1] !== a[1]) return b[1] - a[1];
       return a[0].localeCompare(b[0]);
-    })
-    .slice(0, 100)
-    .map(([id]) => id);
+    });
 
-  if (sortedIds.length === 0) {
+  if (sortedEntries.length === 0) {
     return [];
   }
 
+  const sortedIds = sortedEntries.map(([id]) => id);
   const inList = sortedIds.map(encodeURIComponent).join(",");
   const { data: profiles, error: profilesError } = await restJson<
     {
       id: string;
       display_name: string | null;
       member_type: string | null;
+      multiplier: number | string | null;
+      numero_membre: string | null;
       email: string | null;
     }[]
   >(
-    `profiles?id=in.(${inList})&select=id,display_name,member_type,email`,
+    `profiles?id=in.(${inList})&select=id,display_name,member_type,multiplier,numero_membre,email`,
     accessToken,
   );
 
@@ -201,30 +225,24 @@ async function fetchClassementRows(
   }
 
   const profileMap = new Map(
-    (profiles ?? []).map((p) => [
-      p.id as string,
-      p as {
-        id: string;
-        display_name: string | null;
-        member_type: string | null;
-        email: string | null;
-      },
-    ]),
+    (profiles ?? []).map((p) => [p.id as string, p]),
   );
 
-  return sortedIds.map((membreId, index) => {
+  return sortedEntries.map(([membreId, totalPts], index) => {
     const p = profileMap.get(membreId);
     const label = formatMemberTypeLabel(p?.member_type ?? null);
     const display =
       p?.display_name?.trim() ||
       p?.email?.split("@")[0] ||
       "Membre";
+    const multiplier = Number(p?.multiplier ?? 1);
     return {
       rank: index + 1,
       membre_id: membreId,
       display_name: display,
       member_type: label,
-      total_points: totals.get(membreId) ?? 0,
+      multiplier: Number.isFinite(multiplier) ? multiplier : 1,
+      total_pts_ponderes: totalPts,
     };
   });
 }
@@ -286,7 +304,7 @@ function PodiumCard({
           boxShadow: `0 4px 12px ${accent}66`,
         }}
       >
-        {place}
+        {place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}
       </div>
       <p
         style={{
@@ -308,12 +326,22 @@ function PodiumCard({
           textTransform: "uppercase",
           padding: "0.25rem 0.5rem",
           borderRadius: "999px",
-          marginBottom: "0.5rem",
+          marginBottom: "0.35rem",
           ...badge,
         }}
       >
         {row.member_type}
       </span>
+      <p
+        style={{
+          margin: "0 0 0.5rem",
+          fontSize: "0.78rem",
+          fontWeight: 600,
+          opacity: 0.75,
+        }}
+      >
+        {formatMultiplier(row.multiplier)}
+      </p>
       <p
         style={{
           margin: 0,
@@ -322,10 +350,10 @@ function PodiumCard({
           color: accent,
         }}
       >
-        {pointsFmt.format(row.total_points)}
+        {pointsFmt.format(row.total_pts_ponderes)}
       </p>
       <p style={{ margin: "0.15rem 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-        pts PMQ
+        pts pondérés
       </p>
     </div>
   );
@@ -761,7 +789,7 @@ export default function ClassementPage(): JSX.Element | null {
               letterSpacing: "0.02em",
             }}
           >
-            Mis à jour en temps réel
+            Classement du mois — {currentMonthLabel()} · mis à jour en temps réel
           </p>
           {lastRefresh ? (
             <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", opacity: 0.45 }}>
@@ -785,8 +813,7 @@ export default function ClassementPage(): JSX.Element | null {
               lineHeight: 1.55,
             }}
           >
-            Aucun point enregistré pour le moment. Le podium apparaîtra dès que les
-            membres accumuleront des PMQ.
+            Aucun classement disponible pour ce mois
           </p>
         ) : null}
 
@@ -866,7 +893,7 @@ export default function ClassementPage(): JSX.Element | null {
                 opacity: 0.88,
               }}
             >
-              Classement 4 — 100
+              Classement complet
             </h2>
             <div
               style={{
@@ -912,11 +939,20 @@ export default function ClassementPage(): JSX.Element | null {
                         style={{
                           padding: "0.75rem 0.85rem",
                           fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Mult.
+                      </th>
+                      <th
+                        style={{
+                          padding: "0.75rem 0.85rem",
+                          fontWeight: 600,
                           textAlign: "right",
                           whiteSpace: "nowrap",
                         }}
                       >
-                        Points
+                        Pts pondérés
                       </th>
                     </tr>
                   </thead>
@@ -943,9 +979,10 @@ export default function ClassementPage(): JSX.Element | null {
                               fontWeight: 700,
                               opacity: isMe ? 1 : 0.85,
                               color: isMe ? GOLD : TEXT,
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            {row.rank}
+                            {rankLabel(row.rank)}
                           </td>
                           <td
                             style={{
@@ -986,13 +1023,23 @@ export default function ClassementPage(): JSX.Element | null {
                           <td
                             style={{
                               padding: "0.65rem 0.85rem",
+                              fontWeight: 600,
+                              opacity: 0.85,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {formatMultiplier(row.multiplier)}
+                          </td>
+                          <td
+                            style={{
+                              padding: "0.65rem 0.85rem",
                               textAlign: "right",
                               fontWeight: 700,
                               color: GOLD,
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {pointsFmt.format(row.total_points)}
+                            {pointsFmt.format(row.total_pts_ponderes)}
                           </td>
                         </tr>
                       );
