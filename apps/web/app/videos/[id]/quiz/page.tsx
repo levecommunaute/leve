@@ -440,7 +440,7 @@ export default function VideoQuizPage(): React.JSX.Element {
                   Score : {result.score_correct} / {result.score_total}
                 </p>
                 <p style={{ marginTop: "0.5rem" }}>
-                  +{result.points_earned} points
+                  +{result.points_earned.toFixed(2)} points
                 </p>
               </>
             ) : null}
