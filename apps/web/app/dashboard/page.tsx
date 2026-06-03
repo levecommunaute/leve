@@ -108,6 +108,44 @@ const pointsFmt = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 2,
 });
 
+const PP_PAGE_SIZE = 1000;
+
+async function sumQuizPtsPonderesForMember(
+  accessToken: string,
+  membreId: string,
+): Promise<number> {
+  const { data, error } = await restJson<{ pts_ponderes?: unknown }[]>(
+    `points_ponderes?membre_id=eq.${encodeURIComponent(membreId)}&type=eq.quiz&select=pts_ponderes`,
+    accessToken,
+  );
+  if (error) return 0;
+  return (data ?? []).reduce(
+    (acc, row) => acc + Number(row.pts_ponderes ?? 0),
+    0,
+  );
+}
+
+async function sumAllQuizPtsPonderes(
+  accessToken: string,
+): Promise<number> {
+  let total = 0;
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await restJson<{ pts_ponderes?: unknown }[]>(
+      `points_ponderes?type=eq.quiz&select=pts_ponderes&offset=${offset}&limit=${PP_PAGE_SIZE}`,
+      accessToken,
+    );
+    if (error) return 0;
+    const rows = data ?? [];
+    for (const row of rows) {
+      total += Number(row.pts_ponderes ?? 0);
+    }
+    if (rows.length < PP_PAGE_SIZE) break;
+    offset += PP_PAGE_SIZE;
+  }
+  return total;
+}
+
 export default function DashboardPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -115,6 +153,9 @@ export default function DashboardPage(): JSX.Element | null {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
+  const [pmqBalance, setPmqBalance] = useState(0);
+  const [memberPtsPonderes, setMemberPtsPonderes] = useState(0);
+  const [totalPtsPonderesAll, setTotalPtsPonderesAll] = useState(0);
   const [lastRedistributionCad, setLastRedistributionCad] = useState<
     number | null
   >(null);
@@ -149,23 +190,30 @@ export default function DashboardPage(): JSX.Element | null {
     const token = activeSession.access_token;
     const uid = activeSession.user.id;
 
-    const [profileRes, txRes, histRes] = await Promise.all([
-      restJson<ProfileRow[]>(
-        `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at`,
-        token,
-      ),
-      restJson<{ amount?: unknown }[]>(
-        `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz&select=amount`,
-        token,
-      ),
-      restJson<{ total_revenue?: unknown; month?: string }[]>(
-        `redistribution_history?select=total_revenue,month&order=month.desc&limit=1`,
-        token,
-      ),
-    ]);
+    const [profileRes, txRes, histRes, bankRes, memberPpRes, totalPp] =
+      await Promise.all([
+        restJson<ProfileRow[]>(
+          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at`,
+          token,
+        ),
+        restJson<{ amount?: unknown }[]>(
+          `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz&select=amount`,
+          token,
+        ),
+        restJson<{ total_revenue?: unknown; month?: string }[]>(
+          `redistribution_history?select=total_revenue,month&order=month.desc&limit=1`,
+          token,
+        ),
+        restJson<{ pmq_balance?: unknown }[]>(
+          `banque_leve?select=pmq_balance&limit=1`,
+          token,
+        ),
+        sumQuizPtsPonderesForMember(token, uid),
+        sumAllQuizPtsPonderes(token),
+      ]);
 
     const errMsg =
-      profileRes.error ?? txRes.error ?? histRes.error ?? null;
+      profileRes.error ?? txRes.error ?? histRes.error ?? bankRes.error ?? null;
     setLoadError(errMsg);
 
     if (!profileRes.error) {
@@ -195,6 +243,16 @@ export default function DashboardPage(): JSX.Element | null {
         setLastRedistributionCad(null);
       }
     }
+
+    if (bankRes.error) {
+      setPmqBalance(0);
+    } else {
+      const brow = (bankRes.data ?? [])[0];
+      setPmqBalance(Number(brow?.pmq_balance ?? 0));
+    }
+
+    setMemberPtsPonderes(memberPpRes);
+    setTotalPtsPonderesAll(totalPp);
   }, []);
 
   useEffect(() => {
@@ -301,6 +359,13 @@ export default function DashboardPage(): JSX.Element | null {
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
   const weightedPointsPmq = totalPointsPmq * profileMultiplier;
+  const redistributionPending =
+    pmqBalance <= 0 ||
+    memberPtsPonderes <= 0 ||
+    totalPtsPonderesAll <= 0;
+  const redistributionEstimate = redistributionPending
+    ? 0
+    : pmqBalance * (memberPtsPonderes / totalPtsPonderesAll);
   const isNewMember =
     totalPointsPmq === 0 && lastRedistributionCad === null;
 
@@ -549,6 +614,44 @@ export default function DashboardPage(): JSX.Element | null {
               {pointsFmt.format(weightedPointsPmq)} pts · ×
               {profileMultiplier.toFixed(1)}
             </p>
+            {redistributionPending ? (
+              <p
+                style={{
+                  margin: "0.5rem 0 0",
+                  fontSize: "0.82rem",
+                  opacity: 0.75,
+                  lineHeight: 1.4,
+                }}
+              >
+                Redistribution : en attente des revenus du mois
+              </p>
+            ) : (
+              <>
+                <p
+                  style={{
+                    margin: "0.5rem 0 0",
+                    fontSize: "0.82rem",
+                    opacity: 0.85,
+                    lineHeight: 1.4,
+                    fontWeight: 600,
+                  }}
+                >
+                  Estimation redistribution : ~{cad.format(redistributionEstimate)}
+                </p>
+                <p
+                  style={{
+                    margin: "0.25rem 0 0",
+                    fontSize: "0.75rem",
+                    opacity: 0.65,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Formule : (Pool PMQ {cad.format(pmqBalance)} × tes pts{" "}
+                  {pointsFmt.format(memberPtsPonderes)} ÷ total pts{" "}
+                  {pointsFmt.format(totalPtsPonderesAll)})
+                </p>
+              </>
+            )}
           </article>
 
           <article
