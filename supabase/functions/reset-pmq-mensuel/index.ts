@@ -108,36 +108,6 @@ async function aggregateQuizPonderes(
   return totals;
 }
 
-async function deleteRowsByFilter(
-  supabase: SupabaseClient,
-  table: string,
-  applyFilter: (
-    query: ReturnType<SupabaseClient["from"]>,
-  ) => ReturnType<SupabaseClient["from"]>,
-): Promise<void> {
-  for (;;) {
-    let query = supabase.from(table).select("id").limit(PAGE_SIZE);
-    query = applyFilter(query);
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    const rows = data ?? [];
-    if (rows.length === 0) break;
-
-    const ids = rows.map((row) => row.id);
-    const { error: deleteError } = await supabase.from(table).delete().in("id", ids);
-    if (deleteError) throw deleteError;
-  }
-}
-
-async function deleteAllRows(
-  supabase: SupabaseClient,
-  table: string,
-): Promise<void> {
-  await deleteRowsByFilter(supabase, table, (query) => query);
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -179,13 +149,6 @@ Deno.serve(async (req) => {
         .insert(batch);
       if (insertError) throw insertError;
     }
-
-    await deleteRowsByFilter(supabase, "points_transactions", (query) =>
-      query.in("type", ["quiz", "ptc"])
-    );
-    await deleteAllRows(supabase, "points_ponderes");
-    await deleteAllRows(supabase, "quiz_submissions");
-    await deleteAllRows(supabase, "code_submissions");
 
     return jsonResponse({
       success: true,

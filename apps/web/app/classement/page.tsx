@@ -116,11 +116,41 @@ function rankLabel(rank: number): string {
   return `#${rank}`;
 }
 
-function currentMonthLabel(): string {
-  return new Date().toLocaleDateString("fr-CA", {
-    month: "long",
-    year: "numeric",
-  });
+type MonthBounds = {
+  startIso: string;
+  endIso: string;
+  label: string;
+};
+
+function capitalizeFr(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function currentMonthBounds(): MonthBounds {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const start = new Date(y, m, 1);
+  const end = new Date(y, m + 1, 1);
+  const label = capitalizeFr(
+    new Intl.DateTimeFormat("fr-CA", {
+      month: "long",
+      year: "numeric",
+    }).format(start),
+  );
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    label,
+  };
+}
+
+function createdAtRangeFilter(bounds: MonthBounds): string {
+  return (
+    `&created_at=gte.${encodeURIComponent(bounds.startIso)}` +
+    `&created_at=lt.${encodeURIComponent(bounds.endIso)}`
+  );
 }
 
 function memberTypeBadgeStyle(label: string): {
@@ -158,14 +188,16 @@ function memberTypeBadgeStyle(label: string): {
 
 async function aggregateQuizPtsPonderesByMember(
   accessToken: string,
+  bounds: MonthBounds,
 ): Promise<Map<string, number>> {
   const totals = new Map<string, number>();
+  const range = createdAtRangeFilter(bounds);
   let offset = 0;
   for (;;) {
     const { data, error } = await restJson<
       { membre_id?: unknown; pts_ponderes?: unknown }[]
     >(
-      `points_ponderes?type=eq.quiz&select=membre_id,pts_ponderes&offset=${offset}&limit=${PAGE_SIZE}`,
+      `points_ponderes?type=eq.quiz${range}&select=membre_id,pts_ponderes&offset=${offset}&limit=${PAGE_SIZE}`,
       accessToken,
     );
 
@@ -193,7 +225,8 @@ async function aggregateQuizPtsPonderesByMember(
 async function fetchClassementRows(
   accessToken: string,
 ): Promise<ClassementRow[]> {
-  const totals = await aggregateQuizPtsPonderesByMember(accessToken);
+  const bounds = currentMonthBounds();
+  const totals = await aggregateQuizPtsPonderesByMember(accessToken, bounds);
 
   const sortedEntries = [...totals.entries()]
     .filter(([, pts]) => pts > 0)
@@ -691,6 +724,7 @@ export default function ClassementPage(): JSX.Element | null {
 
   const name = displayNameFrom(profile, session);
   const uid = session.user.id;
+  const monthLabel = currentMonthBounds().label;
   const top3 = rows.slice(0, 3);
   const second = top3[1];
   const first = top3[0];
@@ -791,7 +825,7 @@ export default function ClassementPage(): JSX.Element | null {
               color: TEXT,
             }}
           >
-            CLASSEMENT
+            CLASSEMENT DU MOIS · {monthLabel.toUpperCase()}
           </h1>
           <p
             style={{
@@ -801,7 +835,7 @@ export default function ClassementPage(): JSX.Element | null {
               letterSpacing: "0.02em",
             }}
           >
-            Classement du mois — {currentMonthLabel()} · mis à jour en temps réel
+            mis à jour en temps réel
           </p>
           {lastRefresh ? (
             <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", opacity: 0.45 }}>

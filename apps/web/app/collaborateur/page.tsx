@@ -93,6 +93,18 @@ type PcolTxRow = {
   collaborateur_id: string | null;
   pts_collab_ponderes: number | string | null;
   pts_membres_gagnes_ponderes: number | string | null;
+  created_at?: string | null;
+};
+
+type MonthBounds = {
+  startIso: string;
+  endIso: string;
+  monthDate: string;
+  label: string;
+};
+
+type RedistMonthRow = {
+  month?: string | null;
 };
 
 type VideoRow = {
@@ -160,12 +172,61 @@ function transferredLabel(pourcentageFixe: number | null, recupereLe: string | n
   return `✅ ${pct} % fixé — Récupéré le ${formatRecupereLe(recupereLe)}`;
 }
 
+function capitalizeFr(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function monthBoundsFor(year: number, monthIndex0: number): MonthBounds {
+  const start = new Date(year, monthIndex0, 1);
+  const end = new Date(year, monthIndex0 + 1, 1);
+  const monthKey = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
+  const label = capitalizeFr(
+    new Intl.DateTimeFormat("fr-CA", {
+      month: "long",
+      year: "numeric",
+    }).format(start),
+  );
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    monthDate: `${monthKey}-01`,
+    label,
+  };
+}
+
+function currentAndPreviousMonthBounds(): {
+  current: MonthBounds;
+  previous: MonthBounds;
+} {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const prevM = m === 0 ? 11 : m - 1;
+  const prevY = m === 0 ? y - 1 : y;
+  return {
+    current: monthBoundsFor(y, m),
+    previous: monthBoundsFor(prevY, prevM),
+  };
+}
+
+function createdAtRangeFilter(bounds: MonthBounds): string {
+  return (
+    `&created_at=gte.${encodeURIComponent(bounds.startIso)}` +
+    `&created_at=lt.${encodeURIComponent(bounds.endIso)}`
+  );
+}
+
 export default function CollaborateurPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [soldePcolDollars, setSoldePcolDollars] = useState<number | null>(null);
-  const [pcolGenerePonderes, setPcolGenerePonderes] = useState(0);
+  const [pcolMonthLabel, setPcolMonthLabel] = useState("");
+  const [pcolCurrentMonthPts, setPcolCurrentMonthPts] = useState(0);
+  const [prevMonthLabel, setPrevMonthLabel] = useState("");
+  const [prevMonthPcolPts, setPrevMonthPcolPts] = useState(0);
+  const [prevMonthRedistributed, setPrevMonthRedistributed] = useState(false);
   const [valeurParPt, setValeurParPt] = useState<number | null>(null);
   const [videoStats, setVideoStats] = useState<VideoStats[]>([]);
   const [pendingList, setPendingList] = useState<PendingRow[]>([]);
@@ -204,27 +265,52 @@ export default function CollaborateurPage(): JSX.Element | null {
       return;
     }
 
-    const [pcolRes, videosRes, pendingRes, redistRes] = await Promise.all([
-      restJson<PcolTxRow[]>(
-        `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,collaborateur_id,pts_collab_ponderes,pts_membres_gagnes_ponderes&order=created_at.desc`,
-        token,
-      ),
-      restJson<VideoRow[]>(
-        `videos?collaborateur_id=eq.${uidEnc}&select=id,title&order=created_at.desc`,
-        token,
-      ),
-      restJson<PendingDbRow[]>(
-        `pending_pcol?collaborateur_id=eq.${uidEnc}&select=id,video_id,points_pending_cumul,valeur_dollars_cumul,date_expiration,statut,pourcentage_fixe,recupere_le&order=date_expiration.desc`,
-        token,
-      ),
-      restJson<RedistRow[]>(
-        `redistribution_history?select=value_per_point&order=created_at.desc&limit=1`,
-        token,
-      ),
-    ]);
+    const { current: currentMonth, previous: prevMonth } =
+      currentAndPreviousMonthBounds();
+    setPcolMonthLabel(currentMonth.label);
+    setPrevMonthLabel(prevMonth.label);
+
+    const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, redistRes, prevHistRes] =
+      await Promise.all([
+        restJson<PcolTxRow[]>(
+          `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,collaborateur_id,pts_collab_ponderes,pts_membres_gagnes_ponderes,created_at&order=created_at.desc`,
+          token,
+        ),
+        restJson<PcolTxRow[]>(
+          `pcol_transactions?collaborateur_id=eq.${uidEnc}${createdAtRangeFilter(currentMonth)}&select=pts_collab_ponderes`,
+          token,
+        ),
+        restJson<PcolTxRow[]>(
+          `pcol_transactions?collaborateur_id=eq.${uidEnc}${createdAtRangeFilter(prevMonth)}&select=pts_collab_ponderes`,
+          token,
+        ),
+        restJson<VideoRow[]>(
+          `videos?collaborateur_id=eq.${uidEnc}&select=id,title&order=created_at.desc`,
+          token,
+        ),
+        restJson<PendingDbRow[]>(
+          `pending_pcol?collaborateur_id=eq.${uidEnc}&select=id,video_id,points_pending_cumul,valeur_dollars_cumul,date_expiration,statut,pourcentage_fixe,recupere_le&order=date_expiration.desc`,
+          token,
+        ),
+        restJson<RedistRow[]>(
+          `redistribution_history?select=value_per_point&order=created_at.desc&limit=1`,
+          token,
+        ),
+        restJson<RedistMonthRow[]>(
+          `redistribution_history?month=eq.${encodeURIComponent(prevMonth.monthDate)}&select=month&limit=1`,
+          token,
+        ),
+      ]);
 
     const errMsg =
-      pcolRes.error ?? videosRes.error ?? pendingRes.error ?? redistRes.error ?? null;
+      pcolRes.error ??
+      pcolCurrentRes.error ??
+      pcolPrevRes.error ??
+      videosRes.error ??
+      pendingRes.error ??
+      redistRes.error ??
+      prevHistRes.error ??
+      null;
     if (errMsg) {
       setLoadError(errMsg);
       return;
@@ -320,8 +406,19 @@ export default function CollaborateurPage(): JSX.Element | null {
       };
     });
 
+    const currentMonthPcol = (pcolCurrentRes.data ?? []).reduce(
+      (acc, r) => acc + Number(r.pts_collab_ponderes ?? 0),
+      0,
+    );
+    const prevMonthPcol = (pcolPrevRes.data ?? []).reduce(
+      (acc, r) => acc + Number(r.pts_collab_ponderes ?? 0),
+      0,
+    );
+
     setSoldePcolDollars(soldeDollars);
-    setPcolGenerePonderes(pcolGenere);
+    setPcolCurrentMonthPts(currentMonthPcol);
+    setPrevMonthPcolPts(prevMonthPcol);
+    setPrevMonthRedistributed(!prevHistRes.error && (prevHistRes.data ?? []).length > 0);
     setValeurParPt(valeurParPtFinite);
     setTotalPtsGeneresPonderes(totalPtsGeneres);
     setTotalQuizMembres(membresQuiz.size);
@@ -442,8 +539,10 @@ export default function CollaborateurPage(): JSX.Element | null {
           <>
             <section
               style={{
+                position: "relative",
                 borderRadius: "14px",
                 padding: "1.75rem 1.5rem",
+                paddingBottom: prevMonthLabel ? "2.5rem" : "1.75rem",
                 marginBottom: "1.25rem",
                 background:
                   "linear-gradient(145deg, rgba(212, 160, 23, 0.15) 0%, rgba(8, 8, 8, 0.9) 50%, rgba(192, 57, 43, 0.08) 100%)",
@@ -469,7 +568,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                 </p>
               ) : null}
               <p style={{ margin: "1rem 0 0", opacity: 0.65, fontSize: "0.85rem" }}>
-                PCOL généré (pts pondérés)
+                PCOL · {pcolMonthLabel || "—"}
               </p>
               <p
                 style={{
@@ -479,12 +578,43 @@ export default function CollaborateurPage(): JSX.Element | null {
                   color: TEXT,
                 }}
               >
-                {pointsFmt.format(pcolGenerePonderes)} pts
+                {pointsFmt.format(pcolCurrentMonthPts)} pts
               </p>
               <p style={{ margin: "0.75rem 0 0", fontSize: "0.85rem", opacity: 0.6, lineHeight: 1.5 }}>
                 20 % des points pondérés gagnés par les membres sur vos vidéos · 12 % crédité
                 directement · 8 % en pending récupérable 1 an
               </p>
+              {prevMonthLabel ? (
+                <p
+                  style={{
+                    position: "absolute",
+                    right: "1.1rem",
+                    bottom: "0.65rem",
+                    margin: 0,
+                    maxWidth: "100%",
+                    textAlign: "right",
+                    fontSize: "0.68rem",
+                    opacity: 0.45,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  PCOL {prevMonthLabel} · {pointsFmt.format(prevMonthPcolPts)} pts →{" "}
+                  {prevMonthRedistributed ? (
+                    <Link
+                      href="/banque"
+                      style={{
+                        color: "inherit",
+                        textDecoration: "underline",
+                        textUnderlineOffset: "2px",
+                      }}
+                    >
+                      ✓ Consulter votre banque
+                    </Link>
+                  ) : (
+                    "Redistribution en cours"
+                  )}
+                </p>
+              ) : null}
             </section>
 
             <div

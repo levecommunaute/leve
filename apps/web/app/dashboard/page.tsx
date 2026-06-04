@@ -110,12 +110,66 @@ const pointsFmt = new Intl.NumberFormat("fr-CA", {
 
 const PP_PAGE_SIZE = 1000;
 
+type MonthBounds = {
+  startIso: string;
+  endIso: string;
+  monthDate: string;
+  label: string;
+};
+
+function capitalizeFr(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function monthBoundsFor(year: number, monthIndex0: number): MonthBounds {
+  const start = new Date(year, monthIndex0, 1);
+  const end = new Date(year, monthIndex0 + 1, 1);
+  const monthKey = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
+  const label = capitalizeFr(
+    new Intl.DateTimeFormat("fr-CA", {
+      month: "long",
+      year: "numeric",
+    }).format(start),
+  );
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    monthDate: `${monthKey}-01`,
+    label,
+  };
+}
+
+function currentAndPreviousMonthBounds(): {
+  current: MonthBounds;
+  previous: MonthBounds;
+} {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const prevM = m === 0 ? 11 : m - 1;
+  const prevY = m === 0 ? y - 1 : y;
+  return {
+    current: monthBoundsFor(y, m),
+    previous: monthBoundsFor(prevY, prevM),
+  };
+}
+
+function createdAtRangeFilter(bounds: MonthBounds): string {
+  return (
+    `&created_at=gte.${encodeURIComponent(bounds.startIso)}` +
+    `&created_at=lt.${encodeURIComponent(bounds.endIso)}`
+  );
+}
+
 async function sumQuizPtsPonderesForMember(
   accessToken: string,
   membreId: string,
+  bounds: MonthBounds,
 ): Promise<number> {
   const { data, error } = await restJson<{ pts_ponderes?: unknown }[]>(
-    `points_ponderes?membre_id=eq.${encodeURIComponent(membreId)}&type=eq.quiz&select=pts_ponderes`,
+    `points_ponderes?membre_id=eq.${encodeURIComponent(membreId)}&type=eq.quiz` +
+      `${createdAtRangeFilter(bounds)}&select=pts_ponderes`,
     accessToken,
   );
   if (error) return 0;
@@ -127,12 +181,14 @@ async function sumQuizPtsPonderesForMember(
 
 async function sumAllQuizPtsPonderes(
   accessToken: string,
+  bounds: MonthBounds,
 ): Promise<number> {
   let total = 0;
   let offset = 0;
+  const range = createdAtRangeFilter(bounds);
   for (;;) {
     const { data, error } = await restJson<{ pts_ponderes?: unknown }[]>(
-      `points_ponderes?type=eq.quiz&select=pts_ponderes&offset=${offset}&limit=${PP_PAGE_SIZE}`,
+      `points_ponderes?type=eq.quiz${range}&select=pts_ponderes&offset=${offset}&limit=${PP_PAGE_SIZE}`,
       accessToken,
     );
     if (error) return 0;
@@ -156,6 +212,10 @@ export default function DashboardPage(): JSX.Element | null {
   const [pmqBalance, setPmqBalance] = useState(0);
   const [memberPtsPonderes, setMemberPtsPonderes] = useState(0);
   const [totalPtsPonderesAll, setTotalPtsPonderesAll] = useState(0);
+  const [prevMonthPtsPonderes, setPrevMonthPtsPonderes] = useState(0);
+  const [prevMonthRedistributed, setPrevMonthRedistributed] = useState(false);
+  const [pmqMonthLabel, setPmqMonthLabel] = useState("");
+  const [prevMonthLabel, setPrevMonthLabel] = useState("");
   const [lastRedistributionCad, setLastRedistributionCad] = useState<
     number | null
   >(null);
@@ -189,31 +249,47 @@ export default function DashboardPage(): JSX.Element | null {
   const loadDashboard = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
     const uid = activeSession.user.id;
+    const { current: currentMonth, previous: prevMonth } =
+      currentAndPreviousMonthBounds();
 
-    const [profileRes, txRes, histRes, bankRes, memberPpRes, totalPp] =
+    setPmqMonthLabel(currentMonth.label);
+    setPrevMonthLabel(prevMonth.label);
+
+    const [profileRes, txRes, histRes, prevHistRes, bankRes, memberPpRes, prevPpRes, totalPp] =
       await Promise.all([
         restJson<ProfileRow[]>(
           `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at`,
           token,
         ),
         restJson<{ amount?: unknown }[]>(
-          `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz&select=amount`,
+          `points_transactions?membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz` +
+            `${createdAtRangeFilter(currentMonth)}&select=amount`,
           token,
         ),
         restJson<{ total_revenue?: unknown; month?: string }[]>(
           `redistribution_history?select=total_revenue,month&order=month.desc&limit=1`,
           token,
         ),
+        restJson<{ month?: string }[]>(
+          `redistribution_history?month=eq.${encodeURIComponent(prevMonth.monthDate)}&select=month&limit=1`,
+          token,
+        ),
         restJson<{ pmq_balance?: unknown }[]>(
           `banque_leve?select=pmq_balance&limit=1`,
           token,
         ),
-        sumQuizPtsPonderesForMember(token, uid),
-        sumAllQuizPtsPonderes(token),
+        sumQuizPtsPonderesForMember(token, uid, currentMonth),
+        sumQuizPtsPonderesForMember(token, uid, prevMonth),
+        sumAllQuizPtsPonderes(token, currentMonth),
       ]);
 
     const errMsg =
-      profileRes.error ?? txRes.error ?? histRes.error ?? bankRes.error ?? null;
+      profileRes.error ??
+      txRes.error ??
+      histRes.error ??
+      prevHistRes.error ??
+      bankRes.error ??
+      null;
     setLoadError(errMsg);
 
     if (!profileRes.error) {
@@ -252,6 +328,8 @@ export default function DashboardPage(): JSX.Element | null {
     }
 
     setMemberPtsPonderes(memberPpRes);
+    setPrevMonthPtsPonderes(prevPpRes);
+    setPrevMonthRedistributed(!prevHistRes.error && (prevHistRes.data ?? []).length > 0);
     setTotalPtsPonderesAll(totalPp);
   }, []);
 
@@ -358,7 +436,7 @@ export default function DashboardPage(): JSX.Element | null {
   const mult = Number(profile?.multiplier ?? 1);
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
-  const weightedPointsPmq = totalPointsPmq * profileMultiplier;
+  const weightedPointsPmq = memberPtsPonderes;
   const redistributionPending =
     pmqBalance <= 0 ||
     memberPtsPonderes <= 0 ||
@@ -574,8 +652,9 @@ export default function DashboardPage(): JSX.Element | null {
         >
           <article
             style={{
+              position: "relative",
               borderRadius: "12px",
-              padding: "1.1rem",
+              padding: "1.1rem 1.1rem 2.35rem",
               background: "rgba(245, 240, 232, 0.04)",
               border: `1px solid rgba(212, 160, 23, 0.35)`,
             }}
@@ -590,7 +669,9 @@ export default function DashboardPage(): JSX.Element | null {
                 opacity: 0.95,
               }}
             >
-              Total points PMQ
+              {pmqMonthLabel
+                ? `Points PMQ · ${pmqMonthLabel}`
+                : "Points PMQ"}
             </p>
             <p
               style={{
@@ -610,8 +691,10 @@ export default function DashboardPage(): JSX.Element | null {
                 lineHeight: 1.4,
               }}
             >
-              Points pondérés (base redistribution) :{" "}
-              {pointsFmt.format(weightedPointsPmq)} pts · ×
+              {pmqMonthLabel
+                ? `Points pondérés · ${pmqMonthLabel}`
+                : "Points pondérés"}{" "}
+              : {pointsFmt.format(weightedPointsPmq)} pts · ×
               {profileMultiplier.toFixed(1)}
             </p>
             {redistributionPending ? (
@@ -652,6 +735,42 @@ export default function DashboardPage(): JSX.Element | null {
                 </p>
               </>
             )}
+            {prevMonthLabel ? (
+              <p
+                style={{
+                  position: "absolute",
+                  right: "1.1rem",
+                  bottom: "0.65rem",
+                  margin: 0,
+                  maxWidth: "100%",
+                  textAlign: "right",
+                  fontSize: "0.68rem",
+                  opacity: 0.45,
+                  lineHeight: 1.35,
+                }}
+              >
+                PMQ {prevMonthLabel} · {pointsFmt.format(prevMonthPtsPonderes)}{" "}
+                pts →{" "}
+                {prevMonthRedistributed ? (
+                  inGrace ? (
+                    <span>✓ Consulter votre banque</span>
+                  ) : (
+                    <Link
+                      href="/banque"
+                      style={{
+                        color: "inherit",
+                        textDecoration: "underline",
+                        textUnderlineOffset: "2px",
+                      }}
+                    >
+                      ✓ Consulter votre banque
+                    </Link>
+                  )
+                ) : (
+                  "Redistribution en cours"
+                )}
+              </p>
+            ) : null}
           </article>
 
           <article
