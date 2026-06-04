@@ -147,11 +147,19 @@ function currentAndPreviousMonthBounds(): {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth();
+  const current = monthBoundsFor(y, m);
   const prevM = m === 0 ? 11 : m - 1;
   const prevY = m === 0 ? y - 1 : y;
+  const previousStart = monthBoundsFor(prevY, prevM);
   return {
-    current: monthBoundsFor(y, m),
-    previous: monthBoundsFor(prevY, prevM),
+    current,
+    // created_at >= 1er jour du mois N-1 AND created_at < 1er jour du mois N
+    previous: {
+      startIso: previousStart.startIso,
+      endIso: current.startIso,
+      monthDate: previousStart.monthDate,
+      label: previousStart.label,
+    },
   };
 }
 
@@ -167,16 +175,25 @@ async function sumQuizPtsPonderesForMember(
   membreId: string,
   bounds: MonthBounds,
 ): Promise<number> {
-  const { data, error } = await restJson<{ pts_ponderes?: unknown }[]>(
+  let total = 0;
+  let offset = 0;
+  const base =
     `points_ponderes?membre_id=eq.${encodeURIComponent(membreId)}&type=eq.quiz` +
-      `${createdAtRangeFilter(bounds)}&select=pts_ponderes`,
-    accessToken,
-  );
-  if (error) return 0;
-  return (data ?? []).reduce(
-    (acc, row) => acc + Number(row.pts_ponderes ?? 0),
-    0,
-  );
+    `${createdAtRangeFilter(bounds)}&select=pts_ponderes`;
+  for (;;) {
+    const { data, error } = await restJson<{ pts_ponderes?: unknown }[]>(
+      `${base}&offset=${offset}&limit=${PP_PAGE_SIZE}`,
+      accessToken,
+    );
+    if (error) return 0;
+    const rows = data ?? [];
+    for (const row of rows) {
+      total += Number(row.pts_ponderes ?? 0);
+    }
+    if (rows.length < PP_PAGE_SIZE) break;
+    offset += PP_PAGE_SIZE;
+  }
+  return total;
 }
 
 async function sumAllQuizPtsPonderes(
