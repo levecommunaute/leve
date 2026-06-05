@@ -129,6 +129,40 @@ type TransparenceConfigRow = {
   ordre: number;
 };
 
+type ReseauSocialKey = "youtube" | "facebook" | "tiktok" | "instagram";
+
+type ReseauSocialRow = {
+  id: string;
+  reseau: ReseauSocialKey;
+  abonnes: number;
+  actif: boolean;
+  ordre: number;
+  updated_at: string;
+};
+
+type ReseauSocialDraft = {
+  abonnes: string;
+  actif: boolean;
+};
+
+const RESEAU_SOCIAL_LABELS: Record<ReseauSocialKey, string> = {
+  youtube: "YouTube",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  instagram: "Instagram",
+};
+
+function reseauSocialToDraft(r: ReseauSocialRow): ReseauSocialDraft {
+  return {
+    abonnes: String(r.abonnes),
+    actif: r.actif,
+  };
+}
+
+function reseauSocialDraftDirty(r: ReseauSocialRow, d: ReseauSocialDraft): boolean {
+  return String(r.abonnes) !== d.abonnes.trim() || r.actif !== d.actif;
+}
+
 function transparenceConfigSectionLabel(cle: string): string {
   return cle === "frais_plateforme" || cle === "taxe_pa"
     ? "Section Frais plateforme"
@@ -674,6 +708,13 @@ export default function AdminPage(): JSX.Element {
   const [productionLoading, setProductionLoading] = useState(false);
   const [productionError, setProductionError] = useState<string | null>(null);
 
+  const [reseauxSociaux, setReseauxSociaux] = useState<ReseauSocialRow[]>([]);
+  const [reseauxSociauxDrafts, setReseauxSociauxDrafts] = useState<Record<string, ReseauSocialDraft>>({});
+  const [reseauxSociauxLoading, setReseauxSociauxLoading] = useState(false);
+  const [reseauxSociauxError, setReseauxSociauxError] = useState<string | null>(null);
+  const [reseauxSociauxSaving, setReseauxSociauxSaving] = useState(false);
+  const [reseauxSociauxSaveMsg, setReseauxSociauxSaveMsg] = useState<string | null>(null);
+
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem(STORAGE_KEY);
@@ -931,6 +972,29 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  const loadReseauxSociaux = useCallback(async (): Promise<void> => {
+    setReseauxSociauxLoading(true);
+    setReseauxSociauxError(null);
+    try {
+      const r = await fetch("/api/admin/reseaux-sociaux", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { reseaux?: ReseauSocialRow[]; error?: string };
+      if (!r.ok) {
+        setReseauxSociauxError(j.error ?? "Erreur réseaux sociaux");
+        setReseauxSociaux([]);
+        return;
+      }
+      setReseauxSociaux(j.reseaux ?? []);
+    } catch (e) {
+      setReseauxSociauxError(e instanceof Error ? e.message : "Erreur réseau");
+      setReseauxSociaux([]);
+    } finally {
+      setReseauxSociauxLoading(false);
+    }
+  }, [adminHeaders]);
+
   const loadQuizQuestions = useCallback(
     async (videoId: string): Promise<void> => {
       if (!videoId) {
@@ -973,6 +1037,7 @@ export default function AdminPage(): JSX.Element {
     void loadPoolAccumulation();
     void loadTransparencePools();
     void loadProduction();
+    void loadReseauxSociaux();
   }, [
     hydrated,
     authed,
@@ -985,6 +1050,7 @@ export default function AdminPage(): JSX.Element {
     loadPoolAccumulation,
     loadTransparencePools,
     loadProduction,
+    loadReseauxSociaux,
   ]);
 
   useEffect(() => {
@@ -1017,6 +1083,14 @@ export default function AdminPage(): JSX.Element {
     }
     setFraisPalierDrafts(next);
   }, [fraisPaliers]);
+
+  useEffect(() => {
+    const next: Record<string, ReseauSocialDraft> = {};
+    for (const r of reseauxSociaux) {
+      next[r.id] = reseauSocialToDraft(r);
+    }
+    setReseauxSociauxDrafts(next);
+  }, [reseauxSociaux]);
 
   async function handleLogin(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -1090,6 +1164,60 @@ export default function AdminPage(): JSX.Element {
     setTransparencyError(null);
     setProductionVideos([]);
     setProductionError(null);
+  }
+
+  async function handleSaveReseauxSociaux(): Promise<void> {
+    setReseauxSociauxSaving(true);
+    setReseauxSociauxError(null);
+    setReseauxSociauxSaveMsg(null);
+    try {
+      const dirty = reseauxSociaux.filter((r) => {
+        const d = reseauxSociauxDrafts[r.id] ?? reseauSocialToDraft(r);
+        return reseauSocialDraftDirty(r, d);
+      });
+
+      if (dirty.length === 0) {
+        setReseauxSociauxSaveMsg("Aucune modification à enregistrer.");
+        window.setTimeout(() => setReseauxSociauxSaveMsg(null), 3000);
+        return;
+      }
+
+      for (const r of dirty) {
+        const d = reseauxSociauxDrafts[r.id] ?? reseauSocialToDraft(r);
+        const abonnes = Number(d.abonnes.trim());
+        if (!Number.isFinite(abonnes) || abonnes < 0 || !Number.isInteger(abonnes)) {
+          setReseauxSociauxError(`Abonnés invalides pour ${RESEAU_SOCIAL_LABELS[r.reseau]}`);
+          return;
+        }
+
+        const res = await fetch("/api/admin/reseaux-sociaux", {
+          method: "PATCH",
+          headers: adminHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            reseau: r.reseau,
+            abonnes,
+            actif: d.actif,
+          }),
+        });
+        const j = (await res.json()) as { reseau?: ReseauSocialRow; error?: string };
+        if (!res.ok) {
+          setReseauxSociauxError(j.error ?? `Échec pour ${RESEAU_SOCIAL_LABELS[r.reseau]}`);
+          return;
+        }
+        if (j.reseau) {
+          setReseauxSociaux((prev) =>
+            prev.map((row) => (row.id === j.reseau!.id ? j.reseau! : row)),
+          );
+        }
+      }
+
+      setReseauxSociauxSaveMsg("Configuration enregistrée.");
+      window.setTimeout(() => setReseauxSociauxSaveMsg(null), 3000);
+    } catch (e) {
+      setReseauxSociauxError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setReseauxSociauxSaving(false);
+    }
   }
 
   async function handleSaveFraisPlateforme(): Promise<void> {
@@ -3399,6 +3527,129 @@ export default function AdminPage(): JSX.Element {
                     </span>
                   </div>
                 )}
+              </>
+            )}
+          </section>
+
+          {/* SECTION RÉSEAUX SOCIAUX */}
+          <section style={cardStyle()}>
+            {sectionTitle("RÉSEAUX SOCIAUX")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Bandeau « En direct » en haut de la page d&apos;accueil. Activez un réseau et renseignez le
+              nombre d&apos;abonnés affiché (table{" "}
+              <code style={{ fontSize: "0.82rem" }}>reseaux_sociaux_config</code>).
+            </p>
+            {reseauxSociauxError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{reseauxSociauxError}</p>
+            ) : null}
+            {reseauxSociauxSaveMsg ? (
+              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{reseauxSociauxSaveMsg}</p>
+            ) : null}
+            {reseauxSociauxLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : reseauxSociaux.length === 0 ? (
+              <p style={{ opacity: 0.6, margin: 0 }}>
+                Aucun réseau. Exécutez la migration{" "}
+                <code style={{ fontSize: "0.82rem" }}>reseaux_sociaux_config</code>.
+              </p>
+            ) : (
+              <>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        {["Réseau", "Abonnés", "Actif", ""].map((h, i) => (
+                          <th
+                            key={`${h}-${i}`}
+                            style={{
+                              padding: "0.65rem 0.5rem",
+                              letterSpacing: "0.08em",
+                              fontSize: "0.65rem",
+                              textTransform: "uppercase",
+                              opacity: 0.55,
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reseauxSociaux.map((r) => {
+                        const d = reseauxSociauxDrafts[r.id] ?? reseauSocialToDraft(r);
+                        const dirty = reseauSocialDraftDirty(r, d);
+                        return (
+                          <tr
+                            key={r.id}
+                            style={{
+                              borderBottom: "1px solid rgba(245,240,232,0.06)",
+                              background: dirty ? "rgba(212, 160, 23, 0.06)" : undefined,
+                            }}
+                          >
+                            <td style={{ padding: "0.6rem 0.5rem", fontWeight: 600 }}>
+                              {RESEAU_SOCIAL_LABELS[r.reseau]}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={d.abonnes}
+                                onChange={(e) =>
+                                  setReseauxSociauxDrafts((prev) => ({
+                                    ...prev,
+                                    [r.id]: { ...d, abonnes: e.target.value },
+                                  }))
+                                }
+                                aria-label={`${RESEAU_SOCIAL_LABELS[r.reseau]} — abonnés`}
+                                style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem", maxWidth: "9rem" }}
+                              />
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem", textAlign: "center" }}>
+                              {onOffSwitch({
+                                checked: d.actif,
+                                label: `${RESEAU_SOCIAL_LABELS[r.reseau]} — ${d.actif ? "actif" : "inactif"}`,
+                                onToggle: () =>
+                                  setReseauxSociauxDrafts((prev) => ({
+                                    ...prev,
+                                    [r.id]: { ...d, actif: !d.actif },
+                                  })),
+                              })}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem", fontSize: "0.72rem", opacity: 0.45 }}>
+                              {dirty ? "modifié" : ""}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ marginTop: "1.25rem", display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    disabled={reseauxSociauxSaving}
+                    onClick={() => void handleSaveReseauxSociaux()}
+                    style={{
+                      padding: "0.65rem 1.35rem",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: ROUGE,
+                      color: TEXT,
+                      fontWeight: 600,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      fontSize: "0.78rem",
+                      cursor: reseauxSociauxSaving ? "wait" : "pointer",
+                      opacity: reseauxSociauxSaving ? 0.7 : 1,
+                    }}
+                  >
+                    {reseauxSociauxSaving ? "Sauvegarde…" : "Sauvegarder"}
+                  </button>
+                  <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
+                    Le bandeau n&apos;apparaît que si au moins un réseau est actif.
+                  </span>
+                </div>
               </>
             )}
           </section>
