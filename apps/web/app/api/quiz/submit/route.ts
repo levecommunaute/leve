@@ -10,6 +10,7 @@ import {
   pctRecupereFromErrors,
   pourcentageFixeFromPctRecupere,
 } from "../../../../lib/pcol";
+import { crediterPtc } from "../../../../lib/ptc";
 
 export const dynamic = "force-dynamic";
 
@@ -113,31 +114,6 @@ async function creditBanqueMembre(
     description,
   });
   if (mvtError) throw new Error(mvtError.message);
-}
-
-async function crediterPtcBalance(
-  svc: ReturnType<typeof getServiceSupabase>,
-  montant: number,
-): Promise<void> {
-  if (!Number.isFinite(montant) || montant <= 0) return;
-
-  const { data: bank, error: fetchErr } = await svc
-    .from("banque_leve")
-    .select("id, ptc_balance")
-    .limit(1)
-    .maybeSingle();
-
-  if (fetchErr) throw new Error(fetchErr.message);
-  if (!bank?.id) throw new Error("banque_leve introuvable");
-
-  const { error: updateErr } = await svc
-    .from("banque_leve")
-    .update({
-      ptc_balance: Number(bank.ptc_balance ?? 0) + montant,
-    })
-    .eq("id", bank.id);
-
-  if (updateErr) throw new Error(updateErr.message);
 }
 
 async function latestValeurParPt(
@@ -434,7 +410,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       if (valeurPtc > 0) {
-        await crediterPtcBalance(svc, valeurPtc);
+        const valeurParPtRecup = await latestValeurParPt(svc);
+        const ptsPerdus =
+          valeurParPtRecup > 0 ? pcolNum(valeurPtc / valeurParPtRecup) : 0;
+        await crediterPtc({
+          montant: valeurPtc,
+          source: "collab_perdu",
+          ptsEquivalent: ptsPerdus,
+          collaborateurId,
+        });
       }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
       const mois = currentMonthKey();
@@ -504,7 +488,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const valeurParPt = await latestValeurParPt(svc);
         const valeurPtc = pcolNum(ptsPtc * valeurParPt);
         if (valeurPtc > 0) {
-          await crediterPtcBalance(svc, valeurPtc);
+          await crediterPtc({
+            montant: valeurPtc,
+            source: "collab_perdu",
+            ptsEquivalent: ptsPtc,
+            collaborateurId,
+          });
         }
       }
 

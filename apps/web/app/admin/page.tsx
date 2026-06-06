@@ -160,6 +160,46 @@ type FondateurConfigDraft = {
   message: string;
 };
 
+type PtcUtilisationCategorie = "promotion" | "outils" | "reserve";
+
+type PtcUtilisationConfigRow = {
+  id: string;
+  categorie: PtcUtilisationCategorie;
+  actif: boolean;
+  budget_alloue: number;
+  updated_at: string;
+};
+
+type PtcUtilisationDraft = {
+  actif: boolean;
+  budget_alloue: string;
+};
+
+const PTC_UTILISATION_LABELS: Record<PtcUtilisationCategorie, string> = {
+  promotion: "🚀 Promotion YouTube Ads",
+  outils: "🛠️ Outils Production (Filmora, Epidemic Sound, hébergement)",
+  reserve: "🏦 Réserve Trésorerie (objectif : 2 mois redistribution)",
+};
+
+const PTC_UNIT_DOLLARS = 5;
+
+function ptcUtilisationToDraft(c: PtcUtilisationConfigRow): PtcUtilisationDraft {
+  return {
+    actif: c.actif,
+    budget_alloue: String(c.budget_alloue),
+  };
+}
+
+function ptcUtilisationDraftDirty(
+  c: PtcUtilisationConfigRow,
+  d: PtcUtilisationDraft,
+): boolean {
+  return (
+    c.actif !== d.actif ||
+    String(c.budget_alloue) !== d.budget_alloue.trim()
+  );
+}
+
 const RESEAU_SOCIAL_LABELS: Record<ReseauSocialKey, string> = {
   youtube: "YouTube",
   facebook: "Facebook",
@@ -758,6 +798,15 @@ export default function AdminPage(): JSX.Element {
   const [fondateurConfigSaving, setFondateurConfigSaving] = useState(false);
   const [fondateurConfigSaveMsg, setFondateurConfigSaveMsg] = useState<string | null>(null);
 
+  const [ptcUtilisations, setPtcUtilisations] = useState<PtcUtilisationConfigRow[]>([]);
+  const [ptcUtilisationDrafts, setPtcUtilisationDrafts] = useState<
+    Record<string, PtcUtilisationDraft>
+  >({});
+  const [ptcUtilisationsLoading, setPtcUtilisationsLoading] = useState(false);
+  const [ptcUtilisationsError, setPtcUtilisationsError] = useState<string | null>(null);
+  const [ptcUtilisationsSaving, setPtcUtilisationsSaving] = useState(false);
+  const [ptcUtilisationsSaveMsg, setPtcUtilisationsSaveMsg] = useState<string | null>(null);
+
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem(STORAGE_KEY);
@@ -1065,6 +1114,32 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  const loadPtcUtilisations = useCallback(async (): Promise<void> => {
+    setPtcUtilisationsLoading(true);
+    setPtcUtilisationsError(null);
+    try {
+      const r = await fetch("/api/admin/ptc-utilisations", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as {
+        config?: PtcUtilisationConfigRow[];
+        error?: string;
+      };
+      if (!r.ok) {
+        setPtcUtilisationsError(j.error ?? "Erreur utilisations PTC");
+        setPtcUtilisations([]);
+        return;
+      }
+      setPtcUtilisations(j.config ?? []);
+    } catch (e) {
+      setPtcUtilisationsError(e instanceof Error ? e.message : "Erreur réseau");
+      setPtcUtilisations([]);
+    } finally {
+      setPtcUtilisationsLoading(false);
+    }
+  }, [adminHeaders]);
+
   const loadQuizQuestions = useCallback(
     async (videoId: string): Promise<void> => {
       if (!videoId) {
@@ -1109,6 +1184,7 @@ export default function AdminPage(): JSX.Element {
     void loadProduction();
     void loadReseauxSociaux();
     void loadFondateurConfig();
+    void loadPtcUtilisations();
   }, [
     hydrated,
     authed,
@@ -1123,6 +1199,7 @@ export default function AdminPage(): JSX.Element {
     loadProduction,
     loadReseauxSociaux,
     loadFondateurConfig,
+    loadPtcUtilisations,
   ]);
 
   useEffect(() => {
@@ -1163,6 +1240,14 @@ export default function AdminPage(): JSX.Element {
     }
     setReseauxSociauxDrafts(next);
   }, [reseauxSociaux]);
+
+  useEffect(() => {
+    const next: Record<string, PtcUtilisationDraft> = {};
+    for (const c of ptcUtilisations) {
+      next[c.id] = ptcUtilisationToDraft(c);
+    }
+    setPtcUtilisationDrafts(next);
+  }, [ptcUtilisations]);
 
   async function handleLogin(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -1291,6 +1376,67 @@ export default function AdminPage(): JSX.Element {
       setFondateurConfigError(e instanceof Error ? e.message : "Erreur réseau");
     } finally {
       setFondateurConfigSaving(false);
+    }
+  }
+
+  async function handleSavePtcUtilisations(): Promise<void> {
+    setPtcUtilisationsSaving(true);
+    setPtcUtilisationsError(null);
+    setPtcUtilisationsSaveMsg(null);
+    try {
+      const dirty = ptcUtilisations.filter((c) => {
+        const d = ptcUtilisationDrafts[c.id] ?? ptcUtilisationToDraft(c);
+        return ptcUtilisationDraftDirty(c, d);
+      });
+
+      if (dirty.length === 0) {
+        setPtcUtilisationsSaveMsg("Aucune modification à enregistrer.");
+        window.setTimeout(() => setPtcUtilisationsSaveMsg(null), 3000);
+        return;
+      }
+
+      for (const c of dirty) {
+        const d = ptcUtilisationDrafts[c.id] ?? ptcUtilisationToDraft(c);
+        const budget = Number(d.budget_alloue.trim());
+        if (!Number.isFinite(budget) || budget < 0) {
+          setPtcUtilisationsError(
+            `Budget invalide pour ${PTC_UTILISATION_LABELS[c.categorie]}`,
+          );
+          return;
+        }
+
+        const res = await fetch("/api/admin/ptc-utilisations", {
+          method: "PATCH",
+          headers: adminHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            categorie: c.categorie,
+            actif: d.actif,
+            budget_alloue: budget,
+          }),
+        });
+        const j = (await res.json()) as {
+          config?: PtcUtilisationConfigRow;
+          error?: string;
+        };
+        if (!res.ok) {
+          setPtcUtilisationsError(
+            j.error ?? `Échec pour ${PTC_UTILISATION_LABELS[c.categorie]}`,
+          );
+          return;
+        }
+        if (j.config) {
+          setPtcUtilisations((prev) =>
+            prev.map((row) => (row.id === j.config!.id ? j.config! : row)),
+          );
+        }
+      }
+
+      setPtcUtilisationsSaveMsg("Configuration enregistrée.");
+      window.setTimeout(() => setPtcUtilisationsSaveMsg(null), 3000);
+    } catch (e) {
+      setPtcUtilisationsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setPtcUtilisationsSaving(false);
     }
   }
 
@@ -3918,6 +4064,162 @@ export default function AdminPage(): JSX.Element {
                   <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
                     Le bandeau n&apos;apparaît que si le toggle est activé.
                   </span>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* SECTION UTILISATIONS PTC */}
+          <section style={cardStyle()}>
+            {sectionTitle("UTILISATIONS PTC")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Répartition du Pool de Croissance (table{" "}
+              <code style={{ fontSize: "0.82rem" }}>ptc_utilisations_config</code>).
+            </p>
+            {ptcUtilisationsError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+                {ptcUtilisationsError}
+              </p>
+            ) : null}
+            {ptcUtilisationsSaveMsg ? (
+              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+                {ptcUtilisationsSaveMsg}
+              </p>
+            ) : null}
+            <div
+              style={{
+                marginBottom: "1.25rem",
+                padding: "1rem 1.1rem",
+                borderRadius: "10px",
+                background: "rgba(212, 160, 23, 0.08)",
+                border: "1px solid rgba(212, 160, 23, 0.25)",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "0.78rem", opacity: 0.6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Solde PTC actuel
+              </p>
+              <p style={{ margin: "0.35rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>
+                {poolCurrent != null
+                  ? cad.format(poolCurrent.ptc_balance)
+                  : poolLoading
+                    ? "…"
+                    : "—"}
+              </p>
+              <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", opacity: 0.72 }}>
+                Équivalent :{" "}
+                {poolCurrent != null
+                  ? (poolCurrent.ptc_balance / PTC_UNIT_DOLLARS).toLocaleString("fr-CA", {
+                      maximumFractionDigits: 2,
+                    })
+                  : "—"}{" "}
+                PTC (÷ {PTC_UNIT_DOLLARS} $)
+              </p>
+            </div>
+            {ptcUtilisationsLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : ptcUtilisations.length === 0 ? (
+              <p style={{ opacity: 0.6, margin: 0 }}>
+                Aucune configuration. Exécutez la migration{" "}
+                <code style={{ fontSize: "0.82rem" }}>ptc_utilisations_config</code>.
+              </p>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: "0.85rem",
+                    marginBottom: "1.25rem",
+                  }}
+                >
+                  {ptcUtilisations.map((c) => {
+                    const d = ptcUtilisationDrafts[c.id] ?? ptcUtilisationToDraft(c);
+                    const dirty = ptcUtilisationDraftDirty(c, d);
+                    return (
+                      <article
+                        key={c.id}
+                        style={{
+                          borderRadius: "10px",
+                          padding: "1rem",
+                          background: dirty
+                            ? "rgba(212, 160, 23, 0.06)"
+                            : "rgba(245, 240, 232, 0.04)",
+                          border: "1px solid rgba(245, 240, 232, 0.1)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: "0.75rem",
+                            marginBottom: "0.85rem",
+                          }}
+                        >
+                          <p style={{ margin: 0, fontSize: "0.88rem", lineHeight: 1.45, fontWeight: 600 }}>
+                            {PTC_UTILISATION_LABELS[c.categorie]}
+                          </p>
+                          {onOffSwitch({
+                            checked: d.actif,
+                            label: `${PTC_UTILISATION_LABELS[c.categorie]} — ${d.actif ? "actif" : "inactif"}`,
+                            onToggle: () =>
+                              setPtcUtilisationDrafts((prev) => ({
+                                ...prev,
+                                [c.id]: { ...d, actif: !d.actif },
+                              })),
+                          })}
+                        </div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: "0.72rem",
+                            opacity: 0.55,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                            marginBottom: "0.35rem",
+                          }}
+                        >
+                          Budget alloué ($)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={d.budget_alloue}
+                          onChange={(e) =>
+                            setPtcUtilisationDrafts((prev) => ({
+                              ...prev,
+                              [c.id]: { ...d, budget_alloue: e.target.value },
+                            }))
+                          }
+                          aria-label={`Budget — ${PTC_UTILISATION_LABELS[c.categorie]}`}
+                          style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem", width: "100%" }}
+                        />
+                      </article>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    disabled={ptcUtilisationsSaving}
+                    onClick={() => void handleSavePtcUtilisations()}
+                    style={{
+                      padding: "0.65rem 1.35rem",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: ROUGE,
+                      color: TEXT,
+                      fontWeight: 600,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      fontSize: "0.78rem",
+                      cursor: ptcUtilisationsSaving ? "wait" : "pointer",
+                      opacity: ptcUtilisationsSaving ? 0.7 : 1,
+                    }}
+                  >
+                    {ptcUtilisationsSaving ? "Sauvegarde…" : "Sauvegarder"}
+                  </button>
                 </div>
               </>
             )}

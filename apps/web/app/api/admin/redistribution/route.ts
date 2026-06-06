@@ -5,6 +5,7 @@ import {
   isCollaborateurMemberType,
   PCOL_COLLAB_PENDING_SHARE,
 } from "../../../../lib/pcol";
+import { crediterPtc } from "../../../../lib/ptc";
 
 export const dynamic = "force-dynamic";
 
@@ -586,6 +587,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: message }, { status: 500 });
     }
 
+    if (ptcTotal > 0) {
+      await crediterPtc({
+        montant: ptcTotal,
+        source: "quiz_perdu",
+        ptsEquivalent: totalPtcPonderes,
+        mois: monthKey,
+      });
+    }
+
     const { error: updateBankError } = await supabase
       .from("banque_leve")
       .update({
@@ -594,7 +604,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         production_balance: Number(bank.production_balance ?? 0) + productionPool,
         fondation_balance: Number(bank.fondation_balance ?? 0) + fondationPool,
         operations_balance: Number(bank.operations_balance ?? 0) + operationsPool,
-        ptc_balance: Number(bank.ptc_balance ?? 0) + ptcTotal,
         pcol_balance: Number(bank.pcol_balance ?? 0) + totalPcolDollars,
       })
       .eq("id", bank.id);

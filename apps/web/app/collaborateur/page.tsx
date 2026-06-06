@@ -29,6 +29,8 @@ const cadFmt = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 2,
 });
 
+const PTC_UNIT_DOLLARS = 5;
+
 async function restJson<T>(
   path: string,
   accessToken: string,
@@ -125,6 +127,11 @@ type PendingDbRow = {
 
 type RedistRow = {
   value_per_point: number | string | null;
+};
+
+type PtcMouvementRow = {
+  montant: number | string | null;
+  pts_equivalent: number | string | null;
 };
 
 function msUntil(iso: string): number {
@@ -232,6 +239,8 @@ export default function CollaborateurPage(): JSX.Element | null {
   const [pendingList, setPendingList] = useState<PendingRow[]>([]);
   const [totalQuizMembres, setTotalQuizMembres] = useState(0);
   const [totalPtsGeneresPonderes, setTotalPtsGeneresPonderes] = useState(0);
+  const [ptcMonthPts, setPtcMonthPts] = useState(0);
+  const [ptcMonthDollars, setPtcMonthDollars] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
 
@@ -270,7 +279,9 @@ export default function CollaborateurPage(): JSX.Element | null {
     setPcolMonthLabel(currentMonth.label);
     setPrevMonthLabel(prevMonth.label);
 
-    const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, redistRes, prevHistRes] =
+    const currentMonthKey = currentMonth.monthDate.slice(0, 7);
+
+    const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, redistRes, prevHistRes, ptcMoisRes] =
       await Promise.all([
         restJson<PcolTxRow[]>(
           `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,collaborateur_id,pts_collab_ponderes,pts_membres_gagnes_ponderes,created_at&order=created_at.desc`,
@@ -300,6 +311,10 @@ export default function CollaborateurPage(): JSX.Element | null {
           `redistribution_history?month=eq.${encodeURIComponent(prevMonth.monthDate)}&select=month&limit=1`,
           token,
         ),
+        restJson<PtcMouvementRow[]>(
+          `ptc_mouvements?collaborateur_id=eq.${uidEnc}&mois=eq.${encodeURIComponent(currentMonthKey)}&select=montant,pts_equivalent`,
+          token,
+        ),
       ]);
 
     const errMsg =
@@ -310,6 +325,7 @@ export default function CollaborateurPage(): JSX.Element | null {
       pendingRes.error ??
       redistRes.error ??
       prevHistRes.error ??
+      ptcMoisRes.error ??
       null;
     if (errMsg) {
       setLoadError(errMsg);
@@ -415,9 +431,19 @@ export default function CollaborateurPage(): JSX.Element | null {
       0,
     );
 
+    const ptcRows = ptcMoisRes.data ?? [];
+    const ptcDollarsMois = round2(
+      ptcRows.reduce((acc, r) => acc + Number(r.montant ?? 0), 0),
+    );
+    const ptcPtsMois = round2(
+      ptcRows.reduce((acc, r) => acc + Number(r.pts_equivalent ?? 0), 0),
+    );
+
     setSoldePcolDollars(soldeDollars);
     setPcolCurrentMonthPts(currentMonthPcol);
     setPrevMonthPcolPts(prevMonthPcol);
+    setPtcMonthPts(ptcPtsMois);
+    setPtcMonthDollars(ptcDollarsMois);
     setPrevMonthRedistributed(!prevHistRes.error && (prevHistRes.data ?? []).length > 0);
     setValeurParPt(valeurParPtFinite);
     setTotalPtsGeneresPonderes(totalPtsGeneres);
@@ -615,6 +641,42 @@ export default function CollaborateurPage(): JSX.Element | null {
                   )}
                 </p>
               ) : null}
+            </section>
+
+            <section
+              style={{
+                borderRadius: "14px",
+                padding: "1.35rem 1.25rem",
+                marginBottom: "1.25rem",
+                background: "rgba(245, 240, 232, 0.03)",
+                border: "1px solid rgba(245, 240, 232, 0.1)",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  opacity: 0.55,
+                }}
+              >
+                PTC généré ce mois · {pcolMonthLabel || "—"}
+              </p>
+              <p style={{ margin: "0.65rem 0 0", fontSize: "1.05rem", lineHeight: 1.55 }}>
+                {pointsFmt.format(ptcMonthPts)} pts → {cadFmt.format(ptcMonthDollars)} →{" "}
+                <span style={{ color: GOLD, fontWeight: 700 }}>
+                  {(ptcMonthDollars / PTC_UNIT_DOLLARS).toLocaleString("fr-CA", {
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  PTC générés
+                </span>{" "}
+                (÷ {PTC_UNIT_DOLLARS} $)
+              </p>
+              <p style={{ margin: "0.65rem 0 0", fontSize: "0.82rem", opacity: 0.6, lineHeight: 1.5 }}>
+                Somme des % perdus lors de récupération PCOL et pending expiré, crédités au Pool de
+                Croissance communautaire.
+              </p>
             </section>
 
             <div

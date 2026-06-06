@@ -88,6 +88,16 @@ type TransparenceConfigRow = {
   ordre: number;
 };
 
+type PtcStats = {
+  ptc_balance: number;
+  ptc_units: number;
+  sources: {
+    quiz_perdu: number;
+    pending_expire: number;
+    collab_perdu: number;
+  };
+};
+
 /** Colonnes `banque_leve` contrôlées par `transparence_config.cle`. */
 const BANQUE_BALANCE_COLUMN: Record<string, keyof BanqueLeveRow> = {
   pmq: "pmq_balance",
@@ -230,6 +240,8 @@ function formatMonthLabel(ym: string): string {
   }
 }
 
+const PTC_UNIT_DOLLARS = 5;
+
 const poolCards = [
   {
     label: "PMQ",
@@ -272,6 +284,7 @@ export default function TransparencePage(): JSX.Element {
     TransparenceConfigRow[]
   >(DEFAULT_TRANSPARENCE_CONFIG);
   const [history, setHistory] = useState<RedistributionMois[]>([]);
+  const [ptcStats, setPtcStats] = useState<PtcStats | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -359,6 +372,17 @@ export default function TransparencePage(): JSX.Element {
       const msg = e instanceof Error ? e.message : String(e);
       setLoadError((prev) => prev ?? msg);
       setHistory([]);
+    }
+
+    try {
+      const ptcRes = await fetch("/api/ptc/stats", { cache: "no-store" });
+      const ptcJson = (await ptcRes.json()) as PtcStats & { error?: string };
+      if (!ptcRes.ok) {
+        throw new Error(ptcJson.error ?? "Stats PTC indisponibles");
+      }
+      setPtcStats(ptcJson);
+    } catch {
+      setPtcStats(null);
     }
   }, []);
 
@@ -754,7 +778,87 @@ export default function TransparencePage(): JSX.Element {
                     {cad.format(Number.isFinite(tr) ? tr : 0)}
                   </p>
                 </article>
-                {banquePoolRows.map((row) => (
+                {banquePoolRows.map((row) => {
+                  if (row.cle === "ptc") {
+                    const ptcDollars =
+                      ptcStats?.ptc_balance ??
+                      (Number.isFinite(row.value) ? row.value : 0);
+                    const ptcUnits =
+                      ptcStats?.ptc_units ??
+                      Math.round((ptcDollars / PTC_UNIT_DOLLARS) * 100) / 100;
+                    const sources = ptcStats?.sources ?? {
+                      quiz_perdu: 0,
+                      pending_expire: 0,
+                      collab_perdu: 0,
+                    };
+
+                    return (
+                      <article
+                        key={row.cle}
+                        style={{
+                          gridColumn: "1 / -1",
+                          borderRadius: "12px",
+                          padding: "1.25rem",
+                          background: "rgba(212, 160, 23, 0.06)",
+                          border: `1px solid rgba(212, 160, 23, 0.35)`,
+                          borderLeft: `3px solid ${row.accent}`,
+                        }}
+                      >
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.72rem",
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            opacity: 0.6,
+                          }}
+                        >
+                          PTC — Pool de Croissance
+                        </p>
+                        <p
+                          style={{
+                            margin: "0.45rem 0 0",
+                            fontSize: "1.45rem",
+                            fontWeight: 700,
+                            color: GOLD,
+                          }}
+                        >
+                          {cad.format(ptcDollars)}
+                        </p>
+                        <p
+                          style={{
+                            margin: "0.35rem 0 0",
+                            fontSize: "0.92rem",
+                            opacity: 0.78,
+                          }}
+                        >
+                          Équivalent : {ptcUnits.toLocaleString("fr-CA", { maximumFractionDigits: 2 })} PTC générés
+                        </p>
+                        <div
+                          style={{
+                            marginTop: "0.85rem",
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                            gap: "0.65rem",
+                            fontSize: "0.82rem",
+                            opacity: 0.85,
+                          }}
+                        >
+                          <span>
+                            Points perdus quiz · {cad.format(sources.quiz_perdu)}
+                          </span>
+                          <span>
+                            Pending expiré · {cad.format(sources.pending_expire)}
+                          </span>
+                          <span>
+                            % collab perdu · {cad.format(sources.collab_perdu)}
+                          </span>
+                        </div>
+                      </article>
+                    );
+                  }
+
+                  return (
                   <article
                     key={row.cle}
                     style={{
@@ -786,7 +890,8 @@ export default function TransparencePage(): JSX.Element {
                       {cad.format(Number.isFinite(row.value) ? row.value : 0)}
                     </p>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

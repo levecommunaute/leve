@@ -6,11 +6,22 @@ const corsHeaders: Record<string, string> = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const PTC_UNIT_DOLLARS = 5;
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 Deno.serve(async (req) => {
@@ -32,11 +43,14 @@ Deno.serve(async (req) => {
   });
 
   const nowIso = new Date().toISOString();
+  const mois = currentMonthKey();
 
   try {
     const { data: pending, error: fetchError } = await supabase
       .from("pending_pcol")
-      .select("id, points_pending_cumul, points_amount, pts_pending")
+      .select(
+        "id, collaborateur_id, points_pending_cumul, points_amount, pts_pending, valeur_dollars_cumul",
+      )
       .eq("statut", "pending")
       .lt("date_expiration", nowIso);
 
@@ -48,11 +62,20 @@ Deno.serve(async (req) => {
     }
 
     const ids = rows.map((r) => r.id);
-    const totalExpired = rows.reduce(
-      (sum, r) =>
-        sum + Number(r.points_pending_cumul ?? r.points_amount ?? r.pts_pending ?? 0),
-      0,
-    );
+    let totalExpiredDollars = 0;
+    let totalExpiredPts = 0;
+
+    for (const row of rows) {
+      const dollars = Number(row.valeur_dollars_cumul ?? 0);
+      const pts = Number(
+        row.points_pending_cumul ?? row.points_amount ?? row.pts_pending ?? 0,
+      );
+      totalExpiredDollars += dollars;
+      totalExpiredPts += pts;
+    }
+
+    totalExpiredDollars = round2(totalExpiredDollars);
+    totalExpiredPts = round2(totalExpiredPts);
 
     const { error: updateError } = await supabase
       .from("pending_pcol")
@@ -61,30 +84,68 @@ Deno.serve(async (req) => {
 
     if (updateError) throw updateError;
 
-    const { data: bank, error: bankError } = await supabase
-      .from("banque_leve")
-      .select("id, pool_ptc")
-      .limit(1)
-      .maybeSingle();
-
-    if (bankError) throw bankError;
-    if (bank && totalExpired > 0) {
-      const { error: bankUpdateError } = await supabase
+    if (totalExpiredDollars > 0) {
+      const { data: bank, error: bankError } = await supabase
         .from("banque_leve")
-        .update({
-          pool_ptc: Number(bank.pool_ptc ?? 0) + totalExpired,
-        })
-        .eq("id", bank.id);
+        .select("id, ptc_balance")
+        .limit(1)
+        .maybeSingle();
 
-      if (bankUpdateError) {
-        console.warn(
-          "[expire-pending] banque_leve.pool_ptc update failed:",
-          bankUpdateError.message,
-        );
+      if (bankError) throw bankError;
+
+      if (bank?.id) {
+        const { error: bankUpdateError } = await supabase
+          .from("banque_leve")
+          .update({
+            ptc_balance: round2(Number(bank.ptc_balance ?? 0) + totalExpiredDollars),
+          })
+          .eq("id", bank.id);
+
+        if (bankUpdateError) {
+          console.warn(
+            "[expire-pending] banque_leve.ptc_balance update failed:",
+            bankUpdateError.message,
+          );
+        }
+      }
+
+      const mouvements = rows
+        .map((row) => {
+          const montant = round2(Number(row.valeur_dollars_cumul ?? 0));
+          if (montant <= 0) return null;
+          const pts = round2(
+            Number(
+              row.points_pending_cumul ?? row.points_amount ?? row.pts_pending ?? 0,
+            ),
+          );
+          return {
+            source: "pending_expire",
+            montant,
+            pts_equivalent: pts,
+            collaborateur_id: row.collaborateur_id ?? null,
+            mois,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row != null);
+
+      if (mouvements.length > 0) {
+        const { error: mvtError } = await supabase
+          .from("ptc_mouvements")
+          .insert(mouvements);
+
+        if (mvtError) {
+          console.warn("[expire-pending] ptc_mouvements insert failed:", mvtError.message);
+        }
       }
     }
 
-    return jsonResponse({ success: true, expired_count: rows.length, total_expired_pts: totalExpired });
+    return jsonResponse({
+      success: true,
+      expired_count: rows.length,
+      total_expired_pts: totalExpiredPts,
+      total_expired_dollars: totalExpiredDollars,
+      ptc_units: round2(totalExpiredDollars / PTC_UNIT_DOLLARS),
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[expire-pending]", message);
