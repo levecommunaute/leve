@@ -10,6 +10,7 @@ import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { useYoutubeSubscriberCount } from "../../lib/use-youtube-subscriber-count";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
@@ -74,6 +75,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const youtubeSubscriberCount = useYoutubeSubscriberCount();
 
   const loadProfil = useCallback(async (activeSession: Session) => {
     const uid = activeSession.user.id;
@@ -185,8 +187,23 @@ export default function ProfilPage(): JSX.Element | null {
   const weightedPointsPmq = totalPointsPmq * profileMultiplier;
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
+  const youtubeAbonnesLabel =
+    youtubeSubscriberCount !== null
+      ? new Intl.NumberFormat("fr-FR").format(Math.max(0, Math.floor(youtubeSubscriberCount)))
+      : null;
+
   return (
     <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-dm), system-ui, sans-serif", paddingBottom: "6rem" }}>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes leveLiveBlink {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.35; }
+            }
+          `,
+        }}
+      />
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid rgba(245, 240, 232, 0.08)", position: "sticky", top: 0, background: "rgba(8, 8, 8, 0.92)", backdropFilter: "blur(8px)", zIndex: 20 }}>
         <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>LEVE</Link>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -196,6 +213,36 @@ export default function ProfilPage(): JSX.Element | null {
           </button>
         </div>
       </header>
+
+      {youtubeAbonnesLabel ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.45rem",
+            padding: "0.35rem 1rem",
+            fontSize: "0.68rem",
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            opacity: 0.55,
+            borderBottom: "1px solid rgba(245, 240, 232, 0.05)",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              width: "0.35rem",
+              height: "0.35rem",
+              borderRadius: "50%",
+              background: ROUGE,
+              animation: "leveLiveBlink 1.2s ease-in-out infinite",
+            }}
+          />
+          <span>YouTube</span>
+          <span style={{ fontWeight: 600, opacity: 0.9 }}>{youtubeAbonnesLabel} abonnés</span>
+        </div>
+      ) : null}
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>{loadError}</p> : null}

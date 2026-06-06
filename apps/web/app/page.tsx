@@ -7,6 +7,7 @@ import { useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS } from "../lib/appBottomNavLinks";
 import { getSession, signInWithGoogle } from "../lib/auth";
 import { readSessionFromAuthCookies } from "../lib/supabase-auth-cookies";
+import { useYoutubeSubscriberCount } from "../lib/use-youtube-subscriber-count";
 
 function isBadOAuthStateUrl(): boolean {
   if (typeof window === "undefined") return false;
@@ -221,6 +222,7 @@ export default function Home(): JSX.Element {
     "idle" | "checking" | "error" | "redirecting"
   >("idle");
   const [reseauxActifs, setReseauxActifs] = useState<ReseauSocialRow[]>([]);
+  const youtubeSubscriberCount = useYoutubeSubscriberCount();
 
   useEffect(() => {
     let cancelled = false;
@@ -344,21 +346,27 @@ export default function Home(): JSX.Element {
             />
             En direct
           </span>
-          {reseauxActifs.map((r) => (
-            <span
-              key={r.id}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.35rem",
-                opacity: 0.92,
-              }}
-            >
-              <ReseauSocialIcon reseau={r.reseau} size={14} />
-              <span style={{ opacity: 0.7 }}>{RESEAU_LABELS[r.reseau]}</span>
-              <span style={{ fontWeight: 600 }}>{formatAbonnes(r.abonnes)}</span>
-            </span>
-          ))}
+          {reseauxActifs.map((r) => {
+            const abonnes =
+              r.reseau === "youtube" && youtubeSubscriberCount !== null
+                ? youtubeSubscriberCount
+                : r.abonnes;
+            return (
+              <span
+                key={r.id}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  opacity: 0.92,
+                }}
+              >
+                <ReseauSocialIcon reseau={r.reseau} size={14} />
+                <span style={{ opacity: 0.7 }}>{RESEAU_LABELS[r.reseau]}</span>
+                <span style={{ fontWeight: 600 }}>{formatAbonnes(abonnes)}</span>
+              </span>
+            );
+          })}
         </div>
       ) : null}
 
