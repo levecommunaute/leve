@@ -146,29 +146,37 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.redirect(`${origin}/dashboard`);
   }
 
-  // mode === "connecter"
-  if (!profile || profile.abonnement_verifie_at == null) {
-    if (profile) {
-      const svc = getServiceSupabase();
-      const { error: banqueError } = await svc
-        .from("banque_membres")
-        .delete()
-        .eq("membre_id", user.id);
-      if (banqueError) {
-        console.error("[auth/callback] banque_membres delete:", banqueError.message);
-      }
-      const { error: profileDeleteError } = await svc
-        .from("profiles")
-        .delete()
-        .eq("id", user.id);
-      if (profileDeleteError) {
-        console.error("[auth/callback] profiles delete:", profileDeleteError.message);
-      }
+  // mode === "connecter" — lecture + nettoyage via service role (RLS peut masquer le profil)
+  const svc = getServiceSupabase();
+  const { data: connecterProfileRow } = await svc
+    .from("profiles")
+    .select(ABONNEMENT_SELECT)
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const connecterProfile = (connecterProfileRow ?? null) as ProfileAbonnement | null;
+
+  if (!connecterProfile || connecterProfile.abonnement_verifie_at == null) {
+    const { error: banqueError } = await svc
+      .from("banque_membres")
+      .delete()
+      .eq("membre_id", user.id);
+    if (banqueError) {
+      console.error("[auth/callback] banque_membres delete:", banqueError.message);
     }
+
+    const { error: profileDeleteError } = await svc
+      .from("profiles")
+      .delete()
+      .eq("id", user.id);
+    if (profileDeleteError) {
+      console.error("[auth/callback] profiles delete:", profileDeleteError.message);
+    }
+
     return NextResponse.redirect(`${origin}/auth/pas-de-compte`);
   }
 
-  const expireAt = profile.abonnement_expire_at ?? null;
+  const expireAt = connecterProfile.abonnement_expire_at ?? null;
 
   // abonnement_expire_at > NOW() → dashboard sans revérification YouTube
   if (expireAt && new Date(expireAt).getTime() > Date.now()) {
