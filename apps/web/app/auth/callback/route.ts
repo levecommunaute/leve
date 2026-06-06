@@ -6,9 +6,9 @@ import {
   buildActiveSubscriptionPatch,
   buildGraceSubscriptionPatch,
   buildRenewSubscriptionPatch,
-  profileHasMembership,
   type ProfileAbonnement,
 } from "../../../lib/abonnement";
+import { getServiceSupabase } from "../../../lib/admin-server";
 import { sendWelcomeEmail } from "../../../lib/emails";
 import { sendGracePeriodEmail } from "../../../lib/grace-email";
 import { checkYoutubeSubscription } from "../../../lib/youtube-subscription";
@@ -147,11 +147,28 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   // mode === "connecter"
-  if (!profileHasMembership(profile)) {
-    return NextResponse.redirect(`${origin}/?error=no_profile`);
+  if (!profile || profile.abonnement_verifie_at == null) {
+    if (profile) {
+      const svc = getServiceSupabase();
+      const { error: banqueError } = await svc
+        .from("banque_membres")
+        .delete()
+        .eq("membre_id", user.id);
+      if (banqueError) {
+        console.error("[auth/callback] banque_membres delete:", banqueError.message);
+      }
+      const { error: profileDeleteError } = await svc
+        .from("profiles")
+        .delete()
+        .eq("id", user.id);
+      if (profileDeleteError) {
+        console.error("[auth/callback] profiles delete:", profileDeleteError.message);
+      }
+    }
+    return NextResponse.redirect(`${origin}/auth/pas-de-compte`);
   }
 
-  const expireAt = profile?.abonnement_expire_at ?? null;
+  const expireAt = profile.abonnement_expire_at ?? null;
 
   // abonnement_expire_at > NOW() → dashboard sans revérification YouTube
   if (expireAt && new Date(expireAt).getTime() > Date.now()) {
