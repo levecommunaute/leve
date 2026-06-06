@@ -44,6 +44,7 @@ const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 const YOUTUBE_URL = "https://www.youtube.com/@levecommunaute";
 const YOUTUBE_RED = "#FF0000";
+const STATS_REFRESH_MS = 60_000;
 
 type ReseauSocialKey = "youtube" | "facebook" | "tiktok" | "instagram";
 
@@ -232,6 +233,7 @@ export default function Home(): JSX.Element {
   >("idle");
   const [reseauxActifs, setReseauxActifs] = useState<ReseauSocialRow[]>([]);
   const [fondateurConfig, setFondateurConfig] = useState<FondateurConfigRow | null>(null);
+  const [membresInscrits, setMembresInscrits] = useState<number | null>(null);
   const youtubeSubscriberCount = useYoutubeSubscriberCount();
 
   useEffect(() => {
@@ -279,6 +281,29 @@ export default function Home(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadFondateurStats(): Promise<void> {
+      try {
+        const r = await fetch("/api/fondateur-stats", { cache: "no-store" });
+        const j = (await r.json()) as { membres_inscrits?: number };
+        if (!cancelled && r.ok && typeof j.membres_inscrits === "number") {
+          setMembresInscrits(j.membres_inscrits);
+        }
+      } catch {
+        // conserve la dernière valeur connue
+      }
+    }
+
+    void loadFondateurStats();
+    const id = window.setInterval(() => void loadFondateurStats(), STATS_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isBadOAuthStateUrl()) return;
 
     let cancelled = false;
@@ -310,13 +335,13 @@ export default function Home(): JSX.Element {
 
   const showOAuthError = oauthRecovery === "error";
 
+  const membresActuels = membresInscrits ?? 0;
+
   const fondateurPct =
     fondateurConfig && fondateurConfig.membres_max > 0
       ? Math.min(
           100,
-          Math.round(
-            (fondateurConfig.membres_actuels / fondateurConfig.membres_max) * 100,
-          ),
+          Math.round((membresActuels / fondateurConfig.membres_max) * 100),
         )
       : 0;
 
@@ -531,7 +556,7 @@ export default function Home(): JSX.Element {
                 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif" }}
               >
                 <span className="text-3xl tracking-wide md:text-4xl" style={{ color: GOLD }}>
-                  {formatAbonnes(fondateurConfig.membres_actuels)}
+                  {formatAbonnes(membresActuels)}
                 </span>
                 <span className="text-lg opacity-60 md:text-xl">
                   / {formatAbonnes(fondateurConfig.membres_max)}
@@ -550,6 +575,20 @@ export default function Home(): JSX.Element {
                   }}
                 />
               </div>
+              <p
+                className="mb-3 flex items-center justify-center gap-1.5 text-center text-sm md:text-base"
+                style={{ opacity: 0.88 }}
+              >
+                <span aria-hidden style={{ color: YOUTUBE_RED }}>
+                  🔴
+                </span>
+                <span>
+                  {youtubeSubscriberCount !== null
+                    ? formatAbonnes(youtubeSubscriberCount)
+                    : "…"}{" "}
+                  abonnés YouTube en direct
+                </span>
+              </p>
               <p className="mb-3 text-center text-sm opacity-80 md:text-base">
                 {fondateurPct}% des places sont prises
               </p>
