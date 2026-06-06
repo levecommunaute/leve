@@ -55,6 +55,15 @@ type ReseauSocialRow = {
   ordre: number;
 };
 
+type FondateurConfigRow = {
+  id: string;
+  actif: boolean;
+  membres_actuels: number;
+  membres_max: number;
+  message: string;
+  updated_at: string;
+};
+
 const RESEAU_LABELS: Record<ReseauSocialKey, string> = {
   youtube: "YouTube",
   facebook: "Facebook",
@@ -222,6 +231,7 @@ export default function Home(): JSX.Element {
     "idle" | "checking" | "error" | "redirecting"
   >("idle");
   const [reseauxActifs, setReseauxActifs] = useState<ReseauSocialRow[]>([]);
+  const [fondateurConfig, setFondateurConfig] = useState<FondateurConfigRow | null>(null);
   const youtubeSubscriberCount = useYoutubeSubscriberCount();
 
   useEffect(() => {
@@ -240,6 +250,29 @@ export default function Home(): JSX.Element {
     }
 
     void loadReseauxSociaux();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFondateurConfig(): Promise<void> {
+      try {
+        const r = await fetch("/api/fondateur-config", { cache: "no-store" });
+        const j = (await r.json()) as { config?: FondateurConfigRow | null };
+        if (!cancelled && r.ok && j.config?.actif) {
+          setFondateurConfig(j.config);
+        } else if (!cancelled) {
+          setFondateurConfig(null);
+        }
+      } catch {
+        if (!cancelled) setFondateurConfig(null);
+      }
+    }
+
+    void loadFondateurConfig();
     return () => {
       cancelled = true;
     };
@@ -276,6 +309,16 @@ export default function Home(): JSX.Element {
   }, [router]);
 
   const showOAuthError = oauthRecovery === "error";
+
+  const fondateurPct =
+    fondateurConfig && fondateurConfig.membres_max > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (fondateurConfig.membres_actuels / fondateurConfig.membres_max) * 100,
+          ),
+        )
+      : 0;
 
   return (
     <main
@@ -469,6 +512,54 @@ export default function Home(): JSX.Element {
               </a>
             </div>
           )}
+          {fondateurConfig ? (
+            <div
+              className="mt-4 w-full max-w-lg rounded-lg border px-6 py-6 text-left"
+              style={{
+                borderColor: `${GOLD}55`,
+                background: "rgba(212, 160, 23, 0.06)",
+              }}
+            >
+              <p
+                className="mb-4 text-center text-sm tracking-[0.2em] uppercase md:text-base"
+                style={{ color: GOLD, fontWeight: 600 }}
+              >
+                Statut Fondateur — Les {formatAbonnes(fondateurConfig.membres_max)} premiers
+              </p>
+              <div
+                className="mb-3 flex items-baseline justify-between gap-4"
+                style={{ fontFamily: "var(--font-bebas), Impact, sans-serif" }}
+              >
+                <span className="text-3xl tracking-wide md:text-4xl" style={{ color: GOLD }}>
+                  {formatAbonnes(fondateurConfig.membres_actuels)}
+                </span>
+                <span className="text-lg opacity-60 md:text-xl">
+                  / {formatAbonnes(fondateurConfig.membres_max)}
+                </span>
+              </div>
+              <div
+                aria-hidden
+                className="mb-3 h-2.5 overflow-hidden rounded-full"
+                style={{ background: "rgba(245, 240, 232, 0.1)" }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${fondateurPct}%`,
+                    background: `linear-gradient(90deg, ${GOLD} 0%, #E8C547 100%)`,
+                  }}
+                />
+              </div>
+              <p className="mb-3 text-center text-sm opacity-80 md:text-base">
+                {fondateurPct}% des places sont prises
+              </p>
+              {fondateurConfig.message.trim() ? (
+                <p className="m-0 text-center text-sm leading-relaxed opacity-75 md:text-base">
+                  {fondateurConfig.message}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 

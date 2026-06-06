@@ -145,6 +145,21 @@ type ReseauSocialDraft = {
   actif: boolean;
 };
 
+type FondateurConfigRow = {
+  id: string;
+  actif: boolean;
+  membres_actuels: number;
+  membres_max: number;
+  message: string;
+  updated_at: string;
+};
+
+type FondateurConfigDraft = {
+  actif: boolean;
+  membres_actuels: string;
+  message: string;
+};
+
 const RESEAU_SOCIAL_LABELS: Record<ReseauSocialKey, string> = {
   youtube: "YouTube",
   facebook: "Facebook",
@@ -161,6 +176,25 @@ function reseauSocialToDraft(r: ReseauSocialRow): ReseauSocialDraft {
 
 function reseauSocialDraftDirty(r: ReseauSocialRow, d: ReseauSocialDraft): boolean {
   return String(r.abonnes) !== d.abonnes.trim() || r.actif !== d.actif;
+}
+
+function fondateurConfigToDraft(c: FondateurConfigRow): FondateurConfigDraft {
+  return {
+    actif: c.actif,
+    membres_actuels: String(c.membres_actuels),
+    message: c.message,
+  };
+}
+
+function fondateurConfigDraftDirty(
+  c: FondateurConfigRow,
+  d: FondateurConfigDraft,
+): boolean {
+  return (
+    c.actif !== d.actif ||
+    String(c.membres_actuels) !== d.membres_actuels.trim() ||
+    c.message !== d.message
+  );
 }
 
 function transparenceConfigSectionLabel(cle: string): string {
@@ -715,6 +749,15 @@ export default function AdminPage(): JSX.Element {
   const [reseauxSociauxSaving, setReseauxSociauxSaving] = useState(false);
   const [reseauxSociauxSaveMsg, setReseauxSociauxSaveMsg] = useState<string | null>(null);
 
+  const [fondateurConfig, setFondateurConfig] = useState<FondateurConfigRow | null>(null);
+  const [fondateurConfigDraft, setFondateurConfigDraft] = useState<FondateurConfigDraft | null>(
+    null,
+  );
+  const [fondateurConfigLoading, setFondateurConfigLoading] = useState(false);
+  const [fondateurConfigError, setFondateurConfigError] = useState<string | null>(null);
+  const [fondateurConfigSaving, setFondateurConfigSaving] = useState(false);
+  const [fondateurConfigSaveMsg, setFondateurConfigSaveMsg] = useState<string | null>(null);
+
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem(STORAGE_KEY);
@@ -995,6 +1038,33 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  const loadFondateurConfig = useCallback(async (): Promise<void> => {
+    setFondateurConfigLoading(true);
+    setFondateurConfigError(null);
+    try {
+      const r = await fetch("/api/admin/fondateur-config", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { config?: FondateurConfigRow | null; error?: string };
+      if (!r.ok) {
+        setFondateurConfigError(j.error ?? "Erreur configuration fondateur");
+        setFondateurConfig(null);
+        setFondateurConfigDraft(null);
+        return;
+      }
+      const config = j.config ?? null;
+      setFondateurConfig(config);
+      setFondateurConfigDraft(config ? fondateurConfigToDraft(config) : null);
+    } catch (e) {
+      setFondateurConfigError(e instanceof Error ? e.message : "Erreur réseau");
+      setFondateurConfig(null);
+      setFondateurConfigDraft(null);
+    } finally {
+      setFondateurConfigLoading(false);
+    }
+  }, [adminHeaders]);
+
   const loadQuizQuestions = useCallback(
     async (videoId: string): Promise<void> => {
       if (!videoId) {
@@ -1038,6 +1108,7 @@ export default function AdminPage(): JSX.Element {
     void loadTransparencePools();
     void loadProduction();
     void loadReseauxSociaux();
+    void loadFondateurConfig();
   }, [
     hydrated,
     authed,
@@ -1051,6 +1122,7 @@ export default function AdminPage(): JSX.Element {
     loadTransparencePools,
     loadProduction,
     loadReseauxSociaux,
+    loadFondateurConfig,
   ]);
 
   useEffect(() => {
@@ -1164,6 +1236,62 @@ export default function AdminPage(): JSX.Element {
     setTransparencyError(null);
     setProductionVideos([]);
     setProductionError(null);
+    setFondateurConfig(null);
+    setFondateurConfigDraft(null);
+    setFondateurConfigError(null);
+    setFondateurConfigSaveMsg(null);
+  }
+
+  async function handleSaveFondateurConfig(): Promise<void> {
+    if (!fondateurConfig || !fondateurConfigDraft) return;
+
+    setFondateurConfigSaving(true);
+    setFondateurConfigError(null);
+    setFondateurConfigSaveMsg(null);
+    try {
+      if (!fondateurConfigDraftDirty(fondateurConfig, fondateurConfigDraft)) {
+        setFondateurConfigSaveMsg("Aucune modification à enregistrer.");
+        window.setTimeout(() => setFondateurConfigSaveMsg(null), 3000);
+        return;
+      }
+
+      const membresActuels = Number(fondateurConfigDraft.membres_actuels.trim());
+      if (
+        !Number.isFinite(membresActuels) ||
+        membresActuels < 0 ||
+        !Number.isInteger(membresActuels)
+      ) {
+        setFondateurConfigError("Membres actuels invalides (entier ≥ 0)");
+        return;
+      }
+
+      const res = await fetch("/api/admin/fondateur-config", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          actif: fondateurConfigDraft.actif,
+          membres_actuels: membresActuels,
+          message: fondateurConfigDraft.message,
+        }),
+      });
+      const j = (await res.json()) as { config?: FondateurConfigRow; error?: string };
+      if (!res.ok) {
+        setFondateurConfigError(j.error ?? "Échec de la sauvegarde");
+        return;
+      }
+
+      if (j.config) {
+        setFondateurConfig(j.config);
+        setFondateurConfigDraft(fondateurConfigToDraft(j.config));
+      }
+
+      setFondateurConfigSaveMsg("Configuration enregistrée.");
+      window.setTimeout(() => setFondateurConfigSaveMsg(null), 3000);
+    } catch (e) {
+      setFondateurConfigError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setFondateurConfigSaving(false);
+    }
   }
 
   async function handleSaveReseauxSociaux(): Promise<void> {
@@ -3648,6 +3776,147 @@ export default function AdminPage(): JSX.Element {
                   </button>
                   <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
                     Le bandeau n&apos;apparaît que si au moins un réseau est actif.
+                  </span>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* SECTION FONDATEUR */}
+          <section style={cardStyle()}>
+            {sectionTitle("FONDATEUR")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Bandeau « Statut Fondateur » sous les boutons de la page d&apos;accueil (table{" "}
+              <code style={{ fontSize: "0.82rem" }}>fondateur_config</code>).
+            </p>
+            {fondateurConfigError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+                {fondateurConfigError}
+              </p>
+            ) : null}
+            {fondateurConfigSaveMsg ? (
+              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+                {fondateurConfigSaveMsg}
+              </p>
+            ) : null}
+            {fondateurConfigLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : !fondateurConfig || !fondateurConfigDraft ? (
+              <p style={{ opacity: 0.6, margin: 0 }}>
+                Aucune configuration. Exécutez la migration{" "}
+                <code style={{ fontSize: "0.82rem" }}>fondateur_config</code>.
+              </p>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "1rem",
+                    marginBottom: "1.25rem",
+                  }}
+                >
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, opacity: 0.85 }}>
+                    Afficher le bandeau
+                  </span>
+                  {onOffSwitch({
+                    checked: fondateurConfigDraft.actif,
+                    label: `Fondateur — ${fondateurConfigDraft.actif ? "actif" : "inactif"}`,
+                    onToggle: () =>
+                      setFondateurConfigDraft((prev) =>
+                        prev ? { ...prev, actif: !prev.actif } : prev,
+                      ),
+                  })}
+                  <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
+                    Max : {fondateurConfig.membres_max.toLocaleString("fr-FR")} places
+                  </span>
+                </div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "1rem",
+                    fontSize: "0.78rem",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    opacity: 0.55,
+                  }}
+                >
+                  Membres actuels
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={fondateurConfigDraft.membres_actuels}
+                    onChange={(e) =>
+                      setFondateurConfigDraft((prev) =>
+                        prev ? { ...prev, membres_actuels: e.target.value } : prev,
+                      )
+                    }
+                    aria-label="Membres actuels"
+                    style={{
+                      ...inputBase,
+                      display: "block",
+                      marginTop: "0.45rem",
+                      maxWidth: "12rem",
+                      fontSize: "0.85rem",
+                    }}
+                  />
+                </label>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "1.25rem",
+                    fontSize: "0.78rem",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    opacity: 0.55,
+                  }}
+                >
+                  Message
+                  <textarea
+                    rows={3}
+                    value={fondateurConfigDraft.message}
+                    onChange={(e) =>
+                      setFondateurConfigDraft((prev) =>
+                        prev ? { ...prev, message: e.target.value } : prev,
+                      )
+                    }
+                    aria-label="Message fondateur"
+                    style={{
+                      ...inputBase,
+                      display: "block",
+                      marginTop: "0.45rem",
+                      resize: "vertical",
+                      minHeight: "4.5rem",
+                      fontSize: "0.85rem",
+                      lineHeight: 1.5,
+                    }}
+                  />
+                </label>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    disabled={fondateurConfigSaving}
+                    onClick={() => void handleSaveFondateurConfig()}
+                    style={{
+                      padding: "0.65rem 1.35rem",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: ROUGE,
+                      color: TEXT,
+                      fontWeight: 600,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      fontSize: "0.78rem",
+                      cursor: fondateurConfigSaving ? "wait" : "pointer",
+                      opacity: fondateurConfigSaving ? 0.7 : 1,
+                    }}
+                  >
+                    {fondateurConfigSaving ? "Sauvegarde…" : "Sauvegarder"}
+                  </button>
+                  <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
+                    Le bandeau n&apos;apparaît que si le toggle est activé.
                   </span>
                 </div>
               </>
