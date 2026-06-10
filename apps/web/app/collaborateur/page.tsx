@@ -92,7 +92,6 @@ type VideoStats = {
 
 type PcolTxRow = {
   video_id: string | null;
-  collaborateur_id: string | null;
   pts_collab_ponderes: number | string | null;
   pts_membres_gagnes_ponderes: number | string | null;
   created_at?: string | null;
@@ -313,7 +312,7 @@ export default function CollaborateurPage(): JSX.Element | null {
     const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, redistRes, prevHistRes, ptcRes] =
       await Promise.all([
         restJson<PcolTxRow[]>(
-          `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,collaborateur_id,pts_collab_ponderes,pts_membres_gagnes_ponderes,created_at&order=created_at.desc`,
+          `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,pts_collab_ponderes,pts_membres_gagnes_ponderes,created_at&order=created_at.desc`,
           token,
         ),
         restJson<PcolTxRow[]>(
@@ -382,11 +381,8 @@ export default function CollaborateurPage(): JSX.Element | null {
       0,
     );
 
-    const membresQuiz = new Set<string>();
-    for (const row of pcolRows) {
-      const mid = row.collaborateur_id != null ? String(row.collaborateur_id) : "";
-      if (mid) membresQuiz.add(mid);
-    }
+    // pcol_transactions n'expose pas membre_id : 1 ligne = 1 quiz complété par un membre.
+    const totalQuizCompletes = pcolRows.length;
 
     const videoTitleById = new Map(
       videos.map((v) => [String(v.id), String(v.title ?? "Vidéo")]),
@@ -422,13 +418,11 @@ export default function CollaborateurPage(): JSX.Element | null {
       pendingByVideo.set(p.video_id, p);
     }
 
-    const quizCountByVideo = new Map<string, Set<string>>();
+    const quizCountByVideo = new Map<string, number>();
     for (const row of pcolRows) {
       const vid = String(row.video_id ?? "");
-      const mid = row.collaborateur_id != null ? String(row.collaborateur_id) : "";
-      if (!vid || !mid) continue;
-      if (!quizCountByVideo.has(vid)) quizCountByVideo.set(vid, new Set());
-      quizCountByVideo.get(vid)!.add(mid);
+      if (!vid) continue;
+      quizCountByVideo.set(vid, (quizCountByVideo.get(vid) ?? 0) + 1);
     }
 
     const videoStatsMapped: VideoStats[] = videos.map((v) => {
@@ -437,7 +431,7 @@ export default function CollaborateurPage(): JSX.Element | null {
       return {
         videoId: vid,
         title: String(v.title ?? "Vidéo"),
-        quizCount: quizCountByVideo.get(vid)?.size ?? 0,
+        quizCount: quizCountByVideo.get(vid) ?? 0,
         ptsPcolGeneres: ptsCollabByVideo.get(vid) ?? 0,
         pendingPoints: pending?.points_pending_cumul ?? 0,
         pendingDollars: pending?.valeur_dollars_cumul ?? 0,
@@ -464,7 +458,7 @@ export default function CollaborateurPage(): JSX.Element | null {
     setPrevMonthRedistributed(!prevHistRes.error && (prevHistRes.data ?? []).length > 0);
     setValeurParPt(valeurParPtFinite);
     setTotalPtsGeneresPonderes(totalPtsGeneres);
-    setTotalQuizMembres(membresQuiz.size);
+    setTotalQuizMembres(totalQuizCompletes);
     setPendingList(pendingListMapped);
     setVideoStats(videoStatsMapped);
     setLoadError(null);

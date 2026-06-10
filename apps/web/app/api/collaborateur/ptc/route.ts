@@ -65,12 +65,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const [membresRes, redistRes, ptcBalance] = await Promise.all([
-      svc
-        .from("pcol_transactions")
-        .select("membre_id")
-        .eq("collaborateur_id", uid)
-        .not("membre_id", "is", null),
+    // pcol_transactions n'a pas de colonne membre_id : on retrouve les membres
+    // via les vidéos du collaborateur (videos.collaborateur_id) puis quiz_submissions.
+    const [videosRes, redistRes, ptcBalance] = await Promise.all([
+      svc.from("videos").select("id").eq("collaborateur_id", uid),
       svc
         .from("redistribution_history")
         .select("value_per_point")
@@ -80,20 +78,37 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       getPtcBalance(),
     ]);
 
-    if (membresRes.error) {
-      return NextResponse.json({ error: membresRes.error.message }, { status: 500 });
+    if (videosRes.error) {
+      return NextResponse.json({ error: videosRes.error.message }, { status: 500 });
     }
     if (redistRes.error) {
       return NextResponse.json({ error: redistRes.error.message }, { status: 500 });
     }
 
-    const membreIds = [
-      ...new Set(
-        (membresRes.data ?? [])
-          .map((r) => (r.membre_id != null ? String(r.membre_id) : ""))
-          .filter((id) => id.length > 0),
-      ),
-    ];
+    const videoIds = (videosRes.data ?? [])
+      .map((v) => (v.id != null ? String(v.id) : ""))
+      .filter((id) => id.length > 0);
+
+    let membreIds: string[] = [];
+    if (videoIds.length > 0) {
+      const { data: quizRows, error: quizError } = await svc
+        .from("quiz_submissions")
+        .select("membre_id")
+        .in("video_id", videoIds)
+        .not("membre_id", "is", null);
+
+      if (quizError) {
+        return NextResponse.json({ error: quizError.message }, { status: 500 });
+      }
+
+      membreIds = [
+        ...new Set(
+          (quizRows ?? [])
+            .map((r) => (r.membre_id != null ? String(r.membre_id) : ""))
+            .filter((id) => id.length > 0),
+        ),
+      ];
+    }
 
     let ptsPerdusMois = 0;
     if (membreIds.length > 0) {
