@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthSessionGuard } from "../components/AuthSessionGuard";
 
 export const metadata: Metadata = {
   title: "LEVE",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>): React.JSX.Element {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthSessionGuard />
+        {children}
+      </body>
     </html>
   );
 }

@@ -7,6 +7,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { isCollaborateurMemberType } from "../../lib/pcol";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { checkJwtExpired } from "../../lib/supabase";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
@@ -51,6 +52,9 @@ async function restJson<T>(
       typeof (json as { message: unknown }).message === "string"
         ? (json as { message: string }).message
         : res.statusText || "Erreur réseau";
+    if (await checkJwtExpired({ status: res.status, message: msg })) {
+      return { data: null as T, error: null };
+    }
     return { data: null as T, error: msg };
   }
   return { data: json as T, error: null };

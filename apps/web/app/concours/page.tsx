@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { checkJwtExpired } from "../../lib/supabase";
 
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
@@ -85,6 +86,9 @@ async function fetchRest<T>(
       } catch {
         /* ignore */
       }
+    }
+    if (await checkJwtExpired({ status: res.status, message })) {
+      return { data: null, error: { message: "" } };
     }
     return { data: null, error: { message } };
   }

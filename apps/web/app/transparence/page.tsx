@@ -7,6 +7,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { checkJwtExpired } from "../../lib/supabase";
 
 /** Aligné sur la réponse JSON de `/api/redistribution/historique` (lignes `redistribution_history`). */
 type RedistributionMois = {
@@ -58,6 +59,9 @@ async function restJson<T>(
       typeof (json as { message: unknown }).message === "string"
         ? (json as { message: string }).message
         : res.statusText || "Erreur réseau";
+    if (await checkJwtExpired({ status: res.status, message: msg })) {
+      return { data: null as T, error: null };
+    }
     return { data: null as T, error: msg };
   }
   return { data: json as T, error: null };

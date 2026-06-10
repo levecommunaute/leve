@@ -10,6 +10,7 @@ import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { checkJwtExpired } from "../../lib/supabase";
 import { useYoutubeSubscriberCount } from "../../lib/use-youtube-subscriber-count";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
@@ -62,6 +63,25 @@ function displayNameFrom(profile: ProfileRow | null, session: Session): string {
   return displayName || fullName || session.user.email?.split("@")[0] || "Membre";
 }
 
+async function fetchRestJson(url: string, token: string): Promise<unknown> {
+  const res = await fetch(url, {
+    headers: { apikey: KEY, Authorization: `Bearer ${token}` },
+  });
+  const json = (await res.json().catch(() => null)) as unknown;
+  if (!res.ok) {
+    const message =
+      json &&
+      typeof json === "object" &&
+      "message" in json &&
+      typeof (json as { message: unknown }).message === "string"
+        ? (json as { message: string }).message
+        : null;
+    await checkJwtExpired({ status: res.status, message });
+    return null;
+  }
+  return json;
+}
+
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
 const dateFmt = new Intl.DateTimeFormat("fr-CA", { dateStyle: "medium", timeStyle: "short" });
 
@@ -82,18 +102,10 @@ export default function ProfilPage(): JSX.Element | null {
     const token = activeSession.access_token;
 
     const [profileRes, txRes, txHistoryRes, quizRes] = await Promise.all([
-      fetch(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre`, {
-        headers: { apikey: KEY, Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-      fetch(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=amount`, {
-        headers: { apikey: KEY, Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-      fetch(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`, {
-        headers: { apikey: KEY, Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-      fetch(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, {
-        headers: { apikey: KEY, Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
+      fetchRestJson(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre`, token),
+      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=amount`, token),
+      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`, token),
+      fetchRestJson(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, token),
     ]);
 
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -109,9 +121,7 @@ export default function ProfilPage(): JSX.Element | null {
     const ids = [...new Set(quizSubs.map((s) => s.video_id).filter(Boolean))];
     let titles = new Map<string, string>();
     if (ids.length > 0) {
-      const vRes = await fetch(`${SB}/rest/v1/videos?id=in.(${ids.join(",")})&select=id,title`, {
-        headers: { apikey: KEY, Authorization: `Bearer ${token}` }
-      }).then(r => r.json());
+      const vRes = await fetchRestJson(`${SB}/rest/v1/videos?id=in.(${ids.join(",")})&select=id,title`, token);
       if (Array.isArray(vRes)) {
         titles = new Map(vRes.map((v: { id: string; title: string }) => [String(v.id), String(v.title ?? "")]));
       }

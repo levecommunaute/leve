@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { checkJwtExpired } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -54,6 +55,9 @@ async function restJson<T>(
       typeof (json as { message: unknown }).message === "string"
         ? (json as { message: string }).message
         : res.statusText || "Erreur réseau";
+    if (await checkJwtExpired({ status: res.status, message: msg })) {
+      return { data: null as T, error: null };
+    }
     return { data: null as T, error: msg };
   }
   return { data: json as T, error: null };
