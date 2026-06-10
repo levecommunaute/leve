@@ -129,10 +129,42 @@ type RedistRow = {
   value_per_point: number | string | null;
 };
 
-type PtcMouvementRow = {
-  montant: number | string | null;
-  pts_equivalent: number | string | null;
+type PtcInfo = {
+  pts_perdus_mois: number;
+  valeur_par_pt: number | null;
+  dollars_mois: number | null;
+  ptc_mois: number | null;
+  ptc_balance: number;
+  ptc_balance_units: number;
 };
+
+async function fetchPtcInfo(
+  accessToken: string,
+): Promise<{ data: PtcInfo | null; error: string | null }> {
+  try {
+    const res = await fetch("/api/collaborateur/ptc", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    const json = (await res.json()) as Partial<PtcInfo> & { error?: string };
+    if (!res.ok) {
+      return { data: null, error: json?.error ?? "Erreur réseau" };
+    }
+    return {
+      data: {
+        pts_perdus_mois: Number(json.pts_perdus_mois ?? 0),
+        valeur_par_pt: json.valeur_par_pt != null ? Number(json.valeur_par_pt) : null,
+        dollars_mois: json.dollars_mois != null ? Number(json.dollars_mois) : null,
+        ptc_mois: json.ptc_mois != null ? Number(json.ptc_mois) : null,
+        ptc_balance: Number(json.ptc_balance ?? 0),
+        ptc_balance_units: Number(json.ptc_balance_units ?? 0),
+      },
+      error: null,
+    };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 
 function msUntil(iso: string): number {
   return new Date(iso).getTime() - Date.now();
@@ -239,8 +271,7 @@ export default function CollaborateurPage(): JSX.Element | null {
   const [pendingList, setPendingList] = useState<PendingRow[]>([]);
   const [totalQuizMembres, setTotalQuizMembres] = useState(0);
   const [totalPtsGeneresPonderes, setTotalPtsGeneresPonderes] = useState(0);
-  const [ptcMonthPts, setPtcMonthPts] = useState(0);
-  const [ptcMonthDollars, setPtcMonthDollars] = useState(0);
+  const [ptcInfo, setPtcInfo] = useState<PtcInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
 
@@ -279,9 +310,7 @@ export default function CollaborateurPage(): JSX.Element | null {
     setPcolMonthLabel(currentMonth.label);
     setPrevMonthLabel(prevMonth.label);
 
-    const currentMonthKey = currentMonth.monthDate.slice(0, 7);
-
-    const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, redistRes, prevHistRes, ptcMoisRes] =
+    const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, redistRes, prevHistRes, ptcRes] =
       await Promise.all([
         restJson<PcolTxRow[]>(
           `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,collaborateur_id,pts_collab_ponderes,pts_membres_gagnes_ponderes,created_at&order=created_at.desc`,
@@ -311,10 +340,7 @@ export default function CollaborateurPage(): JSX.Element | null {
           `redistribution_history?month=eq.${encodeURIComponent(prevMonth.monthDate)}&select=month&limit=1`,
           token,
         ),
-        restJson<PtcMouvementRow[]>(
-          `ptc_mouvements?collaborateur_id=eq.${uidEnc}&mois=eq.${encodeURIComponent(currentMonthKey)}&select=montant,pts_equivalent`,
-          token,
-        ),
+        fetchPtcInfo(token),
       ]);
 
     const errMsg =
@@ -325,7 +351,7 @@ export default function CollaborateurPage(): JSX.Element | null {
       pendingRes.error ??
       redistRes.error ??
       prevHistRes.error ??
-      ptcMoisRes.error ??
+      ptcRes.error ??
       null;
     if (errMsg) {
       setLoadError(errMsg);
@@ -431,19 +457,10 @@ export default function CollaborateurPage(): JSX.Element | null {
       0,
     );
 
-    const ptcRows = ptcMoisRes.data ?? [];
-    const ptcDollarsMois = round2(
-      ptcRows.reduce((acc, r) => acc + Number(r.montant ?? 0), 0),
-    );
-    const ptcPtsMois = round2(
-      ptcRows.reduce((acc, r) => acc + Number(r.pts_equivalent ?? 0), 0),
-    );
-
     setSoldePcolDollars(soldeDollars);
     setPcolCurrentMonthPts(currentMonthPcol);
     setPrevMonthPcolPts(prevMonthPcol);
-    setPtcMonthPts(ptcPtsMois);
-    setPtcMonthDollars(ptcDollarsMois);
+    setPtcInfo(ptcRes.data);
     setPrevMonthRedistributed(!prevHistRes.error && (prevHistRes.data ?? []).length > 0);
     setValeurParPt(valeurParPtFinite);
     setTotalPtsGeneresPonderes(totalPtsGeneres);
@@ -664,18 +681,33 @@ export default function CollaborateurPage(): JSX.Element | null {
                 PTC généré ce mois · {pcolMonthLabel || "—"}
               </p>
               <p style={{ margin: "0.65rem 0 0", fontSize: "1.05rem", lineHeight: 1.55 }}>
-                {pointsFmt.format(ptcMonthPts)} pts → {cadFmt.format(ptcMonthDollars)} →{" "}
+                {pointsFmt.format(ptcInfo?.pts_perdus_mois ?? 0)} pts perdus
+                {ptcInfo?.valeur_par_pt != null
+                  ? ` × ${cadFmt.format(ptcInfo.valeur_par_pt)}/pt`
+                  : " × valeur/pt"}{" "}
+                = {ptcInfo?.dollars_mois != null ? cadFmt.format(ptcInfo.dollars_mois) : "—"} →{" "}
                 <span style={{ color: GOLD, fontWeight: 700 }}>
-                  {(ptcMonthDollars / PTC_UNIT_DOLLARS).toLocaleString("fr-CA", {
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  PTC générés
+                  {ptcInfo?.ptc_mois != null
+                    ? ptcInfo.ptc_mois.toLocaleString("fr-CA", { maximumFractionDigits: 2 })
+                    : "—"}{" "}
+                  PTC
                 </span>{" "}
                 (÷ {PTC_UNIT_DOLLARS} $)
               </p>
+              <p style={{ margin: "0.65rem 0 0", fontSize: "0.95rem", lineHeight: 1.55 }}>
+                PTC cumulé total :{" "}
+                <span style={{ color: GOLD, fontWeight: 700 }}>
+                  {ptcInfo != null
+                    ? ptcInfo.ptc_balance_units.toLocaleString("fr-CA", {
+                        maximumFractionDigits: 2,
+                      })
+                    : "—"}{" "}
+                  PTC
+                </span>
+                {ptcInfo != null ? ` (${cadFmt.format(ptcInfo.ptc_balance)} ÷ ${PTC_UNIT_DOLLARS} $)` : null}
+              </p>
               <p style={{ margin: "0.65rem 0 0", fontSize: "0.82rem", opacity: 0.6, lineHeight: 1.5 }}>
-                Somme des % perdus lors de récupération PCOL et pending expiré, crédités au Pool de
-                Croissance communautaire.
+                Les PTC financent la croissance de LEVE (promotion, outils, réserve)
               </p>
             </section>
 
