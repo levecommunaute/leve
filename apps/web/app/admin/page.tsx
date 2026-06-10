@@ -200,6 +200,161 @@ function ptcUtilisationDraftDirty(
   );
 }
 
+type ActionnaireRow = {
+  id: string;
+  siege: number | null;
+  nom: string;
+  email: string | null;
+  type_actions: "A" | "B";
+  nb_actions: number;
+  pourcentage: number | string;
+  role: string | null;
+  actif: boolean;
+  locked: boolean;
+};
+
+type ActionnaireDraft = {
+  nom: string;
+  nb_actions: string;
+  pourcentage: string;
+  role: string;
+};
+
+function actionnaireToDraft(a: ActionnaireRow): ActionnaireDraft {
+  return {
+    nom: a.nom,
+    nb_actions: String(a.nb_actions),
+    pourcentage: String(a.pourcentage),
+    role: a.role ?? "",
+  };
+}
+
+function actionnaireDraftDirty(a: ActionnaireRow, d: ActionnaireDraft): boolean {
+  return (
+    a.nom !== d.nom.trim() ||
+    String(a.nb_actions) !== d.nb_actions.trim() ||
+    String(a.pourcentage) !== d.pourcentage.trim() ||
+    (a.role ?? "") !== d.role.trim()
+  );
+}
+
+type ActionsConfigRow = {
+  id: string;
+  multiple_valorisation: number;
+  total_actions: number;
+  escompte_phase1: number;
+  locked: boolean;
+  updated_at: string;
+};
+
+type ActionsConfigDraft = {
+  multiple_valorisation: string;
+  total_actions: string;
+  escompte_phase1: string;
+};
+
+function actionsConfigToDraft(c: ActionsConfigRow): ActionsConfigDraft {
+  return {
+    multiple_valorisation: String(c.multiple_valorisation),
+    total_actions: String(c.total_actions),
+    escompte_phase1: String(c.escompte_phase1),
+  };
+}
+
+function actionsConfigDraftDirty(c: ActionsConfigRow, d: ActionsConfigDraft): boolean {
+  return (
+    String(c.multiple_valorisation) !== d.multiple_valorisation.trim() ||
+    String(c.total_actions) !== d.total_actions.trim() ||
+    String(c.escompte_phase1) !== d.escompte_phase1.trim()
+  );
+}
+
+type RevenusDraft = {
+  rev_youtube_adsense: string;
+  rev_programmatique: string;
+  rev_partenaires: string;
+  rev_boutique: string;
+  rev_autres: string;
+  depenses_operationnelles: string;
+};
+
+const REVENUS_CHAMPS: { key: keyof RevenusDraft; label: string }[] = [
+  { key: "rev_youtube_adsense", label: "YouTube AdSense" },
+  { key: "rev_programmatique", label: "Programmatique" },
+  { key: "rev_partenaires", label: "Partenaires" },
+  { key: "rev_boutique", label: "Boutique" },
+  { key: "rev_autres", label: "Autres" },
+];
+
+const EMPTY_REVENUS_DRAFT: RevenusDraft = {
+  rev_youtube_adsense: "",
+  rev_programmatique: "",
+  rev_partenaires: "",
+  rev_boutique: "",
+  rev_autres: "",
+  depenses_operationnelles: "",
+};
+
+function montantSaisi(raw: string): number {
+  const n = Number(raw.trim().replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+type ValorisationRow = {
+  mois: string;
+  total_brut: number;
+  revenus_annualises: number;
+  multiple_valorisation: number;
+  valeur_societe: number;
+  valeur_action: number;
+  pool_25: number;
+  pool_dividendes: number;
+  prix_action_c: number;
+};
+
+type DividendeDistributionRow = {
+  id: string;
+  actionnaire_id: string;
+  pourcentage: number | string;
+  montant: number | string;
+  actionnaire: { nom: string } | null;
+};
+
+type DividendeDecisionRow = {
+  id: string;
+  trimestre: string;
+  montant_distribue: number | string;
+  notes: string | null;
+  created_at: string;
+  distributions: DividendeDistributionRow[];
+};
+
+function currentMoisYm(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function currentTrimestre(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-T${Math.floor(d.getMonth() / 3) + 1}`;
+}
+
+function trimestreOptions(): string[] {
+  const y = new Date().getFullYear();
+  const out: string[] = [];
+  for (const year of [y - 1, y]) {
+    for (let t = 1; t <= 4; t++) out.push(`${year}-T${t}`);
+  }
+  return out;
+}
+
+function moisDuTrimestre(trimestre: string): string[] {
+  const m = /^(\d{4})-T([1-4])$/.exec(trimestre);
+  if (!m) return [];
+  const t = Number(m[2]);
+  return [1, 2, 3].map((i) => `${m[1]}-${String((t - 1) * 3 + i).padStart(2, "0")}`);
+}
+
 const RESEAU_SOCIAL_LABELS: Record<ReseauSocialKey, string> = {
   youtube: "YouTube",
   facebook: "Facebook",
@@ -647,6 +802,98 @@ function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): JSX.El
 }
 
 
+function ValorisationChart({ series }: { series: ValorisationRow[] }): JSX.Element {
+  if (series.length === 0) {
+    return <p style={{ opacity: 0.65, margin: 0 }}>Aucune valorisation enregistrée.</p>;
+  }
+
+  const W = 920;
+  const H = 240;
+  const pad = { l: 70, r: 18, t: 18, b: 38 };
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+  const maxY = Math.max(...series.map((row) => row.valeur_societe), 1);
+  const xStep = series.length > 1 ? innerW / (series.length - 1) : 0;
+
+  function xAt(i: number): number {
+    return pad.l + (series.length > 1 ? i * xStep : innerW / 2);
+  }
+
+  function yAt(v: number): number {
+    return pad.t + innerH - (v / maxY) * innerH;
+  }
+
+  const points = series.map((row, i) => `${xAt(i)},${yAt(row.valeur_societe)}`).join(" ");
+
+  return (
+    <div style={{ width: "100%", overflowX: "auto" }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        role="img"
+        aria-label="Évolution de la valorisation par mois"
+        style={{ display: "block", minWidth: "640px", width: "100%", height: "auto" }}
+      >
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+          const y = pad.t + innerH * (1 - t);
+          return (
+            <g key={t}>
+              <line
+                x1={pad.l}
+                y1={y}
+                x2={W - pad.r}
+                y2={y}
+                stroke="rgba(245,240,232,0.08)"
+                strokeWidth={1}
+              />
+              <text
+                x={pad.l - 8}
+                y={y + 4}
+                textAnchor="end"
+                fill="rgba(245,240,232,0.45)"
+                fontSize={10}
+              >
+                {cad.format(maxY * t)}
+              </text>
+            </g>
+          );
+        })}
+        {series.map((row, i) => (
+          <text
+            key={row.mois}
+            x={xAt(i)}
+            y={H - 10}
+            textAnchor="middle"
+            fill="rgba(245,240,232,0.5)"
+            fontSize={10}
+          >
+            {row.mois}
+          </text>
+        ))}
+        <polyline
+          fill="none"
+          stroke={GOLD}
+          strokeWidth={2.5}
+          points={points}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {series.map((row, i) => (
+          <circle
+            key={`pt-${row.mois}`}
+            cx={xAt(i)}
+            cy={yAt(row.valeur_societe)}
+            r={3.5}
+            fill={GOLD}
+          />
+        ))}
+      </svg>
+      <p style={{ margin: "0.6rem 0 0", fontSize: "0.78rem", opacity: 0.55 }}>
+        Valeur de la société (CAD) par mois validé.
+      </p>
+    </div>
+  );
+}
+
 function cardStyle() {
   return {
     background: "rgba(245, 240, 232, 0.03)",
@@ -674,6 +921,31 @@ function sectionTitle(text: string): JSX.Element {
     </h2>
   );
 }
+
+function subSectionTitle(text: string): JSX.Element {
+  return (
+    <h3
+      style={{
+        fontFamily: "var(--font-bebas), Impact, sans-serif",
+        fontSize: "1.35rem",
+        letterSpacing: "0.12em",
+        margin: "0 0 1rem",
+        color: TEXT,
+        opacity: 0.92,
+      }}
+    >
+      {text}
+    </h3>
+  );
+}
+
+const actionsSubCard = {
+  background: "rgba(245, 240, 232, 0.025)",
+  border: "1px solid rgba(245, 240, 232, 0.08)",
+  borderRadius: "10px",
+  padding: "1.25rem",
+  marginBottom: "1.25rem",
+} as const;
 
 export default function AdminPage(): JSX.Element {
   const fonts = `${bebas.variable} ${dmSans.variable}`;
@@ -806,6 +1078,39 @@ export default function AdminPage(): JSX.Element {
   const [ptcUtilisationsError, setPtcUtilisationsError] = useState<string | null>(null);
   const [ptcUtilisationsSaving, setPtcUtilisationsSaving] = useState(false);
   const [ptcUtilisationsSaveMsg, setPtcUtilisationsSaveMsg] = useState<string | null>(null);
+
+  // — Système Actions & Dividendes —
+  const [actionnaires, setActionnaires] = useState<ActionnaireRow[]>([]);
+  const [actionnairesLoading, setActionnairesLoading] = useState(false);
+  const [actionnairesError, setActionnairesError] = useState<string | null>(null);
+  const [actionnairesMsg, setActionnairesMsg] = useState<string | null>(null);
+  const [actionnaireDrafts, setActionnaireDrafts] = useState<Record<string, ActionnaireDraft>>({});
+  const [actionnaireBusyId, setActionnaireBusyId] = useState<string | null>(null);
+
+  const [actionsConfig, setActionsConfig] = useState<ActionsConfigRow | null>(null);
+  const [actionsConfigDraft, setActionsConfigDraft] = useState<ActionsConfigDraft | null>(null);
+  const [actionsConfigLoading, setActionsConfigLoading] = useState(false);
+  const [actionsConfigError, setActionsConfigError] = useState<string | null>(null);
+  const [actionsConfigBusy, setActionsConfigBusy] = useState(false);
+  const [actionsConfigMsg, setActionsConfigMsg] = useState<string | null>(null);
+
+  const [revenusMois, setRevenusMois] = useState(currentMoisYm);
+  const [revenusDraft, setRevenusDraft] = useState<RevenusDraft>(EMPTY_REVENUS_DRAFT);
+  const [revenusSaving, setRevenusSaving] = useState(false);
+  const [revenusError, setRevenusError] = useState<string | null>(null);
+  const [revenusMsg, setRevenusMsg] = useState<string | null>(null);
+
+  const [valorisations, setValorisations] = useState<ValorisationRow[]>([]);
+  const [valorisationsLoading, setValorisationsLoading] = useState(false);
+  const [valorisationsError, setValorisationsError] = useState<string | null>(null);
+
+  const [divTrimestre, setDivTrimestre] = useState(currentTrimestre);
+  const [divMontant, setDivMontant] = useState("");
+  const [divDecisions, setDivDecisions] = useState<DividendeDecisionRow[]>([]);
+  const [divLoading, setDivLoading] = useState(false);
+  const [divSaving, setDivSaving] = useState(false);
+  const [divError, setDivError] = useState<string | null>(null);
+  const [divMsg, setDivMsg] = useState<string | null>(null);
 
   const getStoredSecret = useCallback((): string | null => {
     if (typeof window === "undefined") return null;
@@ -1171,6 +1476,327 @@ export default function AdminPage(): JSX.Element {
     [adminHeaders],
   );
 
+  const loadActionnaires = useCallback(async (): Promise<void> => {
+    setActionnairesLoading(true);
+    setActionnairesError(null);
+    try {
+      const r = await fetch("/api/admin/actionnaires", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { actionnaires?: ActionnaireRow[]; error?: string };
+      if (!r.ok) {
+        setActionnairesError(j.error ?? "Erreur actionnaires");
+        setActionnaires([]);
+        return;
+      }
+      setActionnaires(j.actionnaires ?? []);
+    } catch (e) {
+      setActionnairesError(e instanceof Error ? e.message : "Erreur réseau");
+      setActionnaires([]);
+    } finally {
+      setActionnairesLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadActionsConfig = useCallback(async (): Promise<void> => {
+    setActionsConfigLoading(true);
+    setActionsConfigError(null);
+    try {
+      const r = await fetch("/api/admin/actions-config", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { config?: ActionsConfigRow; error?: string };
+      if (!r.ok || !j.config) {
+        setActionsConfigError(j.error ?? "Erreur configuration actions");
+        setActionsConfig(null);
+        setActionsConfigDraft(null);
+        return;
+      }
+      setActionsConfig(j.config);
+      setActionsConfigDraft(actionsConfigToDraft(j.config));
+    } catch (e) {
+      setActionsConfigError(e instanceof Error ? e.message : "Erreur réseau");
+      setActionsConfig(null);
+      setActionsConfigDraft(null);
+    } finally {
+      setActionsConfigLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadValorisations = useCallback(async (): Promise<void> => {
+    setValorisationsLoading(true);
+    setValorisationsError(null);
+    try {
+      const r = await fetch("/api/admin/valorisation-historique", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { historique?: ValorisationRow[]; error?: string };
+      if (!r.ok) {
+        setValorisationsError(j.error ?? "Erreur valorisation");
+        setValorisations([]);
+        return;
+      }
+      setValorisations(j.historique ?? []);
+    } catch (e) {
+      setValorisationsError(e instanceof Error ? e.message : "Erreur réseau");
+      setValorisations([]);
+    } finally {
+      setValorisationsLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadDividendes = useCallback(async (): Promise<void> => {
+    setDivLoading(true);
+    try {
+      const r = await fetch("/api/actions/decision-dividendes", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { decisions?: DividendeDecisionRow[]; error?: string };
+      if (!r.ok) {
+        setDivError(j.error ?? "Erreur historique dividendes");
+        setDivDecisions([]);
+        return;
+      }
+      setDivDecisions(j.decisions ?? []);
+    } catch (e) {
+      setDivError(e instanceof Error ? e.message : "Erreur réseau");
+      setDivDecisions([]);
+    } finally {
+      setDivLoading(false);
+    }
+  }, [adminHeaders]);
+
+  async function saveActionnaire(a: ActionnaireRow): Promise<void> {
+    const d = actionnaireDrafts[a.id];
+    if (!d) return;
+    setActionnaireBusyId(a.id);
+    setActionnairesError(null);
+    setActionnairesMsg(null);
+    try {
+      const r = await fetch("/api/admin/actionnaires", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          id: a.id,
+          nom: d.nom.trim(),
+          nb_actions: d.nb_actions.trim(),
+          pourcentage: d.pourcentage.trim(),
+          role: d.role.trim() || null,
+        }),
+      });
+      const j = (await r.json()) as { actionnaire?: ActionnaireRow; error?: string };
+      if (!r.ok || !j.actionnaire) {
+        setActionnairesError(j.error ?? "Échec de la sauvegarde");
+        return;
+      }
+      const updated = j.actionnaire;
+      setActionnaires((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      setActionnairesMsg(`Actionnaire « ${updated.nom} » sauvegardé.`);
+    } catch (e) {
+      setActionnairesError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setActionnaireBusyId(null);
+    }
+  }
+
+  async function toggleActionnaireLock(a: ActionnaireRow): Promise<void> {
+    if (a.locked) {
+      if (
+        !window.confirm(
+          "Êtes-vous sûr de vouloir modifier la structure des actionnaires ?",
+        )
+      ) {
+        return;
+      }
+      if (
+        !window.confirm(
+          `Confirmer le déverrouillage de « ${a.nom} » ? Les champs deviendront éditables.`,
+        )
+      ) {
+        return;
+      }
+    } else if (!window.confirm(`Verrouiller l'actionnaire « ${a.nom} » ?`)) {
+      return;
+    }
+
+    setActionnaireBusyId(a.id);
+    setActionnairesError(null);
+    setActionnairesMsg(null);
+    try {
+      const r = await fetch("/api/admin/actionnaires", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: a.id, locked: !a.locked }),
+      });
+      const j = (await r.json()) as { actionnaire?: ActionnaireRow; error?: string };
+      if (!r.ok || !j.actionnaire) {
+        setActionnairesError(j.error ?? "Échec du changement de verrou");
+        return;
+      }
+      const updated = j.actionnaire;
+      setActionnaires((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+    } catch (e) {
+      setActionnairesError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setActionnaireBusyId(null);
+    }
+  }
+
+  async function saveActionsConfig(): Promise<void> {
+    if (!actionsConfig || !actionsConfigDraft) return;
+    setActionsConfigBusy(true);
+    setActionsConfigError(null);
+    setActionsConfigMsg(null);
+    try {
+      const r = await fetch("/api/admin/actions-config", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          multiple_valorisation: actionsConfigDraft.multiple_valorisation.trim(),
+          total_actions: actionsConfigDraft.total_actions.trim(),
+          escompte_phase1: actionsConfigDraft.escompte_phase1.trim(),
+        }),
+      });
+      const j = (await r.json()) as { config?: ActionsConfigRow; error?: string };
+      if (!r.ok || !j.config) {
+        setActionsConfigError(j.error ?? "Échec de la sauvegarde");
+        return;
+      }
+      setActionsConfig(j.config);
+      setActionsConfigDraft(actionsConfigToDraft(j.config));
+      setActionsConfigMsg("Configuration actions sauvegardée.");
+    } catch (e) {
+      setActionsConfigError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setActionsConfigBusy(false);
+    }
+  }
+
+  async function toggleActionsConfigLock(): Promise<void> {
+    if (!actionsConfig) return;
+    if (actionsConfig.locked) {
+      if (
+        !window.confirm("Êtes-vous sûr de vouloir modifier la configuration générale des actions ?")
+      ) {
+        return;
+      }
+      if (!window.confirm("Confirmer le déverrouillage ? Les champs deviendront éditables.")) {
+        return;
+      }
+    } else if (!window.confirm("Verrouiller la configuration générale des actions ?")) {
+      return;
+    }
+
+    setActionsConfigBusy(true);
+    setActionsConfigError(null);
+    setActionsConfigMsg(null);
+    try {
+      const r = await fetch("/api/admin/actions-config", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ locked: !actionsConfig.locked }),
+      });
+      const j = (await r.json()) as { config?: ActionsConfigRow; error?: string };
+      if (!r.ok || !j.config) {
+        setActionsConfigError(j.error ?? "Échec du changement de verrou");
+        return;
+      }
+      setActionsConfig(j.config);
+      setActionsConfigDraft(actionsConfigToDraft(j.config));
+    } catch (e) {
+      setActionsConfigError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setActionsConfigBusy(false);
+    }
+  }
+
+  async function handleValiderRevenus(): Promise<void> {
+    if (
+      !window.confirm(
+        `Valider les revenus de ${revenusMois} et calculer la valorisation ? Cette action est définitive pour ce mois.`,
+      )
+    ) {
+      return;
+    }
+    setRevenusSaving(true);
+    setRevenusError(null);
+    setRevenusMsg(null);
+    try {
+      const r = await fetch("/api/actions/valider-revenus", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          mois: revenusMois,
+          rev_youtube_adsense: revenusDraft.rev_youtube_adsense.trim() || "0",
+          rev_programmatique: revenusDraft.rev_programmatique.trim() || "0",
+          rev_partenaires: revenusDraft.rev_partenaires.trim() || "0",
+          rev_boutique: revenusDraft.rev_boutique.trim() || "0",
+          rev_autres: revenusDraft.rev_autres.trim() || "0",
+          depenses_operationnelles: revenusDraft.depenses_operationnelles.trim() || "0",
+        }),
+      });
+      const j = (await r.json()) as {
+        success?: boolean;
+        valorisation?: ValorisationRow;
+        error?: string;
+      };
+      if (!r.ok || !j.success || !j.valorisation) {
+        setRevenusError(j.error ?? "Échec de la validation des revenus");
+        return;
+      }
+      setRevenusMsg(
+        `Revenus ${revenusMois} validés — valeur société : ${cad.format(j.valorisation.valeur_societe)}, valeur par action : ${cad.format(j.valorisation.valeur_action)}.`,
+      );
+      setRevenusDraft(EMPTY_REVENUS_DRAFT);
+      void loadValorisations();
+    } catch (e) {
+      setRevenusError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setRevenusSaving(false);
+    }
+  }
+
+  async function handleDistribuerDividendes(): Promise<void> {
+    const montant = Number(divMontant.trim().replace(",", "."));
+    if (!Number.isFinite(montant) || montant <= 0) {
+      setDivError("Montant à distribuer invalide (nombre > 0).");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Distribuer ${cad.format(montant)} aux actionnaires actifs pour le trimestre ${divTrimestre} ?`,
+      )
+    ) {
+      return;
+    }
+    setDivSaving(true);
+    setDivError(null);
+    setDivMsg(null);
+    try {
+      const r = await fetch("/api/actions/decision-dividendes", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ trimestre: divTrimestre, montant_distribue: montant }),
+      });
+      const j = (await r.json()) as { success?: boolean; error?: string };
+      if (!r.ok || !j.success) {
+        setDivError(j.error ?? "Échec de la distribution");
+        return;
+      }
+      setDivMsg(`Distribution de ${cad.format(montant)} validée pour ${divTrimestre}.`);
+      setDivMontant("");
+      void loadDividendes();
+    } catch (e) {
+      setDivError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setDivSaving(false);
+    }
+  }
+
   useEffect(() => {
     if (!hydrated || !authed) return;
     void loadVideos();
@@ -1185,6 +1811,10 @@ export default function AdminPage(): JSX.Element {
     void loadReseauxSociaux();
     void loadFondateurConfig();
     void loadPtcUtilisations();
+    void loadActionnaires();
+    void loadActionsConfig();
+    void loadValorisations();
+    void loadDividendes();
   }, [
     hydrated,
     authed,
@@ -1200,6 +1830,10 @@ export default function AdminPage(): JSX.Element {
     loadReseauxSociaux,
     loadFondateurConfig,
     loadPtcUtilisations,
+    loadActionnaires,
+    loadActionsConfig,
+    loadValorisations,
+    loadDividendes,
   ]);
 
   useEffect(() => {
@@ -1248,6 +1882,14 @@ export default function AdminPage(): JSX.Element {
     }
     setPtcUtilisationDrafts(next);
   }, [ptcUtilisations]);
+
+  useEffect(() => {
+    const next: Record<string, ActionnaireDraft> = {};
+    for (const a of actionnaires) {
+      next[a.id] = actionnaireToDraft(a);
+    }
+    setActionnaireDrafts(next);
+  }, [actionnaires]);
 
   async function handleLogin(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -1325,6 +1967,23 @@ export default function AdminPage(): JSX.Element {
     setFondateurConfigDraft(null);
     setFondateurConfigError(null);
     setFondateurConfigSaveMsg(null);
+    setActionnaires([]);
+    setActionnaireDrafts({});
+    setActionnairesError(null);
+    setActionnairesMsg(null);
+    setActionsConfig(null);
+    setActionsConfigDraft(null);
+    setActionsConfigError(null);
+    setActionsConfigMsg(null);
+    setRevenusDraft(EMPTY_REVENUS_DRAFT);
+    setRevenusError(null);
+    setRevenusMsg(null);
+    setValorisations([]);
+    setValorisationsError(null);
+    setDivDecisions([]);
+    setDivMontant("");
+    setDivError(null);
+    setDivMsg(null);
   }
 
   async function handleSaveFondateurConfig(): Promise<void> {
@@ -4343,6 +5002,687 @@ export default function AdminPage(): JSX.Element {
                 <code style={{ fontSize: "0.82rem" }}>feature_flags</code>.
               </p>
             ) : null}
+          </section>
+
+          {/* SECTION SYSTÈME ACTIONS & DIVIDENDES */}
+          <section style={cardStyle()}>
+            {sectionTitle("SYSTÈME ACTIONS & DIVIDENDES")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Structure des actionnaires (actions A et B), configuration de la valorisation, saisie
+              des revenus mensuels et distribution trimestrielle des dividendes.
+            </p>
+
+            {/* 1. CONFIGURATION ACTIONNAIRES */}
+            <div style={actionsSubCard}>
+              {subSectionTitle("1. Configuration actionnaires")}
+              {actionnairesError ? (
+                <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionnairesError}</p>
+              ) : null}
+              {actionnairesMsg ? (
+                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionnairesMsg}</p>
+              ) : null}
+              {actionnairesLoading ? (
+                <p style={{ opacity: 0.65 }}>Chargement des actionnaires…</p>
+              ) : actionnaires.length === 0 ? (
+                <p style={{ opacity: 0.6, margin: 0 }}>
+                  Aucun actionnaire. Exécutez la migration Supabase{" "}
+                  <code style={{ fontSize: "0.82rem" }}>actionnaires</code>.
+                </p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        {["Siège", "Nom", "Catégorie", "Actions", "Pourcentage", "Rôle", "Actif", ""].map((h, i) => (
+                          <th
+                            key={`act-h-${i}`}
+                            style={{
+                              padding: "0.65rem 0.5rem",
+                              letterSpacing: "0.08em",
+                              fontSize: "0.65rem",
+                              textTransform: "uppercase",
+                              opacity: 0.55,
+                              minWidth: i === 1 ? "9rem" : i === 5 ? "8rem" : i === 7 ? "9rem" : undefined,
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {actionnaires.map((a) => {
+                        const d = actionnaireDrafts[a.id] ?? actionnaireToDraft(a);
+                        const dirty = actionnaireDraftDirty(a, d);
+                        const busy = actionnaireBusyId === a.id;
+                        const editable = !a.locked;
+                        return (
+                          <tr
+                            key={a.id}
+                            style={{
+                              borderBottom: "1px solid rgba(245,240,232,0.06)",
+                              background: editable && dirty ? "rgba(212, 160, 23, 0.06)" : undefined,
+                            }}
+                          >
+                            <td style={{ padding: "0.6rem 0.5rem", fontWeight: 600, color: GOLD }}>
+                              {a.siege ?? "—"}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              {editable ? (
+                                <input
+                                  type="text"
+                                  value={d.nom}
+                                  onChange={(e) =>
+                                    setActionnaireDrafts((prev) => ({
+                                      ...prev,
+                                      [a.id]: { ...d, nom: e.target.value },
+                                    }))
+                                  }
+                                  aria-label={`Siège ${a.siege ?? ""} — nom`}
+                                  style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                />
+                              ) : (
+                                a.nom
+                              )}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>Cat. {a.type_actions}</td>
+                            <td style={{ padding: "0.6rem 0.5rem", minWidth: "5rem" }}>
+                              {editable ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={d.nb_actions}
+                                  onChange={(e) =>
+                                    setActionnaireDrafts((prev) => ({
+                                      ...prev,
+                                      [a.id]: { ...d, nb_actions: e.target.value },
+                                    }))
+                                  }
+                                  aria-label={`Siège ${a.siege ?? ""} — nombre d'actions`}
+                                  style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                />
+                              ) : (
+                                a.nb_actions
+                              )}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem", minWidth: "5.5rem" }}>
+                              {editable ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  step="0.001"
+                                  value={d.pourcentage}
+                                  onChange={(e) =>
+                                    setActionnaireDrafts((prev) => ({
+                                      ...prev,
+                                      [a.id]: { ...d, pourcentage: e.target.value },
+                                    }))
+                                  }
+                                  aria-label={`Siège ${a.siege ?? ""} — pourcentage`}
+                                  style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                />
+                              ) : (
+                                `${a.pourcentage} %`
+                              )}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              {editable ? (
+                                <input
+                                  type="text"
+                                  value={d.role}
+                                  onChange={(e) =>
+                                    setActionnaireDrafts((prev) => ({
+                                      ...prev,
+                                      [a.id]: { ...d, role: e.target.value },
+                                    }))
+                                  }
+                                  placeholder="Rôle"
+                                  aria-label={`Siège ${a.siege ?? ""} — rôle`}
+                                  style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                />
+                              ) : (
+                                a.role ?? "—"
+                              )}
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>{yesNoBadge(a.actif)}</td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                                {editable ? (
+                                  <button
+                                    type="button"
+                                    disabled={!dirty || busy}
+                                    onClick={() => void saveActionnaire(a)}
+                                    style={{
+                                      background: dirty ? ROUGE : "rgba(245, 240, 232, 0.06)",
+                                      color: TEXT,
+                                      border: `1px solid ${dirty ? ROUGE : "rgba(245, 240, 232, 0.12)"}`,
+                                      padding: "0.45rem 0.55rem",
+                                      cursor: !dirty || busy ? "not-allowed" : "pointer",
+                                      fontSize: "0.68rem",
+                                      letterSpacing: "0.1em",
+                                      textTransform: "uppercase",
+                                      opacity: dirty ? 1 : 0.5,
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {busy ? "…" : "Sauvegarder"}
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => void toggleActionnaireLock(a)}
+                                  style={{
+                                    background: a.locked
+                                      ? "rgba(212, 160, 23, 0.12)"
+                                      : "rgba(245, 240, 232, 0.06)",
+                                    color: a.locked ? GOLD : TEXT,
+                                    border: `1px solid ${a.locked ? "rgba(212, 160, 23, 0.35)" : "rgba(245, 240, 232, 0.2)"}`,
+                                    padding: "0.45rem 0.55rem",
+                                    cursor: busy ? "wait" : "pointer",
+                                    fontSize: "0.68rem",
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {a.locked ? "🔓 Modifier" : "🔒 Verrouiller"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", opacity: 0.55 }}>
+                    Total pourcentages :{" "}
+                    {actionnaires
+                      .reduce((s, a) => s + Number(a.pourcentage), 0)
+                      .toFixed(3)}{" "}
+                    % · Total actions :{" "}
+                    {actionnaires.reduce((s, a) => s + a.nb_actions, 0)}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 2. CONFIGURATION GÉNÉRALE ACTIONS */}
+            <div style={actionsSubCard}>
+              {subSectionTitle("2. Configuration générale actions")}
+              {actionsConfigError ? (
+                <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionsConfigError}</p>
+              ) : null}
+              {actionsConfigMsg ? (
+                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionsConfigMsg}</p>
+              ) : null}
+              {actionsConfigLoading ? (
+                <p style={{ opacity: 0.65 }}>Chargement de la configuration…</p>
+              ) : !actionsConfig || !actionsConfigDraft ? (
+                <p style={{ opacity: 0.6, margin: 0 }}>
+                  Configuration introuvable. Exécutez la migration Supabase{" "}
+                  <code style={{ fontSize: "0.82rem" }}>actions_config</code>.
+                </p>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                      gap: "1rem",
+                      marginBottom: "1.1rem",
+                    }}
+                  >
+                    <div>
+                      <span style={labelSm}>Total actions A + B</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={actionsConfigDraft.total_actions}
+                        disabled={actionsConfig.locked}
+                        onChange={(e) =>
+                          setActionsConfigDraft((prev) =>
+                            prev ? { ...prev, total_actions: e.target.value } : prev,
+                          )
+                        }
+                        aria-label="Total actions A + B"
+                        style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
+                      />
+                    </div>
+                    <div>
+                      <span style={labelSm}>Multiple de valorisation</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={actionsConfigDraft.multiple_valorisation}
+                        disabled={actionsConfig.locked}
+                        onChange={(e) =>
+                          setActionsConfigDraft((prev) =>
+                            prev ? { ...prev, multiple_valorisation: e.target.value } : prev,
+                          )
+                        }
+                        aria-label="Multiple de valorisation"
+                        style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
+                      />
+                    </div>
+                    <div>
+                      <span style={labelSm}>Escompte Phase 1 (prix action C)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={1}
+                        step="0.0001"
+                        value={actionsConfigDraft.escompte_phase1}
+                        disabled={actionsConfig.locked}
+                        onChange={(e) =>
+                          setActionsConfigDraft((prev) =>
+                            prev ? { ...prev, escompte_phase1: e.target.value } : prev,
+                          )
+                        }
+                        aria-label="Escompte Phase 1"
+                        style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      disabled={
+                        actionsConfig.locked ||
+                        actionsConfigBusy ||
+                        !actionsConfigDraftDirty(actionsConfig, actionsConfigDraft)
+                      }
+                      onClick={() => void saveActionsConfig()}
+                      style={{
+                        padding: "0.65rem 1.35rem",
+                        borderRadius: "8px",
+                        border: "none",
+                        background: ROUGE,
+                        color: TEXT,
+                        fontWeight: 600,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        fontSize: "0.78rem",
+                        cursor:
+                          actionsConfig.locked || actionsConfigBusy ? "not-allowed" : "pointer",
+                        opacity:
+                          actionsConfig.locked ||
+                          !actionsConfigDraftDirty(actionsConfig, actionsConfigDraft)
+                            ? 0.5
+                            : 1,
+                      }}
+                    >
+                      {actionsConfigBusy ? "Sauvegarde…" : "Sauvegarder"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionsConfigBusy}
+                      onClick={() => void toggleActionsConfigLock()}
+                      style={{
+                        padding: "0.65rem 1.35rem",
+                        borderRadius: "8px",
+                        background: actionsConfig.locked
+                          ? "rgba(212, 160, 23, 0.12)"
+                          : "rgba(245, 240, 232, 0.06)",
+                        color: actionsConfig.locked ? GOLD : TEXT,
+                        border: `1px solid ${actionsConfig.locked ? "rgba(212, 160, 23, 0.35)" : "rgba(245, 240, 232, 0.2)"}`,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        fontSize: "0.78rem",
+                        cursor: actionsConfigBusy ? "wait" : "pointer",
+                      }}
+                    >
+                      {actionsConfig.locked ? "🔓 Modifier" : "🔒 Verrouiller"}
+                    </button>
+                    <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
+                      {actionsConfig.locked
+                        ? "Configuration verrouillée."
+                        : "Configuration déverrouillée — champs éditables."}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 3. SAISIE REVENUS MENSUELS */}
+            <div style={actionsSubCard}>
+              {subSectionTitle("3. Saisie revenus mensuels")}
+              {revenusError ? (
+                <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{revenusError}</p>
+              ) : null}
+              {revenusMsg ? (
+                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{revenusMsg}</p>
+              ) : null}
+              <div style={{ maxWidth: "16rem", marginBottom: "1.1rem" }}>
+                <span style={labelSm}>Mois</span>
+                <input
+                  type="month"
+                  value={revenusMois}
+                  onChange={(e) => setRevenusMois(e.target.value)}
+                  aria-label="Mois des revenus"
+                  style={inputBase}
+                />
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                  gap: "1rem",
+                  marginBottom: "1.1rem",
+                }}
+              >
+                {REVENUS_CHAMPS.map(({ key, label }) => (
+                  <div key={key}>
+                    <span style={labelSm}>{label} ($)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={revenusDraft[key]}
+                      onChange={(e) =>
+                        setRevenusDraft((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      placeholder="0.00"
+                      aria-label={label}
+                      style={inputBase}
+                    />
+                  </div>
+                ))}
+                <div>
+                  <span style={labelSm}>Dépenses opérationnelles ($)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={revenusDraft.depenses_operationnelles}
+                    onChange={(e) =>
+                      setRevenusDraft((prev) => ({
+                        ...prev,
+                        depenses_operationnelles: e.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                    aria-label="Dépenses opérationnelles"
+                    style={inputBase}
+                  />
+                </div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center" }}>
+                <p style={{ margin: 0, fontSize: "1rem" }}>
+                  Total brut :{" "}
+                  <strong style={{ color: GOLD, fontSize: "1.2rem" }}>
+                    {cad.format(
+                      REVENUS_CHAMPS.reduce((s, { key }) => s + montantSaisi(revenusDraft[key]), 0),
+                    )}
+                  </strong>
+                </p>
+                <button
+                  type="button"
+                  disabled={revenusSaving}
+                  onClick={() => void handleValiderRevenus()}
+                  style={{
+                    padding: "0.65rem 1.35rem",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: ROUGE,
+                    color: TEXT,
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    fontSize: "0.78rem",
+                    cursor: revenusSaving ? "wait" : "pointer",
+                    opacity: revenusSaving ? 0.7 : 1,
+                  }}
+                >
+                  {revenusSaving ? "Validation…" : "Valider et calculer valorisation"}
+                </button>
+              </div>
+            </div>
+
+            {/* 4. VALORISATION ACTUELLE */}
+            <div style={actionsSubCard}>
+              {subSectionTitle("4. Valorisation actuelle")}
+              {valorisationsError ? (
+                <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{valorisationsError}</p>
+              ) : null}
+              {valorisationsLoading ? (
+                <p style={{ opacity: 0.65 }}>Chargement de la valorisation…</p>
+              ) : valorisations.length === 0 ? (
+                <p style={{ opacity: 0.6, margin: 0 }}>
+                  Aucune valorisation. Validez d&apos;abord des revenus mensuels.
+                </p>
+              ) : (
+                (() => {
+                  const derniere = valorisations[valorisations.length - 1];
+                  if (!derniere) return null;
+                  const stats = [
+                    { label: "Valeur société", value: cad.format(derniere.valeur_societe) },
+                    { label: "Valeur par action", value: cad.format(derniere.valeur_action) },
+                    { label: "Prix action Cat. C", value: cad.format(derniere.prix_action_c) },
+                    { label: "Pool dividendes (mois)", value: cad.format(derniere.pool_dividendes) },
+                  ];
+                  return (
+                    <>
+                      <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", opacity: 0.65 }}>
+                        Dernier mois validé : <strong>{formatMonthLabel(derniere.mois)}</strong>
+                      </p>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                          gap: "1rem",
+                          marginBottom: "1.5rem",
+                        }}
+                      >
+                        {stats.map((s) => (
+                          <div
+                            key={s.label}
+                            style={{
+                              padding: "1rem 1.1rem",
+                              borderRadius: "10px",
+                              background: "rgba(245, 240, 232, 0.04)",
+                              border: "1px solid rgba(245, 240, 232, 0.1)",
+                            }}
+                          >
+                            <span style={labelSm}>{s.label}</span>
+                            <strong style={{ color: GOLD, fontSize: "1.25rem" }}>{s.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                      <ValorisationChart series={valorisations} />
+                    </>
+                  );
+                })()
+              )}
+            </div>
+
+            {/* 5. DIVIDENDES */}
+            <div style={{ ...actionsSubCard, marginBottom: 0 }}>
+              {subSectionTitle("5. Dividendes")}
+              {divError ? (
+                <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{divError}</p>
+              ) : null}
+              {divMsg ? (
+                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{divMsg}</p>
+              ) : null}
+              {(() => {
+                const moisTrim = moisDuTrimestre(divTrimestre);
+                const poolTrimestre = valorisations
+                  .filter((v) => moisTrim.includes(v.mois))
+                  .reduce((s, v) => s + v.pool_dividendes, 0);
+                const dejaDistribue = divDecisions
+                  .filter((dec) => dec.trimestre === divTrimestre)
+                  .reduce((s, dec) => s + Number(dec.montant_distribue), 0);
+                const poolDisponible = Math.round((poolTrimestre - dejaDistribue) * 100) / 100;
+                const montantPreview = Number(divMontant.trim().replace(",", "."));
+                const previewOk = Number.isFinite(montantPreview) && montantPreview > 0;
+                const actifs = actionnaires.filter((a) => a.actif);
+                return (
+                  <>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                        gap: "1rem",
+                        marginBottom: "1.1rem",
+                      }}
+                    >
+                      <div>
+                        <span style={labelSm}>Trimestre</span>
+                        <select
+                          value={divTrimestre}
+                          onChange={(e) => setDivTrimestre(e.target.value)}
+                          aria-label="Trimestre de distribution"
+                          style={{ ...inputBase, cursor: "pointer" }}
+                        >
+                          {trimestreOptions().map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <span style={labelSm}>Pool dividendes disponible</span>
+                        <p
+                          style={{
+                            margin: 0,
+                            padding: "0.65rem 0",
+                            fontSize: "1.2rem",
+                            fontWeight: 600,
+                            color: poolDisponible > 0 ? GOLD : TEXT,
+                            opacity: poolDisponible > 0 ? 1 : 0.6,
+                          }}
+                        >
+                          {cad.format(poolDisponible)}
+                        </p>
+                      </div>
+                      <div>
+                        <span style={labelSm}>Montant à distribuer ($)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={divMontant}
+                          onChange={(e) => setDivMontant(e.target.value)}
+                          placeholder="0.00"
+                          aria-label="Montant à distribuer"
+                          style={inputBase}
+                        />
+                      </div>
+                    </div>
+
+                    {previewOk && actifs.length > 0 ? (
+                      <div style={{ overflowX: "auto", marginBottom: "1.1rem" }}>
+                        <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", opacity: 0.65 }}>
+                          Aperçu de la distribution :
+                        </p>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                          <thead>
+                            <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                              {["Actionnaire", "Pourcentage", "Montant"].map((h) => (
+                                <th
+                                  key={`div-prev-${h}`}
+                                  style={{
+                                    padding: "0.55rem 0.5rem",
+                                    letterSpacing: "0.08em",
+                                    fontSize: "0.65rem",
+                                    textTransform: "uppercase",
+                                    opacity: 0.55,
+                                  }}
+                                >
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {actifs.map((a) => (
+                              <tr key={`prev-${a.id}`} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                                <td style={{ padding: "0.55rem 0.5rem" }}>{a.nom}</td>
+                                <td style={{ padding: "0.55rem 0.5rem" }}>{a.pourcentage} %</td>
+                                <td style={{ padding: "0.55rem 0.5rem", color: GOLD, fontWeight: 600 }}>
+                                  {cad.format(
+                                    Math.round(montantPreview * (Number(a.pourcentage) / 100) * 100) / 100,
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      disabled={divSaving || !previewOk}
+                      onClick={() => void handleDistribuerDividendes()}
+                      style={{
+                        padding: "0.65rem 1.35rem",
+                        borderRadius: "8px",
+                        border: "none",
+                        background: ROUGE,
+                        color: TEXT,
+                        fontWeight: 600,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        fontSize: "0.78rem",
+                        cursor: divSaving ? "wait" : previewOk ? "pointer" : "not-allowed",
+                        opacity: divSaving || !previewOk ? 0.6 : 1,
+                        marginBottom: "1.5rem",
+                      }}
+                    >
+                      {divSaving ? "Distribution…" : "Valider la distribution"}
+                    </button>
+
+                    <div>
+                      <p style={{ margin: "0 0 0.75rem", fontSize: "0.92rem", fontWeight: 600 }}>
+                        Historique des distributions
+                      </p>
+                      {divLoading ? (
+                        <p style={{ opacity: 0.65 }}>Chargement de l&apos;historique…</p>
+                      ) : divDecisions.length === 0 ? (
+                        <p style={{ opacity: 0.6, margin: 0 }}>Aucune distribution passée.</p>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                          {divDecisions.map((dec) => (
+                            <div
+                              key={dec.id}
+                              style={{
+                                padding: "0.85rem 1rem",
+                                borderRadius: "10px",
+                                background: "rgba(245, 240, 232, 0.04)",
+                                border: "1px solid rgba(245, 240, 232, 0.1)",
+                              }}
+                            >
+                              <p style={{ margin: "0 0 0.5rem", fontSize: "0.9rem" }}>
+                                <strong style={{ color: GOLD }}>{dec.trimestre}</strong> —{" "}
+                                {cad.format(Number(dec.montant_distribue))}{" "}
+                                <span style={{ opacity: 0.55, fontSize: "0.78rem" }}>
+                                  ({new Date(dec.created_at).toLocaleDateString("fr-CA")})
+                                </span>
+                              </p>
+                              <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.82rem", opacity: 0.85 }}>
+                                {dec.distributions.map((dist) => (
+                                  <li key={dist.id}>
+                                    {dist.actionnaire?.nom ?? dist.actionnaire_id} — {dist.pourcentage} % —{" "}
+                                    {cad.format(Number(dist.montant))}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </section>
 
           {/* SECTION GESTION DES MEMBRES */}
