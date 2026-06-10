@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { checkJwtExpired } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -197,6 +198,9 @@ export default function BanquePage(): JSX.Element | null {
       pointsListRes.error?.message ??
       mouvementsRes.error?.message ??
       null;
+    if (errMsg && (await checkJwtExpired({ message: errMsg }))) {
+      return;
+    }
     setLoadError(errMsg);
 
     if (!profileRes.error) {

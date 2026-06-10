@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@repo/supabase/browser";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { checkJwtExpired } from "../../../../lib/supabase";
 
 const TIMER_SECONDS = 90;
 
@@ -81,17 +82,17 @@ export default function VideoQuizPage(): React.JSX.Element {
         ]);
         if (cancelled) return;
         if (vResult.error) {
+          if (await checkJwtExpired({ message: vResult.error.message })) return;
           console.error("video load:", vResult.error.message);
         }
         setVideo(vResult.data ?? null);
         if (!qRes.ok) {
           const err = await qRes.json().catch(() => ({}));
+          if (await checkJwtExpired({ status: qRes.status })) return;
           setLoadError(
             typeof err?.error === "string"
               ? err.error
-              : qRes.status === 401
-                ? "Connecte-toi pour accéder au quiz."
-                : "Impossible de charger le quiz.",
+              : "Impossible de charger le quiz.",
           );
           setQuiz_questions([]);
           return;

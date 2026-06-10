@@ -4,6 +4,7 @@ import { createBrowserClient } from "@repo/supabase/browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { BonusBadge } from "../../../components/bonus-badge";
+import { checkJwtExpired } from "../../../lib/supabase";
 
 const WATCH_THRESHOLD = 60;
 const PROGRESS_CHECK_MS = 2000;
@@ -147,6 +148,7 @@ export default function VideoPage(): React.JSX.Element {
     );
 
     if (error) {
+      if (await checkJwtExpired({ message: error.message })) return;
       console.error("video_progress upsert:", error.message);
     }
   }, []);
@@ -220,6 +222,7 @@ export default function VideoPage(): React.JSX.Element {
 
       if (cancelled) return;
       if (error) {
+        if (await checkJwtExpired({ message: error.message })) return;
         console.error("video load:", error.message);
         setVideo(null);
       } else {
@@ -282,6 +285,7 @@ export default function VideoPage(): React.JSX.Element {
       if (cancelled) return;
 
       if (error) {
+        if (await checkJwtExpired({ message: error.message })) return;
         console.error("video_progress load:", error.message);
       } else if (data) {
         const row = data as VideoProgressRow;

@@ -233,6 +233,9 @@ export default function PoolPaPage(): JSX.Element | null {
       paSumRes.error ??
       historyRes.error ??
       null;
+    if (errMsg && (await checkJwtExpired({ message: errMsg }))) {
+      return;
+    }
     setLoadError(errMsg);
 
     if (!profileRes.error) {

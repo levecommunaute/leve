@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { BonusBadge } from "../../components/bonus-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { checkJwtExpired } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -190,6 +191,9 @@ export default function VideosPage(): JSX.Element | null {
           typeof (videosJson as { message: unknown }).message === "string"
             ? (videosJson as { message: string }).message
             : "Impossible de charger les vidéos";
+        if (await checkJwtExpired({ status: videosRes.status, message: msg })) {
+          return;
+        }
         setListError(msg);
         setVideos([]);
       } else {
@@ -252,6 +256,9 @@ export default function VideosPage(): JSX.Element | null {
         },
       );
       const json = (await res.json()) as unknown;
+      if (!res.ok && (await checkJwtExpired({ status: res.status }))) {
+        return;
+      }
       if (!cancelled && res.ok && Array.isArray(json)) {
         setProfile((json[0] ?? null) as ProfileRow | null);
       } else if (!cancelled) {
