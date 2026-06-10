@@ -272,6 +272,7 @@ export default function CollaborateurPage(): JSX.Element | null {
   const [totalPtsGeneresPonderes, setTotalPtsGeneresPonderes] = useState(0);
   const [ptcInfo, setPtcInfo] = useState<PtcInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [nowTick, setNowTick] = useState(Date.now());
 
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
@@ -293,6 +294,7 @@ export default function CollaborateurPage(): JSX.Element | null {
 
     if (profileRes.error) {
       setLoadError(profileRes.error);
+      setIsLoading(false);
       return;
     }
 
@@ -301,6 +303,7 @@ export default function CollaborateurPage(): JSX.Element | null {
 
     if (!isCollaborateurMemberType(prof?.member_type)) {
       setLoadError("Accès réservé aux collaborateurs.");
+      setIsLoading(false);
       return;
     }
 
@@ -354,6 +357,7 @@ export default function CollaborateurPage(): JSX.Element | null {
       null;
     if (errMsg) {
       setLoadError(errMsg);
+      setIsLoading(false);
       return;
     }
 
@@ -462,6 +466,7 @@ export default function CollaborateurPage(): JSX.Element | null {
     setPendingList(pendingListMapped);
     setVideoStats(videoStatsMapped);
     setLoadError(null);
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -499,7 +504,7 @@ export default function CollaborateurPage(): JSX.Element | null {
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
-  if (session === undefined) {
+  if (session === undefined || (session != null && isLoading)) {
     return (
       <div
         className={fonts}
@@ -508,11 +513,25 @@ export default function CollaborateurPage(): JSX.Element | null {
           background: BG,
           color: TEXT,
           display: "flex",
+          flexDirection: "column",
+          gap: "0.85rem",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <p style={{ opacity: 0.7 }}>Chargement…</p>
+        <span
+          aria-hidden
+          style={{
+            width: "2.25rem",
+            height: "2.25rem",
+            borderRadius: "50%",
+            border: "3px solid rgba(245, 240, 232, 0.15)",
+            borderTopColor: GOLD,
+            animation: "collab-spin 0.8s linear infinite",
+          }}
+        />
+        <p style={{ margin: 0, opacity: 0.7 }}>Chargement…</p>
+        <style>{`@keyframes collab-spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
