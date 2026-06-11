@@ -78,18 +78,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: revenusError.message }, { status: 500 });
     }
 
+    const total_actions =
+      config.total_actions_a + config.total_actions_b + config.total_actions_c;
+    if (total_actions <= 0) {
+      return NextResponse.json(
+        { error: "Total d'actions invalide dans actions_config" },
+        { status: 500 },
+      );
+    }
+
     const revenus_annualises = round2(total_brut * 12);
     const valeur_societe = round2(revenus_annualises * config.multiple_valorisation);
-    const valeur_action = round2(valeur_societe / config.total_actions);
+    const valeur_action = round2(valeur_societe / total_actions);
     const pool_25 = round2(total_brut * 0.25);
     const pool_dividendes = round2(pool_25 * 0.4);
-    const prix_action_c = round2(valeur_action * config.escompte_phase1);
+    const prix_action_c = round2(config.prix_action_c_phase);
 
     const valorisation = {
       mois,
       total_brut,
       revenus_annualises,
-      multiple_valorisation: config.multiple_valorisation,
       valeur_societe,
       valeur_action,
       pool_25,

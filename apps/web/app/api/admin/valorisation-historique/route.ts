@@ -12,7 +12,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { data, error } = await supabase
       .from("valorisation_historique")
       .select(
-        "mois, total_brut, revenus_annualises, multiple_valorisation, valeur_societe, valeur_action, pool_25, pool_dividendes, prix_action_c, created_at",
+        "mois, total_brut, revenus_annualises, valeur_societe, valeur_action, pool_25, pool_dividendes, prix_action_c, created_at",
       )
       .order("mois", { ascending: true });
 
@@ -24,7 +24,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       mois: row.mois as string,
       total_brut: Number(row.total_brut),
       revenus_annualises: Number(row.revenus_annualises),
-      multiple_valorisation: Number(row.multiple_valorisation),
       valeur_societe: Number(row.valeur_societe),
       valeur_action: Number(row.valeur_action),
       pool_25: Number(row.pool_25),

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { data, error } = await supabase
       .from("dividendes_decisions")
       .select(
-        "id, trimestre, montant_distribue, notes, created_at, distributions:dividendes_distributions(id, actionnaire_id, pourcentage, montant, actionnaire:actionnaires(nom))",
+        "id, trimestre, montant_distribue, notes, created_at, distributions:dividendes_distributions(id, actionnaire_id, montant, statut, actionnaire:actionnaires(nom, pourcentage))",
       )
       .order("created_at", { ascending: false });
 
@@ -107,7 +107,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return {
         decision_id: decision.id,
         actionnaire_id: a.id,
-        pourcentage,
         montant: round2(montant_distribue * (pourcentage / 100)),
       };
     });
@@ -115,7 +114,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { data: distributions, error: distributionsError } = await supabase
       .from("dividendes_distributions")
       .insert(rows)
-      .select("id, decision_id, actionnaire_id, pourcentage, montant, created_at");
+      .select("id, decision_id, actionnaire_id, montant, statut, created_at");
 
     if (distributionsError) {
       return NextResponse.json({ error: distributionsError.message }, { status: 500 });

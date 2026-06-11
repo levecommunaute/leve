@@ -204,8 +204,7 @@ type ActionnaireRow = {
   id: string;
   siege: number | null;
   nom: string;
-  email: string | null;
-  type_actions: "A" | "B";
+  categorie: string;
   nb_actions: number;
   pourcentage: number | string;
   role: string | null;
@@ -240,32 +239,44 @@ function actionnaireDraftDirty(a: ActionnaireRow, d: ActionnaireDraft): boolean 
 
 type ActionsConfigRow = {
   id: string;
+  total_actions_a: number;
+  total_actions_b: number;
+  total_actions_c: number;
+  valeur_fondation: number;
   multiple_valorisation: number;
-  total_actions: number;
-  escompte_phase1: number;
+  prix_action_c_phase: number;
   locked: boolean;
   updated_at: string;
 };
 
 type ActionsConfigDraft = {
+  total_actions_a: string;
+  total_actions_b: string;
+  total_actions_c: string;
+  valeur_fondation: string;
   multiple_valorisation: string;
-  total_actions: string;
-  escompte_phase1: string;
+  prix_action_c_phase: string;
 };
 
 function actionsConfigToDraft(c: ActionsConfigRow): ActionsConfigDraft {
   return {
+    total_actions_a: String(c.total_actions_a),
+    total_actions_b: String(c.total_actions_b),
+    total_actions_c: String(c.total_actions_c),
+    valeur_fondation: String(c.valeur_fondation),
     multiple_valorisation: String(c.multiple_valorisation),
-    total_actions: String(c.total_actions),
-    escompte_phase1: String(c.escompte_phase1),
+    prix_action_c_phase: String(c.prix_action_c_phase),
   };
 }
 
 function actionsConfigDraftDirty(c: ActionsConfigRow, d: ActionsConfigDraft): boolean {
   return (
+    String(c.total_actions_a) !== d.total_actions_a.trim() ||
+    String(c.total_actions_b) !== d.total_actions_b.trim() ||
+    String(c.total_actions_c) !== d.total_actions_c.trim() ||
+    String(c.valeur_fondation) !== d.valeur_fondation.trim() ||
     String(c.multiple_valorisation) !== d.multiple_valorisation.trim() ||
-    String(c.total_actions) !== d.total_actions.trim() ||
-    String(c.escompte_phase1) !== d.escompte_phase1.trim()
+    String(c.prix_action_c_phase) !== d.prix_action_c_phase.trim()
   );
 }
 
@@ -304,7 +315,6 @@ type ValorisationRow = {
   mois: string;
   total_brut: number;
   revenus_annualises: number;
-  multiple_valorisation: number;
   valeur_societe: number;
   valeur_action: number;
   pool_25: number;
@@ -315,9 +325,9 @@ type ValorisationRow = {
 type DividendeDistributionRow = {
   id: string;
   actionnaire_id: string;
-  pourcentage: number | string;
   montant: number | string;
-  actionnaire: { nom: string } | null;
+  statut: string | null;
+  actionnaire: { nom: string; pourcentage: number | string } | null;
 };
 
 type DividendeDecisionRow = {
@@ -1656,9 +1666,12 @@ export default function AdminPage(): JSX.Element {
         method: "PATCH",
         headers: adminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
+          total_actions_a: actionsConfigDraft.total_actions_a.trim(),
+          total_actions_b: actionsConfigDraft.total_actions_b.trim(),
+          total_actions_c: actionsConfigDraft.total_actions_c.trim(),
+          valeur_fondation: actionsConfigDraft.valeur_fondation.trim(),
           multiple_valorisation: actionsConfigDraft.multiple_valorisation.trim(),
-          total_actions: actionsConfigDraft.total_actions.trim(),
-          escompte_phase1: actionsConfigDraft.escompte_phase1.trim(),
+          prix_action_c_phase: actionsConfigDraft.prix_action_c_phase.trim(),
         }),
       });
       const j = (await r.json()) as { config?: ActionsConfigRow; error?: string };
@@ -5085,7 +5098,7 @@ export default function AdminPage(): JSX.Element {
                                 a.nom
                               )}
                             </td>
-                            <td style={{ padding: "0.6rem 0.5rem" }}>Cat. {a.type_actions}</td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>Cat. {a.categorie}</td>
                             <td style={{ padding: "0.6rem 0.5rem", minWidth: "5rem" }}>
                               {editable ? (
                                 <input
@@ -5236,19 +5249,70 @@ export default function AdminPage(): JSX.Element {
                     }}
                   >
                     <div>
-                      <span style={labelSm}>Total actions A + B</span>
+                      <span style={labelSm}>Total actions A</span>
                       <input
                         type="number"
-                        min={1}
+                        min={0}
                         step={1}
-                        value={actionsConfigDraft.total_actions}
+                        value={actionsConfigDraft.total_actions_a}
                         disabled={actionsConfig.locked}
                         onChange={(e) =>
                           setActionsConfigDraft((prev) =>
-                            prev ? { ...prev, total_actions: e.target.value } : prev,
+                            prev ? { ...prev, total_actions_a: e.target.value } : prev,
                           )
                         }
-                        aria-label="Total actions A + B"
+                        aria-label="Total actions A"
+                        style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
+                      />
+                    </div>
+                    <div>
+                      <span style={labelSm}>Total actions B</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={actionsConfigDraft.total_actions_b}
+                        disabled={actionsConfig.locked}
+                        onChange={(e) =>
+                          setActionsConfigDraft((prev) =>
+                            prev ? { ...prev, total_actions_b: e.target.value } : prev,
+                          )
+                        }
+                        aria-label="Total actions B"
+                        style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
+                      />
+                    </div>
+                    <div>
+                      <span style={labelSm}>Total actions C</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={actionsConfigDraft.total_actions_c}
+                        disabled={actionsConfig.locked}
+                        onChange={(e) =>
+                          setActionsConfigDraft((prev) =>
+                            prev ? { ...prev, total_actions_c: e.target.value } : prev,
+                          )
+                        }
+                        aria-label="Total actions C"
+                        style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
+                      />
+                    </div>
+                    <div>
+                      <span style={labelSm}>Valeur fondation ($)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={actionsConfigDraft.valeur_fondation}
+                        disabled={actionsConfig.locked}
+                        onChange={(e) =>
+                          setActionsConfigDraft((prev) =>
+                            prev ? { ...prev, valeur_fondation: e.target.value } : prev,
+                          )
+                        }
+                        aria-label="Valeur fondation"
                         style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
                       />
                     </div>
@@ -5270,20 +5334,19 @@ export default function AdminPage(): JSX.Element {
                       />
                     </div>
                     <div>
-                      <span style={labelSm}>Escompte Phase 1 (prix action C)</span>
+                      <span style={labelSm}>Prix action C (phase) ($)</span>
                       <input
                         type="number"
                         min={0}
-                        max={1}
-                        step="0.0001"
-                        value={actionsConfigDraft.escompte_phase1}
+                        step="0.01"
+                        value={actionsConfigDraft.prix_action_c_phase}
                         disabled={actionsConfig.locked}
                         onChange={(e) =>
                           setActionsConfigDraft((prev) =>
-                            prev ? { ...prev, escompte_phase1: e.target.value } : prev,
+                            prev ? { ...prev, prix_action_c_phase: e.target.value } : prev,
                           )
                         }
-                        aria-label="Escompte Phase 1"
+                        aria-label="Prix action C (phase)"
                         style={{ ...inputBase, opacity: actionsConfig.locked ? 0.5 : 1 }}
                       />
                     </div>
@@ -5669,8 +5732,10 @@ export default function AdminPage(): JSX.Element {
                               <ul style={{ margin: 0, paddingLeft: "1.1rem", fontSize: "0.82rem", opacity: 0.85 }}>
                                 {dec.distributions.map((dist) => (
                                   <li key={dist.id}>
-                                    {dist.actionnaire?.nom ?? dist.actionnaire_id} — {dist.pourcentage} % —{" "}
+                                    {dist.actionnaire?.nom ?? dist.actionnaire_id} —{" "}
+                                    {dist.actionnaire ? `${dist.actionnaire.pourcentage} % — ` : ""}
                                     {cad.format(Number(dist.montant))}
+                                    {dist.statut ? ` (${dist.statut})` : ""}
                                   </li>
                                 ))}
                               </ul>

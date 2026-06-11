@@ -4,7 +4,7 @@ import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-se
 export const dynamic = "force-dynamic";
 
 const SELECT_COLUMNS =
-  "id, siege, nom, email, type_actions, nb_actions, pourcentage, role, actif, locked, created_at, updated_at";
+  "id, siege, nom, categorie, nb_actions, pourcentage, role, actif, locked, created_at, updated_at";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const denied = requireAdminSecret(request);
@@ -54,18 +54,11 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     updates.nom = body.nom.trim();
   }
 
-  if (body.email !== undefined) {
-    if (body.email !== null && typeof body.email !== "string") {
-      return NextResponse.json({ error: "email invalide" }, { status: 400 });
+  if (body.categorie !== undefined) {
+    if (typeof body.categorie !== "string" || !body.categorie.trim()) {
+      return NextResponse.json({ error: "categorie invalide" }, { status: 400 });
     }
-    updates.email = body.email === null ? null : (body.email as string).trim() || null;
-  }
-
-  if (body.type_actions !== undefined) {
-    if (body.type_actions !== "A" && body.type_actions !== "B") {
-      return NextResponse.json({ error: "type_actions invalide (A ou B)" }, { status: 400 });
-    }
-    updates.type_actions = body.type_actions;
+    updates.categorie = body.categorie.trim();
   }
 
   if (body.nb_actions !== undefined) {

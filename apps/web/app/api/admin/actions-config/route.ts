@@ -23,9 +23,12 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   if (denied) return denied;
 
   let body: {
+    total_actions_a?: unknown;
+    total_actions_b?: unknown;
+    total_actions_c?: unknown;
+    valeur_fondation?: unknown;
     multiple_valorisation?: unknown;
-    total_actions?: unknown;
-    escompte_phase1?: unknown;
+    prix_action_c_phase?: unknown;
     locked?: unknown;
   };
   try {
@@ -35,6 +38,33 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   }
 
   const updates: Record<string, unknown> = {};
+
+  for (const field of ["total_actions_a", "total_actions_b", "total_actions_c"] as const) {
+    const raw = body[field];
+    if (raw === undefined) continue;
+    const n = typeof raw === "number" ? raw : Number(String(raw).trim());
+    if (!Number.isInteger(n) || n < 0) {
+      return NextResponse.json(
+        { error: `${field} invalide (entier ≥ 0)` },
+        { status: 400 },
+      );
+    }
+    updates[field] = n;
+  }
+
+  if (body.valeur_fondation !== undefined) {
+    const n =
+      typeof body.valeur_fondation === "number"
+        ? body.valeur_fondation
+        : Number(String(body.valeur_fondation).trim().replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) {
+      return NextResponse.json(
+        { error: "valeur_fondation invalide (nombre ≥ 0)" },
+        { status: 400 },
+      );
+    }
+    updates.valeur_fondation = Math.round(n * 100) / 100;
+  }
 
   if (body.multiple_valorisation !== undefined) {
     const n =
@@ -50,32 +80,18 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     updates.multiple_valorisation = Math.round(n * 100) / 100;
   }
 
-  if (body.total_actions !== undefined) {
+  if (body.prix_action_c_phase !== undefined) {
     const n =
-      typeof body.total_actions === "number"
-        ? body.total_actions
-        : Number(String(body.total_actions).trim());
-    if (!Number.isInteger(n) || n <= 0) {
+      typeof body.prix_action_c_phase === "number"
+        ? body.prix_action_c_phase
+        : Number(String(body.prix_action_c_phase).trim().replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) {
       return NextResponse.json(
-        { error: "total_actions invalide (entier > 0)" },
+        { error: "prix_action_c_phase invalide (nombre ≥ 0)" },
         { status: 400 },
       );
     }
-    updates.total_actions = n;
-  }
-
-  if (body.escompte_phase1 !== undefined) {
-    const n =
-      typeof body.escompte_phase1 === "number"
-        ? body.escompte_phase1
-        : Number(String(body.escompte_phase1).trim().replace(",", "."));
-    if (!Number.isFinite(n) || n <= 0 || n > 1) {
-      return NextResponse.json(
-        { error: "escompte_phase1 invalide (entre 0 et 1)" },
-        { status: 400 },
-      );
-    }
-    updates.escompte_phase1 = Math.round(n * 10000) / 10000;
+    updates.prix_action_c_phase = Math.round(n * 100) / 100;
   }
 
   let lockedUpdate: boolean | undefined;
