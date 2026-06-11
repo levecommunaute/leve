@@ -59,7 +59,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const supabase = getServiceSupabase();
-    const config = await getActionsConfig();
+
+    let config;
+    try {
+      config = await getActionsConfig();
+      console.log("[valider-revenus] actions_config OK:", {
+        multiple_valorisation: config.multiple_valorisation,
+        total_actions_a: config.total_actions_a,
+        total_actions_b: config.total_actions_b,
+        total_actions_c: config.total_actions_c,
+        prix_action_c_phase: config.prix_action_c_phase,
+      });
+    } catch (configError) {
+      console.error("[valider-revenus] Erreur lecture actions_config:", configError);
+      throw configError;
+    }
+
+    if (!Number.isFinite(config.multiple_valorisation) || config.multiple_valorisation <= 0) {
+      console.error(
+        "[valider-revenus] multiple_valorisation invalide:",
+        config.multiple_valorisation,
+      );
+      return NextResponse.json(
+        { error: "multiple_valorisation invalide dans actions_config" },
+        { status: 500 },
+      );
+    }
 
     const { error: revenusError } = await supabase
       .from("revenus_mensuels_actions")
@@ -107,13 +132,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       prix_action_c,
     };
 
-    const { error: valorisationError } = await supabase
+    console.log("[valider-revenus] Insertion valorisation_historique, payload:", valorisation);
+
+    const { data: valorisationData, error: valorisationError } = await supabase
       .from("valorisation_historique")
-      .insert(valorisation);
+      .insert(valorisation)
+      .select();
 
     if (valorisationError) {
+      console.error("[valider-revenus] Erreur insertion valorisation_historique:", {
+        code: valorisationError.code,
+        message: valorisationError.message,
+        details: valorisationError.details,
+        hint: valorisationError.hint,
+      });
       return NextResponse.json({ error: valorisationError.message }, { status: 500 });
     }
+
+    console.log("[valider-revenus] valorisation_historique insérée:", valorisationData);
 
     return NextResponse.json({ success: true, valorisation });
   } catch (e) {
