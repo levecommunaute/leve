@@ -65,7 +65,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         mois,
         ...revenus,
         depenses_operationnelles: depensesParsed.value,
-        total_brut,
+        valide_par_admin: true,
       });
 
     if (revenusError) {
