@@ -40,6 +40,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (!/^\d{4}-\d{2}$/.test(mois)) {
     return NextResponse.json({ error: "mois invalide (format YYYY-MM)" }, { status: 400 });
   }
+  // La colonne mois est de type DATE : on normalise au premier jour du mois
+  const moisDate = `${mois}-01`;
 
   const revenus: Record<string, number> = {};
   for (const field of REVENUE_FIELDS) {
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { error: revenusError } = await supabase
       .from("revenus_mensuels_actions")
       .insert({
-        mois,
+        mois: moisDate,
         ...revenus,
         depenses_operationnelles: depensesParsed.value,
         valide_par_admin: true,
