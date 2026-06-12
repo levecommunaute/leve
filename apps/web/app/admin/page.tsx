@@ -358,13 +358,6 @@ function trimestreOptions(): string[] {
   return out;
 }
 
-function moisDuTrimestre(trimestre: string): string[] {
-  const m = /^(\d{4})-T([1-4])$/.exec(trimestre);
-  if (!m) return [];
-  const t = Number(m[2]);
-  return [1, 2, 3].map((i) => `${m[1]}-${String((t - 1) * 3 + i).padStart(2, "0")}`);
-}
-
 const RESEAU_SOCIAL_LABELS: Record<ReseauSocialKey, string> = {
   youtube: "YouTube",
   facebook: "Facebook",
@@ -5573,14 +5566,15 @@ export default function AdminPage(): JSX.Element {
                 <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{divMsg}</p>
               ) : null}
               {(() => {
-                const moisTrim = moisDuTrimestre(divTrimestre);
-                const poolTrimestre = valorisations
-                  .filter((v) => moisTrim.includes(v.mois))
-                  .reduce((s, v) => s + v.pool_dividendes, 0);
-                const dejaDistribue = divDecisions
-                  .filter((dec) => dec.trimestre === divTrimestre)
-                  .reduce((s, dec) => s + Number(dec.montant_distribue), 0);
-                const poolDisponible = Math.round((poolTrimestre - dejaDistribue) * 100) / 100;
+                const derniereValo = valorisations[valorisations.length - 1];
+                const poolReference = derniereValo ? derniereValo.pool_dividendes : 0;
+                const totalDistribue = divDecisions.reduce(
+                  (s, dec) => s + Number(dec.montant_distribue),
+                  0,
+                );
+                const poolNet = Math.round((poolReference - totalDistribue) * 100) / 100;
+                const poolInsuffisant = poolNet < 0;
+                const poolDisponible = poolInsuffisant ? 0 : poolNet;
                 const montantPreview = Number(divMontant.trim().replace(",", "."));
                 const previewOk = Number.isFinite(montantPreview) && montantPreview > 0;
                 const actifs = actionnaires.filter((a) => a.actif);
@@ -5614,7 +5608,7 @@ export default function AdminPage(): JSX.Element {
                         <p
                           style={{
                             margin: 0,
-                            padding: "0.65rem 0",
+                            padding: "0.65rem 0 0.2rem",
                             fontSize: "1.2rem",
                             fontWeight: 600,
                             color: poolDisponible > 0 ? GOLD : TEXT,
@@ -5623,6 +5617,11 @@ export default function AdminPage(): JSX.Element {
                         >
                           {cad.format(poolDisponible)}
                         </p>
+                        {poolInsuffisant ? (
+                          <p style={{ margin: 0, fontSize: "0.78rem", color: ROUGE }}>
+                            Pool insuffisant pour ce trimestre
+                          </p>
+                        ) : null}
                       </div>
                       <div>
                         <span style={labelSm}>Montant à distribuer ($)</span>
