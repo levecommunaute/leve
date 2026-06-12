@@ -234,7 +234,27 @@ export default function Home(): JSX.Element {
   const [reseauxActifs, setReseauxActifs] = useState<ReseauSocialRow[]>([]);
   const [fondateurConfig, setFondateurConfig] = useState<FondateurConfigRow | null>(null);
   const [membresInscrits, setMembresInscrits] = useState<number | null>(null);
+  const [betaExclusif, setBetaExclusif] = useState<"loading" | "on" | "off">("loading");
   const youtubeSubscriberCount = useYoutubeSubscriberCount();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBetaExclusif(): Promise<void> {
+      try {
+        const r = await fetch("/api/feature-flags?nom=beta-exclusif", { cache: "no-store" });
+        const j = (await r.json()) as { actif?: boolean };
+        if (!cancelled) setBetaExclusif(r.ok && j.actif ? "on" : "off");
+      } catch {
+        if (!cancelled) setBetaExclusif("off");
+      }
+    }
+
+    void loadBetaExclusif();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -494,7 +514,16 @@ export default function Home(): JSX.Element {
             La première plateforme YouTube francophone qui redistribue ses revenus publicitaires à sa
             communauté.
           </p>
-          {showOAuthError ? (
+          {betaExclusif === "on" ? (
+            <div
+              className="flex max-w-md flex-col items-center gap-2 rounded-lg border px-8 py-6 text-center"
+              style={{ borderColor: `${GOLD}55`, background: "rgba(212, 160, 23, 0.06)" }}
+            >
+              <p className="m-0 text-base leading-relaxed" style={{ color: GOLD, fontWeight: 600 }}>
+                🔒 Phase beta privée — accès par invitation uniquement
+              </p>
+            </div>
+          ) : betaExclusif === "loading" ? null : showOAuthError ? (
             <div
               className="flex max-w-md flex-col items-center gap-5 rounded-lg border px-8 py-8 text-center"
               style={{ borderColor: "#3a2020", background: "#120a0a" }}
@@ -740,14 +769,23 @@ export default function Home(): JSX.Element {
           <p className="max-w-xl text-base leading-relaxed opacity-[0.82]">
             Les premiers 1&nbsp;000 membres deviennent Pionniers avec un multiplicateur 2.0x.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
-              Rejoindre
-            </RougeButton>
-            <RougeButton onClick={() => void signInWithGoogle("connecter")}>
-              Se connecter
-            </RougeButton>
-          </div>
+          {betaExclusif === "on" ? (
+            <p
+              className="m-0 text-base leading-relaxed"
+              style={{ color: GOLD, fontWeight: 600 }}
+            >
+              🔒 Phase beta privée — accès par invitation uniquement
+            </p>
+          ) : betaExclusif === "loading" ? null : (
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+                Rejoindre
+              </RougeButton>
+              <RougeButton onClick={() => void signInWithGoogle("connecter")}>
+                Se connecter
+              </RougeButton>
+            </div>
+          )}
         </div>
       </section>
 

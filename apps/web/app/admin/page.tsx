@@ -441,6 +441,7 @@ type ProductionVideoRow = {
 
 /** Ordre d'affichage dans « Déploiement des fonctionnalités » (flags définis en base). */
 const FEATURE_FLAG_ORDER = [
+  "beta-exclusif",
   "boutique",
   "concours",
   "classement",
