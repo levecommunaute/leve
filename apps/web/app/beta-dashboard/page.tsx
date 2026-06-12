@@ -75,6 +75,7 @@ type BetaActionRow = {
 };
 
 const ACTIONS_LIMIT = 30;
+const PERMANENT_LINK = "leve-web.vercel.app/beta-dashboard";
 
 function formatDureeTotale(totalSecondes: number): string {
   if (totalSecondes <= 0) return "0 min";
@@ -107,6 +108,19 @@ export default function BetaDashboardPage(): JSX.Element | null {
   const [actions, setActions] = useState<BetaActionRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const copyPermanentLink = useCallback(() => {
+    void navigator.clipboard
+      .writeText(`https://${PERMANENT_LINK}`)
+      .then(() => {
+        setLinkCopied(true);
+        window.setTimeout(() => setLinkCopied(false), 2000);
+      })
+      .catch(() => {
+        // Clipboard indisponible (HTTP, permissions) : on ignore silencieusement.
+      });
+  }, []);
 
   const loadBetaData = useCallback(
     async (activeSession: Session) => {
@@ -237,6 +251,51 @@ export default function BetaDashboardPage(): JSX.Element | null {
       </header>
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "0.5rem 0.9rem",
+            marginBottom: "1.25rem",
+            padding: "0.65rem 0.9rem",
+            borderRadius: "10px",
+            background: "rgba(245, 240, 232, 0.04)",
+            border: "1px solid rgba(245, 240, 232, 0.12)",
+            fontSize: "0.85rem",
+          }}
+        >
+          <span style={{ opacity: 0.7 }}>Accès direct :</span>
+          <code
+            style={{
+              fontFamily: "monospace",
+              fontSize: "0.82rem",
+              color: GOLD,
+              wordBreak: "break-all",
+            }}
+          >
+            {PERMANENT_LINK}
+          </code>
+          <button
+            type="button"
+            onClick={copyPermanentLink}
+            style={{
+              marginLeft: "auto",
+              background: "transparent",
+              color: linkCopied ? GOLD : TEXT,
+              border: `1px solid ${linkCopied ? GOLD : "rgba(245, 240, 232, 0.35)"}`,
+              borderRadius: "6px",
+              padding: "0.35rem 0.75rem",
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {linkCopied ? "Lien copié ✓" : "Copier le lien"}
+          </button>
+        </div>
+
         {loadError ? (
           <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>
             {loadError}

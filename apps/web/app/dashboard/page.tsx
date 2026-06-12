@@ -66,6 +66,9 @@ type ProfileRow = {
   numero_membre: string | null;
   abonnement_statut: string | null;
   grace_expire_at: string | null;
+  is_beta_tester: boolean | null;
+  beta_points: number | string | null;
+  beta_temps_total_secondes: number | string | null;
 };
 
 function formatGraceCountdown(msLeft: number): string {
@@ -281,7 +284,7 @@ export default function DashboardPage(): JSX.Element | null {
     const [profileRes, txRes, histRes, prevHistRes, bankRes, memberPpRes, prevPpRes, totalPp] =
       await Promise.all([
         restJson<ProfileRow[]>(
-          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at`,
+          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at,is_beta_tester,beta_points,beta_temps_total_secondes`,
           token,
         ),
         restJson<{ amount?: unknown }[]>(
@@ -470,6 +473,11 @@ export default function DashboardPage(): JSX.Element | null {
     : pmqBalance * (memberPtsPonderes / totalPtsPonderesAll);
   const isNewMember =
     totalPointsPmq === 0 && lastRedistributionCad === null;
+  const isBetaTester = profile?.is_beta_tester === true;
+  const betaPoints = Number(profile?.beta_points ?? 0);
+  const betaMinutes = Math.floor(
+    Number(profile?.beta_temps_total_secondes ?? 0) / 60,
+  );
 
   return (
     <div
@@ -542,6 +550,46 @@ export default function DashboardPage(): JSX.Element | null {
       </header>
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
+        {isBetaTester ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "0.5rem 1rem",
+              marginBottom: "1.25rem",
+              padding: "0.65rem 0.9rem",
+              borderRadius: "10px",
+              background: "rgba(212, 160, 23, 0.1)",
+              border: `1px solid rgba(212, 160, 23, 0.45)`,
+              fontSize: "0.85rem",
+            }}
+          >
+            <span style={{ fontWeight: 700, color: GOLD }}>
+              🧪 Mode Beta Testeur
+            </span>
+            <span style={{ opacity: 0.85 }}>
+              Temps total : {pointsFmt.format(betaMinutes)} min
+            </span>
+            <span style={{ opacity: 0.85 }}>
+              Points Beta : {pointsFmt.format(betaPoints)} pts
+            </span>
+            <Link
+              href="/beta-dashboard"
+              style={{
+                marginLeft: "auto",
+                color: GOLD,
+                fontWeight: 600,
+                textDecoration: "underline",
+                textUnderlineOffset: "3px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Voir mon tableau de bord Beta →
+            </Link>
+          </div>
+        ) : null}
+
         {inGrace ? (
           <div
             role="alert"
