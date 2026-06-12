@@ -40,6 +40,16 @@ type MemberRow = {
   numero_membre: string | number | null;
 };
 
+type BetaTesterRow = {
+  id: string;
+  numero_membre: string | number | null;
+  display_name: string | null;
+  email: string | null;
+  beta_points: number | string | null;
+  beta_temps_total_secondes: number | string | null;
+  beta_derniere_activite: string | null;
+};
+
 type QuizQuestionRow = {
   id: string;
   video_id: string;
@@ -898,6 +908,42 @@ function ValorisationChart({ series }: { series: ValorisationRow[] }): JSX.Eleme
   );
 }
 
+function betaNumber(raw: number | string | null): number {
+  const n = typeof raw === "number" ? raw : Number(raw ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatBetaTemps(totalSecondes: number): string {
+  const s = Math.max(0, Math.floor(totalSecondes));
+  const heures = Math.floor(s / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  if (heures > 0) return `${heures}h ${String(minutes).padStart(2, "0")}min`;
+  return `${minutes}min`;
+}
+
+function formatBetaDateHeure(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function betaStatut(derniereActivite: string | null): { emoji: string; label: string } {
+  if (!derniereActivite) return { emoji: "🔴", label: "Absent" };
+  const t = new Date(derniereActivite).getTime();
+  if (Number.isNaN(t)) return { emoji: "🔴", label: "Absent" };
+  const heures = (Date.now() - t) / 3_600_000;
+  if (heures < 24) return { emoji: "🟢", label: "Actif" };
+  if (heures <= 72) return { emoji: "🟡", label: "Inactif" };
+  return { emoji: "🔴", label: "Absent" };
+}
+
 function cardStyle() {
   return {
     background: "rgba(245, 240, 232, 0.03)",
@@ -1108,6 +1154,10 @@ export default function AdminPage(): JSX.Element {
   const [valorisationsLoading, setValorisationsLoading] = useState(false);
   const [valorisationsError, setValorisationsError] = useState<string | null>(null);
 
+  const [betaTesteurs, setBetaTesteurs] = useState<BetaTesterRow[]>([]);
+  const [betaLoading, setBetaLoading] = useState(false);
+  const [betaError, setBetaError] = useState<string | null>(null);
+
   const [divTrimestre, setDivTrimestre] = useState(currentTrimestre);
   const [divMontant, setDivMontant] = useState("");
   const [divDecisions, setDivDecisions] = useState<DividendeDecisionRow[]>([]);
@@ -1185,6 +1235,29 @@ export default function AdminPage(): JSX.Element {
       setMembers([]);
     } finally {
       setMembersLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadBetaSuivi = useCallback(async (): Promise<void> => {
+    setBetaLoading(true);
+    setBetaError(null);
+    try {
+      const r = await fetch("/api/admin/beta-suivi", { headers: adminHeaders(), cache: "no-store" });
+      const j = (await r.json()) as { testeurs?: BetaTesterRow[]; error?: string };
+      if (!r.ok) {
+        setBetaError(j.error ?? "Erreur suivi beta");
+        setBetaTesteurs([]);
+        return;
+      }
+      const rows = (j.testeurs ?? [])
+        .slice()
+        .sort((a, b) => betaNumber(b.beta_points) - betaNumber(a.beta_points));
+      setBetaTesteurs(rows);
+    } catch (e) {
+      setBetaError(e instanceof Error ? e.message : "Erreur réseau");
+      setBetaTesteurs([]);
+    } finally {
+      setBetaLoading(false);
     }
   }, [adminHeaders]);
 
@@ -1809,6 +1882,7 @@ export default function AdminPage(): JSX.Element {
     void loadVideos();
     void loadLinkedVideoCodes();
     void loadMembers();
+    void loadBetaSuivi();
     void loadFeatureFlags();
     void loadFraisPlateforme();
     void loadMemberMap();
@@ -1828,6 +1902,7 @@ export default function AdminPage(): JSX.Element {
     loadVideos,
     loadLinkedVideoCodes,
     loadMembers,
+    loadBetaSuivi,
     loadFeatureFlags,
     loadFraisPlateforme,
     loadMemberMap,
@@ -5954,6 +6029,110 @@ export default function AdminPage(): JSX.Element {
                 </table>
                 {members.length === 0 ? <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucun membre.</p> : null}
               </div>
+            )}
+          </section>
+
+          {/* SECTION SUIVI BETA */}
+          <section style={cardStyle()}>
+            {sectionTitle("SUIVI BETA")}
+            {betaError ? <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{betaError}</p> : null}
+            {betaLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : (
+              (() => {
+                const nb = betaTesteurs.length;
+                const totalSecondes = betaTesteurs.reduce(
+                  (acc, t) => acc + betaNumber(t.beta_temps_total_secondes),
+                  0,
+                );
+                const totalPoints = betaTesteurs.reduce((acc, t) => acc + betaNumber(t.beta_points), 0);
+                const moyenneSecondes = nb > 0 ? totalSecondes / nb : 0;
+                const moyennePoints = nb > 0 ? totalPoints / nb : 0;
+                const statCard = {
+                  background: "rgba(245, 240, 232, 0.04)",
+                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  borderRadius: "10px",
+                  padding: "0.85rem 1.1rem",
+                  minWidth: "10rem",
+                } as const;
+                return (
+                  <>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "1.25rem" }}>
+                      <div style={statCard}>
+                        <span style={labelSm}>Testeurs</span>
+                        <strong style={{ color: GOLD, fontSize: "1.45rem" }}>{nb}</strong>
+                      </div>
+                      <div style={statCard}>
+                        <span style={labelSm}>Moyenne temps</span>
+                        <strong style={{ color: GOLD, fontSize: "1.45rem" }}>
+                          {formatBetaTemps(moyenneSecondes)}
+                        </strong>
+                      </div>
+                      <div style={statCard}>
+                        <span style={labelSm}>Moyenne points</span>
+                        <strong style={{ color: GOLD, fontSize: "1.45rem" }}>
+                          {Math.round(moyennePoints).toLocaleString("fr-CA")}
+                        </strong>
+                      </div>
+                    </div>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                            {["N° membre", "Nom", "Courriel", "Temps total", "Points Beta", "Dernière activité", "Statut"].map(
+                              (h) => (
+                                <th
+                                  key={h}
+                                  style={{
+                                    padding: "0.65rem 0.5rem",
+                                    letterSpacing: "0.08em",
+                                    fontSize: "0.65rem",
+                                    textTransform: "uppercase",
+                                    opacity: 0.55,
+                                  }}
+                                >
+                                  {h}
+                                </th>
+                              ),
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {betaTesteurs.map((t) => {
+                            const statut = betaStatut(t.beta_derniere_activite);
+                            return (
+                              <tr key={t.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                                <td style={{ padding: "0.6rem 0.5rem" }}>
+                                  {t.numero_membre != null && String(t.numero_membre).length
+                                    ? String(t.numero_membre)
+                                    : "—"}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem" }}>{t.display_name ?? "—"}</td>
+                                <td style={{ padding: "0.6rem 0.5rem" }}>{t.email ?? "—"}</td>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                  {formatBetaTemps(betaNumber(t.beta_temps_total_secondes))}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", color: GOLD, fontWeight: 600 }}>
+                                  {betaNumber(t.beta_points).toLocaleString("fr-CA")}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                  {formatBetaDateHeure(t.beta_derniere_activite)}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                  {statut.emoji} {statut.label}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {nb === 0 ? (
+                        <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucun beta testeur.</p>
+                      ) : null}
+                    </div>
+                  </>
+                );
+              })()
             )}
           </section>
         </main>
