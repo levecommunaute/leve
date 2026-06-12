@@ -119,7 +119,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const valeur_action = round2(valeur_societe / total_actions);
     const pool_25 = round2(total_brut * 0.25);
     const pool_dividendes = round2(pool_25 * 0.4);
-    const prix_action_c = round2(config.prix_action_c_phase);
+    // Escompte Phase 1 : 25 % de la valeur de l'action.
+    // actions_config.prix_action_c_phase n'indique que la phase (1, 2, 3...), pas un prix.
+    const prix_action_c = round2(valeur_action * 0.25);
 
     const valorisation = {
       mois: moisDate,
