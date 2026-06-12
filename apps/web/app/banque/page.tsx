@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
@@ -134,6 +135,7 @@ const dateFmt = new Intl.DateTimeFormat("fr-CA", {
 export default function BanquePage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useBetaTracking(session, "banque");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [profileMultiplier, setProfileMultiplier] = useState(1);

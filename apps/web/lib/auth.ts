@@ -14,11 +14,15 @@ function getAppOrigin(): string {
   return "";
 }
 
-export async function signInWithGoogle(mode: AuthMode = "rejoindre"): Promise<void> {
+export async function signInWithGoogle(
+  mode: AuthMode = "rejoindre",
+  options?: { beta?: boolean },
+): Promise<void> {
   const supabase = createBrowserClient();
   const origin = getAppOrigin();
   const base = origin ? `${origin}/auth/callback` : "/auth/callback";
-  const redirectTo = `${base}?mode=${encodeURIComponent(mode)}`;
+  const betaParam = options?.beta ? "&beta=true" : "";
+  const redirectTo = `${base}?mode=${encodeURIComponent(mode)}${betaParam}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",

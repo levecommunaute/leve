@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { BonusBadge } from "../../components/bonus-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
@@ -140,6 +141,7 @@ function VideoThumb({ youtubeId, title }: { youtubeId: string; title: string }):
 export default function VideosPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useBetaTracking(session, "videos");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [videos, setVideos] = useState<VideoRow[]>([]);

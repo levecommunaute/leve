@@ -10,6 +10,7 @@ import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
 import { useYoutubeSubscriberCount } from "../../lib/use-youtube-subscriber-count";
 
@@ -88,6 +89,7 @@ const dateFmt = new Intl.DateTimeFormat("fr-CA", { dateStyle: "medium", timeStyl
 export default function ProfilPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useBetaTracking(session, "profil");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);

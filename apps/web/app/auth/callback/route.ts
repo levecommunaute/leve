@@ -41,6 +41,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const mode = parseMode(searchParams.get("mode"));
+  const beta = searchParams.get("beta") === "true";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/?error=auth`);
@@ -89,6 +90,16 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     // Membre existant = abonnement_verifie_at renseigné (pas seulement une ligne dans profiles)
     if (profile?.abonnement_verifie_at != null) {
+      // Lien beta utilisé par un membre existant : on le marque beta testeur
+      if (beta) {
+        const { error: betaError } = await getServiceSupabase()
+          .from("profiles")
+          .update({ is_beta_tester: true })
+          .eq("id", user.id);
+        if (betaError) {
+          console.error("[auth/callback] beta flag:", betaError.message);
+        }
+      }
       return NextResponse.redirect(`${origin}/auth/deja-membre`);
     }
 
@@ -100,6 +111,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           id: user.id,
           email: user.email ?? null,
           display_name: displayName,
+          ...(beta ? { is_beta_tester: true } : {}),
           ...buildActiveSubscriptionPatch(now),
         },
         { onConflict: "id" },

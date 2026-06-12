@@ -10,6 +10,7 @@ import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
+import { endActiveBetaSession, useBetaTracking } from "../../lib/beta-tracking";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -226,6 +227,7 @@ async function sumAllQuizPtsPonderes(
 export default function DashboardPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useBetaTracking(session, "dashboard");
   const [graceFromUrl, setGraceFromUrl] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
@@ -397,6 +399,7 @@ export default function DashboardPage(): JSX.Element | null {
 
   function handleSignOut(): void {
     setSigningOut(true);
+    void endActiveBetaSession();
 
     const cookieNames = document.cookie
       .split(";")
