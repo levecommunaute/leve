@@ -122,7 +122,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const prix_action_c = round2(config.prix_action_c_phase);
 
     const valorisation = {
-      mois,
+      mois: moisDate,
       total_brut,
       revenus_annualises,
       valeur_societe,
