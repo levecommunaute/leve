@@ -8,7 +8,6 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
-import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
 
 const SB = "https://lrolatbudvianeazliax.supabase.co";
@@ -155,7 +154,6 @@ function isPaInsufficientError(message: string): boolean {
 export default function ConcoursPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  useBetaTracking(session, "concours");
   const navPages = useAppBottomNavLinks(session);
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
