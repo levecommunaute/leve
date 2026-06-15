@@ -27,12 +27,16 @@ const GOLD = "#D4A017";
 const VALID_BETA_CODES = ["LEVE2026BETA"];
 
 type CodeStatus = "checking" | "valid" | "invalid";
+type EmailStatus = "idle" | "checking" | "autorise" | "refuse";
 
 export default function BetaPage(): JSX.Element {
   const fonts = `${bebas.variable} ${dmSans.variable}`;
   const [status, setStatus] = useState<CodeStatus>("checking");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [emailStatus, setEmailStatus] = useState<EmailStatus>("idle");
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("code");
@@ -41,6 +45,32 @@ export default function BetaPage(): JSX.Element {
       VALID_BETA_CODES.includes(code.trim().toUpperCase());
     setStatus(valid ? "valid" : "invalid");
   }, []);
+
+  async function handleVerifyEmail(): Promise<void> {
+    const value = email.trim().toLowerCase();
+    if (!value) {
+      setEmailError("Entrez votre adresse Gmail.");
+      return;
+    }
+    setEmailStatus("checking");
+    setEmailError(null);
+    try {
+      const r = await fetch(
+        `/api/beta/verifier-email?email=${encodeURIComponent(value)}`,
+        { cache: "no-store" },
+      );
+      const j = (await r.json()) as { autorise?: boolean; error?: string };
+      if (!r.ok) {
+        setEmailError(j.error ?? "Erreur lors de la vérification.");
+        setEmailStatus("idle");
+        return;
+      }
+      setEmailStatus(j.autorise ? "autorise" : "refuse");
+    } catch {
+      setEmailError("Erreur réseau. Réessayez.");
+      setEmailStatus("idle");
+    }
+  }
 
   async function handleJoin(): Promise<void> {
     setJoining(true);
@@ -94,41 +124,134 @@ export default function BetaPage(): JSX.Element {
             >
               Bienvenue dans la Beta LEVE
             </h1>
-            <p style={{ margin: "0 0 1.5rem", lineHeight: 1.55, opacity: 0.9 }}>
-              Votre code beta est valide. Connectez-vous avec Google pour créer
-              votre compte de beta testeur. Votre activité (pages visitées,
-              temps passé) sera suivie pour nous aider à améliorer LEVE.
-            </p>
-            <button
-              type="button"
-              disabled={joining}
-              onClick={() => void handleJoin()}
-              style={{
-                display: "inline-block",
-                padding: "0.85rem 1.5rem",
-                borderRadius: "6px",
-                background: ROUGE,
-                color: TEXT,
-                fontWeight: 600,
-                border: "none",
-                width: "100%",
-                boxSizing: "border-box",
-                fontSize: "1rem",
-                cursor: joining ? "wait" : "pointer",
-                opacity: joining ? 0.7 : 1,
-                fontFamily: "inherit",
-              }}
-            >
-              {joining ? "Redirection…" : "Rejoindre la beta avec Google"}
-            </button>
-            {joinError ? (
-              <p
-                role="alert"
-                style={{ margin: "1rem 0 0", color: ROUGE, fontSize: "0.9rem" }}
-              >
-                {joinError}
-              </p>
-            ) : null}
+            {emailStatus === "autorise" ? (
+              <>
+                <p
+                  style={{ margin: "0 0 1.5rem", lineHeight: 1.55, opacity: 0.9 }}
+                >
+                  Votre accès est confirmé. Connectez-vous avec Google pour créer
+                  votre compte de beta testeur. Votre activité (pages visitées,
+                  temps passé) sera suivie pour nous aider à améliorer LEVE.
+                </p>
+                <button
+                  type="button"
+                  disabled={joining}
+                  onClick={() => void handleJoin()}
+                  style={{
+                    display: "inline-block",
+                    padding: "0.85rem 1.5rem",
+                    borderRadius: "6px",
+                    background: ROUGE,
+                    color: TEXT,
+                    fontWeight: 600,
+                    border: "none",
+                    width: "100%",
+                    boxSizing: "border-box",
+                    fontSize: "1rem",
+                    cursor: joining ? "wait" : "pointer",
+                    opacity: joining ? 0.7 : 1,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {joining ? "Redirection…" : "Rejoindre la beta avec Google"}
+                </button>
+                {joinError ? (
+                  <p
+                    role="alert"
+                    style={{
+                      margin: "1rem 0 0",
+                      color: ROUGE,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    {joinError}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <p
+                  style={{ margin: "0 0 1.5rem", lineHeight: 1.55, opacity: 0.9 }}
+                >
+                  Entrez votre adresse Gmail pour vérifier votre accès.
+                </p>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && emailStatus !== "checking") {
+                      void handleVerifyEmail();
+                    }
+                  }}
+                  placeholder="votre.adresse@gmail.com"
+                  autoComplete="email"
+                  disabled={emailStatus === "checking"}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "0.85rem 1rem",
+                    borderRadius: "6px",
+                    border: "1px solid rgba(245, 240, 232, 0.2)",
+                    background: "#080808",
+                    color: TEXT,
+                    fontSize: "1rem",
+                    fontFamily: "inherit",
+                    marginBottom: "0.85rem",
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={emailStatus === "checking"}
+                  onClick={() => void handleVerifyEmail()}
+                  style={{
+                    display: "inline-block",
+                    padding: "0.85rem 1.5rem",
+                    borderRadius: "6px",
+                    background: GOLD,
+                    color: BG,
+                    fontWeight: 600,
+                    border: "none",
+                    width: "100%",
+                    boxSizing: "border-box",
+                    fontSize: "1rem",
+                    cursor: emailStatus === "checking" ? "wait" : "pointer",
+                    opacity: emailStatus === "checking" ? 0.7 : 1,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {emailStatus === "checking"
+                    ? "Vérification…"
+                    : "Vérifier mon accès"}
+                </button>
+                {emailStatus === "refuse" ? (
+                  <p
+                    role="alert"
+                    style={{
+                      margin: "1rem 0 0",
+                      color: ROUGE,
+                      fontSize: "0.9rem",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Votre email n&apos;est pas sur la liste des testeurs invités.
+                    Contactez levecommunaute@gmail.com
+                  </p>
+                ) : null}
+                {emailError ? (
+                  <p
+                    role="alert"
+                    style={{
+                      margin: "1rem 0 0",
+                      color: ROUGE,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    {emailError}
+                  </p>
+                ) : null}
+              </>
+            )}
           </>
         ) : (
           <>

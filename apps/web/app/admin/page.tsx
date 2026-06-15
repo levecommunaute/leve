@@ -50,6 +50,15 @@ type BetaTesterRow = {
   beta_derniere_activite: string | null;
 };
 
+type BetaEmailRow = {
+  id: string;
+  email: string;
+  nom_testeur: string | null;
+  actif: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 type QuizQuestionRow = {
   id: string;
   video_id: string;
@@ -1158,6 +1167,14 @@ export default function AdminPage(): JSX.Element {
   const [betaLoading, setBetaLoading] = useState(false);
   const [betaError, setBetaError] = useState<string | null>(null);
 
+  const [betaEmails, setBetaEmails] = useState<BetaEmailRow[]>([]);
+  const [betaEmailsLoading, setBetaEmailsLoading] = useState(false);
+  const [betaEmailsError, setBetaEmailsError] = useState<string | null>(null);
+  const [betaEmailDraft, setBetaEmailDraft] = useState("");
+  const [betaEmailNomDraft, setBetaEmailNomDraft] = useState("");
+  const [betaEmailAdding, setBetaEmailAdding] = useState(false);
+  const [betaEmailBusyId, setBetaEmailBusyId] = useState<string | null>(null);
+
   const [divTrimestre, setDivTrimestre] = useState(currentTrimestre);
   const [divMontant, setDivMontant] = useState("");
   const [divDecisions, setDivDecisions] = useState<DividendeDecisionRow[]>([]);
@@ -1258,6 +1275,26 @@ export default function AdminPage(): JSX.Element {
       setBetaTesteurs([]);
     } finally {
       setBetaLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadBetaEmails = useCallback(async (): Promise<void> => {
+    setBetaEmailsLoading(true);
+    setBetaEmailsError(null);
+    try {
+      const r = await fetch("/api/admin/beta-emails", { headers: adminHeaders(), cache: "no-store" });
+      const j = (await r.json()) as { emails?: BetaEmailRow[]; error?: string };
+      if (!r.ok) {
+        setBetaEmailsError(j.error ?? "Erreur liste emails beta");
+        setBetaEmails([]);
+        return;
+      }
+      setBetaEmails(j.emails ?? []);
+    } catch (e) {
+      setBetaEmailsError(e instanceof Error ? e.message : "Erreur réseau");
+      setBetaEmails([]);
+    } finally {
+      setBetaEmailsLoading(false);
     }
   }, [adminHeaders]);
 
@@ -1647,6 +1684,86 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  async function addBetaEmail(): Promise<void> {
+    const email = betaEmailDraft.trim().toLowerCase();
+    if (!email) {
+      setBetaEmailsError("Email requis");
+      return;
+    }
+    setBetaEmailAdding(true);
+    setBetaEmailsError(null);
+    try {
+      const r = await fetch("/api/admin/beta-emails", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          email,
+          nom_testeur: betaEmailNomDraft.trim() || null,
+        }),
+      });
+      const j = (await r.json()) as { email?: BetaEmailRow; error?: string };
+      if (!r.ok || !j.email) {
+        setBetaEmailsError(j.error ?? "Échec de l'ajout");
+        return;
+      }
+      const added = j.email;
+      setBetaEmails((prev) => [added, ...prev]);
+      setBetaEmailDraft("");
+      setBetaEmailNomDraft("");
+    } catch (e) {
+      setBetaEmailsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setBetaEmailAdding(false);
+    }
+  }
+
+  async function toggleBetaEmail(row: BetaEmailRow): Promise<void> {
+    setBetaEmailBusyId(row.id);
+    setBetaEmailsError(null);
+    try {
+      const r = await fetch("/api/admin/beta-emails", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: row.id, actif: !row.actif }),
+      });
+      const j = (await r.json()) as { email?: BetaEmailRow; error?: string };
+      if (!r.ok || !j.email) {
+        setBetaEmailsError(j.error ?? "Échec du changement de statut");
+        return;
+      }
+      const updated = j.email;
+      setBetaEmails((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } catch (e) {
+      setBetaEmailsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setBetaEmailBusyId(null);
+    }
+  }
+
+  async function deleteBetaEmail(row: BetaEmailRow): Promise<void> {
+    if (!window.confirm(`Supprimer « ${row.email} » de la liste des testeurs ?`)) {
+      return;
+    }
+    setBetaEmailBusyId(row.id);
+    setBetaEmailsError(null);
+    try {
+      const r = await fetch(`/api/admin/beta-emails?id=${encodeURIComponent(row.id)}`, {
+        method: "DELETE",
+        headers: adminHeaders(),
+      });
+      const j = (await r.json()) as { ok?: boolean; error?: string };
+      if (!r.ok || !j.ok) {
+        setBetaEmailsError(j.error ?? "Échec de la suppression");
+        return;
+      }
+      setBetaEmails((prev) => prev.filter((e) => e.id !== row.id));
+    } catch (e) {
+      setBetaEmailsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setBetaEmailBusyId(null);
+    }
+  }
+
   async function saveActionnaire(a: ActionnaireRow): Promise<void> {
     const d = actionnaireDrafts[a.id];
     if (!d) return;
@@ -1883,6 +2000,7 @@ export default function AdminPage(): JSX.Element {
     void loadLinkedVideoCodes();
     void loadMembers();
     void loadBetaSuivi();
+    void loadBetaEmails();
     void loadFeatureFlags();
     void loadFraisPlateforme();
     void loadMemberMap();
@@ -1903,6 +2021,7 @@ export default function AdminPage(): JSX.Element {
     loadLinkedVideoCodes,
     loadMembers,
     loadBetaSuivi,
+    loadBetaEmails,
     loadFeatureFlags,
     loadFraisPlateforme,
     loadMemberMap,
@@ -6134,6 +6253,167 @@ export default function AdminPage(): JSX.Element {
                 );
               })()
             )}
+
+            <div
+              style={{
+                marginTop: "2rem",
+                paddingTop: "1.5rem",
+                borderTop: "1px solid rgba(245,240,232,0.12)",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "0.95rem",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  opacity: 0.8,
+                  margin: "0 0 1rem",
+                }}
+              >
+                Emails autorisés (testeurs invités)
+              </h3>
+              {betaEmailsError ? (
+                <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{betaEmailsError}</p>
+              ) : null}
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "0.75rem",
+                  alignItems: "flex-end",
+                  marginBottom: "1.25rem",
+                }}
+              >
+                <div style={{ flex: "1 1 16rem", minWidth: "12rem" }}>
+                  <span style={labelSm}>Email</span>
+                  <input
+                    type="email"
+                    value={betaEmailDraft}
+                    onChange={(e) => setBetaEmailDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !betaEmailAdding) void addBetaEmail();
+                    }}
+                    placeholder="testeur@gmail.com"
+                    style={inputBase}
+                  />
+                </div>
+                <div style={{ flex: "1 1 12rem", minWidth: "10rem" }}>
+                  <span style={labelSm}>Nom testeur</span>
+                  <input
+                    type="text"
+                    value={betaEmailNomDraft}
+                    onChange={(e) => setBetaEmailNomDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !betaEmailAdding) void addBetaEmail();
+                    }}
+                    placeholder="Nom (optionnel)"
+                    style={inputBase}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={betaEmailAdding}
+                  onClick={() => void addBetaEmail()}
+                  style={{
+                    padding: "0.65rem 1.25rem",
+                    borderRadius: "8px",
+                    background: GOLD,
+                    color: BG,
+                    fontWeight: 600,
+                    border: "none",
+                    cursor: betaEmailAdding ? "wait" : "pointer",
+                    opacity: betaEmailAdding ? 0.7 : 1,
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  {betaEmailAdding ? "Ajout…" : "Ajouter"}
+                </button>
+              </div>
+
+              {betaEmailsLoading ? (
+                <p style={{ opacity: 0.65 }}>Chargement…</p>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        {["Email", "Nom", "Statut", "Actions"].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              padding: "0.65rem 0.5rem",
+                              letterSpacing: "0.08em",
+                              fontSize: "0.65rem",
+                              textTransform: "uppercase",
+                              opacity: 0.55,
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {betaEmails.map((row) => {
+                        const busy = betaEmailBusyId === row.id;
+                        return (
+                          <tr key={row.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>{row.email}</td>
+                            <td style={{ padding: "0.6rem 0.5rem" }}>{row.nom_testeur ?? "—"}</td>
+                            <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                              <span style={{ color: row.actif ? GOLD : "rgba(245,240,232,0.5)" }}>
+                                {row.actif ? "Actif" : "Inactif"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void toggleBetaEmail(row)}
+                                style={{
+                                  marginRight: "0.5rem",
+                                  padding: "0.4rem 0.85rem",
+                                  borderRadius: "6px",
+                                  background: "transparent",
+                                  color: TEXT,
+                                  border: "1px solid rgba(245,240,232,0.25)",
+                                  cursor: busy ? "wait" : "pointer",
+                                  opacity: busy ? 0.6 : 1,
+                                  fontSize: "0.8rem",
+                                }}
+                              >
+                                {row.actif ? "Désactiver" : "Activer"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void deleteBetaEmail(row)}
+                                style={{
+                                  padding: "0.4rem 0.85rem",
+                                  borderRadius: "6px",
+                                  background: "transparent",
+                                  color: ROUGE,
+                                  border: `1px solid ${ROUGE}`,
+                                  cursor: busy ? "wait" : "pointer",
+                                  opacity: busy ? 0.6 : 1,
+                                  fontSize: "0.8rem",
+                                }}
+                              >
+                                Supprimer
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {betaEmails.length === 0 ? (
+                    <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucun email autorisé.</p>
+                  ) : null}
+                </div>
+              )}
+            </div>
           </section>
         </main>
       )}
