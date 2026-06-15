@@ -10,6 +10,7 @@ import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
+import { endActiveBetaSession, useBetaTracking } from "../../lib/beta-tracking";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -229,6 +230,7 @@ async function sumAllQuizPtsPonderes(
 export default function DashboardPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useBetaTracking(session, "dashboard");
   const [graceFromUrl, setGraceFromUrl] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const navPages = useAppBottomNavLinks(session, profile?.member_type);
@@ -400,6 +402,7 @@ export default function DashboardPage(): JSX.Element | null {
 
   function handleSignOut(): void {
     setSigningOut(true);
+    void endActiveBetaSession();
 
     const cookieNames = document.cookie
       .split(";")
@@ -470,6 +473,11 @@ export default function DashboardPage(): JSX.Element | null {
     : pmqBalance * (memberPtsPonderes / totalPtsPonderesAll);
   const isNewMember =
     totalPointsPmq === 0 && lastRedistributionCad === null;
+  const isBetaTester = profile?.is_beta_tester === true;
+  const betaPoints = Number(profile?.beta_points ?? 0);
+  const betaMinutes = Math.floor(
+    Number(profile?.beta_temps_total_secondes ?? 0) / 60,
+  );
 
   return (
     <div
@@ -542,6 +550,46 @@ export default function DashboardPage(): JSX.Element | null {
       </header>
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
+        {isBetaTester ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "0.5rem 1rem",
+              marginBottom: "1.25rem",
+              padding: "0.65rem 0.9rem",
+              borderRadius: "10px",
+              background: "rgba(212, 160, 23, 0.1)",
+              border: `1px solid rgba(212, 160, 23, 0.45)`,
+              fontSize: "0.85rem",
+            }}
+          >
+            <span style={{ fontWeight: 700, color: GOLD }}>
+              🧪 Mode Beta Testeur
+            </span>
+            <span style={{ opacity: 0.85 }}>
+              Temps total : {pointsFmt.format(betaMinutes)} min
+            </span>
+            <span style={{ opacity: 0.85 }}>
+              Points Beta : {pointsFmt.format(betaPoints)} pts
+            </span>
+            <Link
+              href="/beta-dashboard"
+              style={{
+                marginLeft: "auto",
+                color: GOLD,
+                fontWeight: 600,
+                textDecoration: "underline",
+                textUnderlineOffset: "3px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Voir mon tableau de bord Beta →
+            </Link>
+          </div>
+        ) : null}
+
         {inGrace ? (
           <div
             role="alert"

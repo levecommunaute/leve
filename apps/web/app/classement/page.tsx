@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
@@ -453,6 +454,7 @@ function comingSoonSection(title: string): JSX.Element {
 export default function ClassementPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useBetaTracking(session, "classement");
   const navPages = useAppBottomNavLinks(session);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [rows, setRows] = useState<ClassementRow[]>([]);
