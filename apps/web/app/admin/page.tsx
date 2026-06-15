@@ -56,7 +56,6 @@ type BetaEmailRow = {
   nom_testeur: string | null;
   actif: boolean;
   created_at: string | null;
-  updated_at: string | null;
 };
 
 type QuizQuestionRow = {

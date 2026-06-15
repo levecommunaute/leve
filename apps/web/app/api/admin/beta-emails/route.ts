@@ -3,7 +3,7 @@ import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-se
 
 export const dynamic = "force-dynamic";
 
-const SELECT_COLUMNS = "id, email, nom_testeur, actif, created_at, updated_at";
+const SELECT_COLUMNS = "id, email, nom_testeur, actif, created_at";
 
 function normalizeEmail(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -97,7 +97,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from("beta_emails_autorises")
-      .update({ actif: body.actif, updated_at: new Date().toISOString() })
+      .update({ actif: body.actif })
       .eq("id", id)
       .select(SELECT_COLUMNS)
       .maybeSingle();
