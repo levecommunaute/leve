@@ -38,8 +38,8 @@ type ConcoursArtisteRow = {
   artiste_nom: string | null;
   artiste_pays: string | null;
   categorie: string | null;
-  total_votes_pts: number | string | null;
   type_concours: string | null;
+  total_votes_pts: number | string | null;
 };
 
 type TirageRow = {
@@ -253,7 +253,7 @@ export default function ConcoursPage(): JSX.Element | null {
         ),
         flagConcoursArtistes
           ? fetchRest<ConcoursArtisteRow[]>(
-              "concours_artistes?select=id,artiste_nom,artiste_pays,categorie,total_votes_pts,type_concours&actif=eq.true&order=artiste_nom.asc",
+              "concours_artistes?select=id,artiste_nom,artiste_pays,categorie,type_concours,total_votes_pts&actif=eq.true&order=artiste_nom.asc",
               token,
             )
           : Promise.resolve({ data: [] as ConcoursArtisteRow[], error: null }),
@@ -746,16 +746,17 @@ export default function ConcoursPage(): JSX.Element | null {
 
         {flagConcoursArtistes ? (
           <>
-            <p style={{ margin: "1.5rem 0 0.5rem", opacity: 0.82 }}>
-              Votes utilisés: {votesArtistesUsed}/3 (au total entre les deux concours)
+            <p style={{ margin: "1.5rem 0 0", opacity: 0.82 }}>
+              Votes utilisés: {votesArtistesUsed}/3
               {isFounderBonusEligible ? " (1er vote gratuit bonus fondateur)" : ""}
+              <span style={{ opacity: 0.7 }}> · partagés entre les deux concours</span>
             </p>
 
             <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "0.75rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
               <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
                 🌍 CONCOURS INTERNATIONAL
               </h2>
-              <p style={{ margin: "0.5rem 0 1rem", opacity: 0.72, fontSize: "0.9rem" }}>
+              <p style={{ margin: "0.4rem 0 1rem", opacity: 0.7, fontSize: "0.9rem" }}>
                 6 artistes de pays différents
               </p>
               {artistesInternational.length === 0 ? (
@@ -769,7 +770,7 @@ export default function ConcoursPage(): JSX.Element | null {
               <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
                 🇭🇹 CONCOURS CULTURE HAÏTIENNE — Par département
               </h2>
-              <p style={{ margin: "0.5rem 0 1rem", opacity: 0.72, fontSize: "0.9rem" }}>
+              <p style={{ margin: "0.4rem 0 1rem", opacity: 0.7, fontSize: "0.9rem" }}>
                 10 départements
               </p>
               {artistesHaitiCulture.length === 0 ? (
@@ -780,7 +781,7 @@ export default function ConcoursPage(): JSX.Element | null {
             </section>
 
             {voteArtisteMsg ? (
-              <p role={voteArtisteMsg.kind === "err" ? "alert" : "status"} style={{ color: voteArtisteMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.6rem 0 0" }}>
+              <p role={voteArtisteMsg.kind === "err" ? "alert" : "status"} style={{ color: voteArtisteMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.75rem 0 0" }}>
                 {voteArtisteMsg.text}
               </p>
             ) : null}
