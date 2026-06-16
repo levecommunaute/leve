@@ -39,6 +39,7 @@ type ConcoursArtisteRow = {
   artiste_pays: string | null;
   categorie: string | null;
   total_votes_pts: number | string | null;
+  type_concours: string | null;
 };
 
 type TirageRow = {
@@ -252,7 +253,7 @@ export default function ConcoursPage(): JSX.Element | null {
         ),
         flagConcoursArtistes
           ? fetchRest<ConcoursArtisteRow[]>(
-              "concours_artistes?select=id,artiste_nom,artiste_pays,categorie,total_votes_pts&actif=eq.true&order=artiste_nom.asc",
+              "concours_artistes?select=id,artiste_nom,artiste_pays,categorie,total_votes_pts,type_concours&actif=eq.true&order=artiste_nom.asc",
               token,
             )
           : Promise.resolve({ data: [] as ConcoursArtisteRow[], error: null }),
@@ -407,6 +408,16 @@ export default function ConcoursPage(): JSX.Element | null {
     return VOTE_PA_COST;
   }, [isFounderBonusEligible, votesArtistesUsed]);
 
+  const artistesInternational = useMemo(
+    () => artistes.filter((a) => (a.type_concours ?? "").trim() === "international"),
+    [artistes],
+  );
+
+  const artistesHaitiCulture = useMemo(
+    () => artistes.filter((a) => (a.type_concours ?? "").trim() === "haiti_culture"),
+    [artistes],
+  );
+
   async function spendPa(
     action: ActionType,
     ptsPa: number,
@@ -520,6 +531,68 @@ export default function ConcoursPage(): JSX.Element | null {
         text: "Merci ! Votre participation est notée pour ce concours.",
       });
     }, 250);
+  }
+
+  function renderArtisteCard(artiste: ConcoursArtisteRow): JSX.Element {
+    const alreadyVoted = votedArtisteIds.has(artiste.id);
+    const votesMaxed = votesArtistesUsed >= 3;
+    const canVote = !alreadyVoted && !votesMaxed;
+    const needsPaRecharge = canVote && soldePa < votePaRequired;
+    return (
+      <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+        <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
+        <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
+          {artiste.artiste_nom?.trim() || "Artiste"} · {voteCountLabel(pts(artiste.total_votes_pts))}
+        </p>
+        <p style={{ margin: "0 0 0.75rem", opacity: 0.7, fontSize: "0.9rem" }}>
+          {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"}
+        </p>
+        {needsPaRecharge ? (
+          <>
+            <Link
+              href="/pool-pa"
+              style={{
+                display: "inline-block",
+                background: GOLD,
+                color: BG,
+                border: "none",
+                borderRadius: "8px",
+                padding: "0.6rem 1rem",
+                cursor: "pointer",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+            >
+              Recharger PA
+            </Link>
+            <p role="alert" style={{ margin: "0.55rem 0 0", color: ROUGE, fontSize: "0.9rem" }}>
+              {paRechargeMessage(votePaRequired, soldePa)}
+            </p>
+          </>
+        ) : (
+          <button
+            type="button"
+            disabled={votingArtisteId === artiste.id || !canVote}
+            onClick={() => void handleVoteArtiste(artiste.id)}
+            style={{
+              background: canVote ? ROUGE : "rgba(192, 57, 43, 0.25)",
+              color: TEXT,
+              border: "none",
+              borderRadius: "8px",
+              padding: "0.6rem 1rem",
+              cursor: canVote ? "pointer" : "not-allowed",
+              opacity: canVote ? 1 : 0.55,
+            }}
+          >
+            {votingArtisteId === artiste.id
+              ? "Vote..."
+              : alreadyVoted
+                ? "Déjà voté"
+                : "Voter (5 pts PA)"}
+          </button>
+        )}
+      </article>
+    );
   }
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
@@ -672,85 +745,46 @@ export default function ConcoursPage(): JSX.Element | null {
         })}
 
         {flagConcoursArtistes ? (
-          <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-            <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
-              CONCOURS ARTISTES
-            </h2>
-            <p style={{ margin: "0.65rem 0 1rem", opacity: 0.82 }}>
-              Votes utilisés: {votesArtistesUsed}/3
+          <>
+            <p style={{ margin: "1.5rem 0 0.5rem", opacity: 0.82 }}>
+              Votes utilisés: {votesArtistesUsed}/3 (au total entre les deux concours)
               {isFounderBonusEligible ? " (1er vote gratuit bonus fondateur)" : ""}
             </p>
-            {artistes.length === 0 ? (
-              <p style={{ margin: 0, opacity: 0.75 }}>Aucun artiste actif pour le moment.</p>
-            ) : (
-              artistes.map((artiste) => {
-                const alreadyVoted = votedArtisteIds.has(artiste.id);
-                const votesMaxed = votesArtistesUsed >= 3;
-                const canVote = !alreadyVoted && !votesMaxed;
-                const needsPaRecharge = canVote && soldePa < votePaRequired;
-                return (
-                <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-                  <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
-                  <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
-                    {artiste.artiste_nom?.trim() || "Artiste"} · {voteCountLabel(pts(artiste.total_votes_pts))}
-                  </p>
-                  <p style={{ margin: "0 0 0.75rem", opacity: 0.7, fontSize: "0.9rem" }}>
-                    {artiste.artiste_pays || "Pays ?"} · {artiste.categorie || "Catégorie ?"}
-                  </p>
-                  {needsPaRecharge ? (
-                    <>
-                      <Link
-                        href="/pool-pa"
-                        style={{
-                          display: "inline-block",
-                          background: GOLD,
-                          color: BG,
-                          border: "none",
-                          borderRadius: "8px",
-                          padding: "0.6rem 1rem",
-                          cursor: "pointer",
-                          fontWeight: 600,
-                          textDecoration: "none",
-                        }}
-                      >
-                        Recharger PA
-                      </Link>
-                      <p role="alert" style={{ margin: "0.55rem 0 0", color: ROUGE, fontSize: "0.9rem" }}>
-                        {paRechargeMessage(votePaRequired, soldePa)}
-                      </p>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={votingArtisteId === artiste.id || !canVote}
-                      onClick={() => void handleVoteArtiste(artiste.id)}
-                      style={{
-                        background: canVote ? ROUGE : "rgba(192, 57, 43, 0.25)",
-                        color: TEXT,
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "0.6rem 1rem",
-                        cursor: canVote ? "pointer" : "not-allowed",
-                        opacity: canVote ? 1 : 0.55,
-                      }}
-                    >
-                      {votingArtisteId === artiste.id
-                        ? "Vote..."
-                        : alreadyVoted
-                          ? "Déjà voté"
-                          : "Voter (5 pts PA)"}
-                    </button>
-                  )}
-                </article>
-                );
-              })
-            )}
+
+            <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "0.75rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+              <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
+                🌍 CONCOURS INTERNATIONAL
+              </h2>
+              <p style={{ margin: "0.5rem 0 1rem", opacity: 0.72, fontSize: "0.9rem" }}>
+                6 artistes de pays différents
+              </p>
+              {artistesInternational.length === 0 ? (
+                <p style={{ margin: 0, opacity: 0.75 }}>Aucun artiste actif pour le moment.</p>
+              ) : (
+                artistesInternational.map((artiste) => renderArtisteCard(artiste))
+              )}
+            </section>
+
+            <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+              <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
+                🇭🇹 CONCOURS CULTURE HAÏTIENNE — Par département
+              </h2>
+              <p style={{ margin: "0.5rem 0 1rem", opacity: 0.72, fontSize: "0.9rem" }}>
+                10 départements
+              </p>
+              {artistesHaitiCulture.length === 0 ? (
+                <p style={{ margin: 0, opacity: 0.75 }}>Aucun artiste actif pour le moment.</p>
+              ) : (
+                artistesHaitiCulture.map((artiste) => renderArtisteCard(artiste))
+              )}
+            </section>
+
             {voteArtisteMsg ? (
-              <p role={voteArtisteMsg.kind === "err" ? "alert" : "status"} style={{ color: voteArtisteMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.35rem 0 0" }}>
+              <p role={voteArtisteMsg.kind === "err" ? "alert" : "status"} style={{ color: voteArtisteMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.6rem 0 0" }}>
                 {voteArtisteMsg.text}
               </p>
             ) : null}
-          </section>
+          </>
         ) : null}
 
         {flagTirage ? (
