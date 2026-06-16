@@ -18,7 +18,7 @@ const SEVERITE_OPTIONS: { value: Severite; label: string }[] = [
   { value: "P3", label: "P3 — Mineur" },
 ];
 
-const fabStyle: CSSProperties = {
+const fabStyle = {
   position: "fixed",
   bottom: "1.5rem",
   right: "1.5rem",
@@ -35,7 +35,7 @@ const fabStyle: CSSProperties = {
   fontWeight: 700,
   cursor: "pointer",
   boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-};
+} as const;
 
 const overlayStyle: CSSProperties = {
   position: "fixed",
