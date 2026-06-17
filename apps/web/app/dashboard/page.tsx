@@ -116,6 +116,14 @@ const pointsFmt = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 2,
 });
 
+function formatBetaTemps(totalSecondes: number): string {
+  const s = Math.max(0, Math.floor(totalSecondes));
+  const heures = Math.floor(s / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  if (heures > 0) return `${heures}h ${String(minutes).padStart(2, "0")}min`;
+  return `${minutes}min`;
+}
+
 const PP_PAGE_SIZE = 1000;
 
 type MonthBounds = {
@@ -475,9 +483,8 @@ export default function DashboardPage(): JSX.Element | null {
     totalPointsPmq === 0 && lastRedistributionCad === null;
   const isBetaTester = profile?.is_beta_tester === true;
   const betaPoints = Number(profile?.beta_points ?? 0);
-  const betaMinutes = Math.floor(
-    Number(profile?.beta_temps_total_secondes ?? 0) / 60,
-  );
+  const betaTempsSecondes = Number(profile?.beta_temps_total_secondes ?? 0);
+  const betaMinutes = Math.floor(betaTempsSecondes / 60);
 
   return (
     <div
@@ -698,6 +705,70 @@ export default function DashboardPage(): JSX.Element | null {
             {memberLabel}
           </span>
         </section>
+
+        {isBetaTester ? (
+          <section
+            style={{
+              borderRadius: "12px",
+              padding: "1.1rem 1.25rem",
+              marginBottom: "1.25rem",
+              background:
+                "linear-gradient(135deg, rgba(212, 160, 23, 0.14) 0%, rgba(8, 8, 8, 0.9) 70%)",
+              border: "1px solid rgba(212, 160, 23, 0.4)",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "1.25rem",
+                letterSpacing: "0.06em",
+                color: GOLD,
+              }}
+            >
+              Testeur Beta Officiel 🧪
+            </p>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "1.5rem",
+                margin: "0.75rem 0 0",
+              }}
+            >
+              <div>
+                <p style={{ margin: 0, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.6 }}>
+                  Temps beta
+                </p>
+                <p style={{ margin: "0.25rem 0 0", fontSize: "1.2rem", fontWeight: 700 }}>
+                  {formatBetaTemps(betaTempsSecondes)}
+                </p>
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.6 }}>
+                  Points beta
+                </p>
+                <p style={{ margin: "0.25rem 0 0", fontSize: "1.2rem", fontWeight: 700, color: GOLD }}>
+                  {pointsFmt.format(betaPoints)}
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/beta-dashboard"
+              style={{
+                display: "inline-block",
+                marginTop: "0.9rem",
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                color: GOLD,
+                textDecoration: "underline",
+                textUnderlineOffset: "2px",
+              }}
+            >
+              Ouvrir le dashboard beta →
+            </Link>
+          </section>
+        ) : null}
 
         {isNewMember ? (
           <p
