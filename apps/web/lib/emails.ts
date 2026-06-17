@@ -168,6 +168,66 @@ export async function sendWelcomeEmail(
   }
 }
 
+const BUG_REPORT_TO = "levecommunaute@gmail.com";
+
+const SEVERITE_LABELS: Record<string, string> = {
+  P1: "P1 — Bloquant",
+  P2: "P2 — Majeur",
+  P3: "P3 — Mineur",
+};
+
+/** Email de rapport de bug envoyé par un beta testeur. */
+export async function sendBetaBugReportEmail(input: {
+  page: string;
+  description: string;
+  severite: string;
+  membreId: string | null;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+
+  const severiteLabel = SEVERITE_LABELS[input.severite] ?? input.severite;
+  const page = escapeHtml(input.page);
+  const description = escapeHtml(input.description).replace(/\n/g, "<br />");
+  const severite = escapeHtml(severiteLabel);
+  const membre = escapeHtml(input.membreId ?? "anonyme");
+  const date = escapeHtml(
+    new Date().toLocaleString("fr-CA", {
+      dateStyle: "long",
+      timeStyle: "short",
+      timeZone: "America/Toronto",
+    }),
+  );
+
+  const html = emailLayout(`
+    <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Beta · Rapport de bug</p>
+    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">🐛 Nouveau bug signalé</h1>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;font-size:15px;line-height:1.6;">
+      <tr><td style="padding:6px 0;color:#71717a;width:140px;">Sévérité</td><td style="padding:6px 0;font-weight:600;">${severite}</td></tr>
+      <tr><td style="padding:6px 0;color:#71717a;">Page</td><td style="padding:6px 0;">${page}</td></tr>
+      <tr><td style="padding:6px 0;color:#71717a;">Membre</td><td style="padding:6px 0;">${membre}</td></tr>
+      <tr><td style="padding:6px 0;color:#71717a;">Date</td><td style="padding:6px 0;">${date}</td></tr>
+    </table>
+    <p style="margin:20px 0 6px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">Description</p>
+    <div style="background:#f4f4f5;border-radius:8px;padding:16px;font-size:15px;line-height:1.6;color:#18181b;">${description}</div>
+  `);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to: BUG_REPORT_TO,
+      subject: `🐛 [Beta] ${severiteLabel} — ${input.page}`,
+      html,
+    });
+    if (error) {
+      console.error("[emails] sendBetaBugReportEmail:", error.message);
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[emails] sendBetaBugReportEmail:", message);
+  }
+}
+
 /** Email de période de grâce / suspension selon les jours restants. */
 export async function sendGraceEmail(
   email: string,

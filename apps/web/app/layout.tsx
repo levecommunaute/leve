@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthSessionGuard } from "../components/AuthSessionGuard";
+import { BetaBugButton } from "../components/beta-bug-button";
 
 export const metadata: Metadata = {
   title: "LEVE",
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body>
         <AuthSessionGuard />
         {children}
+        <BetaBugButton />
       </body>
     </html>
   );
