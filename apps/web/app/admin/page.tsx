@@ -965,29 +965,25 @@ function betaStatut(derniereActivite: string | null): { emoji: string; label: st
   return { emoji: "🔴", label: "Absent" };
 }
 
-function bugSeveriteColor(severite: string): string {
-  if (severite === "P1") return "#C0392B";
-  if (severite === "P2") return "#D4A017";
-  return "#3B82A0";
-}
+const BETA_BUG_SEVERITES: { value: string; couleur: string }[] = [
+  { value: "P1", couleur: "#C0392B" },
+  { value: "P2", couleur: "#E67E22" },
+  { value: "P3", couleur: "#D4A017" },
+];
 
-const BUG_STATUTS: { value: "ouvert" | "en_cours" | "resolu"; label: string }[] = [
+const BETA_BUG_STATUTS: { value: string; label: string }[] = [
   { value: "ouvert", label: "Ouvert" },
   { value: "en_cours", label: "En cours" },
   { value: "resolu", label: "Résolu" },
+  { value: "ferme", label: "Fermé" },
 ];
 
-function bugStatutLabel(statut: string): string {
-  const found = BUG_STATUTS.find((s) => s.value === statut);
-  if (found) return found.label;
-  if (statut === "ferme") return "Fermé";
-  return statut;
+function betaBugSeveriteCouleur(severite: string): string {
+  return BETA_BUG_SEVERITES.find((s) => s.value === severite)?.couleur ?? "rgba(245,240,232,0.4)";
 }
 
-function bugStatutColor(statut: string): string {
-  if (statut === "resolu" || statut === "ferme") return "#3FA34D";
-  if (statut === "en_cours") return "#D4A017";
-  return "#C0392B";
+function betaBugStatutLabel(statut: string): string {
+  return BETA_BUG_STATUTS.find((s) => s.value === statut)?.label ?? statut;
 }
 
 function cardStyle() {
@@ -1202,6 +1198,7 @@ export default function AdminPage(): JSX.Element {
 
   const [betaTesteurs, setBetaTesteurs] = useState<BetaTesterRow[]>([]);
   const [betaLoading, setBetaLoading] = useState(false);
+  const [betaExporting, setBetaExporting] = useState(false);
   const [betaError, setBetaError] = useState<string | null>(null);
 
   const [betaEmails, setBetaEmails] = useState<BetaEmailRow[]>([]);
@@ -1320,6 +1317,41 @@ export default function AdminPage(): JSX.Element {
     }
   }, [adminHeaders]);
 
+  const exportBetaCsv = useCallback(async (): Promise<void> => {
+    setBetaExporting(true);
+    setBetaError(null);
+    try {
+      const r = await fetch("/api/admin/beta-export-csv", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      if (!r.ok) {
+        let message = "Erreur export CSV";
+        try {
+          const j = (await r.json()) as { error?: string };
+          if (j.error) message = j.error;
+        } catch {
+          /* réponse non JSON */
+        }
+        setBetaError(message);
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "beta-testeurs.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setBetaError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setBetaExporting(false);
+    }
+  }, [adminHeaders]);
+
   const loadBetaEmails = useCallback(async (): Promise<void> => {
     setBetaEmailsLoading(true);
     setBetaEmailsError(null);
@@ -1359,32 +1391,6 @@ export default function AdminPage(): JSX.Element {
       setBetaBugsLoading(false);
     }
   }, [adminHeaders]);
-
-  const changeBetaBugStatut = useCallback(
-    async (id: string, statut: BetaBugStatut): Promise<void> => {
-      setBetaBugBusyId(id);
-      setBetaBugsError(null);
-      try {
-        const r = await fetch("/api/admin/beta-bugs", {
-          method: "PATCH",
-          headers: adminHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({ id, statut }),
-        });
-        const j = (await r.json()) as { bug?: BetaBugRow; error?: string };
-        if (!r.ok || !j.bug) {
-          setBetaBugsError(j.error ?? "Erreur mise à jour du statut");
-          return;
-        }
-        const updated = j.bug;
-        setBetaBugs((prev) => prev.map((b) => (b.id === id ? updated : b)));
-      } catch (e) {
-        setBetaBugsError(e instanceof Error ? e.message : "Erreur réseau");
-      } finally {
-        setBetaBugBusyId(null);
-      }
-    },
-    [adminHeaders],
-  );
 
   const loadFeatureFlags = useCallback(async (): Promise<void> => {
     setFeatureFlagsLoading(true);
@@ -1825,6 +1831,30 @@ export default function AdminPage(): JSX.Element {
       setBetaEmailsError(e instanceof Error ? e.message : "Erreur réseau");
     } finally {
       setBetaEmailBusyId(null);
+    }
+  }
+
+  async function changeBetaBugStatut(row: BetaBugRow, statut: string): Promise<void> {
+    if (statut === row.statut) return;
+    setBetaBugBusyId(row.id);
+    setBetaBugsError(null);
+    try {
+      const r = await fetch("/api/admin/beta-bugs", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: row.id, statut }),
+      });
+      const j = (await r.json()) as { bug?: BetaBugRow; error?: string };
+      if (!r.ok || !j.bug) {
+        setBetaBugsError(j.error ?? "Échec du changement de statut");
+        return;
+      }
+      const updated = j.bug;
+      setBetaBugs((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    } catch (e) {
+      setBetaBugsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setBetaBugBusyId(null);
     }
   }
 
@@ -6243,7 +6273,35 @@ export default function AdminPage(): JSX.Element {
 
           {/* SECTION SUIVI BETA */}
           <section style={cardStyle()}>
-            {sectionTitle("SUIVI BETA")}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "0.75rem",
+              }}
+            >
+              {sectionTitle("SUIVI BETA")}
+              <button
+                type="button"
+                disabled={betaExporting || betaTesteurs.length === 0}
+                onClick={() => void exportBetaCsv()}
+                style={{
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: "8px",
+                  background: "transparent",
+                  color: GOLD,
+                  fontWeight: 600,
+                  border: `1px solid ${GOLD}`,
+                  cursor: betaExporting || betaTesteurs.length === 0 ? "not-allowed" : "pointer",
+                  opacity: betaExporting || betaTesteurs.length === 0 ? 0.5 : 1,
+                  fontSize: "0.85rem",
+                }}
+              >
+                {betaExporting ? "Export…" : "Exporter CSV"}
+              </button>
+            </div>
             {betaError ? <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{betaError}</p> : null}
             {betaLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement…</p>
@@ -6517,84 +6575,122 @@ export default function AdminPage(): JSX.Element {
             ) : (
               (() => {
                 const total = betaBugs.length;
-                const ouverts = betaBugs.filter((b) => b.statut === "ouvert");
-                const p1 = ouverts.filter((b) => b.severite === "P1").length;
-                const p2 = ouverts.filter((b) => b.severite === "P2").length;
-                const p3 = ouverts.filter((b) => b.severite === "P3").length;
+                const ouvertsParSeverite = (sev: string) =>
+                  betaBugs.filter((b) => b.severite === sev && b.statut === "ouvert").length;
+                const p1 = ouvertsParSeverite("P1");
+                const p2 = ouvertsParSeverite("P2");
+                const p3 = ouvertsParSeverite("P3");
                 const statCard = {
                   background: "rgba(245, 240, 232, 0.04)",
                   border: "1px solid rgba(245, 240, 232, 0.1)",
                   borderRadius: "10px",
                   padding: "0.85rem 1.1rem",
-                  minWidth: "9rem",
+                  minWidth: "10rem",
                 } as const;
                 return (
                   <>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "1.25rem" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "1rem",
+                        marginBottom: "1.25rem",
+                      }}
+                    >
                       <div style={statCard}>
                         <span style={labelSm}>Total bugs</span>
                         <strong style={{ color: GOLD, fontSize: "1.45rem" }}>{total}</strong>
                       </div>
                       <div style={statCard}>
                         <span style={labelSm}>P1 ouverts</span>
-                        <strong style={{ color: bugSeveriteColor("P1"), fontSize: "1.45rem" }}>{p1}</strong>
+                        <strong
+                          style={{ color: betaBugSeveriteCouleur("P1"), fontSize: "1.45rem" }}
+                        >
+                          {p1}
+                        </strong>
                       </div>
                       <div style={statCard}>
                         <span style={labelSm}>P2 ouverts</span>
-                        <strong style={{ color: bugSeveriteColor("P2"), fontSize: "1.45rem" }}>{p2}</strong>
+                        <strong
+                          style={{ color: betaBugSeveriteCouleur("P2"), fontSize: "1.45rem" }}
+                        >
+                          {p2}
+                        </strong>
                       </div>
                       <div style={statCard}>
                         <span style={labelSm}>P3 ouverts</span>
-                        <strong style={{ color: bugSeveriteColor("P3"), fontSize: "1.45rem" }}>{p3}</strong>
+                        <strong
+                          style={{ color: betaBugSeveriteCouleur("P3"), fontSize: "1.45rem" }}
+                        >
+                          {p3}
+                        </strong>
                       </div>
                     </div>
                     <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                      <table
+                        style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}
+                      >
                         <thead>
-                          <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
-                            {["Sévérité", "Page", "Description", "Membre", "Date", "Statut"].map((h) => (
-                              <th
-                                key={h}
-                                style={{
-                                  padding: "0.65rem 0.5rem",
-                                  letterSpacing: "0.08em",
-                                  fontSize: "0.65rem",
-                                  textTransform: "uppercase",
-                                  opacity: 0.55,
-                                }}
-                              >
-                                {h}
-                              </th>
-                            ))}
+                          <tr
+                            style={{
+                              textAlign: "left",
+                              borderBottom: "1px solid rgba(245,240,232,0.12)",
+                            }}
+                          >
+                            {["Sévérité", "Page", "Description", "Membre", "Date", "Statut", "Action"].map(
+                              (h) => (
+                                <th
+                                  key={h}
+                                  style={{
+                                    padding: "0.65rem 0.5rem",
+                                    letterSpacing: "0.08em",
+                                    fontSize: "0.65rem",
+                                    textTransform: "uppercase",
+                                    opacity: 0.55,
+                                  }}
+                                >
+                                  {h}
+                                </th>
+                              ),
+                            )}
                           </tr>
                         </thead>
                         <tbody>
                           {betaBugs.map((bug) => {
                             const busy = betaBugBusyId === bug.id;
-                            const sevColor = bugSeveriteColor(bug.severite);
+                            const couleur = betaBugSeveriteCouleur(bug.severite);
                             return (
-                              <tr key={bug.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                              <tr
+                                key={bug.id}
+                                style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}
+                              >
                                 <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
                                   <span
                                     style={{
                                       display: "inline-block",
                                       padding: "0.2rem 0.6rem",
                                       borderRadius: "999px",
-                                      fontSize: "0.7rem",
+                                      background: `${couleur}22`,
+                                      color: couleur,
+                                      border: `1px solid ${couleur}`,
                                       fontWeight: 700,
-                                      letterSpacing: "0.06em",
-                                      color: sevColor,
-                                      background: `${sevColor}1f`,
-                                      border: `1px solid ${sevColor}`,
+                                      fontSize: "0.72rem",
+                                      letterSpacing: "0.04em",
                                     }}
                                   >
                                     {bug.severite}
                                   </span>
                                 </td>
-                                <td style={{ padding: "0.6rem 0.5rem", maxWidth: "12rem", wordBreak: "break-word" }}>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
                                   {bug.page}
                                 </td>
-                                <td style={{ padding: "0.6rem 0.5rem", maxWidth: "22rem", wordBreak: "break-word" }}>
+                                <td
+                                  style={{
+                                    padding: "0.6rem 0.5rem",
+                                    minWidth: "16rem",
+                                    maxWidth: "28rem",
+                                  }}
+                                >
                                   {bug.description}
                                 </td>
                                 <td
@@ -6611,38 +6707,31 @@ export default function AdminPage(): JSX.Element {
                                   {formatBetaDateHeure(bug.created_at)}
                                 </td>
                                 <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                  {betaBugStatutLabel(bug.statut)}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
                                   <select
-                                    value={
-                                      BUG_STATUTS.some((s) => s.value === bug.statut)
-                                        ? bug.statut
-                                        : "ouvert"
-                                    }
+                                    value={bug.statut}
                                     disabled={busy}
                                     onChange={(e) =>
-                                      void changeBetaBugStatut(bug.id, e.target.value as BetaBugStatut)
+                                      void changeBetaBugStatut(bug, e.target.value)
                                     }
                                     style={{
-                                      padding: "0.35rem 0.6rem",
+                                      padding: "0.4rem 0.6rem",
                                       borderRadius: "6px",
                                       background: "rgba(245,240,232,0.05)",
-                                      color: bugStatutColor(bug.statut),
-                                      border: `1px solid ${bugStatutColor(bug.statut)}`,
-                                      fontWeight: 600,
-                                      fontSize: "0.78rem",
+                                      color: TEXT,
+                                      border: "1px solid rgba(245,240,232,0.25)",
                                       cursor: busy ? "wait" : "pointer",
                                       opacity: busy ? 0.6 : 1,
+                                      fontSize: "0.8rem",
                                     }}
                                   >
-                                    {BUG_STATUTS.map((s) => (
+                                    {BETA_BUG_STATUTS.map((s) => (
                                       <option key={s.value} value={s.value} style={{ color: BG }}>
                                         {s.label}
                                       </option>
                                     ))}
-                                    {!BUG_STATUTS.some((s) => s.value === bug.statut) ? (
-                                      <option value={bug.statut} style={{ color: BG }}>
-                                        {bugStatutLabel(bug.statut)}
-                                      </option>
-                                    ) : null}
                                   </select>
                                 </td>
                               </tr>

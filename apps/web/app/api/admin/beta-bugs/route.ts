@@ -3,6 +3,8 @@ import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-se
 
 export const dynamic = "force-dynamic";
 
+const SELECT_COLUMNS = "id, membre_id, page, description, severite, statut, created_at";
+
 const STATUTS = ["ouvert", "en_cours", "resolu", "ferme"] as const;
 type Statut = (typeof STATUTS)[number];
 
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from("beta_bugs")
-      .select("id, membre_id, page, description, severite, statut, created_at")
+      .select(SELECT_COLUMNS)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -56,15 +58,16 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
+  const statut: Statut = body.statut;
 
   try {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from("beta_bugs")
-      .update({ statut: body.statut })
+      .update({ statut })
       .eq("id", id)
-      .select("id, membre_id, page, description, severite, statut, created_at")
-      .single();
+      .select(SELECT_COLUMNS)
+      .maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

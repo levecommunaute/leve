@@ -93,7 +93,6 @@ export function BetaBugButton(): JSX.Element | null {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      console.log("[BetaBugButton] session:", session);
       if (!session) {
         if (active) {
           setIsBetaTester(false);
@@ -107,7 +106,6 @@ export function BetaBugButton(): JSX.Element | null {
         .select("is_beta_tester")
         .eq("id", uid)
         .maybeSingle();
-      console.log("[BetaBugButton] profiles data:", data, "is_beta_tester:", data?.is_beta_tester);
       if (active) {
         setIsBetaTester(Boolean(data?.is_beta_tester));
         setMembreId(uid);
@@ -172,10 +170,7 @@ export function BetaBugButton(): JSX.Element | null {
     }
   }, [description, page, severite, membreId]);
 
-  if (!isBetaTester) {
-    console.log("[BetaBugButton] beta tester check failed");
-    return null;
-  }
+  if (!isBetaTester) return null;
 
   return (
     <>
