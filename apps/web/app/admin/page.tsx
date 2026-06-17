@@ -1198,6 +1198,7 @@ export default function AdminPage(): JSX.Element {
 
   const [betaTesteurs, setBetaTesteurs] = useState<BetaTesterRow[]>([]);
   const [betaLoading, setBetaLoading] = useState(false);
+  const [betaExporting, setBetaExporting] = useState(false);
   const [betaError, setBetaError] = useState<string | null>(null);
 
   const [betaEmails, setBetaEmails] = useState<BetaEmailRow[]>([]);
@@ -1313,6 +1314,41 @@ export default function AdminPage(): JSX.Element {
       setBetaTesteurs([]);
     } finally {
       setBetaLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const exportBetaCsv = useCallback(async (): Promise<void> => {
+    setBetaExporting(true);
+    setBetaError(null);
+    try {
+      const r = await fetch("/api/admin/beta-export-csv", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      if (!r.ok) {
+        let message = "Erreur export CSV";
+        try {
+          const j = (await r.json()) as { error?: string };
+          if (j.error) message = j.error;
+        } catch {
+          /* réponse non JSON */
+        }
+        setBetaError(message);
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "beta-testeurs.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setBetaError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setBetaExporting(false);
     }
   }, [adminHeaders]);
 
@@ -6237,7 +6273,35 @@ export default function AdminPage(): JSX.Element {
 
           {/* SECTION SUIVI BETA */}
           <section style={cardStyle()}>
-            {sectionTitle("SUIVI BETA")}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "0.75rem",
+              }}
+            >
+              {sectionTitle("SUIVI BETA")}
+              <button
+                type="button"
+                disabled={betaExporting || betaTesteurs.length === 0}
+                onClick={() => void exportBetaCsv()}
+                style={{
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: "8px",
+                  background: "transparent",
+                  color: GOLD,
+                  fontWeight: 600,
+                  border: `1px solid ${GOLD}`,
+                  cursor: betaExporting || betaTesteurs.length === 0 ? "not-allowed" : "pointer",
+                  opacity: betaExporting || betaTesteurs.length === 0 ? 0.5 : 1,
+                  fontSize: "0.85rem",
+                }}
+              >
+                {betaExporting ? "Export…" : "Exporter CSV"}
+              </button>
+            </div>
             {betaError ? <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{betaError}</p> : null}
             {betaLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement…</p>
