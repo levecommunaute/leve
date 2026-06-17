@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type CSSProperties,
-  type JSX,
-} from "react";
+import { useCallback, useEffect, useState, type JSX } from "react";
 import { usePathname } from "next/navigation";
 import { getSupabaseClient } from "../lib/supabase";
 
@@ -37,7 +31,7 @@ const fabStyle = {
   boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
 } as const;
 
-const overlayStyle: CSSProperties = {
+const overlayStyle = {
   position: "fixed",
   inset: 0,
   zIndex: 10000,
@@ -46,9 +40,9 @@ const overlayStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   padding: "1rem",
-};
+} as const;
 
-const modalStyle: CSSProperties = {
+const modalStyle = {
   width: "100%",
   maxWidth: "440px",
   background: "#18181b",
@@ -56,17 +50,17 @@ const modalStyle: CSSProperties = {
   borderRadius: "12px",
   padding: "1.5rem",
   boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-};
+} as const;
 
-const labelStyle: CSSProperties = {
+const labelStyle = {
   display: "block",
   fontSize: "0.8rem",
   fontWeight: 600,
   color: "#a1a1aa",
   marginBottom: "0.3rem",
-};
+} as const;
 
-const fieldStyle: CSSProperties = {
+const fieldStyle = {
   width: "100%",
   boxSizing: "border-box",
   background: "#27272a",
@@ -76,7 +70,7 @@ const fieldStyle: CSSProperties = {
   padding: "0.6rem 0.7rem",
   fontSize: "0.9rem",
   marginBottom: "1rem",
-};
+} as const;
 
 export function BetaBugButton(): JSX.Element | null {
   const pathname = usePathname();
@@ -197,12 +191,12 @@ export function BetaBugButton(): JSX.Element | null {
           }}
         >
           <div style={modalStyle} role="dialog" aria-modal="true">
-            <h2 style={{ margin: "0 0 1rem", fontSize: "1.15rem", fontWeight: 700 }}>
+            <h2 style={{ margin: "0 0 1rem", fontSize: "1.15rem", fontWeight: 700 } as const}>
               🐛 Signaler un bug
             </h2>
 
             {sent ? (
-              <p style={{ color: "#4ade80", fontSize: "0.95rem", margin: "0.5rem 0 1rem" }}>
+              <p style={{ color: "#4ade80", fontSize: "0.95rem", margin: "0.5rem 0 1rem" } as const}>
                 Merci ! Votre rapport a bien été envoyé.
               </p>
             ) : (
@@ -227,7 +221,7 @@ export function BetaBugButton(): JSX.Element | null {
                   onChange={(e) => setDescription(e.target.value)}
                   rows={5}
                   placeholder="Décrivez ce qui ne fonctionne pas, et comment le reproduire…"
-                  style={{ ...fieldStyle, resize: "vertical" }}
+                  style={{ ...fieldStyle, resize: "vertical" } as const}
                 />
 
                 <label style={labelStyle} htmlFor="beta-bug-severite">
@@ -247,12 +241,12 @@ export function BetaBugButton(): JSX.Element | null {
                 </select>
 
                 {error ? (
-                  <p style={{ color: "#f87171", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
+                  <p style={{ color: "#f87171", fontSize: "0.85rem", margin: "0 0 0.8rem" } as const}>
                     {error}
                   </p>
                 ) : null}
 
-                <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: "0.6rem", justifyContent: "flex-end" } as const}>
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
@@ -265,7 +259,7 @@ export function BetaBugButton(): JSX.Element | null {
                       padding: "0.55rem 1rem",
                       fontSize: "0.9rem",
                       cursor: submitting ? "default" : "pointer",
-                    }}
+                    } as const}
                   >
                     Annuler
                   </button>
@@ -283,7 +277,7 @@ export function BetaBugButton(): JSX.Element | null {
                       fontWeight: 700,
                       cursor: submitting ? "default" : "pointer",
                       opacity: submitting ? 0.7 : 1,
-                    }}
+                    } as const}
                   >
                     {submitting ? "Envoi…" : "Envoyer"}
                   </button>
