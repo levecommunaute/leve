@@ -58,6 +58,19 @@ type BetaEmailRow = {
   created_at: string | null;
 };
 
+type BetaBugSeverite = "P1" | "P2" | "P3";
+type BetaBugStatut = "ouvert" | "en_cours" | "resolu" | "ferme";
+
+type BetaBugRow = {
+  id: string;
+  membre_id: string | null;
+  page: string;
+  description: string;
+  severite: BetaBugSeverite | string;
+  statut: BetaBugStatut | string;
+  created_at: string | null;
+};
+
 type QuizQuestionRow = {
   id: string;
   video_id: string;
@@ -952,6 +965,31 @@ function betaStatut(derniereActivite: string | null): { emoji: string; label: st
   return { emoji: "🔴", label: "Absent" };
 }
 
+function bugSeveriteColor(severite: string): string {
+  if (severite === "P1") return "#C0392B";
+  if (severite === "P2") return "#D4A017";
+  return "#3B82A0";
+}
+
+const BUG_STATUTS: { value: "ouvert" | "en_cours" | "resolu"; label: string }[] = [
+  { value: "ouvert", label: "Ouvert" },
+  { value: "en_cours", label: "En cours" },
+  { value: "resolu", label: "Résolu" },
+];
+
+function bugStatutLabel(statut: string): string {
+  const found = BUG_STATUTS.find((s) => s.value === statut);
+  if (found) return found.label;
+  if (statut === "ferme") return "Fermé";
+  return statut;
+}
+
+function bugStatutColor(statut: string): string {
+  if (statut === "resolu" || statut === "ferme") return "#3FA34D";
+  if (statut === "en_cours") return "#D4A017";
+  return "#C0392B";
+}
+
 function cardStyle() {
   return {
     background: "rgba(245, 240, 232, 0.03)",
@@ -1174,6 +1212,11 @@ export default function AdminPage(): JSX.Element {
   const [betaEmailAdding, setBetaEmailAdding] = useState(false);
   const [betaEmailBusyId, setBetaEmailBusyId] = useState<string | null>(null);
 
+  const [betaBugs, setBetaBugs] = useState<BetaBugRow[]>([]);
+  const [betaBugsLoading, setBetaBugsLoading] = useState(false);
+  const [betaBugsError, setBetaBugsError] = useState<string | null>(null);
+  const [betaBugBusyId, setBetaBugBusyId] = useState<string | null>(null);
+
   const [divTrimestre, setDivTrimestre] = useState(currentTrimestre);
   const [divMontant, setDivMontant] = useState("");
   const [divDecisions, setDivDecisions] = useState<DividendeDecisionRow[]>([]);
@@ -1296,6 +1339,52 @@ export default function AdminPage(): JSX.Element {
       setBetaEmailsLoading(false);
     }
   }, [adminHeaders]);
+
+  const loadBetaBugs = useCallback(async (): Promise<void> => {
+    setBetaBugsLoading(true);
+    setBetaBugsError(null);
+    try {
+      const r = await fetch("/api/admin/beta-bugs", { headers: adminHeaders(), cache: "no-store" });
+      const j = (await r.json()) as { bugs?: BetaBugRow[]; error?: string };
+      if (!r.ok) {
+        setBetaBugsError(j.error ?? "Erreur liste bugs beta");
+        setBetaBugs([]);
+        return;
+      }
+      setBetaBugs(j.bugs ?? []);
+    } catch (e) {
+      setBetaBugsError(e instanceof Error ? e.message : "Erreur réseau");
+      setBetaBugs([]);
+    } finally {
+      setBetaBugsLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const changeBetaBugStatut = useCallback(
+    async (id: string, statut: BetaBugStatut): Promise<void> => {
+      setBetaBugBusyId(id);
+      setBetaBugsError(null);
+      try {
+        const r = await fetch("/api/admin/beta-bugs", {
+          method: "PATCH",
+          headers: adminHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ id, statut }),
+        });
+        const j = (await r.json()) as { bug?: BetaBugRow; error?: string };
+        if (!r.ok || !j.bug) {
+          setBetaBugsError(j.error ?? "Erreur mise à jour du statut");
+          return;
+        }
+        const updated = j.bug;
+        setBetaBugs((prev) => prev.map((b) => (b.id === id ? updated : b)));
+      } catch (e) {
+        setBetaBugsError(e instanceof Error ? e.message : "Erreur réseau");
+      } finally {
+        setBetaBugBusyId(null);
+      }
+    },
+    [adminHeaders],
+  );
 
   const loadFeatureFlags = useCallback(async (): Promise<void> => {
     setFeatureFlagsLoading(true);
@@ -2000,6 +2089,7 @@ export default function AdminPage(): JSX.Element {
     void loadMembers();
     void loadBetaSuivi();
     void loadBetaEmails();
+    void loadBetaBugs();
     void loadFeatureFlags();
     void loadFraisPlateforme();
     void loadMemberMap();
@@ -2021,6 +2111,7 @@ export default function AdminPage(): JSX.Element {
     loadMembers,
     loadBetaSuivi,
     loadBetaEmails,
+    loadBetaBugs,
     loadFeatureFlags,
     loadFraisPlateforme,
     loadMemberMap,
@@ -6413,6 +6504,160 @@ export default function AdminPage(): JSX.Element {
                 </div>
               )}
             </div>
+          </section>
+
+          {/* SECTION BUGS BETA */}
+          <section style={cardStyle()}>
+            {sectionTitle("BUGS BETA")}
+            {betaBugsError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{betaBugsError}</p>
+            ) : null}
+            {betaBugsLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : (
+              (() => {
+                const total = betaBugs.length;
+                const ouverts = betaBugs.filter((b) => b.statut === "ouvert");
+                const p1 = ouverts.filter((b) => b.severite === "P1").length;
+                const p2 = ouverts.filter((b) => b.severite === "P2").length;
+                const p3 = ouverts.filter((b) => b.severite === "P3").length;
+                const statCard = {
+                  background: "rgba(245, 240, 232, 0.04)",
+                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  borderRadius: "10px",
+                  padding: "0.85rem 1.1rem",
+                  minWidth: "9rem",
+                } as const;
+                return (
+                  <>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", marginBottom: "1.25rem" }}>
+                      <div style={statCard}>
+                        <span style={labelSm}>Total bugs</span>
+                        <strong style={{ color: GOLD, fontSize: "1.45rem" }}>{total}</strong>
+                      </div>
+                      <div style={statCard}>
+                        <span style={labelSm}>P1 ouverts</span>
+                        <strong style={{ color: bugSeveriteColor("P1"), fontSize: "1.45rem" }}>{p1}</strong>
+                      </div>
+                      <div style={statCard}>
+                        <span style={labelSm}>P2 ouverts</span>
+                        <strong style={{ color: bugSeveriteColor("P2"), fontSize: "1.45rem" }}>{p2}</strong>
+                      </div>
+                      <div style={statCard}>
+                        <span style={labelSm}>P3 ouverts</span>
+                        <strong style={{ color: bugSeveriteColor("P3"), fontSize: "1.45rem" }}>{p3}</strong>
+                      </div>
+                    </div>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                        <thead>
+                          <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                            {["Sévérité", "Page", "Description", "Membre", "Date", "Statut"].map((h) => (
+                              <th
+                                key={h}
+                                style={{
+                                  padding: "0.65rem 0.5rem",
+                                  letterSpacing: "0.08em",
+                                  fontSize: "0.65rem",
+                                  textTransform: "uppercase",
+                                  opacity: 0.55,
+                                }}
+                              >
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {betaBugs.map((bug) => {
+                            const busy = betaBugBusyId === bug.id;
+                            const sevColor = bugSeveriteColor(bug.severite);
+                            return (
+                              <tr key={bug.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      padding: "0.2rem 0.6rem",
+                                      borderRadius: "999px",
+                                      fontSize: "0.7rem",
+                                      fontWeight: 700,
+                                      letterSpacing: "0.06em",
+                                      color: sevColor,
+                                      background: `${sevColor}1f`,
+                                      border: `1px solid ${sevColor}`,
+                                    }}
+                                  >
+                                    {bug.severite}
+                                  </span>
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", maxWidth: "12rem", wordBreak: "break-word" }}>
+                                  {bug.page}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", maxWidth: "22rem", wordBreak: "break-word" }}>
+                                  {bug.description}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "0.6rem 0.5rem",
+                                    fontFamily: "monospace",
+                                    fontSize: "0.72rem",
+                                    opacity: 0.75,
+                                  }}
+                                >
+                                  {bug.membre_id ?? "—"}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                  {formatBetaDateHeure(bug.created_at)}
+                                </td>
+                                <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                  <select
+                                    value={
+                                      BUG_STATUTS.some((s) => s.value === bug.statut)
+                                        ? bug.statut
+                                        : "ouvert"
+                                    }
+                                    disabled={busy}
+                                    onChange={(e) =>
+                                      void changeBetaBugStatut(bug.id, e.target.value as BetaBugStatut)
+                                    }
+                                    style={{
+                                      padding: "0.35rem 0.6rem",
+                                      borderRadius: "6px",
+                                      background: "rgba(245,240,232,0.05)",
+                                      color: bugStatutColor(bug.statut),
+                                      border: `1px solid ${bugStatutColor(bug.statut)}`,
+                                      fontWeight: 600,
+                                      fontSize: "0.78rem",
+                                      cursor: busy ? "wait" : "pointer",
+                                      opacity: busy ? 0.6 : 1,
+                                    }}
+                                  >
+                                    {BUG_STATUTS.map((s) => (
+                                      <option key={s.value} value={s.value} style={{ color: BG }}>
+                                        {s.label}
+                                      </option>
+                                    ))}
+                                    {!BUG_STATUTS.some((s) => s.value === bug.statut) ? (
+                                      <option value={bug.statut} style={{ color: BG }}>
+                                        {bugStatutLabel(bug.statut)}
+                                      </option>
+                                    ) : null}
+                                  </select>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {total === 0 ? (
+                        <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucun bug signalé.</p>
+                      ) : null}
+                    </div>
+                  </>
+                );
+              })()
+            )}
           </section>
         </main>
       )}
