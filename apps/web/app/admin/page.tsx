@@ -934,6 +934,10 @@ function betaNumber(raw: number | string | null): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Bonus PA attribué aux 3 premiers testeurs à la fin du beta (index 0 = 1ʳᵉ place). */
+const BETA_BONUS_PA = [100, 50, 25] as const;
+const BETA_TOP_MEDAILLES = ["🥇", "🥈", "🥉"] as const;
+
 function formatBetaTemps(totalSecondes: number): string {
   const s = Math.max(0, Math.floor(totalSecondes));
   const heures = Math.floor(s / 3600);
@@ -1200,6 +1204,9 @@ export default function AdminPage(): JSX.Element {
   const [betaLoading, setBetaLoading] = useState(false);
   const [betaExporting, setBetaExporting] = useState(false);
   const [betaError, setBetaError] = useState<string | null>(null);
+  const [betaBonusBusyId, setBetaBonusBusyId] = useState<string | null>(null);
+  const [betaBonusDoneIds, setBetaBonusDoneIds] = useState<string[]>([]);
+  const [betaBonusError, setBetaBonusError] = useState<string | null>(null);
 
   const [betaEmails, setBetaEmails] = useState<BetaEmailRow[]>([]);
   const [betaEmailsLoading, setBetaEmailsLoading] = useState(false);
@@ -1855,6 +1862,28 @@ export default function AdminPage(): JSX.Element {
       setBetaBugsError(e instanceof Error ? e.message : "Erreur réseau");
     } finally {
       setBetaBugBusyId(null);
+    }
+  }
+
+  async function crediterBonusPa(membreId: string, ptsPa: number): Promise<void> {
+    setBetaBonusBusyId(membreId);
+    setBetaBonusError(null);
+    try {
+      const r = await fetch("/api/admin/beta-bonus-pa", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ membre_id: membreId, pts_pa: ptsPa }),
+      });
+      const j = (await r.json()) as { success?: boolean; error?: string };
+      if (!r.ok || !j.success) {
+        setBetaBonusError(j.error ?? "Échec du crédit du bonus PA");
+        return;
+      }
+      setBetaBonusDoneIds((prev) => (prev.includes(membreId) ? prev : [...prev, membreId]));
+    } catch (e) {
+      setBetaBonusError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setBetaBonusBusyId(null);
     }
   }
 
@@ -6365,8 +6394,9 @@ export default function AdminPage(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody>
-                          {betaTesteurs.map((t) => {
+                          {betaTesteurs.map((t, idx) => {
                             const statut = betaStatut(t.beta_derniere_activite);
+                            const medaille = idx < 3 ? BETA_TOP_MEDAILLES[idx] : null;
                             return (
                               <tr key={t.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
                                 <td style={{ padding: "0.6rem 0.5rem" }}>
@@ -6374,7 +6404,10 @@ export default function AdminPage(): JSX.Element {
                                     ? String(t.numero_membre)
                                     : "—"}
                                 </td>
-                                <td style={{ padding: "0.6rem 0.5rem" }}>{t.display_name ?? "—"}</td>
+                                <td style={{ padding: "0.6rem 0.5rem" }}>
+                                  {medaille ? <span style={{ marginRight: "0.4rem" }}>{medaille}</span> : null}
+                                  {t.display_name ?? "—"}
+                                </td>
                                 <td style={{ padding: "0.6rem 0.5rem" }}>{t.email ?? "—"}</td>
                                 <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
                                   {formatBetaTemps(betaNumber(t.beta_temps_total_secondes))}
@@ -6397,6 +6430,95 @@ export default function AdminPage(): JSX.Element {
                         <p style={{ opacity: 0.6, marginTop: "1rem" }}>Aucun beta testeur.</p>
                       ) : null}
                     </div>
+
+                    {nb > 0 ? (
+                      <div
+                        style={{
+                          marginTop: "1.75rem",
+                          padding: "1.25rem",
+                          borderRadius: "12px",
+                          background: "rgba(212, 175, 55, 0.06)",
+                          border: `1px solid ${GOLD}33`,
+                        }}
+                      >
+                        <h3
+                          style={{
+                            fontSize: "0.95rem",
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            color: GOLD,
+                            margin: "0 0 0.35rem",
+                          }}
+                        >
+                          Top 3 testeurs — Bonus PA à la fin du beta
+                        </h3>
+                        <p style={{ opacity: 0.65, fontSize: "0.82rem", margin: "0 0 1.1rem" }}>
+                          Les 3 premiers testeurs reçoivent un bonus PA. Créditez-le manuellement à la
+                          fin du beta.
+                        </p>
+                        {betaBonusError ? (
+                          <p style={{ color: ROUGE, marginBottom: "0.75rem", fontSize: "0.82rem" }}>
+                            {betaBonusError}
+                          </p>
+                        ) : null}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+                          {betaTesteurs.slice(0, 3).map((t, idx) => {
+                            const bonus = BETA_BONUS_PA[idx] ?? 0;
+                            const credite = betaBonusDoneIds.includes(t.id);
+                            const busy = betaBonusBusyId === t.id;
+                            return (
+                              <div
+                                key={t.id}
+                                style={{
+                                  flex: "1 1 14rem",
+                                  minWidth: "13rem",
+                                  background: "rgba(245, 240, 232, 0.04)",
+                                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                                  borderRadius: "10px",
+                                  padding: "1rem",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "0.6rem",
+                                }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                  <span style={{ fontSize: "1.5rem" }}>{BETA_TOP_MEDAILLES[idx]}</span>
+                                  <span style={{ fontWeight: 600 }}>{t.display_name ?? "—"}</span>
+                                </div>
+                                <div style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+                                  {betaNumber(t.beta_points).toLocaleString("fr-CA")} pts Beta
+                                </div>
+                                <div style={{ color: GOLD, fontWeight: 700, fontSize: "1.05rem" }}>
+                                  Bonus : {bonus} PA
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={busy || credite}
+                                  onClick={() => void crediterBonusPa(t.id, bonus)}
+                                  style={{
+                                    padding: "0.55rem 1rem",
+                                    borderRadius: "8px",
+                                    background: credite ? "transparent" : GOLD,
+                                    color: credite ? GOLD : "#1a1a1a",
+                                    fontWeight: 600,
+                                    border: `1px solid ${GOLD}`,
+                                    cursor: busy || credite ? "default" : "pointer",
+                                    opacity: busy ? 0.6 : 1,
+                                    fontSize: "0.85rem",
+                                  }}
+                                >
+                                  {credite
+                                    ? "✓ Bonus crédité"
+                                    : busy
+                                      ? "Crédit…"
+                                      : "Créditer bonus PA"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </>
                 );
               })()
