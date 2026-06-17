@@ -75,6 +75,7 @@ type ClassementRow = {
   member_type_raw: string | null;
   multiplier: number;
   total_pts_ponderes: number;
+  is_beta_tester: boolean;
 };
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", {
@@ -253,9 +254,10 @@ async function fetchClassementRows(
       multiplier: number | string | null;
       numero_membre: string | null;
       email: string | null;
+      is_beta_tester: boolean | null;
     }[]
   >(
-    `profiles?id=in.(${inList})&select=id,display_name,member_type,multiplier,numero_membre,email`,
+    `profiles?id=in.(${inList})&select=id,display_name,member_type,multiplier,numero_membre,email,is_beta_tester`,
     accessToken,
   );
 
@@ -283,6 +285,7 @@ async function fetchClassementRows(
       member_type_raw: p?.member_type ?? null,
       multiplier: Number.isFinite(multiplier) ? multiplier : 1,
       total_pts_ponderes: totalPts,
+      is_beta_tester: p?.is_beta_tester === true,
     };
   });
 }
@@ -362,6 +365,9 @@ function PodiumCard({
         }}
       >
         <span>{row.display_name}</span>
+        {row.is_beta_tester ? (
+          <span title="Testeur Beta" aria-label="Testeur Beta">🧪</span>
+        ) : null}
         <RankBadge
           ptsPonderes={row.total_pts_ponderes}
           memberType={row.member_type_raw}
@@ -1049,6 +1055,9 @@ export default function ClassementPage(): JSX.Element | null {
                               }}
                             >
                               <span>{row.display_name}</span>
+                              {row.is_beta_tester ? (
+                                <span title="Testeur Beta" aria-label="Testeur Beta">🧪</span>
+                              ) : null}
                               <RankBadge
                                 ptsPonderes={row.total_pts_ponderes}
                                 memberType={row.member_type_raw}

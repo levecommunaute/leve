@@ -29,6 +29,7 @@ type ProfileRow = {
   member_type: string | null;
   multiplier: number | string | null;
   numero_membre: string | null;
+  is_beta_tester: boolean | null;
 };
 
 type QuizSubmissionRow = {
@@ -102,7 +103,7 @@ export default function ProfilPage(): JSX.Element | null {
     const token = activeSession.access_token;
 
     const [profileRes, txRes, txHistoryRes, quizRes] = await Promise.all([
-      fetchRestJson(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre`, token),
+      fetchRestJson(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester`, token),
       fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=amount`, token),
       fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`, token),
       fetchRestJson(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, token),
@@ -264,6 +265,13 @@ export default function ProfilPage(): JSX.Element | null {
             <RankBadge ptsPonderes={weightedPointsPmq} memberType={profile?.member_type} size="md" />
           </h1>
           <span style={{ display: "inline-block", background: ROUGE, color: TEXT, fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0.35rem 0.75rem", borderRadius: "999px" }}>{memberLabel}</span>
+          {profile?.is_beta_tester ? (
+            <div>
+              <span style={{ display: "inline-block", marginTop: "0.6rem", background: "rgba(212, 160, 23, 0.14)", color: GOLD, fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.04em", padding: "0.3rem 0.65rem", borderRadius: "999px", border: "1px solid rgba(212, 160, 23, 0.35)" }}>
+                🧪 Testeur Beta
+              </span>
+            </div>
+          ) : null}
         </section>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem" }}>
