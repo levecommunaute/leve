@@ -155,11 +155,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return {
         video_id: videoId,
         question: q.question,
-        option_a: q.choix[0] ?? "",
-        option_b: q.choix[1] ?? "",
-        option_c: q.choix[2] ?? "",
-        option_d: q.choix[3] ?? "",
-        correct_answer: letters[correctIndex >= 0 ? correctIndex : 0],
+        choix: q.choix,
+        bonne_reponse: letters[correctIndex >= 0 ? correctIndex : 0],
       };
     });
 
