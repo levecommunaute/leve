@@ -149,13 +149,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const rows = questions.map((q) => ({
-      video_id: videoId,
-      youtube_id: youtubeId,
-      question: q.question,
-      choix: q.choix,
-      bonne_reponse: q.bonne_reponse,
-    }));
+    const letters = ["A", "B", "C", "D"] as const;
+    const rows = questions.map((q) => {
+      const correctIndex = q.choix.findIndex((o) => o === q.bonne_reponse);
+      return {
+        video_id: videoId,
+        question: q.question,
+        option_a: q.choix[0] ?? "",
+        option_b: q.choix[1] ?? "",
+        option_c: q.choix[2] ?? "",
+        option_d: q.choix[3] ?? "",
+        correct_answer: letters[correctIndex >= 0 ? correctIndex : 0],
+      };
+    });
 
     const { data: inserted, error: insErr } = await supabase
       .from("quiz_questions")
