@@ -73,12 +73,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const prompt =
-    `Tu es un expert en création de quiz éducatifs. Génère exactement 15 questions QCM en français sur la vidéo YouTube intitulée '${title}'. ` +
-    "Chaque question doit avoir 4 options (A, B, C, D) et une seule bonne réponse. " +
-    "Retourne UNIQUEMENT un JSON valide sans markdown, format : " +
-    "[{question: string, choix: [string, string, string, string], bonne_reponse: string}] " +
-    "où bonne_reponse est le texte exact de la bonne réponse.";
+  const youtubeKey = process.env.YOUTUBE_API_KEY;
+  if (!youtubeKey) {
+    return NextResponse.json({ error: "YOUTUBE_API_KEY manquante" }, { status: 503 });
+  }
 
   try {
     const supabase = getServiceSupabase();
@@ -94,6 +92,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!vid?.id) {
       return NextResponse.json({ error: "Vidéo introuvable" }, { status: 404 });
     }
+
+    const youtubeUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+    youtubeUrl.searchParams.set("part", "snippet");
+    youtubeUrl.searchParams.set("id", youtubeId);
+    youtubeUrl.searchParams.set("key", youtubeKey);
+
+    const youtubeRes = await fetch(youtubeUrl, { method: "GET" });
+    if (!youtubeRes.ok) {
+      const errText = await youtubeRes.text();
+      return NextResponse.json(
+        { error: `YouTube API ${youtubeRes.status}: ${errText}` },
+        { status: 502 },
+      );
+    }
+
+    const youtubeJson = (await youtubeRes.json()) as {
+      items?: { snippet?: { title?: string; description?: string } }[];
+    };
+    const snippet = youtubeJson.items?.[0]?.snippet;
+    if (!snippet) {
+      return NextResponse.json({ error: "Vidéo YouTube introuvable" }, { status: 404 });
+    }
+
+    const ytTitle = String(snippet.title ?? "").trim() || title;
+    const ytDescription = String(snippet.description ?? "").trim();
+
+    const prompt =
+      `Tu es un expert en création de quiz éducatifs. Génère exactement 15 questions QCM en français sur la vidéo YouTube intitulée '${ytTitle}'. ` +
+      (ytDescription
+        ? `Voici la description de la vidéo pour t'aider à créer des questions précises et fidèles au contenu : """${ytDescription}""". `
+        : "") +
+      "Chaque question doit avoir 4 options (A, B, C, D) et une seule bonne réponse. " +
+      "Retourne UNIQUEMENT un JSON valide sans markdown, format : " +
+      "[{question: string, choix: [string, string, string, string], bonne_reponse: string}] " +
+      "où bonne_reponse est le texte exact de la bonne réponse.";
 
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
