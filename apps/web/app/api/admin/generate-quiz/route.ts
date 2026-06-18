@@ -18,6 +18,80 @@ function extractJsonArray(text: string): unknown {
   return JSON.parse(raw);
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)));
+}
+
+function parseTimedTextXml(xml: string): string {
+  const segments: string[] = [];
+  const regex = /<text[^>]*>([\s\S]*?)<\/text>/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(xml)) !== null) {
+    const raw = (match[1] ?? "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (raw) segments.push(decodeHtmlEntities(raw));
+  }
+  return segments.join(" ").trim();
+}
+
+// Récupère le transcript de la vidéo. L'endpoint captions de la YouTube Data API
+// ne renvoie que les métadonnées des pistes (le téléchargement du texte exige
+// OAuth), donc on l'utilise pour détecter la disponibilité puis on récupère le
+// texte via l'endpoint public timedtext. Retourne null si rien d'exploitable.
+async function fetchTranscript(youtubeId: string, apiKey: string): Promise<string | null> {
+  try {
+    const captionsUrl = new URL("https://www.googleapis.com/youtube/v3/captions");
+    captionsUrl.searchParams.set("part", "snippet");
+    captionsUrl.searchParams.set("videoId", youtubeId);
+    captionsUrl.searchParams.set("key", apiKey);
+
+    const captionsRes = await fetch(captionsUrl, { method: "GET" });
+    if (!captionsRes.ok) return null;
+
+    const captionsJson = (await captionsRes.json()) as {
+      items?: { snippet?: { language?: string; trackKind?: string } }[];
+    };
+    const tracks = captionsJson.items ?? [];
+    if (tracks.length === 0) return null;
+
+    const preferred =
+      tracks.find((t) => (t.snippet?.language ?? "").toLowerCase().startsWith("fr")) ??
+      tracks.find((t) => (t.snippet?.language ?? "").toLowerCase().startsWith("en")) ??
+      tracks[0];
+    const langCandidates = [
+      preferred?.snippet?.language,
+      "fr",
+      "en",
+    ].filter((l): l is string => Boolean(l));
+
+    for (const lang of langCandidates) {
+      const timedTextUrl = new URL("https://www.youtube.com/api/timedtext");
+      timedTextUrl.searchParams.set("lang", lang);
+      timedTextUrl.searchParams.set("v", youtubeId);
+
+      const ttRes = await fetch(timedTextUrl, { method: "GET" });
+      if (!ttRes.ok) continue;
+      const xml = await ttRes.text();
+      const transcript = parseTimedTextXml(xml);
+      if (transcript) {
+        return transcript.length > 12000 ? `${transcript.slice(0, 12000)}…` : transcript;
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeQuestion(item: unknown): GeneratedQuestion | null {
   if (!item || typeof item !== "object") return null;
   const q = item as Record<string, unknown>;
@@ -118,15 +192,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const ytTitle = String(snippet.title ?? "").trim() || title;
     const ytDescription = String(snippet.description ?? "").trim();
 
+    const transcript = await fetchTranscript(youtubeId, youtubeKey);
+    const contexte = transcript ?? ytDescription;
+
     const prompt =
-      `Tu es un expert en création de quiz éducatifs. Génère exactement 15 questions QCM en français sur la vidéo YouTube intitulée '${ytTitle}'. ` +
-      (ytDescription
-        ? `Voici la description de la vidéo pour t'aider à créer des questions précises et fidèles au contenu : """${ytDescription}""". `
-        : "") +
-      "Chaque question doit avoir 4 options (A, B, C, D) et une seule bonne réponse. " +
-      "Retourne UNIQUEMENT un JSON valide sans markdown, format : " +
-      "[{question: string, choix: [string, string, string, string], bonne_reponse: string}] " +
-      "où bonne_reponse est le texte exact de la bonne réponse.";
+      `Génère 15 questions QCM en français sur cette vidéo YouTube LEVE intitulée '${ytTitle}'. ` +
+      (contexte ? `Contexte de la vidéo : ${contexte}. ` : "") +
+      "Format JSON strict uniquement. 4 choix (A/B/C/D). 1 bonne réponse. " +
+      "5 questions faciles · 5 moyennes · 5 difficiles. " +
+      "Retourne UNIQUEMENT un tableau JSON avec les champs : question, choix (array de 4), bonne_reponse (A/B/C/D)";
 
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
