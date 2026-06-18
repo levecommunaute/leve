@@ -3,7 +3,7 @@ import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-se
 
 export const dynamic = "force-dynamic";
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-6";
 
 type GeneratedQuestion = {
   question: string;
