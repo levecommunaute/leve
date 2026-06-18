@@ -1,6 +1,11 @@
 [functions.notifier-grace-abonnement]
 verify_jwt = false
 
+[functions.beta-rappel-inactivite]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/beta-rappel-inactivite/index.ts"
+
 [functions.reset-pmq-mensuel]
 enabled = true
 verify_jwt = false
