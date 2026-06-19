@@ -267,6 +267,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       };
     });
 
+    const { error: delErr } = await supabase
+      .from("quiz_questions")
+      .delete()
+      .eq("video_id", videoId);
+
+    if (delErr) {
+      return NextResponse.json({ error: delErr.message }, { status: 500 });
+    }
+
     const { data: inserted, error: insErr } = await supabase
       .from("quiz_questions")
       .insert(rows)
