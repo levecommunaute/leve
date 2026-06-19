@@ -1107,6 +1107,10 @@ export default function AdminPage(): JSX.Element {
   const [quizDeleteId, setQuizDeleteId] = useState<string | null>(null);
   const [generateQuizLoadingId, setGenerateQuizLoadingId] = useState<string | null>(null);
   const [generateQuizError, setGenerateQuizError] = useState<Record<string, string>>({});
+  const [generateQuizSuccess, setGenerateQuizSuccess] = useState<Record<string, number>>({});
+  const [quizInfoByVideo, setQuizInfoByVideo] = useState<
+    Record<string, { available: boolean; count: number }>
+  >({});
   const [collaborateurSavingId, setCollaborateurSavingId] = useState<string | null>(null);
   const [collaborateurError, setCollaborateurError] = useState<Record<string, string>>({});
 
@@ -2293,6 +2297,8 @@ export default function AdminPage(): JSX.Element {
     setQuizAddMsg(null);
     setGenerateQuizLoadingId(null);
     setGenerateQuizError({});
+    setGenerateQuizSuccess({});
+    setQuizInfoByVideo({});
     setCollaborateurSavingId(null);
     setCollaborateurError({});
     setFeatureFlags([]);
@@ -2885,6 +2891,11 @@ export default function AdminPage(): JSX.Element {
       delete next[video.id];
       return next;
     });
+    setGenerateQuizSuccess((prev) => {
+      const next = { ...prev };
+      delete next[video.id];
+      return next;
+    });
     try {
       const r = await fetch("/api/admin/generate-quiz", {
         method: "POST",
@@ -2903,6 +2914,19 @@ export default function AdminPage(): JSX.Element {
         }));
         return;
       }
+      const count = j.questions_count ?? 15;
+      setQuizInfoByVideo((prev) => ({
+        ...prev,
+        [video.id]: { available: true, count },
+      }));
+      setGenerateQuizSuccess((prev) => ({ ...prev, [video.id]: count }));
+      window.setTimeout(() => {
+        setGenerateQuizSuccess((prev) => {
+          const next = { ...prev };
+          delete next[video.id];
+          return next;
+        });
+      }, 3000);
       if (quizVideoId === video.id) {
         await loadQuizQuestions(video.id);
       }
@@ -3612,8 +3636,20 @@ export default function AdminPage(): JSX.Element {
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {quizBusy ? "…" : "Générer quiz automatique"}
+                              {quizBusy ? "⏳ Génération en cours..." : "Générer quiz automatique"}
                             </button>
+                            {generateQuizSuccess[v.id] !== undefined ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontSize: "0.78rem",
+                                  color: "#2ECC71",
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {`✅ ${generateQuizSuccess[v.id]} questions générées avec succès`}
+                              </p>
+                            ) : null}
                             {generateQuizError[v.id] ? (
                               <p
                                 style={{
@@ -3623,7 +3659,19 @@ export default function AdminPage(): JSX.Element {
                                   opacity: 0.95,
                                 }}
                               >
-                                {generateQuizError[v.id]}
+                                {`❌ Erreur : ${generateQuizError[v.id]}`}
+                              </p>
+                            ) : null}
+                            {quizInfoByVideo[v.id] ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontSize: "0.78rem",
+                                  color: GOLD,
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {`Quiz dispo: ${quizInfoByVideo[v.id]!.available ? "Oui" : "Non"} · Questions: ${quizInfoByVideo[v.id]!.count}`}
                               </p>
                             ) : null}
                           </td>
