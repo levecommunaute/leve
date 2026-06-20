@@ -14,8 +14,6 @@ import { crediterPtc } from "../../../../lib/ptc";
 
 export const dynamic = "force-dynamic";
 
-const POINTS_PER_CORRECT = 4;
-
 /** Évite les artefacts flottants (ex. 19.200000000000003) en base PCOL. */
 function pcolNum(v: number): number {
   return parseFloat(Number(v).toPrecision(10));
@@ -65,6 +63,7 @@ async function alreadySubmittedQuiz(
     .from("points_transactions")
     .select("id")
     .eq("membre_id", userId)
+    .eq("video_id", videoId)
     .eq("type", "quiz");
 
   if (!tx.error && tx.data?.length) return true;
@@ -172,9 +171,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: videoRow } = await svc
       .from("videos")
-      .select("id, collaborateur_id, created_at")
+      .select("id, collaborateur_id, created_at, bonus_expire_at, points_value")
       .eq("id", videoId)
       .maybeSingle();
+
+    const videoPointsValue = Number(videoRow?.points_value ?? 20);
+    const POINTS_PER_CORRECT = videoPointsValue / 5;
+
+    const bonusActive = (() => {
+      const raw = videoRow?.bonus_expire_at;
+      if (!raw) return false;
+      const t = new Date(String(raw)).getTime();
+      return Number.isFinite(t) && t > Date.now();
+    })();
+    const bonusMultiplier = bonusActive ? 2 : 1;
 
     const collaborateurId =
       videoRow?.collaborateur_id != null ? String(videoRow.collaborateur_id) : null;
@@ -258,16 +268,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
 
-    const pointsEarned = correct * POINTS_PER_CORRECT;
-    const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
+    const pointsEarned = correct * POINTS_PER_CORRECT * bonusMultiplier;
+    const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT * bonusMultiplier;
 
     const pointsEarnedPonderes = pointsEarned * multiplicateur;
     const pointsPerdusPonderes = pointsPerdus * multiplicateur;
 
     const multSuffix = ` · ×${multiplicateur}`;
+    const bonusSuffix = bonusActive ? " · Bonus 72h ×2" : "";
     const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur" : "";
-    const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses${multSuffix}${collabSuffix}`;
-    const ptcDescription = `Quiz vidéo — points non obtenus${multSuffix}`;
+    const quizLabel = bonusActive ? "Quiz + Bonus 72h" : "Quiz vidéo";
+    const quizDescription = `${quizLabel} — ${correct}/${denom} bonnes réponses · ${videoPointsValue} pts vidéo${multSuffix}${bonusSuffix}${collabSuffix}`;
+    const ptcDescription = bonusActive
+      ? `Quiz vidéo — points non obtenus${multSuffix} · Bonus 72h ×2`
+      : `Quiz vidéo — points non obtenus${multSuffix}`;
 
     const ptRows: {
       membre_id: string;
@@ -552,6 +566,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       points_perdus: pointsPerdus,
       points_perdus_ponderes: pointsPerdusPonderes,
       multiplicateur,
+      bonus_active: bonusActive,
       collaborateur_video: isCollaborateurVideo,
       own_video_recovery: isOwnVideoQuiz,
     });

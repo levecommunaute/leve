@@ -13,11 +13,9 @@ function formatRemainingMs(ms: number): string {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const parts: string[] = [];
-  if (h > 0) parts.push(`${h}h`);
-  parts.push(`${m}m`);
-  parts.push(`${s}s`);
-  return parts.join(" ");
+  if (h >= 1) return `${h}h restantes`;
+  if (m >= 1) return `${m}min restantes`;
+  return `${s}s restantes`;
 }
 
 const badgeStyle = {
@@ -73,7 +71,7 @@ export function BonusBadge({ bonusExpireAt }: BonusBadgeProps): JSX.Element | nu
 
   return (
     <span style={badgeStyle}>
-      ⚡ Bonus ×2 — expire dans {remaining}
+      ⚡ Bonus 72h actif · {remaining}
     </span>
   );
 }

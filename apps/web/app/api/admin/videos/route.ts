@@ -45,6 +45,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const supabase = getServiceSupabase();
+    const bonusExpireAt = new Date(
+      Date.now() + 72 * 60 * 60 * 1000,
+    ).toISOString();
     const { data, error } = await supabase
       .from("videos")
       .insert({
@@ -52,8 +55,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         title,
         points_value: pointsValue,
         description: "",
+        bonus_expire_at: bonusExpireAt,
       })
-      .select("id, youtube_id, title, points_value")
+      .select("id, youtube_id, title, points_value, bonus_expire_at")
       .single();
 
     if (error) {
