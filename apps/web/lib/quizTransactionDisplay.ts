@@ -1,5 +1,12 @@
-/** Points par bonne réponse (aligné sur /api/quiz/submit). */
-export const QUIZ_POINTS_PER_CORRECT = 4;
+/** Valeur par défaut si points_value absent (aligné sur /api/quiz/submit). */
+export const DEFAULT_VIDEO_POINTS_VALUE = 20;
+
+export function pointsPerCorrectFromVideoValue(
+  pointsValue?: number | null,
+): number {
+  const pv = Number(pointsValue);
+  return (Number.isFinite(pv) && pv > 0 ? pv : DEFAULT_VIDEO_POINTS_VALUE) / 5;
+}
 
 export type QuizTransactionLines = {
   line1: string;
@@ -26,6 +33,17 @@ export function parseQuizScoreFromDescription(
   return { correct, total };
 }
 
+/** Ex. « · 25 pts vidéo » dans la description (transactions récentes). */
+export function parsePointsValueFromDescription(
+  description: string | null | undefined,
+): number | null {
+  if (!description?.trim()) return null;
+  const m = description.match(/(\d+)\s*pts\s*vid[eé]o/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 /** Ex. « · ×2 » ou « ×2.5 » dans la description. */
 export function parseMultiplierFromDescription(
   description: string | null | undefined,
@@ -35,6 +53,43 @@ export function parseMultiplierFromDescription(
   if (!m) return null;
   const n = Number((m[1] ?? "0").replace(",", "."));
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function parseBonusMultiplierFromDescription(
+  description: string | null | undefined,
+): number {
+  return description?.includes("Bonus 72h") ? 2 : 1;
+}
+
+function resolvePointsPerCorrect(
+  amount: number,
+  description: string | null | undefined,
+  score: { correct: number; total: number } | null,
+  explicitPointsPerCorrect?: number,
+): number {
+  if (
+    explicitPointsPerCorrect != null &&
+    Number.isFinite(explicitPointsPerCorrect) &&
+    explicitPointsPerCorrect > 0
+  ) {
+    return explicitPointsPerCorrect;
+  }
+
+  const pointsValueFromDesc = parsePointsValueFromDescription(description);
+  if (pointsValueFromDesc != null) {
+    return pointsPerCorrectFromVideoValue(pointsValueFromDesc);
+  }
+
+  const correct = score?.correct;
+  if (correct != null && Number.isFinite(correct) && correct > 0) {
+    const bonusMult = parseBonusMultiplierFromDescription(description);
+    const derived = Math.abs(amount) / (correct * bonusMult);
+    if (Number.isFinite(derived) && derived > 0) {
+      return derived;
+    }
+  }
+
+  return pointsPerCorrectFromVideoValue(DEFAULT_VIDEO_POINTS_VALUE);
 }
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
@@ -47,6 +102,7 @@ export function formatQuizTransactionLines(
   amount: number,
   description: string | null | undefined,
   profileMultiplier: number,
+  pointsPerCorrect?: number,
 ): QuizTransactionLines {
   const score = parseQuizScoreFromDescription(description);
   const multFromDesc = parseMultiplierFromDescription(description);
@@ -56,15 +112,18 @@ export function formatQuizTransactionLines(
       : 1;
   const mult = multFromDesc ?? profileMult;
 
+  const ppc = resolvePointsPerCorrect(amount, description, score, pointsPerCorrect);
+
   const totalQuestions = score?.total ?? 5;
   let correct = score?.correct;
   if (correct == null || !Number.isFinite(correct)) {
+    const bonusMult = parseBonusMultiplierFromDescription(description);
     const absAmt = Math.abs(amount);
-    const baseFromAmount = Math.round(absAmt / QUIZ_POINTS_PER_CORRECT);
+    const baseFromAmount = Math.round(absAmt / (ppc * bonusMult));
     correct = Math.max(0, Math.min(totalQuestions, baseFromAmount));
   }
 
-  const basePts = correct * QUIZ_POINTS_PER_CORRECT;
+  const basePts = correct * ppc;
   const weightedTotal = basePts * mult;
   const multLabel = formatMultiplier(mult);
 

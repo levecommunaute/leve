@@ -14,8 +14,6 @@ import { crediterPtc } from "../../../../lib/ptc";
 
 export const dynamic = "force-dynamic";
 
-const POINTS_PER_CORRECT = 4;
-
 /** Évite les artefacts flottants (ex. 19.200000000000003) en base PCOL. */
 function pcolNum(v: number): number {
   return parseFloat(Number(v).toPrecision(10));
@@ -173,9 +171,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: videoRow } = await svc
       .from("videos")
-      .select("id, collaborateur_id, created_at, bonus_expire_at")
+      .select("id, collaborateur_id, created_at, bonus_expire_at, points_value")
       .eq("id", videoId)
       .maybeSingle();
+
+    const videoPointsValue = Number(videoRow?.points_value ?? 20);
+    const POINTS_PER_CORRECT = videoPointsValue / 5;
 
     const bonusActive = (() => {
       const raw = videoRow?.bonus_expire_at;
@@ -277,7 +278,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const bonusSuffix = bonusActive ? " · Bonus 72h ×2" : "";
     const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur" : "";
     const quizLabel = bonusActive ? "Quiz + Bonus 72h" : "Quiz vidéo";
-    const quizDescription = `${quizLabel} — ${correct}/${denom} bonnes réponses${multSuffix}${bonusSuffix}${collabSuffix}`;
+    const quizDescription = `${quizLabel} — ${correct}/${denom} bonnes réponses · ${videoPointsValue} pts vidéo${multSuffix}${bonusSuffix}${collabSuffix}`;
     const ptcDescription = bonusActive
       ? `Quiz vidéo — points non obtenus${multSuffix} · Bonus 72h ×2`
       : `Quiz vidéo — points non obtenus${multSuffix}`;
