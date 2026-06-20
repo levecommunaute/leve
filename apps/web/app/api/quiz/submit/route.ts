@@ -172,9 +172,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: videoRow } = await svc
       .from("videos")
-      .select("id, collaborateur_id, created_at")
+      .select("id, collaborateur_id, created_at, bonus_expire_at")
       .eq("id", videoId)
       .maybeSingle();
+
+    const bonusActive = (() => {
+      const raw = videoRow?.bonus_expire_at;
+      if (!raw) return false;
+      const t = new Date(String(raw)).getTime();
+      return Number.isFinite(t) && t > Date.now();
+    })();
+    const bonusMultiplier = bonusActive ? 2 : 1;
 
     const collaborateurId =
       videoRow?.collaborateur_id != null ? String(videoRow.collaborateur_id) : null;
@@ -258,15 +266,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
 
-    const pointsEarned = correct * POINTS_PER_CORRECT;
+    const pointsEarned = correct * POINTS_PER_CORRECT * bonusMultiplier;
     const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
 
     const pointsEarnedPonderes = pointsEarned * multiplicateur;
     const pointsPerdusPonderes = pointsPerdus * multiplicateur;
 
     const multSuffix = ` · ×${multiplicateur}`;
+    const bonusSuffix = bonusActive ? " · Bonus 72h ×2" : "";
     const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur" : "";
-    const quizDescription = `Quiz vidéo — ${correct}/${denom} bonnes réponses${multSuffix}${collabSuffix}`;
+    const quizLabel = bonusActive ? "Quiz + Bonus 72h" : "Quiz vidéo";
+    const quizDescription = `${quizLabel} — ${correct}/${denom} bonnes réponses${multSuffix}${bonusSuffix}${collabSuffix}`;
     const ptcDescription = `Quiz vidéo — points non obtenus${multSuffix}`;
 
     const ptRows: {
@@ -552,6 +562,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       points_perdus: pointsPerdus,
       points_perdus_ponderes: pointsPerdusPonderes,
       multiplicateur,
+      bonus_active: bonusActive,
       collaborateur_video: isCollaborateurVideo,
       own_video_recovery: isOwnVideoQuiz,
     });
