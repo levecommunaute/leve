@@ -278,7 +278,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur" : "";
     const quizLabel = bonusActive ? "Quiz + Bonus 72h" : "Quiz vidéo";
     const quizDescription = `${quizLabel} — ${correct}/${denom} bonnes réponses${multSuffix}${bonusSuffix}${collabSuffix}`;
-    const ptcDescription = `Quiz vidéo — points non obtenus${multSuffix}`;
+    const ptcDescription = bonusActive
+      ? `Quiz vidéo — points non obtenus${multSuffix} · Bonus 72h ×2`
+      : `Quiz vidéo — points non obtenus${multSuffix}`;
 
     const ptRows: {
       membre_id: string;
