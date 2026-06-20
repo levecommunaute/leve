@@ -124,11 +124,17 @@ export function formatQuizTransactionLines(
   }
 
   const basePts = correct * ppc;
-  const weightedTotal = basePts * mult;
+  const bonusActif = description?.includes("Bonus 72h") ?? false;
+  const bonusMultiplier = bonusActif ? 2 : 1;
+  const weightedTotal = basePts * bonusMultiplier * mult;
   const multLabel = formatMultiplier(mult);
 
+  const baseLine = `Quiz ${correct}/${totalQuestions} bonnes réponses — base ${pointsFmt.format(basePts)} pts`;
+
   return {
-    line1: `Quiz ${correct}/${totalQuestions} bonnes réponses — base ${pointsFmt.format(basePts)} pts`,
-    line2: `Multiplicateur ×${multLabel} appliqué — total ${pointsFmt.format(weightedTotal)} pts`,
+    line1: bonusActif
+      ? `⚡ ${baseLine} · Bonus 72h ×2`
+      : baseLine,
+    line2: `Multiplicateur ×${multLabel} appliqué — total ${pointsFmt.format(weightedTotal)} pts pondérés`,
   };
 }
