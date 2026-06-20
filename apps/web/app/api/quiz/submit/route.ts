@@ -268,7 +268,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const multiplicateur = Number(profile?.multiplier ?? 1);
 
     const pointsEarned = correct * POINTS_PER_CORRECT * bonusMultiplier;
-    const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT;
+    const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT * bonusMultiplier;
 
     const pointsEarnedPonderes = pointsEarned * multiplicateur;
     const pointsPerdusPonderes = pointsPerdus * multiplicateur;
