@@ -65,6 +65,7 @@ async function alreadySubmittedQuiz(
     .from("points_transactions")
     .select("id")
     .eq("membre_id", userId)
+    .eq("video_id", videoId)
     .eq("type", "quiz");
 
   if (!tx.error && tx.data?.length) return true;
