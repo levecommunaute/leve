@@ -521,7 +521,7 @@ export default function CollaborateurPage(): JSX.Element | null {
           gap: "0.85rem",
           alignItems: "center",
           justifyContent: "center",
-        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
       >
         <span
           aria-hidden
@@ -551,7 +551,7 @@ export default function CollaborateurPage(): JSX.Element | null {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -600,7 +600,7 @@ export default function CollaborateurPage(): JSX.Element | null {
             <section
               style={{
                 position: "relative",
-                borderRadius: "14px",
+                borderRadius: "4px",
                 padding: "1.75rem 1.5rem",
                 paddingBottom: prevMonthLabel ? "2.5rem" : "1.75rem",
                 marginBottom: "1.25rem",
@@ -679,7 +679,7 @@ export default function CollaborateurPage(): JSX.Element | null {
 
             <section
               style={{
-                borderRadius: "14px",
+                borderRadius: "4px",
                 padding: "1.35rem 1.25rem",
                 marginBottom: "1.25rem",
                 background: "rgba(245, 240, 232, 0.03)",
@@ -738,7 +738,7 @@ export default function CollaborateurPage(): JSX.Element | null {
             >
               <article
                 style={{
-                  borderRadius: "12px",
+                  borderRadius: "4px",
                   padding: "1.1rem",
                   background: "rgba(245, 240, 232, 0.04)",
                   border: "1px solid rgba(245, 240, 232, 0.12)",
@@ -761,7 +761,7 @@ export default function CollaborateurPage(): JSX.Element | null {
               </article>
               <article
                 style={{
-                  borderRadius: "12px",
+                  borderRadius: "4px",
                   padding: "1.1rem",
                   background: "rgba(245, 240, 232, 0.04)",
                   border: "1px solid rgba(245, 240, 232, 0.12)",
@@ -820,7 +820,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                       <li
                         key={p.id}
                         style={{
-                          borderRadius: "12px",
+                          borderRadius: "4px",
                           padding: "1.1rem",
                           background: expired
                             ? "rgba(192, 57, 43, 0.12)"
@@ -830,7 +830,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                           border: `1px solid ${expired ? ROUGE : inactive ? "rgba(245, 240, 232, 0.15)" : "rgba(212, 160, 23, 0.35)"}`,
                           opacity: inactive ? 0.55 : 1,
                           textDecoration: inactive ? "line-through" : "none",
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <p style={{ margin: 0, fontWeight: 600, textDecoration: inactive ? "line-through" : "none" }}>
                           {p.video_title}
@@ -863,7 +863,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                                 background: VERT,
                                 color: BG,
                                 border: "none",
-                                borderRadius: "6px",
+                                borderRadius: "4px",
                                 padding: "0.5rem 1rem",
                                 fontWeight: 700,
                                 fontSize: "0.85rem",
@@ -927,12 +927,12 @@ export default function CollaborateurPage(): JSX.Element | null {
                       <li
                         key={v.videoId}
                         style={{
-                          borderRadius: "12px",
+                          borderRadius: "4px",
                           padding: "1.1rem",
                           background: "rgba(245, 240, 232, 0.04)",
                           border: "1px solid rgba(245, 240, 232, 0.1)",
                           opacity: inactive ? 0.55 : 1,
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <div
                           style={{
@@ -969,7 +969,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                             style={{
                               marginTop: "0.5rem",
                               padding: "0.75rem",
-                              borderRadius: "8px",
+                              borderRadius: "4px",
                               background: expired
                                 ? "rgba(192, 57, 43, 0.12)"
                                 : inactive

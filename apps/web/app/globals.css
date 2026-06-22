@@ -2,5 +2,5 @@
 @config "../tailwind.config.ts";
 
 body {
-  @apply bg-neutral-950 text-neutral-100 antialiased;
+  @apply bg-no text-neutral-100 antialiased;
 }

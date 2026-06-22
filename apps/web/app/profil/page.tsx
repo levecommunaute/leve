@@ -204,7 +204,7 @@ export default function ProfilPage(): JSX.Element | null {
       : null;
 
   return (
-    <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-dm), system-ui, sans-serif", paddingBottom: "6rem" }}>
+    <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -219,7 +219,7 @@ export default function ProfilPage(): JSX.Element | null {
         <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>LEVE</Link>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <span style={{ fontSize: "0.9rem", opacity: 0.85, maxWidth: "42vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-          <button type="button" disabled={signingOut} onClick={() => void handleSignOut()} style={{ background: "transparent", color: ROUGE, border: `1px solid ${ROUGE}`, borderRadius: "6px", padding: "0.45rem 0.9rem", fontSize: "0.8rem", cursor: signingOut ? "wait" : "pointer" }}>
+          <button type="button" disabled={signingOut} onClick={() => void handleSignOut()} style={{ background: "transparent", color: ROUGE, border: `1px solid ${ROUGE}`, borderRadius: "4px", padding: "0.45rem 0.9rem", fontSize: "0.8rem", cursor: signingOut ? "wait" : "pointer" }}>
             {signingOut ? "…" : "Déconnexion"}
           </button>
         </div>
@@ -238,7 +238,7 @@ export default function ProfilPage(): JSX.Element | null {
             textTransform: "uppercase",
             opacity: 0.55,
             borderBottom: "1px solid rgba(245, 240, 232, 0.05)",
-          }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
         >
           <span
             aria-hidden
@@ -258,24 +258,26 @@ export default function ProfilPage(): JSX.Element | null {
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>{loadError}</p> : null}
 
-        <section style={{ borderRadius: "14px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-          <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}</p>
-          <h1 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0.75rem", lineHeight: 1.05, color: TEXT, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
+        <section style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+          <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}</p>
+          <h1 style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0.75rem", lineHeight: 1.05, color: TEXT, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
             <span>{name}</span>
             <RankBadge ptsPonderes={weightedPointsPmq} memberType={profile?.member_type} size="md" />
           </h1>
-          <span style={{ display: "inline-block", background: ROUGE, color: TEXT, fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0.35rem 0.75rem", borderRadius: "999px" }}>{memberLabel}</span>
+          <span style={{ display: "inline-block", background: ROUGE, color: TEXT, fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0.35rem 0.75rem", borderRadius: "4px" }}>{memberLabel}</span>
           {profile?.is_beta_tester ? (
             <div>
-              <span style={{ display: "inline-block", marginTop: "0.6rem", background: "rgba(212, 160, 23, 0.14)", color: GOLD, fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.04em", padding: "0.3rem 0.65rem", borderRadius: "999px", border: "1px solid rgba(212, 160, 23, 0.35)" }}>
+              <span style={{ display: "inline-block", marginTop: "0.6rem", background: "rgba(212, 160, 23, 0.14)", color: GOLD, fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.04em", padding: "0.3rem 0.65rem", borderRadius: "4px", border: "1px solid rgba(212, 160, 23, 0.35)" }}>
                 🧪 Testeur Beta
               </span>
             </div>
           ) : null}
         </section>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem" }}>
-          <article style={{ borderRadius: "12px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
             <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>Total points PMQ</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
             <p style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>Points pondérés (base redistribution)</p>
@@ -284,13 +286,13 @@ export default function ProfilPage(): JSX.Element | null {
               Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} — utilisé pour calculer votre part de redistribution
             </p>
           </article>
-          <article style={{ borderRadius: "12px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.12)" }}>
+          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.12)" }}>
             <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: TEXT }}>{multiplierDisplay}</p>
           </article>
         </div>
 
-        <section style={{ borderRadius: "12px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.08)" }}>
+        <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.08)" }}>
           <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.06em", color: ROUGE, margin: "0 0 1rem" }}>Informations</h2>
           <dl style={{ margin: 0, display: "grid", gap: "0.85rem", fontSize: "0.95rem" }}>
             <div>
@@ -337,7 +339,7 @@ export default function ProfilPage(): JSX.Element | null {
                   <li
                     key={tx.id}
                     style={{
-                      borderRadius: "10px",
+                      borderRadius: "4px",
                       padding: "1rem",
                       background: "rgba(245, 240, 232, 0.04)",
                       border: "1px solid rgba(245, 240, 232, 0.1)",
@@ -369,7 +371,8 @@ export default function ProfilPage(): JSX.Element | null {
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
               {quizRows.map((row, i) => (
-                <li key={`${row.video_id}-${row.at ?? i}`} style={{ borderRadius: "10px", padding: "1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.1)", display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem" }}>
+                <li key={`${row.video_id}-${row.at ?? i}`} style={{ borderRadius: "4px", padding: "1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.1)", display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   <div>
                     <p style={{ margin: 0, fontWeight: 600 }}>{row.title}</p>
                     {row.at ? <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.55 }}>{dateFmt.format(new Date(row.at))}</p> : null}

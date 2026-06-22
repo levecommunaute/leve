@@ -27,6 +27,7 @@ const badgeStyle = {
   borderRadius: "4px",
   fontSize: "0.75rem",
   fontWeight: 600,
+  fontFamily: "var(--font-mono), ui-monospace, monospace",
 } as const;
 
 type BonusBadgeProps = {

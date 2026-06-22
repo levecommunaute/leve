@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
+import { DM_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionGuard } from "../components/AuthSessionGuard";
 import { BetaBugButton } from "../components/beta-bug-button";
+
+const dmMono = DM_Mono({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
   title: "LEVE",
@@ -15,7 +22,7 @@ export default function RootLayout({
 }>): React.JSX.Element {
   return (
     <html lang="en">
-      <body>
+      <body className={dmMono.variable}>
         <AuthSessionGuard />
         {children}
         <BetaBugButton />

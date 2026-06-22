@@ -444,7 +444,7 @@ export default function BanquePage(): JSX.Element | null {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -495,7 +495,7 @@ export default function BanquePage(): JSX.Element | null {
               background: "transparent",
               color: ROUGE,
               border: `1px solid ${ROUGE}`,
-              borderRadius: "6px",
+              borderRadius: "4px",
               padding: "0.45rem 0.9rem",
               fontSize: "0.8rem",
               cursor: signingOut ? "wait" : "pointer",
@@ -535,12 +535,11 @@ export default function BanquePage(): JSX.Element | null {
 
         <section
           style={{
-            borderRadius: "16px",
+            borderRadius: "4px",
             padding: "1.5rem 1.35rem",
             marginBottom: "1rem",
             background: `linear-gradient(135deg, ${ROUGE} 0%, #8b291f 55%, #5c1a14 100%)`,
             border: "1px solid rgba(245, 240, 232, 0.2)",
-            boxShadow: "0 12px 40px rgba(192, 57, 43, 0.12)",
           }}
         >
           <p
@@ -551,7 +550,7 @@ export default function BanquePage(): JSX.Element | null {
               textTransform: "uppercase",
               fontWeight: 700,
               opacity: 0.85,
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             Solde Banque ($)
           </p>
@@ -560,7 +559,7 @@ export default function BanquePage(): JSX.Element | null {
               margin: "0.35rem 0 0.15rem",
               fontSize: "clamp(2.25rem, 7vw, 3rem)",
               fontWeight: 800,
-              fontFamily: "var(--font-dm), system-ui, sans-serif",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
               letterSpacing: "-0.02em",
               color: GOLD,
             }}
@@ -572,23 +571,23 @@ export default function BanquePage(): JSX.Element | null {
               margin: "0.85rem 0 0.35rem",
               fontSize: "0.78rem",
               opacity: 0.75,
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             Seuil de retrait : {cad.format(MIN_TRANSFER_CAD)}
           </p>
           <div
             style={{
               height: "8px",
-              borderRadius: "999px",
+              borderRadius: "4px",
               background: "rgba(245, 240, 232, 0.12)",
               overflow: "hidden",
-            }}
+              }}
           >
             <div
               style={{
                 height: "100%",
                 width: `${progressPct}%`,
-                borderRadius: "999px",
+                borderRadius: "4px",
                 background: canTransfer ? GOLD : ROUGE,
                 transition: "width 0.35s ease",
               }}
@@ -599,7 +598,7 @@ export default function BanquePage(): JSX.Element | null {
               margin: "0.45rem 0 0",
               fontSize: "0.78rem",
               opacity: 0.7,
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             {canTransfer
               ? "Seuil atteint — transfert disponible"
@@ -609,12 +608,11 @@ export default function BanquePage(): JSX.Element | null {
 
         <section
           style={{
-            borderRadius: "16px",
+            borderRadius: "4px",
             padding: "1.5rem 1.35rem",
             marginBottom: "1.5rem",
             background: `linear-gradient(135deg, ${GOLD} 0%, #a67f12 55%, #7a5e0d 100%)`,
             border: "1px solid rgba(245, 240, 232, 0.25)",
-            boxShadow: "0 12px 40px rgba(212, 160, 23, 0.15)",
             color: BG,
           }}
         >
@@ -635,7 +633,7 @@ export default function BanquePage(): JSX.Element | null {
               margin: "0.35rem 0 0.15rem",
               fontSize: "clamp(2.25rem, 7vw, 3rem)",
               fontWeight: 800,
-              fontFamily: "var(--font-dm), system-ui, sans-serif",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
               letterSpacing: "-0.02em",
             }}
           >
@@ -658,7 +656,7 @@ export default function BanquePage(): JSX.Element | null {
               fontSize: "1.05rem",
               fontWeight: 700,
               opacity: 0.85,
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             {pointsFmt.format(weightedPointsPmq)} pts
           </p>
@@ -668,14 +666,15 @@ export default function BanquePage(): JSX.Element | null {
               fontSize: "0.72rem",
               opacity: 0.65,
               lineHeight: 1.4,
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
             utilisé pour calculer votre part de redistribution
           </p>
         </section>
 
-        <div style={{ marginBottom: "2rem" }}>
+        <div style={{ marginBottom: "2rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           <button
             type="button"
             disabled={!canTransfer}
@@ -684,7 +683,7 @@ export default function BanquePage(): JSX.Element | null {
               width: "100%",
               maxWidth: "420px",
               padding: "0.85rem 1.25rem",
-              borderRadius: "10px",
+              borderRadius: "4px",
               fontWeight: 700,
               fontSize: "0.95rem",
               letterSpacing: "0.04em",
@@ -737,9 +736,8 @@ export default function BanquePage(): JSX.Element | null {
                   width: "100%",
                   background: "#121212",
                   border: "1px solid rgba(245, 240, 232, 0.18)",
-                  borderRadius: "12px",
+                  borderRadius: "4px",
                   padding: "1.35rem 1.5rem",
-                  boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
                 }}
               >
                 <h3
@@ -778,7 +776,7 @@ export default function BanquePage(): JSX.Element | null {
                           justifyContent: "space-between",
                           gap: "1rem",
                           color: ROUGE,
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <span>
                           Frais plateforme{" "}
@@ -797,7 +795,7 @@ export default function BanquePage(): JSX.Element | null {
                           display: "flex",
                           justifyContent: "space-between",
                           gap: "1rem",
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <span style={{ opacity: 0.85 }}>Frais plateforme</span>
                         <span style={{ fontWeight: 700 }}>{cad.format(0)}</span>
@@ -811,7 +809,7 @@ export default function BanquePage(): JSX.Element | null {
                         marginTop: "0.5rem",
                         paddingTop: "0.65rem",
                         borderTop: "1px solid rgba(245, 240, 232, 0.12)",
-                      }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                     >
                       <span style={{ fontWeight: 700 }}>Vous recevrez</span>
                       <span
@@ -855,7 +853,7 @@ export default function BanquePage(): JSX.Element | null {
                     style={{
                       flex: "1 1 140px",
                       padding: "0.75rem 1rem",
-                      borderRadius: "8px",
+                      borderRadius: "4px",
                       fontWeight: 700,
                       fontSize: "0.9rem",
                       border: "none",
@@ -880,7 +878,7 @@ export default function BanquePage(): JSX.Element | null {
                     style={{
                       flex: "1 1 100px",
                       padding: "0.75rem 1rem",
-                      borderRadius: "8px",
+                      borderRadius: "4px",
                       fontWeight: 600,
                       fontSize: "0.9rem",
                       border: "1px solid rgba(245, 240, 232, 0.25)",
@@ -931,7 +929,7 @@ export default function BanquePage(): JSX.Element | null {
                 fontSize: "1rem",
                 lineHeight: 1.55,
                 padding: "1.25rem",
-                borderRadius: "12px",
+                borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.1)",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
@@ -941,7 +939,7 @@ export default function BanquePage(): JSX.Element | null {
           ) : (
             <div
               style={{
-                borderRadius: "12px",
+                borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.1)",
                 overflow: "hidden",
                 background: "rgba(245, 240, 232, 0.03)",

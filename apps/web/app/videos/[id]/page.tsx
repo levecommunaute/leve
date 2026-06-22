@@ -435,7 +435,8 @@ export default function VideoPage(): React.JSX.Element {
           Retour
         </span>
       </nav>
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem" }}>
+      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
         <h1 style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: "2.5rem" }}>{video.title}</h1>
         <div
           style={{
@@ -458,7 +459,8 @@ export default function VideoPage(): React.JSX.Element {
           </span>
           <BonusBadge bonusExpireAt={video.bonus_expire_at} />
         </div>
-        <div style={{ margin: "2rem 0", aspectRatio: "16/9" }}>
+        <div style={{ margin: "2rem 0", aspectRatio: "16/9",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           {verification60Enabled ? (
             <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
           ) : (
@@ -469,7 +471,8 @@ export default function VideoPage(): React.JSX.Element {
             />
           )}
         </div>
-        <div style={{ background: "#111", padding: "2rem" }}>
+        <div style={{ background: "#111", padding: "2rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           <h2
             style={{
               fontFamily: "Bebas Neue,sans-serif",
@@ -542,7 +545,7 @@ export default function VideoPage(): React.JSX.Element {
                 marginTop: "1.5rem",
                 padding: "1rem",
                 background: result.success ? "rgba(46,204,113,.1)" : "rgba(192,57,43,.1)",
-              }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
             >
               {result.success
                 ? `✅ +${result.points_awarded} points`

@@ -25,7 +25,7 @@ export function RankBadge({
     letterSpacing: "0.06em",
     textTransform: "uppercase",
     padding: isSmall ? "0.2rem 0.45rem" : "0.28rem 0.55rem",
-    borderRadius: "999px",
+    borderRadius: "4px",
     whiteSpace: "nowrap",
     verticalAlign: "middle",
     background: colors.background,

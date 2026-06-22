@@ -411,7 +411,7 @@ export default function Home(): JSX.Element {
             fontSize: "0.72rem",
             letterSpacing: "0.06em",
             textTransform: "uppercase",
-          }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
         >
           <span
             style={{
@@ -463,25 +463,26 @@ export default function Home(): JSX.Element {
         className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-24 pt-28 text-center md:pb-28"
       >
         <div
-          className="pointer-events-none absolute inset-0 opacity-90"
-          style={{ animation: "levePulse 12s ease-in-out infinite" }}
+          className="pointer-events-none absolute inset-0 opacity-90 font-mono"
+          style={{ animation: "levePulse 12s ease-in-out infinite",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
         >
           <div
-            className="absolute -left-[20%] top-[10%] h-[42rem] w-[42rem] rounded-full blur-[100px]"
+            className="absolute -left-[20%] top-[10%] h-[42rem] w-[42rem] rounded-full blur-[100px] font-mono"
             style={{
               background: `radial-gradient(circle, ${ROUGE}35 0%, transparent 62%)`,
               animation: "leveHeroGradient 18s ease-in-out infinite",
             }}
           />
           <div
-            className="absolute -right-[15%] bottom-[15%] h-[38rem] w-[38rem] rounded-full blur-[90px]"
+            className="absolute -right-[15%] bottom-[15%] h-[38rem] w-[38rem] rounded-full blur-[90px] font-mono"
             style={{
               background: `radial-gradient(circle, ${GOLD}28 0%, transparent 60%)`,
               animation: "leveHeroGradient 22s ease-in-out infinite reverse",
             }}
           />
           <div
-            className="absolute left-1/2 top-1/2 h-[30rem] w-[50rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px]"
+            className="absolute left-1/2 top-1/2 h-[30rem] w-[50rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px] font-mono"
             style={{
               background: `radial-gradient(ellipse, ${TEXT}06 0%, transparent 58%)`,
             }}
@@ -510,13 +511,13 @@ export default function Home(): JSX.Element {
           >
             Regarde. Trouve. Gagne.
           </p>
-          <p className="max-w-2xl text-base leading-relaxed opacity-[0.82] md:text-lg">
+          <p className="max-w-2xl text-base leading-relaxed opacity-[0.82] md:text-lg font-mono">
             La première plateforme YouTube francophone qui redistribue ses revenus publicitaires à sa
             communauté.
           </p>
           {betaExclusif === "on" ? (
             <div
-              className="flex max-w-md flex-col items-center gap-2 rounded-lg border px-8 py-6 text-center"
+              className="flex max-w-md flex-col items-center gap-2 rounded-md border px-8 py-6 text-center font-mono"
               style={{ borderColor: `${GOLD}55`, background: "rgba(212, 160, 23, 0.06)" }}
             >
               <p className="m-0 text-base leading-relaxed" style={{ color: GOLD, fontWeight: 600 }}>
@@ -525,7 +526,7 @@ export default function Home(): JSX.Element {
             </div>
           ) : betaExclusif === "loading" ? null : showOAuthError ? (
             <div
-              className="flex max-w-md flex-col items-center gap-5 rounded-lg border px-8 py-8 text-center"
+              className="flex max-w-md flex-col items-center gap-5 rounded-md border px-8 py-8 text-center"
               style={{ borderColor: "#3a2020", background: "#120a0a" }}
               role="alert"
             >
@@ -537,13 +538,13 @@ export default function Home(): JSX.Element {
               </RougeButton>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center justify-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-4 font-mono">
               <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
                 Rejoindre
               </RougeButton>
               <RougeButton
                 onClick={() => void signInWithGoogle("connecter")}
-                className="!bg-transparent"
+                className="!bg-transparent font-mono"
                 style={{ border: `2px solid ${ROUGE}` }}
               >
                 Se connecter
@@ -552,7 +553,7 @@ export default function Home(): JSX.Element {
                 href={YOUTUBE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 rounded-sm px-8 py-4 text-[0.95rem] font-semibold tracking-wide uppercase transition hover:bg-white/10 active:brightness-95"
+                className="inline-flex items-center gap-2.5 rounded-sm px-8 py-4 text-[0.95rem] font-semibold tracking-wide uppercase transition hover:bg-white/10 active:brightness-95 font-mono"
                 style={{
                   background: "transparent",
                   color: TEXT,
@@ -568,36 +569,37 @@ export default function Home(): JSX.Element {
           )}
           {fondateurConfig ? (
             <div
-              className="mt-4 w-full max-w-lg rounded-lg border px-6 py-6 text-left"
+              className="mt-4 w-full max-w-lg rounded-md border px-6 py-6 text-left font-mono"
               style={{
                 borderColor: `${GOLD}55`,
                 background: "rgba(212, 160, 23, 0.06)",
-              }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
             >
               <p
-                className="mb-4 text-center text-sm tracking-[0.2em] uppercase md:text-base"
+                className="mb-4 text-center text-sm tracking-[0.2em] uppercase md:text-base font-mono"
                 style={{ color: GOLD, fontWeight: 600 }}
               >
                 Statut Fondateur — Les {formatAbonnes(fondateurConfig.membres_max)} premiers
               </p>
               <div
-                className="mb-3 flex items-baseline justify-between gap-4"
-                style={{ fontFamily: "var(--font-bebas), Impact, sans-serif" }}
+                className="mb-3 flex items-baseline justify-between gap-4 font-mono"
+                style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
               >
-                <span className="text-3xl tracking-wide md:text-4xl" style={{ color: GOLD }}>
+                <span className="text-3xl tracking-wide md:text-4xl font-mono" style={{ color: GOLD }}>
                   {formatAbonnes(membresActuels)}
                 </span>
-                <span className="text-lg opacity-60 md:text-xl">
+                <span className="text-lg opacity-60 md:text-xl font-mono">
                   / {formatAbonnes(fondateurConfig.membres_max)}
                 </span>
               </div>
               <div
                 aria-hidden
-                className="mb-3 h-2.5 overflow-hidden rounded-full"
-                style={{ background: "rgba(245, 240, 232, 0.1)" }}
+                className="mb-3 h-2.5 overflow-hidden rounded-md"
+                style={{ background: "rgba(245, 240, 232, 0.1)",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <div
-                  className="h-full rounded-full transition-all duration-500"
+                  className="h-full rounded-md transition-all duration-500"
                   style={{
                     width: `${fondateurPct}%`,
                     background: `linear-gradient(90deg, ${GOLD} 0%, #E8C547 100%)`,
@@ -605,8 +607,9 @@ export default function Home(): JSX.Element {
                 />
               </div>
               <p
-                className="mb-3 flex items-center justify-center gap-1.5 text-center text-sm md:text-base"
-                style={{ opacity: 0.88 }}
+                className="mb-3 flex items-center justify-center gap-1.5 text-center text-sm md:text-base font-mono"
+                style={{ opacity: 0.88,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <span aria-hidden style={{ color: YOUTUBE_RED }}>
                   🔴
@@ -644,7 +647,7 @@ export default function Home(): JSX.Element {
             {steps.map((s) => (
               <div
                 key={s.title}
-                className="flex flex-col items-center rounded-lg border px-8 py-10 text-center backdrop-blur-sm"
+                className="flex flex-col items-center rounded-md border px-8 py-10 text-center backdrop-blur-sm"
                 style={{ borderColor: "#262626", background: "#0c0c0c" }}
               >
                 <span className="mb-6 text-4xl">{s.icon}</span>
@@ -671,7 +674,7 @@ export default function Home(): JSX.Element {
             {memberCards.map((m) => (
               <article
                 key={m.title}
-                className="flex flex-col rounded-lg border p-7"
+                className="flex flex-col rounded-md border p-7"
                 style={{ borderColor: "#2a2a2a", background: "#0d0d0d" }}
               >
                 <div className="mb-4 flex items-center justify-between gap-2">
@@ -715,12 +718,11 @@ export default function Home(): JSX.Element {
 
           <div
             className="mb-10 flex h-14 w-full overflow-hidden rounded-md md:h-16"
-            style={{ boxShadow: "inset 0 0 0 1px #2a2a2a" }}
           >
             {pools.map((p) => (
               <div
                 key={p.label}
-                className="flex min-w-0 flex-1 items-center justify-center border-r border-black/30 text-xs font-bold text-white last:border-r-0 md:text-sm"
+                className="flex min-w-0 flex-1 items-center justify-center border-r border-black/30 text-xs font-bold text-white last:border-r-0 md:text-sm font-mono"
                 style={{
                   flexBasis: `${p.pct}%`,
                   background: p.color,

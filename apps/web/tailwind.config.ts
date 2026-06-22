@@ -16,6 +16,9 @@ const config = {
         g4: "#222222",
         b: "#F5F0E8",
       },
+      fontFamily: {
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
       borderRadius: {
         DEFAULT: "2px",
         sm: "1px",

@@ -42,12 +42,12 @@ export default function ConnecterPage(): JSX.Element {
         style={{
           maxWidth: "28rem",
           width: "100%",
-          borderRadius: "12px",
+          borderRadius: "4px",
           border: "1px solid rgba(245, 240, 232, 0.15)",
           background: "#0d0d0d",
           padding: "2rem 1.75rem",
           textAlign: "center",
-        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
       >
         <h1
           style={{
@@ -71,7 +71,7 @@ export default function ConnecterPage(): JSX.Element {
             display: "inline-block",
             marginBottom: "1rem",
             padding: "0.85rem 1.5rem",
-            borderRadius: "6px",
+            borderRadius: "4px",
             background: ROUGE,
             color: TEXT,
             fontWeight: 600,
@@ -88,7 +88,7 @@ export default function ConnecterPage(): JSX.Element {
             display: "inline-block",
             padding: "0.65rem 1.25rem",
             border: `1px solid rgba(245, 240, 232, 0.25)`,
-            borderRadius: "6px",
+            borderRadius: "4px",
             color: TEXT,
             textDecoration: "none",
             fontSize: "0.9rem",

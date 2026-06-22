@@ -315,17 +315,13 @@ function PodiumCard({
         alignItems: "center",
         justifyContent: "flex-end",
         padding: "1rem 0.65rem 1.15rem",
-        borderRadius: "14px",
+        borderRadius: "4px",
         background: `linear-gradient(180deg, ${accent}22 0%, rgba(8,8,8,0.95) 55%, rgba(8,8,8,0.98) 100%)`,
         border: `2px solid ${accent}`,
-        boxShadow:
-          place === 1
-            ? `0 0 32px ${accent}44, 0 12px 28px rgba(0,0,0,0.45)`
-            : `0 8px 24px rgba(0,0,0,0.35)`,
         position: "relative",
         outline: isCurrentUser ? `2px solid rgba(212,160,23,0.45)` : "none",
         outlineOffset: 2,
-      }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
     >
       <div
         style={{
@@ -344,7 +340,6 @@ function PodiumCard({
           alignItems: "center",
           justifyContent: "center",
           letterSpacing: "0.06em",
-          boxShadow: `0 4px 12px ${accent}66`,
         }}
       >
         {place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}
@@ -380,7 +375,7 @@ function PodiumCard({
           letterSpacing: "0.1em",
           textTransform: "uppercase",
           padding: "0.25rem 0.5rem",
-          borderRadius: "999px",
+          borderRadius: "4px",
           marginBottom: "0.35rem",
           ...badge,
         }}
@@ -403,11 +398,12 @@ function PodiumCard({
           fontSize: place === 1 ? "1.5rem" : "1.2rem",
           fontWeight: 800,
           color: accent,
-        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
       >
         {pointsFmt.format(row.total_pts_ponderes)}
       </p>
-      <p style={{ margin: "0.15rem 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+      <p style={{ margin: "0.15rem 0 0", fontSize: "0.7rem", opacity: 0.55,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
         pts pondérés
       </p>
     </div>
@@ -419,14 +415,13 @@ function comingSoonSection(title: string): JSX.Element {
     <section
       aria-live="polite"
       style={{
-        borderRadius: "16px",
+        borderRadius: "4px",
         padding: "3rem 1.75rem",
         textAlign: "center",
         marginTop: "2rem",
         background:
           "linear-gradient(180deg, rgba(212, 160, 23, 0.07) 0%, rgba(8, 8, 8, 0.95) 55%)",
         border: "1px solid rgba(212, 160, 23, 0.22)",
-        boxShadow: "0 0 0 1px rgba(245, 240, 232, 0.04) inset",
       }}
     >
       <p
@@ -748,7 +743,7 @@ export default function ClassementPage(): JSX.Element | null {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -799,7 +794,7 @@ export default function ClassementPage(): JSX.Element | null {
               background: "transparent",
               color: ROUGE,
               border: `1px solid ${ROUGE}`,
-              borderRadius: "6px",
+              borderRadius: "4px",
               padding: "0.45rem 0.9rem",
               fontSize: "0.8rem",
               cursor: signingOut ? "wait" : "pointer",
@@ -879,7 +874,7 @@ export default function ClassementPage(): JSX.Element | null {
               marginTop: "1.75rem",
               marginBottom: "2rem",
               padding: "1.5rem 0.75rem 1.75rem",
-              borderRadius: "18px",
+              borderRadius: "4px",
               background:
                 "linear-gradient(160deg, rgba(212,160,23,0.08) 0%, rgba(8,8,8,0.6) 40%, rgba(192,57,43,0.06) 100%)",
               border: "1px solid rgba(245, 240, 232, 0.1)",
@@ -953,7 +948,7 @@ export default function ClassementPage(): JSX.Element | null {
             </h2>
             <div
               style={{
-                borderRadius: "12px",
+                borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.1)",
                 overflow: "hidden",
                 background: "rgba(245, 240, 232, 0.03)",
@@ -1024,9 +1019,6 @@ export default function ClassementPage(): JSX.Element | null {
                             background: isMe
                               ? "linear-gradient(90deg, rgba(212,160,23,0.12) 0%, rgba(212,160,23,0.04) 100%)"
                               : undefined,
-                            boxShadow: isMe
-                              ? "inset 3px 0 0 0 rgba(212, 160, 23, 0.65)"
-                              : undefined,
                           }}
                         >
                           <td
@@ -1084,7 +1076,7 @@ export default function ClassementPage(): JSX.Element | null {
                                 letterSpacing: "0.08em",
                                 textTransform: "uppercase",
                                 padding: "0.22rem 0.45rem",
-                                borderRadius: "999px",
+                                borderRadius: "4px",
                                 ...badge,
                               }}
                             >

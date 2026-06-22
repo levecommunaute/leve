@@ -259,7 +259,8 @@ export default function VideoQuizPage(): React.JSX.Element {
             LEVE
           </span>
           <span
-            style={{ opacity: 0.5, cursor: "pointer" }}
+            style={{ opacity: 0.5, cursor: "pointer",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
             onClick={() => router.push(`/videos/${videoId}`)}
           >
             Retour
@@ -303,7 +304,8 @@ export default function VideoQuizPage(): React.JSX.Element {
           LEVE
         </span>
         <span
-          style={{ opacity: 0.5, cursor: "pointer" }}
+          style={{ opacity: 0.5, cursor: "pointer",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           onClick={() => router.push(`/videos/${videoId}`)}
         >
           Retour
@@ -429,7 +431,7 @@ export default function VideoQuizPage(): React.JSX.Element {
               background: result?.error
                 ? "rgba(192,57,43,.1)"
                 : "rgba(46,204,113,.1)",
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             {submitting ? (
               <p>Enregistrement...</p>
