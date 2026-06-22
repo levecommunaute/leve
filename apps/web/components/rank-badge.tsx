@@ -24,6 +24,7 @@ export function RankBadge({
     fontWeight: 600,
     letterSpacing: "0.06em",
     textTransform: "uppercase",
+    fontFamily: "var(--font-mono), ui-monospace, monospace",
     padding: isSmall ? "0.2rem 0.45rem" : "0.28rem 0.55rem",
     borderRadius: "4px",
     whiteSpace: "nowrap",

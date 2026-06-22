@@ -20,9 +20,9 @@ function formatRemainingMs(ms: number): string {
 
 const badgeStyle = {
   display: "inline-block",
-  background: "rgba(212, 160, 23, 0.15)",
+  background: "rgba(212, 160, 23, 0.08)",
   color: "#D4A017",
-  border: "1px solid rgba(212, 160, 23, 0.4)",
+  border: "1px solid #D4A017",
   padding: "2px 8px",
   borderRadius: "4px",
   fontSize: "0.75rem",

@@ -25,8 +25,10 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
-const SILVER = "#C8C8C8";
-const BRONZE = "#B87333";
+const G2 = "#141414";
+const G3 = "#1A1A1A";
+const SILVER = "#C0C0C0";
+const BRONZE = "#CD7F32";
 const VIOLET_BADGE = "#8E44AD";
 const GRIS_COMM = "#6B6B6B";
 const SB = "https://lrolatbudvianeazliax.supabase.co";
@@ -165,14 +167,9 @@ function memberTypeBadgeStyle(label: string): {
 } {
   switch (label) {
     case "Pionnier":
-      return {
-        background: "rgba(192, 57, 43, 0.2)",
-        color: ROUGE,
-        border: `1px solid ${ROUGE}`,
-      };
     case "Fondateur":
       return {
-        background: "rgba(212, 160, 23, 0.18)",
+        background: "rgba(212, 160, 23, 0.08)",
         color: GOLD,
         border: `1px solid ${GOLD}`,
       };
@@ -184,9 +181,9 @@ function memberTypeBadgeStyle(label: string): {
       };
     default:
       return {
-        background: "rgba(107, 107, 107, 0.25)",
-        color: "rgba(245, 240, 232, 0.85)",
-        border: `1px solid ${GRIS_COMM}`,
+        background: "rgba(255, 255, 255, 0.04)",
+        color: GRIS_COMM,
+        border: "1px solid rgba(255, 255, 255, 0.15)",
       };
   }
 }
@@ -747,6 +744,26 @@ export default function ClassementPage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .leve-classement-table tbody tr {
+              background: ${G2};
+              transition: background 0.15s ease;
+            }
+            .leve-classement-table tbody tr:hover {
+              background: ${G3};
+            }
+            .leve-classement-table tbody tr.leve-classement-me {
+              background: rgba(212, 160, 23, 0.06);
+              border-left: 2px solid ${GOLD};
+            }
+            .leve-classement-table tbody tr.leve-classement-me:hover {
+              background: rgba(212, 160, 23, 0.08);
+            }
+          `,
+        }}
+      />
       <header
         style={{
           display: "flex",
@@ -956,6 +973,7 @@ export default function ClassementPage(): JSX.Element | null {
             >
               <div style={{ overflowX: "auto" }}>
                 <table
+                  className="leve-classement-table"
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
@@ -1014,11 +1032,9 @@ export default function ClassementPage(): JSX.Element | null {
                       return (
                         <tr
                           key={row.membre_id}
+                          className={isMe ? "leve-classement-me" : undefined}
                           style={{
                             borderBottom: "1px solid rgba(245, 240, 232, 0.06)",
-                            background: isMe
-                              ? "linear-gradient(90deg, rgba(212,160,23,0.12) 0%, rgba(212,160,23,0.04) 100%)"
-                              : undefined,
                           }}
                         >
                           <td
@@ -1100,6 +1116,7 @@ export default function ClassementPage(): JSX.Element | null {
                               fontWeight: 700,
                               color: GOLD,
                               whiteSpace: "nowrap",
+                              fontFamily: "var(--font-mono), ui-monospace, monospace",
                             }}
                           >
                             {pointsFmt.format(row.total_pts_ponderes)}

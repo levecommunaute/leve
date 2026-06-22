@@ -64,6 +64,32 @@ function displayNameFrom(profile: ProfileRow | null, session: Session): string {
   return displayName || fullName || session.user.email?.split("@")[0] || "Membre";
 }
 
+function avatarInitials(displayName: string): string {
+  const cleaned = displayName.trim().replace(/\s+/g, "");
+  return (cleaned.slice(0, 2) || "ME").toUpperCase();
+}
+
+function memberTypeBadgeStyle(label: string): {
+  background: string;
+  color: string;
+  border: string;
+  fontFamily?: string;
+} {
+  if (label === "Fondateur" || label === "Pionnier") {
+    return {
+      background: "rgba(212, 160, 23, 0.08)",
+      color: GOLD,
+      border: `1px solid ${GOLD}`,
+      fontFamily: "var(--font-mono), ui-monospace, monospace",
+    };
+  }
+  return {
+    background: "rgba(255, 255, 255, 0.04)",
+    color: "#888888",
+    border: "1px solid rgba(255, 255, 255, 0.15)",
+  };
+}
+
 async function fetchRestJson(url: string, token: string): Promise<unknown> {
   const res = await fetch(url, {
     headers: { apikey: KEY, Authorization: `Bearer ${token}` },
@@ -192,6 +218,8 @@ export default function ProfilPage(): JSX.Element | null {
 
   const name = displayNameFrom(profile, session);
   const memberLabel = formatMemberTypeLabel(profile?.member_type ?? null);
+  const memberBadge = memberTypeBadgeStyle(memberLabel);
+  const initials = avatarInitials(name);
   const mult = Number(profile?.multiplier ?? 1);
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
@@ -258,14 +286,38 @@ export default function ProfilPage(): JSX.Element | null {
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>{loadError}</p> : null}
 
-        <section style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-          <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}</p>
-          <h1 style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0.75rem", lineHeight: 1.05, color: TEXT, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
-            <span>{name}</span>
-            <RankBadge ptsPonderes={weightedPointsPmq} memberType={profile?.member_type} size="md" />
-          </h1>
-          <span style={{ display: "inline-block", background: ROUGE, color: TEXT, fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0.35rem 0.75rem", borderRadius: "4px" }}>{memberLabel}</span>
+        <section style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "#141414", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
+            <div
+              aria-hidden
+              style={{
+                flexShrink: 0,
+                width: "3.25rem",
+                height: "3.25rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#141414",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "4px",
+                color: GOLD,
+                fontFamily: "var(--font-mono), ui-monospace, monospace",
+                fontSize: "1rem",
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+              }}
+            >
+              {initials}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}</p>
+              <h1 style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0", lineHeight: 1.05, color: TEXT, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
+                <span>{name}</span>
+                <RankBadge ptsPonderes={weightedPointsPmq} memberType={profile?.member_type} size="md" />
+              </h1>
+            </div>
+          </div>
+          <span style={{ display: "inline-block", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0.35rem 0.75rem", borderRadius: "4px", ...memberBadge }}>{memberLabel}</span>
           {profile?.is_beta_tester ? (
             <div>
               <span style={{ display: "inline-block", marginTop: "0.6rem", background: "rgba(212, 160, 23, 0.14)", color: GOLD, fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.04em", padding: "0.3rem 0.65rem", borderRadius: "4px", border: "1px solid rgba(212, 160, 23, 0.35)" }}>

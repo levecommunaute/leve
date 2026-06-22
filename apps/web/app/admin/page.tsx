@@ -19,6 +19,8 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const G2 = "#141414";
+const G3 = "#1A1A1A";
 
 const STORAGE_KEY = "leve_admin_secret";
 
@@ -993,8 +995,8 @@ function betaBugStatutLabel(statut: string): string {
 
 function cardStyle() {
   return {
-    background: "rgba(245, 240, 232, 0.03)",
-    border: "1px solid rgba(245, 240, 232, 0.1)",
+    background: G2,
+    border: "1px solid rgba(255, 255, 255, 0.04)",
     borderRadius: "4px",
     padding: "1.5rem",
     marginBottom: "1.75rem",
@@ -3055,7 +3057,7 @@ export default function AdminPage(): JSX.Element {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-admin-root`}
       style={{
         minHeight: "100vh",
         background: BG,
@@ -3064,6 +3066,27 @@ export default function AdminPage(): JSX.Element {
         paddingBottom: "4rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .leve-admin-root input:not([type="checkbox"]):not([type="radio"]):focus,
+            .leve-admin-root select:focus,
+            .leve-admin-root textarea:focus {
+              outline: none;
+              border-color: ${GOLD} !important;
+            }
+            .leve-admin-table tbody tr:nth-child(odd) {
+              background: ${G2};
+            }
+            .leve-admin-table tbody tr:nth-child(even) {
+              background: ${G3};
+            }
+            .leve-admin-table tbody tr:hover {
+              background: ${G3};
+            }
+          `,
+        }}
+      />
       <header
         style={{
           display: "flex",
@@ -3110,11 +3133,8 @@ export default function AdminPage(): JSX.Element {
             type="button"
             onClick={handleLogout}
             style={{
-              background: "transparent",
-              color: TEXT,
-              border: `1px solid rgba(192, 57, 43, 0.55)`,
+              ...btnOutline,
               padding: "0.45rem 1rem",
-              cursor: "pointer",
               fontSize: "0.8rem",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -3186,9 +3206,9 @@ export default function AdminPage(): JSX.Element {
                 disabled={loginLoading || !secretInput.trim()}
                 style={{
                   width: "100%",
-                  background: ROUGE,
-                  color: TEXT,
-                  border: "none",
+                  background: GOLD,
+                  color: "#000000",
+                  border: `1px solid ${GOLD}`,
                   padding: "0.95rem",
                   cursor: loginLoading || !secretInput.trim() ? "not-allowed" : "pointer",
                   opacity: loginLoading || !secretInput.trim() ? 0.55 : 1,
@@ -3314,9 +3334,9 @@ export default function AdminPage(): JSX.Element {
                       type="button"
                       onClick={() => setCodeModifyStep(2)}
                       style={{
-                        background: ROUGE,
-                        color: TEXT,
-                        border: "none",
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         padding: "0.5rem 1rem",
                         cursor: "pointer",
                         fontSize: "0.78rem",
@@ -3335,9 +3355,9 @@ export default function AdminPage(): JSX.Element {
                       }
                       onClick={() => handleCodeModifyConfirmKeyStep()}
                       style={{
-                        background: ROUGE,
-                        color: TEXT,
-                        border: "none",
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         padding: "0.5rem 1rem",
                         cursor:
                           codeLoadingId === codeModifyConfirmVideoId || !codeModifyReentryKey.trim()
@@ -3405,9 +3425,9 @@ export default function AdminPage(): JSX.Element {
                     type="button"
                     onClick={() => void copyStandaloneCode()}
                     style={{
-                      background: ROUGE,
-                      color: TEXT,
-                      border: "none",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       padding: "0.5rem 0.95rem",
                       cursor: "pointer",
                       fontSize: "0.72rem",
@@ -3437,7 +3457,7 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                <table
+                <table className="leve-admin-table"
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
@@ -3743,9 +3763,9 @@ export default function AdminPage(): JSX.Element {
                   type="submit"
                   disabled={addVideoLoading}
                   style={{
-                    background: ROUGE,
-                    color: TEXT,
-                    border: "none",
+                    background: GOLD,
+                    color: "#000000",
+                    border: `1px solid ${GOLD}`,
                     padding: "0.75rem 1.25rem",
                     cursor: addVideoLoading ? "wait" : "pointer",
                     letterSpacing: "0.12em",
@@ -3796,7 +3816,7 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                <table
+                <table className="leve-admin-table"
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
@@ -3941,9 +3961,9 @@ export default function AdminPage(): JSX.Element {
                     type="submit"
                     disabled={quizAddLoading || !quizVideoId}
                     style={{
-                      background: ROUGE,
-                      color: TEXT,
-                      border: "none",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       padding: "0.75rem 1.25rem",
                       cursor: quizAddLoading || !quizVideoId ? "not-allowed" : "pointer",
                       letterSpacing: "0.12em",
@@ -3995,9 +4015,9 @@ export default function AdminPage(): JSX.Element {
                   type="submit"
                   disabled={redistLoading}
                   style={{
-                    background: `linear-gradient(135deg, ${ROUGE}, #9b2f24)`,
-                    color: TEXT,
-                    border: "none",
+                    background: GOLD,
+                    color: "#000000",
+                    border: `1px solid ${GOLD}`,
                     padding: "0.85rem 1.5rem",
                     cursor: redistLoading ? "wait" : "pointer",
                     letterSpacing: "0.14em",
@@ -4110,7 +4130,7 @@ export default function AdminPage(): JSX.Element {
                 </div>
                 <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Pays / zone", "Membres", "%"].map((h) => (
@@ -4275,7 +4295,7 @@ export default function AdminPage(): JSX.Element {
                 {poolSeries.length > 0 ? (
                   <div style={{ overflowX: "auto", marginTop: "1.25rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                       <thead>
                         <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                           {[
@@ -4526,7 +4546,7 @@ export default function AdminPage(): JSX.Element {
                 ) : null}
                 <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {[
@@ -4595,7 +4615,7 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
                     <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                       {[
@@ -4733,7 +4753,7 @@ export default function AdminPage(): JSX.Element {
               <>
                 <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Palier", "Min ($)", "Max ($)", "%", "Actif", ""].map((h, i) => (
@@ -4850,10 +4870,9 @@ export default function AdminPage(): JSX.Element {
                       style={{
                         padding: "0.65rem 1.35rem",
                         borderRadius: "4px",
-                        border: "none",
-                        background: ROUGE,
-                        color: TEXT,
-                        fontWeight: 600,
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         fontSize: "0.78rem",
@@ -4897,7 +4916,7 @@ export default function AdminPage(): JSX.Element {
               <>
                 <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Réseau", "Abonnés", "Actif", ""].map((h, i) => (
@@ -4975,10 +4994,9 @@ export default function AdminPage(): JSX.Element {
                     style={{
                       padding: "0.65rem 1.35rem",
                       borderRadius: "4px",
-                      border: "none",
-                      background: ROUGE,
-                      color: TEXT,
-                      fontWeight: 600,
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       fontSize: "0.78rem",
@@ -5116,10 +5134,9 @@ export default function AdminPage(): JSX.Element {
                     style={{
                       padding: "0.65rem 1.35rem",
                       borderRadius: "4px",
-                      border: "none",
-                      background: ROUGE,
-                      color: TEXT,
-                      fontWeight: 600,
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       fontSize: "0.78rem",
@@ -5275,10 +5292,9 @@ export default function AdminPage(): JSX.Element {
                     style={{
                       padding: "0.65rem 1.35rem",
                       borderRadius: "4px",
-                      border: "none",
-                      background: ROUGE,
-                      color: TEXT,
-                      fontWeight: 600,
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       fontSize: "0.78rem",
@@ -5439,7 +5455,7 @@ export default function AdminPage(): JSX.Element {
               ) : (
                 <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Siège", "Nom", "Catégorie", "Actions", "Pourcentage", "Rôle", "Actif", ""].map((h, i) => (
@@ -5564,9 +5580,9 @@ export default function AdminPage(): JSX.Element {
                                     disabled={!dirty || busy}
                                     onClick={() => void saveActionnaire(a)}
                                     style={{
-                                      background: dirty ? ROUGE : "rgba(245, 240, 232, 0.06)",
-                                      color: TEXT,
-                                      border: `1px solid ${dirty ? ROUGE : "rgba(245, 240, 232, 0.12)"}`,
+                                      background: dirty ? GOLD : "rgba(245, 240, 232, 0.06)",
+                                      color: dirty ? "#000000" : TEXT,
+                                      border: `1px solid ${dirty ? GOLD : "rgba(245, 240, 232, 0.12)"}`,
                                       padding: "0.45rem 0.55rem",
                                       cursor: !dirty || busy ? "not-allowed" : "pointer",
                                       fontSize: "0.68rem",
@@ -5761,10 +5777,9 @@ export default function AdminPage(): JSX.Element {
                       style={{
                         padding: "0.65rem 1.35rem",
                         borderRadius: "4px",
-                        border: "none",
-                        background: ROUGE,
-                        color: TEXT,
-                        fontWeight: 600,
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         fontSize: "0.78rem",
@@ -5889,10 +5904,9 @@ export default function AdminPage(): JSX.Element {
                   style={{
                     padding: "0.65rem 1.35rem",
                     borderRadius: "4px",
-                    border: "none",
-                    background: ROUGE,
-                    color: TEXT,
-                    fontWeight: 600,
+                    background: GOLD,
+                    color: "#000000",
+                    border: `1px solid ${GOLD}`,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                     fontSize: "0.78rem",
@@ -6050,7 +6064,7 @@ export default function AdminPage(): JSX.Element {
                         <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", opacity: 0.65 }}>
                           Aperçu de la distribution :
                         </p>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                        <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                           <thead>
                             <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                               {["Actionnaire", "Pourcentage", "Montant"].map((h) => (
@@ -6093,10 +6107,9 @@ export default function AdminPage(): JSX.Element {
                       style={{
                         padding: "0.65rem 1.35rem",
                         borderRadius: "4px",
-                        border: "none",
-                        background: ROUGE,
-                        color: TEXT,
-                        fontWeight: 600,
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         fontSize: "0.78rem",
@@ -6171,7 +6184,7 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
                     <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                       {["Id", "Nom", "Courriel", "Type", "Mult.", "N° membre", ""].map((h, i) => (
@@ -6295,9 +6308,9 @@ export default function AdminPage(): JSX.Element {
                                     disabled={!dirty || savingMemberId === m.id}
                                     onClick={() => void saveMember(m.id)}
                                     style={{
-                                      background: dirty ? ROUGE : "rgba(245, 240, 232, 0.06)",
-                                      color: TEXT,
-                                      border: `1px solid ${dirty ? ROUGE : "rgba(245, 240, 232, 0.12)"}`,
+                                      background: dirty ? GOLD : "rgba(245, 240, 232, 0.06)",
+                                      color: dirty ? "#000000" : TEXT,
+                                      border: `1px solid ${dirty ? GOLD : "rgba(245, 240, 232, 0.12)"}`,
                                       padding: "0.45rem 0.55rem",
                                       cursor: !dirty || savingMemberId === m.id ? "not-allowed" : "pointer",
                                       fontSize: "0.68rem",
@@ -6438,7 +6451,7 @@ export default function AdminPage(): JSX.Element {
                     </div>
                     <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                      <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                         <thead>
                           <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                             {["N° membre", "Nom", "Courriel", "Temps total", "Points Beta", "Dernière activité", "Statut"].map(
@@ -6656,9 +6669,9 @@ export default function AdminPage(): JSX.Element {
                     padding: "0.65rem 1.25rem",
                     borderRadius: "4px",
                     background: GOLD,
-                    color: BG,
+                    color: "#000000",
                     fontWeight: 600,
-                    border: "none",
+                    border: `1px solid ${GOLD}`,
                     cursor: betaEmailAdding ? "wait" : "pointer",
                     opacity: betaEmailAdding ? 0.7 : 1,
                     fontSize: "0.9rem",
@@ -6673,7 +6686,7 @@ export default function AdminPage(): JSX.Element {
               ) : (
                 <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Email", "Nom", "Statut", "Actions"].map((h) => (
@@ -6818,7 +6831,7 @@ export default function AdminPage(): JSX.Element {
                     </div>
                     <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                      <table
+                      <table className="leve-admin-table"
                         style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}
                       >
                         <thead>
@@ -6948,9 +6961,27 @@ const inputBase = {
   width: "100%",
   boxSizing: "border-box",
   padding: "0.65rem 0.75rem",
-  background: "rgba(245, 240, 232, 0.05)",
-  border: "1px solid rgba(245, 240, 232, 0.12)",
+  background: G3,
+  border: "1px solid rgba(255, 255, 255, 0.08)",
   borderRadius: "4px",
   color: TEXT,
   fontSize: "0.9rem",
+} as const;
+
+const btnFill = {
+  background: GOLD,
+  color: "#000000",
+  border: `1px solid ${GOLD}`,
+  borderRadius: "4px",
+  fontWeight: 600,
+  cursor: "pointer",
+} as const;
+
+const btnOutline = {
+  background: "transparent",
+  color: GOLD,
+  border: `1px solid ${GOLD}`,
+  borderRadius: "4px",
+  fontWeight: 600,
+  cursor: "pointer",
 } as const;
