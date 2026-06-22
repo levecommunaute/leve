@@ -25,6 +25,16 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const G2 = "#141414";
+
+function currentMonthDate(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function formatPmqPtValue(v: number): string {
+  return `~$${v.toFixed(4)}/pt · Mois en cours`;
+}
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
@@ -139,6 +149,7 @@ export default function BanquePage(): JSX.Element | null {
   const [profileMultiplier, setProfileMultiplier] = useState(1);
   const [soldeDollars, setSoldeDollars] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [pmqValuePerPoint, setPmqValuePerPoint] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -159,7 +170,7 @@ export default function BanquePage(): JSX.Element | null {
     const uid = activeSession.user.id;
     const sb = createAuthedSupabase(activeSession.access_token);
 
-    const [profileRes, banqueRes, sumRes, pointsListRes, mouvementsRes] =
+    const [profileRes, banqueRes, sumRes, pointsListRes, mouvementsRes, redistRes] =
       await Promise.all([
         sb
           .from("profiles")
@@ -189,6 +200,11 @@ export default function BanquePage(): JSX.Element | null {
           .eq("membre_id", uid)
           .order("created_at", { ascending: false })
           .limit(20),
+        sb
+          .from("redistribution_history")
+          .select("value_per_point")
+          .eq("month", currentMonthDate())
+          .maybeSingle(),
       ]);
 
     const errMsg =
@@ -202,6 +218,16 @@ export default function BanquePage(): JSX.Element | null {
       return;
     }
     setLoadError(errMsg);
+
+    if (redistRes.error) {
+      setPmqValuePerPoint(null);
+    } else {
+      const raw = (redistRes.data as { value_per_point?: unknown } | null)
+        ?.value_per_point;
+      const n =
+        raw != null && raw !== "" ? Number(raw) : Number.NaN;
+      setPmqValuePerPoint(Number.isFinite(n) ? n : null);
+    }
 
     if (!profileRes.error) {
       const prof = (profileRes.data ?? null) as ProfileRow | null;
@@ -611,9 +637,12 @@ export default function BanquePage(): JSX.Element | null {
             borderRadius: "4px",
             padding: "1.5rem 1.35rem",
             marginBottom: "1.5rem",
-            background: `linear-gradient(135deg, ${GOLD} 0%, #a67f12 55%, #7a5e0d 100%)`,
-            border: "1px solid rgba(245, 240, 232, 0.25)",
-            color: BG,
+            background: G2,
+            borderTop: `2px solid ${GOLD}`,
+            borderRight: "1px solid rgba(245, 240, 232, 0.1)",
+            borderBottom: "1px solid rgba(245, 240, 232, 0.1)",
+            borderLeft: "1px solid rgba(245, 240, 232, 0.1)",
+            color: TEXT,
           }}
         >
           <p
@@ -624,6 +653,7 @@ export default function BanquePage(): JSX.Element | null {
               textTransform: "uppercase",
               fontWeight: 700,
               opacity: 0.85,
+              color: GOLD,
             }}
           >
             Points PMQ
@@ -635,6 +665,7 @@ export default function BanquePage(): JSX.Element | null {
               fontWeight: 800,
               fontFamily: "var(--font-mono), ui-monospace, monospace",
               letterSpacing: "-0.02em",
+              color: TEXT,
             }}
           >
             {pointsFmt.format(totalPoints)} pts
@@ -642,6 +673,20 @@ export default function BanquePage(): JSX.Element | null {
           <p
             style={{
               margin: "0.55rem 0 0",
+              fontSize: "0.78rem",
+              letterSpacing: "0.04em",
+              opacity: 0.75,
+              lineHeight: 1.4,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
+          >
+            {pmqValuePerPoint != null
+              ? formatPmqPtValue(pmqValuePerPoint)
+              : "(Revenus × 45%) ÷ Total pts · Variable mensuel"}
+          </p>
+          <p
+            style={{
+              margin: "0.68rem 0 0",
               fontSize: "0.68rem",
               letterSpacing: "0.06em",
               textTransform: "uppercase",
@@ -656,7 +701,8 @@ export default function BanquePage(): JSX.Element | null {
               fontSize: "1.05rem",
               fontWeight: 700,
               opacity: 0.85,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
           >
             {pointsFmt.format(weightedPointsPmq)} pts
           </p>
@@ -666,7 +712,8 @@ export default function BanquePage(): JSX.Element | null {
               fontSize: "0.72rem",
               opacity: 0.65,
               lineHeight: 1.4,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
           >
             Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
             utilisé pour calculer votre part de redistribution
