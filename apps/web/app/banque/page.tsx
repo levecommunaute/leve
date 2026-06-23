@@ -564,8 +564,9 @@ export default function BanquePage(): JSX.Element | null {
             borderRadius: "4px",
             padding: "1.5rem 1.35rem",
             marginBottom: "1rem",
-            background: `linear-gradient(135deg, ${ROUGE} 0%, #8b291f 55%, #5c1a14 100%)`,
-            border: "1px solid rgba(245, 240, 232, 0.2)",
+            background: "#141414",
+            borderTop: "2px solid #D4A017",
+            border: "1px solid rgba(245, 240, 232, 0.06)",
           }}
         >
           <p
@@ -575,7 +576,7 @@ export default function BanquePage(): JSX.Element | null {
               letterSpacing: "0.14em",
               textTransform: "uppercase",
               fontWeight: 700,
-              opacity: 0.85,
+              opacity: 0.3,
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             Solde Banque ($)
@@ -665,7 +666,7 @@ export default function BanquePage(): JSX.Element | null {
               fontWeight: 800,
               fontFamily: "var(--font-mono), ui-monospace, monospace",
               letterSpacing: "-0.02em",
-              color: TEXT,
+              color: GOLD,
             }}
           >
             {pointsFmt.format(totalPoints)} pts
@@ -734,9 +735,11 @@ export default function BanquePage(): JSX.Element | null {
               fontWeight: 700,
               fontSize: "0.95rem",
               letterSpacing: "0.04em",
-              border: `2px solid ${canTransfer ? ROUGE : "rgba(245, 240, 232, 0.2)"}`,
-              background: canTransfer ? ROUGE : "rgba(245, 240, 232, 0.06)",
-              color: canTransfer ? TEXT : "rgba(245, 240, 232, 0.45)",
+              border: canTransfer
+                ? "1px solid rgba(212, 160, 23, 0.4)"
+                : "2px solid rgba(245, 240, 232, 0.2)",
+              background: canTransfer ? "transparent" : "rgba(245, 240, 232, 0.06)",
+              color: canTransfer ? GOLD : "rgba(245, 240, 232, 0.45)",
               cursor: canTransfer ? "pointer" : "not-allowed",
             }}
           >
