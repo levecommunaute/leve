@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
-import { sendCodeSoumisEmail } from '../../../../lib/emails'
 export const dynamic = 'force-dynamic'
 const SB_URL = "https://lrolatbudvianeazliax.supabase.co"
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4"
@@ -19,21 +18,6 @@ export async function POST(request: NextRequest) {
   const points = vid?.points_value || 15
   await supabase.from('code_submissions').insert({ membre_id: user.id, video_id, submitted_code, is_correct: true, points_awarded: points })
   await supabase.from('points_transactions').insert({ membre_id: user.id, type: 'code', amount: points, description: 'Code video soumis' })
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('display_name, email')
-    .eq('id', user.id)
-    .maybeSingle()
-  const memberEmail = String(profile?.email ?? user.email ?? '').trim()
-  if (memberEmail) {
-    void sendCodeSoumisEmail(
-      memberEmail,
-      String(profile?.display_name ?? ''),
-      String(vid?.title ?? 'Vidéo LEVE'),
-      video_id,
-    )
-  }
 
   return NextResponse.json({ success: true, points_awarded: points })
 }

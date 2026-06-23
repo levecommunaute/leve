@@ -46,6 +46,16 @@ type AnswerItem = {
   selected_index?: number;
 };
 
+function answerHasSelection(ans: AnswerItem): boolean {
+  if (typeof ans.selected_answer === "string" && ans.selected_answer.trim()) {
+    return letterToIndex(ans.selected_answer) >= 0;
+  }
+  if (typeof ans.selected_index === "number" && ans.selected_index >= 0) {
+    return true;
+  }
+  return false;
+}
+
 async function alreadySubmittedQuiz(
   svc: ReturnType<typeof getServiceSupabase>,
   userId: string,
@@ -238,6 +248,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const byId = new Map((rows ?? []).map((r) => [String(r.id), r]));
 
     let correct = 0;
+    const hasAnySelectedAnswer = answers.some(answerHasSelection);
 
     for (const ans of answers) {
       const qid = typeof ans.question_id === "string" ? ans.question_id.trim() : "";
@@ -360,7 +371,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       const memberEmail = String(profile?.email ?? user.email ?? "").trim();
-      if (memberEmail) {
+      if (memberEmail && (correct > 0 || hasAnySelectedAnswer)) {
         void sendQuizCompletedEmail(
           memberEmail,
           String(profile?.display_name ?? ""),
