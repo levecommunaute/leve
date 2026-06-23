@@ -5,6 +5,7 @@ import {
   isCollaborateurMemberType,
   PCOL_COLLAB_PENDING_SHARE,
 } from "../../../../lib/pcol";
+import { sendRedistributionEmail } from "../../../../lib/emails";
 import { crediterPtc } from "../../../../lib/ptc";
 
 export const dynamic = "force-dynamic";
@@ -610,6 +611,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (updateBankError) {
       return NextResponse.json({ error: updateBankError.message }, { status: 500 });
+    }
+
+    const creditsByMember = new Map<string, number>();
+    for (const { membre_id, gain } of bankCredits) {
+      if (!Number.isFinite(gain) || gain <= 0) continue;
+      creditsByMember.set(membre_id, (creditsByMember.get(membre_id) ?? 0) + gain);
+    }
+
+    if (creditsByMember.size > 0) {
+      const memberIds = [...creditsByMember.keys()];
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("id, display_name, email")
+        .in("id", memberIds);
+
+      const profileById = new Map(
+        (profileRows ?? []).map((row) => [String(row.id), row]),
+      );
+
+      for (const [membreId, montantCredite] of creditsByMember) {
+        const profile = profileById.get(membreId);
+        const memberEmail = String(profile?.email ?? "").trim();
+        if (!memberEmail) continue;
+        void sendRedistributionEmail(
+          memberEmail,
+          String(profile?.display_name ?? ""),
+          montantCredite,
+          monthKey,
+        );
+      }
     }
 
     return NextResponse.json({

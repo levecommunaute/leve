@@ -10,6 +10,7 @@ import {
   pctRecupereFromErrors,
   pourcentageFixeFromPctRecupere,
 } from "../../../../lib/pcol";
+import { sendQuizCompletedEmail } from "../../../../lib/emails";
 import { crediterPtc } from "../../../../lib/ptc";
 
 export const dynamic = "force-dynamic";
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: videoRow } = await svc
       .from("videos")
-      .select("id, collaborateur_id, created_at, bonus_expire_at, points_value")
+      .select("id, title, collaborateur_id, created_at, bonus_expire_at, points_value")
       .eq("id", videoId)
       .maybeSingle();
 
@@ -263,7 +264,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: profile } = await svc
       .from("profiles")
-      .select("multiplier")
+      .select("multiplier, display_name, email")
       .eq("id", user.id)
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
@@ -356,6 +357,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       if (qsError) {
         return NextResponse.json({ error: qsError.message }, { status: 500 });
+      }
+
+      const memberEmail = String(profile?.email ?? user.email ?? "").trim();
+      if (memberEmail) {
+        void sendQuizCompletedEmail(
+          memberEmail,
+          String(profile?.display_name ?? ""),
+          String(videoRow?.title ?? "Vidéo LEVE"),
+          correct,
+          denom,
+          pointsEarned,
+          bonusActive,
+        );
       }
     }
 
