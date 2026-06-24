@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
   const { data: vid } = await supabase.from('videos').select('points_value, title').eq('id', video_id).single()
   const points = vid?.points_value || 15
   await supabase.from('code_submissions').insert({ membre_id: user.id, video_id, submitted_code, is_correct: true, points_awarded: points })
-  await supabase.from('points_transactions').insert({ membre_id: user.id, type: 'code', amount: points, description: 'Code video soumis' })
 
   return NextResponse.json({ success: true, points_awarded: points })
 }
