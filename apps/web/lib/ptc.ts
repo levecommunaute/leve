@@ -22,8 +22,7 @@ export function roundPtcMoney(n: number): number {
 export async function crediterPtc(params: {
   montant: number;
   source: PtcSource;
-  ptsEquivalent?: number;
-  collaborateurId?: string | null;
+  description: string;
   mois?: string;
 }): Promise<void> {
   const montant = roundPtcMoney(params.montant);
@@ -31,9 +30,8 @@ export async function crediterPtc(params: {
 
   const svc = getServiceSupabase();
   const mois = params.mois ?? currentMonthKey();
-  const ptsEquivalent = roundPtcMoney(
-    params.ptsEquivalent ?? (montant > 0 ? montant : 0),
-  );
+  const description = params.description.trim();
+  if (!description) throw new Error("description PTC requise");
 
   const { data: bank, error: fetchErr } = await svc
     .from("banque_leve")
@@ -54,11 +52,10 @@ export async function crediterPtc(params: {
   if (updateErr) throw new Error(updateErr.message);
 
   const { error: mvtErr } = await svc.from("ptc_mouvements").insert({
+    mois,
     source: params.source,
     montant,
-    pts_equivalent: ptsEquivalent,
-    collaborateur_id: params.collaborateurId ?? null,
-    mois,
+    description,
   });
 
   if (mvtErr) throw new Error(mvtErr.message);
@@ -101,14 +98,13 @@ export async function getPtcSourcesTotals(): Promise<PtcSourcesTotals> {
 }
 
 export async function getCollaborateurPtcMensuel(
-  collaborateurId: string,
+  _collaborateurId: string,
   mois: string,
 ): Promise<{ pts: number; dollars: number; ptcUnits: number }> {
   const svc = getServiceSupabase();
   const { data, error } = await svc
     .from("ptc_mouvements")
-    .select("montant, pts_equivalent")
-    .eq("collaborateur_id", collaborateurId)
+    .select("montant")
     .eq("mois", mois)
     .in("source", ["collab_perdu", "pending_expire"]);
 
@@ -117,12 +113,9 @@ export async function getCollaborateurPtcMensuel(
   const dollars = roundPtcMoney(
     (data ?? []).reduce((sum, row) => sum + Number(row.montant ?? 0), 0),
   );
-  const pts = roundPtcMoney(
-    (data ?? []).reduce((sum, row) => sum + Number(row.pts_equivalent ?? 0), 0),
-  );
 
   return {
-    pts,
+    pts: dollars,
     dollars,
     ptcUnits: dollarsToPtcUnits(dollars),
   };

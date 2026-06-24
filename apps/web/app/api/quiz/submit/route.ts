@@ -455,8 +455,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         await crediterPtc({
           montant: valeurPtc,
           source: "collab_perdu",
-          ptsEquivalent: ptsPerdus,
-          collaborateurId,
+          description: `PCOL pending non récupéré — vidéo ${videoId.slice(0, 8)}… (${pourcentageFixe} % fixé)`,
         });
       }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
@@ -530,8 +529,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           await crediterPtc({
             montant: valeurPtc,
             source: "collab_perdu",
-            ptsEquivalent: ptsPtc,
-            collaborateurId,
+            description: `% collab non récupéré — vidéo ${videoId.slice(0, 8)}…`,
           });
         }
       }

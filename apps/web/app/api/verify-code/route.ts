@@ -41,5 +41,5 @@ export async function POST(req: NextRequest) {
     points_awarded: 100,
   })
 
-  return NextResponse.json({ success: true, points_awarded: 100 })
+  return NextResponse.json({ success: true, video_id })
 }

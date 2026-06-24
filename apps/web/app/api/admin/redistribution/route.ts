@@ -592,7 +592,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await crediterPtc({
         montant: ptcTotal,
         source: "quiz_perdu",
-        ptsEquivalent: totalPtcPonderes,
+        description: `Redistribution mensuelle — quiz perdus (${monthKey})`,
         mois: monthKey,
       });
     }

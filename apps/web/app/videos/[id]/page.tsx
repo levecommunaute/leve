@@ -129,7 +129,6 @@ export default function VideoPage(): React.JSX.Element {
   const [showQuizReadyModal, setShowQuizReadyModal] = useState<boolean>(false);
   const [result, setResult] = useState<{
     success: boolean;
-    points_awarded?: number;
     message?: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -565,17 +564,16 @@ export default function VideoPage(): React.JSX.Element {
               </button>
             )}
           </div>
-          {result ? (
+          {result && !result.success ? (
             <div
               style={{
                 marginTop: "1.5rem",
                 padding: "1rem",
-                background: result.success ? "rgba(46,204,113,.1)" : "rgba(192,57,43,.1)",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+                background: "rgba(192,57,43,.1)",
+                fontFamily: "var(--font-mono), ui-monospace, monospace",
+              }}
             >
-              {result.success
-                ? `✅ +${result.points_awarded} points`
-                : `❌ ${result.message || "Code incorrect"}`}
+              {`❌ ${result.message || "Code incorrect"}`}
             </div>
           ) : null}
         </div>
