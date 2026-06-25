@@ -456,6 +456,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           montant: valeurPtc,
           source: "collab_perdu",
           description: `PCOL pending non récupéré — vidéo ${videoId.slice(0, 8)}… (${pourcentageFixe} % fixé)`,
+          mois: `${currentMonthKey()}-01`,
         });
       }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
@@ -530,6 +531,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             montant: valeurPtc,
             source: "collab_perdu",
             description: `% collab non récupéré — vidéo ${videoId.slice(0, 8)}…`,
+            mois: `${mois}-01`,
           });
         }
       }
