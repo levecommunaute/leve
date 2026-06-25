@@ -16,7 +16,76 @@ type QuizQuestion = {
   id: string;
   question: string;
   options: string[];
+  correct_answer: string;
 };
+
+const FEEDBACK_DELAY_MS = 1500;
+
+const OPTION_STYLE_NEUTRAL: React.CSSProperties = {
+  background: "#141414",
+  border: "1px solid rgba(255,255,255,.08)",
+  color: "#F5F0E8",
+};
+
+const OPTION_STYLE_CORRECT: React.CSSProperties = {
+  background: "rgba(46,204,113,.15)",
+  border: "1px solid #2ECC71",
+  color: "#2ECC71",
+};
+
+const OPTION_STYLE_WRONG: React.CSSProperties = {
+  background: "rgba(192,57,43,.15)",
+  border: "1px solid #C0392B",
+  color: "#C0392B",
+};
+
+/** bonne_reponse = lettre (a–d) ou, en legacy, texte d'une option options[]. */
+function resolveCorrectIndex(correctAnswer: string, options: string[]): number {
+  const raw = correctAnswer.trim();
+  if (!raw) return -1;
+
+  const letter = raw.toLowerCase();
+  if (letter === "a" || letter === "b" || letter === "c" || letter === "d") {
+    const idx = letter.charCodeAt(0) - 97;
+    if (idx >= 0 && idx < options.length) return idx;
+  }
+
+  return options.findIndex((o) => o.trim().toLowerCase() === raw.toLowerCase());
+}
+
+function getOptionStyle(
+  optionIndex: number,
+  selectedIndex: number | undefined,
+  correctIndex: number,
+  revealed: boolean,
+): React.CSSProperties {
+  const base: React.CSSProperties = {
+    textAlign: "left",
+    padding: "0.75rem 1rem",
+    fontSize: "0.95rem",
+  };
+
+  if (!revealed) {
+    return {
+      ...base,
+      ...OPTION_STYLE_NEUTRAL,
+      cursor: "pointer",
+    };
+  }
+
+  const isCorrect = optionIndex === correctIndex;
+  const isSelected = selectedIndex === optionIndex;
+
+  if (isCorrect) {
+    return { ...base, ...OPTION_STYLE_CORRECT, cursor: "default" };
+  }
+
+  if (isSelected) {
+    return { ...base, ...OPTION_STYLE_WRONG, cursor: "default" };
+  }
+
+  return { ...base, ...OPTION_STYLE_NEUTRAL, cursor: "default" };
+}
 
 function formatTime(total: number): string {
   const s = Math.max(0, Math.floor(total));
@@ -45,6 +114,8 @@ export default function VideoQuizPage(): React.JSX.Element {
   const [userId, setUserId] = useState<string>("");
   const [secondsLeft, setSecondsLeft] = useState(TIMER_SECONDS);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [revealedQuestionId, setRevealedQuestionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{
@@ -56,6 +127,18 @@ export default function VideoQuizPage(): React.JSX.Element {
 
   const submitOnce = useRef(false);
   const autoSubmitFired = useRef(false);
+  const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const secondsLeftRef = useRef(secondsLeft);
+
+  useEffect(() => {
+    secondsLeftRef.current = secondsLeft;
+  }, [secondsLeft]);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -106,6 +189,8 @@ export default function VideoQuizPage(): React.JSX.Element {
           setPhase("running");
           setSecondsLeft(TIMER_SECONDS);
           setAnswers({});
+          setCurrentQuestionIndex(0);
+          setRevealedQuestionId(null);
           setResult(null);
           submitOnce.current = false;
           autoSubmitFired.current = false;
@@ -130,18 +215,23 @@ export default function VideoQuizPage(): React.JSX.Element {
   }, [phase, quiz_questions.length]);
 
   const doSubmit = useCallback(
-    async (timeRemaining: number) => {
+    async (timeRemaining: number, answersOverride?: Record<string, number>) => {
       if (submitOnce.current || !userId || quiz_questions.length === 0) return;
+      if (advanceTimeoutRef.current) {
+        clearTimeout(advanceTimeoutRef.current);
+        advanceTimeoutRef.current = null;
+      }
       submitOnce.current = true;
       setSubmitting(true);
       setPhase("done");
+      const finalAnswers = answersOverride ?? answers;
       try {
         const body = {
           video_id: videoId,
           membre_id: userId,
           time_remaining_seconds: timeRemaining,
           answers: quiz_questions.map((q) => {
-            const raw = answers[q.id];
+            const raw = finalAnswers[q.id];
             const selected_answer =
               typeof raw === "number" ? indexToAnswerLetter(raw) : null;
             return {
@@ -204,16 +294,34 @@ export default function VideoQuizPage(): React.JSX.Element {
     void doSubmit(0);
   }, [phase, secondsLeft, doSubmit]);
 
-  const onSelect = (qid: string, index: number) => {
-    if (phase !== "running") return;
-    setAnswers((prev) => ({ ...prev, [qid]: index }));
+  const onSelect = (q: QuizQuestion, index: number) => {
+    if (phase !== "running" || revealedQuestionId === q.id) return;
+
+    const nextAnswers = { ...answers, [q.id]: index };
+    setAnswers(nextAnswers);
+    setRevealedQuestionId(q.id);
+
+    if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
+    advanceTimeoutRef.current = setTimeout(() => {
+      advanceTimeoutRef.current = null;
+      const isLast = q.id === quiz_questions[quiz_questions.length - 1]?.id;
+      if (isLast) {
+        autoSubmitFired.current = true;
+        void doSubmit(secondsLeftRef.current, nextAnswers);
+        return;
+      }
+      setCurrentQuestionIndex((i) => i + 1);
+      setRevealedQuestionId(null);
+    }, FEEDBACK_DELAY_MS);
   };
 
   const handleManualSubmit = () => {
     if (phase !== "running" || submitting) return;
     autoSubmitFired.current = true;
-    void doSubmit(secondsLeft);
+    void doSubmit(secondsLeftRef.current);
   };
+
+  const currentQuestion = quiz_questions[currentQuestionIndex];
 
   const shellStyle: React.CSSProperties = {
     background: "#080808",
@@ -345,15 +453,20 @@ export default function VideoQuizPage(): React.JSX.Element {
               {formatTime(secondsLeft)}
             </span>
             <span style={{ opacity: 0.6, fontSize: "0.9rem" }}>
-              5 questions · 90 secondes
+              {quiz_questions.length} questions · 90 secondes
             </span>
+            {currentQuestion ? (
+              <span style={{ opacity: 0.6, fontSize: "0.9rem" }}>
+                Question {currentQuestionIndex + 1} / {quiz_questions.length}
+              </span>
+            ) : null}
           </div>
         ) : null}
 
         <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-          {quiz_questions.map((q, qi) => (
+          {phase === "running" && currentQuestion ? (
             <div
-              key={q.id}
+              key={currentQuestion.id}
               style={{
                 background: "#111",
                 padding: "1.5rem",
@@ -368,30 +481,23 @@ export default function VideoQuizPage(): React.JSX.Element {
                   color: "#F5F0E8",
                 }}
               >
-                {qi + 1}. {q.question}
+                {currentQuestionIndex + 1}. {currentQuestion.question}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                {q.options.map((opt, oi) => {
-                  const selected = answers[q.id] === oi;
-                  const disabled = phase !== "running";
+                {currentQuestion.options.map((opt, oi) => {
+                  const selectedIndex = answers[currentQuestion.id];
+                  const revealed = revealedQuestionId === currentQuestion.id;
+                  const correctIndex = resolveCorrectIndex(
+                    currentQuestion.correct_answer,
+                    currentQuestion.options,
+                  );
                   return (
                     <button
                       key={oi}
                       type="button"
-                      disabled={disabled}
-                      onClick={() => onSelect(q.id, oi)}
-                      style={{
-                        textAlign: "left",
-                        padding: "0.75rem 1rem",
-                        background: selected ? "rgba(192,57,43,.25)" : "#222",
-                        border:
-                          selected && !disabled
-                            ? "1px solid #C0392B"
-                            : "1px solid #333",
-                        color: "#F5F0E8",
-                        cursor: disabled ? "default" : "pointer",
-                        fontSize: "0.95rem",
-                      }}
+                      disabled={revealed}
+                      onClick={() => onSelect(currentQuestion, oi)}
+                      style={getOptionStyle(oi, selectedIndex, correctIndex, revealed)}
                     >
                       {String.fromCharCode(65 + oi)}. {opt}
                     </button>
@@ -399,7 +505,7 @@ export default function VideoQuizPage(): React.JSX.Element {
                 })}
               </div>
             </div>
-          ))}
+          ) : null}
         </div>
 
         {phase === "running" ? (
