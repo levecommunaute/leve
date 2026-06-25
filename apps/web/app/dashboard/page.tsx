@@ -493,7 +493,7 @@ export default function DashboardPage(): JSX.Element | null {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -545,7 +545,7 @@ export default function DashboardPage(): JSX.Element | null {
               background: "transparent",
               color: ROUGE,
               border: `1px solid ${ROUGE}`,
-              borderRadius: "6px",
+              borderRadius: "4px",
               padding: "0.45rem 0.9rem",
               fontSize: "0.8rem",
               cursor: signingOut ? "wait" : "pointer",
@@ -603,11 +603,11 @@ export default function DashboardPage(): JSX.Element | null {
             style={{
               marginBottom: "1.25rem",
               padding: "1rem 1.15rem",
-              borderRadius: "10px",
+              borderRadius: "4px",
               background: "rgba(192, 57, 43, 0.22)",
               border: `2px solid ${ROUGE}`,
               color: TEXT,
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem" }}>
               Abonnement YouTube requis — période de grâce
@@ -629,7 +629,7 @@ export default function DashboardPage(): JSX.Element | null {
               <p
                 style={{
                   margin: "0.75rem 0 0",
-                  fontFamily: "monospace",
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
                   fontSize: "1.1rem",
                   fontWeight: 700,
                   color: ROUGE,
@@ -657,7 +657,7 @@ export default function DashboardPage(): JSX.Element | null {
         {/* Hero */}
         <section
           style={{
-            borderRadius: "14px",
+            borderRadius: "4px",
             padding: "1.75rem 1.5rem",
             marginBottom: "1.25rem",
             background:
@@ -665,13 +665,14 @@ export default function DashboardPage(): JSX.Element | null {
             border: "1px solid rgba(245, 240, 232, 0.1)",
           }}
         >
-          <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem" }}>
+          <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
             Espace membre
             {profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}
           </p>
           <h1
             style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
               fontSize: "clamp(2.5rem, 8vw, 3.75rem)",
               letterSpacing: "0.04em",
               margin: "0.35rem 0 0.75rem",
@@ -699,7 +700,7 @@ export default function DashboardPage(): JSX.Element | null {
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               padding: "0.35rem 0.75rem",
-              borderRadius: "999px",
+              borderRadius: "4px",
             }}
           >
             {memberLabel}
@@ -709,7 +710,7 @@ export default function DashboardPage(): JSX.Element | null {
         {isBetaTester ? (
           <section
             style={{
-              borderRadius: "12px",
+              borderRadius: "4px",
               padding: "1.1rem 1.25rem",
               marginBottom: "1.25rem",
               background:
@@ -748,7 +749,8 @@ export default function DashboardPage(): JSX.Element | null {
                 <p style={{ margin: 0, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.6 }}>
                   Points beta
                 </p>
-                <p style={{ margin: "0.25rem 0 0", fontSize: "1.2rem", fontWeight: 700, color: GOLD }}>
+                <p style={{ margin: "0.25rem 0 0", fontSize: "1.2rem", fontWeight: 700, color: GOLD,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   {pointsFmt.format(betaPoints)}
                 </p>
               </div>
@@ -791,12 +793,12 @@ export default function DashboardPage(): JSX.Element | null {
             gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
             gap: "0.85rem",
             marginBottom: "1.75rem",
-          }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
         >
           <article
             style={{
               position: "relative",
-              borderRadius: "12px",
+              borderRadius: "4px",
               padding: "1.1rem 1.1rem 2.35rem",
               background: "rgba(245, 240, 232, 0.04)",
               border: `1px solid rgba(212, 160, 23, 0.35)`,
@@ -918,7 +920,7 @@ export default function DashboardPage(): JSX.Element | null {
 
           <article
             style={{
-              borderRadius: "12px",
+              borderRadius: "4px",
               padding: "1.1rem",
               background: "rgba(245, 240, 232, 0.04)",
               border: "1px solid rgba(245, 240, 232, 0.12)",
@@ -949,7 +951,7 @@ export default function DashboardPage(): JSX.Element | null {
 
           <article
             style={{
-              borderRadius: "12px",
+              borderRadius: "4px",
               padding: "1.1rem",
               background: "rgba(245, 240, 232, 0.04)",
               border: "1px solid rgba(245, 240, 232, 0.12)",
@@ -998,7 +1000,7 @@ export default function DashboardPage(): JSX.Element | null {
               display: "grid",
               gridTemplateColumns: "repeat(2, 1fr)",
               gap: "0.65rem",
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             {[
               { href: "/videos", label: "Vidéos", blockOnGrace: false },
@@ -1012,7 +1014,7 @@ export default function DashboardPage(): JSX.Element | null {
                 alignItems: "center",
                 justifyContent: "center",
                 padding: "0.9rem",
-                borderRadius: "10px",
+                borderRadius: "4px",
                 background: blocked ? "rgba(80, 80, 80, 0.2)" : "rgba(192, 57, 43, 0.15)",
                 border: blocked ? "1px solid #444" : `1px solid ${ROUGE}`,
                 color: TEXT,

@@ -509,7 +509,7 @@ export default function TransparencePage(): JSX.Element {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -582,7 +582,7 @@ export default function TransparencePage(): JSX.Element {
                   background: "transparent",
                   color: ROUGE,
                   border: `1px solid ${ROUGE}`,
-                  borderRadius: "6px",
+                  borderRadius: "4px",
                   padding: "0.45rem 0.9rem",
                   fontSize: "0.8rem",
                   cursor: signingOut ? "wait" : "pointer",
@@ -682,11 +682,10 @@ export default function TransparencePage(): JSX.Element {
               <article
                 key={c.label}
                 style={{
-                  borderRadius: "14px",
+                  borderRadius: "4px",
                   padding: "1.15rem 1rem",
                   background: "rgba(245, 240, 232, 0.03)",
                   border: c.border,
-                  boxShadow: `0 8px 28px ${c.color}14`,
                 }}
               >
                 <p
@@ -749,12 +748,12 @@ export default function TransparencePage(): JSX.Element {
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                   gap: "0.85rem",
-                }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <article
                   style={{
                     gridColumn: "1 / -1",
-                    borderRadius: "16px",
+                    borderRadius: "4px",
                     padding: "1.35rem 1.25rem",
                     background: `linear-gradient(125deg, rgba(212, 160, 23, 0.14) 0%, rgba(8,8,8,0.95) 55%, rgba(192, 57, 43, 0.08) 100%)`,
                     border: "1px solid rgba(245, 240, 232, 0.12)",
@@ -801,7 +800,7 @@ export default function TransparencePage(): JSX.Element {
                         key={row.cle}
                         style={{
                           gridColumn: "1 / -1",
-                          borderRadius: "12px",
+                          borderRadius: "4px",
                           padding: "1.25rem",
                           background: "rgba(212, 160, 23, 0.06)",
                           border: `1px solid rgba(212, 160, 23, 0.35)`,
@@ -866,12 +865,12 @@ export default function TransparencePage(): JSX.Element {
                   <article
                     key={row.cle}
                     style={{
-                      borderRadius: "12px",
+                      borderRadius: "4px",
                       padding: "1.05rem",
                       background: "rgba(245, 240, 232, 0.04)",
                       border: `1px solid rgba(245, 240, 232, 0.1)`,
                       borderLeft: `3px solid ${row.accent}`,
-                    }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                   >
                     <p
                       style={{
@@ -924,13 +923,13 @@ export default function TransparencePage(): JSX.Element {
                   display: "grid",
                   gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                   gap: "0.85rem",
-                }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 {fraisPoolRows.map((row) => (
                   <article
                     key={row.cle}
                     style={{
-                      borderRadius: "12px",
+                      borderRadius: "4px",
                       padding: "1.05rem",
                       background: "rgba(245, 240, 232, 0.04)",
                       border: `1px solid rgba(245, 240, 232, 0.1)`,
@@ -996,7 +995,7 @@ export default function TransparencePage(): JSX.Element {
                 fontSize: "1.05rem",
                 lineHeight: 1.55,
                 padding: "1.35rem",
-                borderRadius: "12px",
+                borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.1)",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
@@ -1006,7 +1005,7 @@ export default function TransparencePage(): JSX.Element {
           ) : (
             <div
               style={{
-                borderRadius: "12px",
+                borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.1)",
                 overflow: "hidden",
                 background: "rgba(245, 240, 232, 0.03)",

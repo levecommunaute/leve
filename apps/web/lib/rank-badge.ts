@@ -12,10 +12,10 @@ export type RankBadgeInfo = {
   tier: RankTier;
 };
 
-const BRONZE = "#B87333";
-const SILVER = "#C8C8C8";
+const BRONZE = "#CD7F32";
+const SILVER = "#C0C0C0";
 const GOLD = "#D4A017";
-const DIAMOND = "#5DADE2";
+const DIAMOND = "#B9F2FF";
 const ROUGE = "#C0392B";
 
 function normalizeMemberType(raw: string | null | undefined): string {
@@ -68,25 +68,25 @@ export function rankBadgeStyle(tier: RankTier): {
       };
     case "diamant":
       return {
-        background: "rgba(93, 173, 226, 0.18)",
+        background: "rgba(185, 242, 255, 0.08)",
         color: DIAMOND,
         border: `1px solid ${DIAMOND}`,
       };
     case "or":
       return {
-        background: "rgba(212, 160, 23, 0.15)",
+        background: "rgba(212, 160, 23, 0.08)",
         color: GOLD,
         border: `1px solid ${GOLD}`,
       };
     case "argent":
       return {
-        background: "rgba(200, 200, 200, 0.12)",
+        background: "rgba(192, 192, 192, 0.08)",
         color: SILVER,
         border: `1px solid ${SILVER}`,
       };
     default:
       return {
-        background: "rgba(184, 115, 51, 0.18)",
+        background: "rgba(205, 127, 50, 0.08)",
         color: BRONZE,
         border: `1px solid ${BRONZE}`,
       };

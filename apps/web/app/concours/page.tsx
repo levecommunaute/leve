@@ -539,7 +539,8 @@ export default function ConcoursPage(): JSX.Element | null {
     const canVote = !alreadyVoted && !votesMaxed;
     const needsPaRecharge = canVote && soldePa < votePaRequired;
     return (
-      <article key={artiste.id} style={{ borderRadius: "12px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+      <article key={artiste.id} style={{ borderRadius: "4px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
         <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
         <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
           {artiste.artiste_nom?.trim() || "Artiste"} · {voteCountLabel(pts(artiste.total_votes_pts))}
@@ -556,7 +557,7 @@ export default function ConcoursPage(): JSX.Element | null {
                 background: GOLD,
                 color: BG,
                 border: "none",
-                borderRadius: "8px",
+                borderRadius: "4px",
                 padding: "0.6rem 1rem",
                 cursor: "pointer",
                 fontWeight: 600,
@@ -578,7 +579,7 @@ export default function ConcoursPage(): JSX.Element | null {
               background: canVote ? ROUGE : "rgba(192, 57, 43, 0.25)",
               color: TEXT,
               border: "none",
-              borderRadius: "8px",
+              borderRadius: "4px",
               padding: "0.6rem 1rem",
               cursor: canVote ? "pointer" : "not-allowed",
               opacity: canVote ? 1 : 0.55,
@@ -644,7 +645,7 @@ export default function ConcoursPage(): JSX.Element | null {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -674,7 +675,7 @@ export default function ConcoursPage(): JSX.Element | null {
               background: "transparent",
               color: ROUGE,
               border: `1px solid ${ROUGE}`,
-              borderRadius: "6px",
+              borderRadius: "4px",
               padding: "0.45rem 0.9rem",
               fontSize: "0.8rem",
               cursor: signingOut ? "wait" : "pointer",
@@ -688,7 +689,7 @@ export default function ConcoursPage(): JSX.Element | null {
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE }}>{loadError}</p> : null}
 
-        <section style={{ borderRadius: "14px", padding: "1.5rem", marginBottom: "1rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+        <section style={{ borderRadius: "4px", padding: "1.5rem", marginBottom: "1rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
           <h1 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2.2rem" }}>
             CONCOURS PMQ
           </h1>
@@ -699,7 +700,7 @@ export default function ConcoursPage(): JSX.Element | null {
               flexWrap: "wrap",
               gap: "0.35rem 1.5rem",
               opacity: 0.85,
-            }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
             <p style={{ margin: 0 }}>
               Solde PMQ: <strong style={{ color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</strong>
@@ -717,13 +718,14 @@ export default function ConcoursPage(): JSX.Element | null {
           const end = new Date(row.date_fin);
           const msg = participationMsg?.concoursId === row.id ? participationMsg : null;
           return (
-            <section key={row.id} style={{ borderRadius: "14px", padding: "1.25rem", marginBottom: "0.9rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <section key={row.id} style={{ borderRadius: "4px", padding: "1.25rem", marginBottom: "0.9rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
               <h2 style={{ margin: "0 0 0.5rem", color: ROUGE, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.06em" }}>
                 {row.titre || "Concours"}
               </h2>
               {row.description ? <p style={{ margin: "0 0 0.5rem", opacity: 0.85 }}>{row.description}</p> : null}
               <p style={{ margin: 0, opacity: 0.7 }}>Date de fin: {Number.isNaN(end.getTime()) ? "?" : dateFmt.format(end)}</p>
-              <p style={{ margin: "0.4rem 0 0.9rem", opacity: 0.8 }}>Points requis: {pointsFmt.format(req)} PMQ</p>
+              <p style={{ margin: "0.4rem 0 0.9rem", opacity: 0.8,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>Points requis: {pointsFmt.format(req)} PMQ</p>
               <button
                 type="button"
                 disabled={participatingId === row.id || !canParticiper}
@@ -732,7 +734,7 @@ export default function ConcoursPage(): JSX.Element | null {
                   background: canParticiper ? ROUGE : "rgba(192, 57, 43, 0.25)",
                   color: TEXT,
                   border: "none",
-                  borderRadius: "8px",
+                  borderRadius: "4px",
                   padding: "0.65rem 1.2rem",
                   cursor: canParticiper ? "pointer" : "not-allowed",
                 }}
@@ -752,7 +754,7 @@ export default function ConcoursPage(): JSX.Element | null {
               <span style={{ opacity: 0.7 }}> · partagés entre les deux concours</span>
             </p>
 
-            <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "0.75rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "0.75rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
               <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
                 🌍 CONCOURS INTERNATIONAL
               </h2>
@@ -766,7 +768,7 @@ export default function ConcoursPage(): JSX.Element | null {
               )}
             </section>
 
-            <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
               <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
                 🇭🇹 CONCOURS CULTURE HAÏTIENNE — Par département
               </h2>
@@ -789,7 +791,7 @@ export default function ConcoursPage(): JSX.Element | null {
         ) : null}
 
         {flagTirage ? (
-          <section style={{ borderRadius: "14px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+          <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
               TIRAGE TRIMESTRIEL
             </h2>
@@ -815,7 +817,7 @@ export default function ConcoursPage(): JSX.Element | null {
                         background: GOLD,
                         color: BG,
                         border: "none",
-                        borderRadius: "8px",
+                        borderRadius: "4px",
                         padding: "0.6rem 1rem",
                         cursor: "pointer",
                         fontWeight: 600,
@@ -839,7 +841,7 @@ export default function ConcoursPage(): JSX.Element | null {
                     background: ROUGE,
                     color: TEXT,
                     border: "none",
-                    borderRadius: "8px",
+                    borderRadius: "4px",
                     padding: "0.6rem 1rem",
                     cursor: canBuyTicket ? "pointer" : "not-allowed",
                     opacity: canBuyTicket ? 1 : 0.55,

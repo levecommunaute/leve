@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
   const { data: codeData } = await supabase.from('codes').select('full_code').eq('video_id', video_id).single()
   if (!codeData) return NextResponse.json({ success: false, message: 'Code non trouve' })
   if (codeData.full_code.toUpperCase() !== submitted_code.toUpperCase()) return NextResponse.json({ success: false, message: 'Code incorrect' })
-  const { data: vid } = await supabase.from('videos').select('points_value').eq('id', video_id).single()
+  const { data: vid } = await supabase.from('videos').select('points_value, title').eq('id', video_id).single()
   const points = vid?.points_value || 15
   await supabase.from('code_submissions').insert({ membre_id: user.id, video_id, submitted_code, is_correct: true, points_awarded: points })
-  await supabase.from('points_transactions').insert({ membre_id: user.id, type: 'code', amount: points, description: 'Code video soumis' })
+
   return NextResponse.json({ success: true, points_awarded: points })
 }

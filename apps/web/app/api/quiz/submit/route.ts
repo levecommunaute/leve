@@ -10,6 +10,7 @@ import {
   pctRecupereFromErrors,
   pourcentageFixeFromPctRecupere,
 } from "../../../../lib/pcol";
+import { sendQuizCompletedEmail } from "../../../../lib/emails";
 import { crediterPtc } from "../../../../lib/ptc";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,16 @@ type AnswerItem = {
   selected_answer?: string | null;
   selected_index?: number;
 };
+
+function answerHasSelection(ans: AnswerItem): boolean {
+  if (typeof ans.selected_answer === "string" && ans.selected_answer.trim()) {
+    return letterToIndex(ans.selected_answer) >= 0;
+  }
+  if (typeof ans.selected_index === "number" && ans.selected_index >= 0) {
+    return true;
+  }
+  return false;
+}
 
 async function alreadySubmittedQuiz(
   svc: ReturnType<typeof getServiceSupabase>,
@@ -171,7 +182,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: videoRow } = await svc
       .from("videos")
-      .select("id, collaborateur_id, created_at, bonus_expire_at, points_value")
+      .select("id, title, collaborateur_id, created_at, bonus_expire_at, points_value")
       .eq("id", videoId)
       .maybeSingle();
 
@@ -237,6 +248,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const byId = new Map((rows ?? []).map((r) => [String(r.id), r]));
 
     let correct = 0;
+    const hasAnySelectedAnswer = answers.some(answerHasSelection);
 
     for (const ans of answers) {
       const qid = typeof ans.question_id === "string" ? ans.question_id.trim() : "";
@@ -263,7 +275,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: profile } = await svc
       .from("profiles")
-      .select("multiplier")
+      .select("multiplier, display_name, email")
       .eq("id", user.id)
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
@@ -357,6 +369,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (qsError) {
         return NextResponse.json({ error: qsError.message }, { status: 500 });
       }
+
+      const memberEmail = String(profile?.email ?? user.email ?? "").trim();
+      if (memberEmail && (correct > 0 || hasAnySelectedAnswer)) {
+        void sendQuizCompletedEmail(
+          memberEmail,
+          String(profile?.display_name ?? ""),
+          String(videoRow?.title ?? "Vidéo LEVE"),
+          correct,
+          denom,
+          pointsEarned,
+          bonusActive,
+        );
+      }
     }
 
     if (isOwnVideoQuiz && collaborateurId) {
@@ -430,8 +455,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         await crediterPtc({
           montant: valeurPtc,
           source: "collab_perdu",
-          ptsEquivalent: ptsPerdus,
-          collaborateurId,
+          description: `PCOL pending non récupéré — vidéo ${videoId.slice(0, 8)}… (${pourcentageFixe} % fixé)`,
+          mois: `${currentMonthKey()}-01`,
         });
       }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
@@ -505,8 +530,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           await crediterPtc({
             montant: valeurPtc,
             source: "collab_perdu",
-            ptsEquivalent: ptsPtc,
-            collaborateurId,
+            description: `% collab non récupéré — vidéo ${videoId.slice(0, 8)}…`,
+            mois: `${mois}-01`,
           });
         }
       }

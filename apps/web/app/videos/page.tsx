@@ -61,25 +61,25 @@ const STATUS_STYLES: Record<
   { label: string; icon: string; color: string; border: string; bg: string }
 > = {
   completed: {
-    label: "Complété",
+    label: "Quiz complété",
     icon: "✅",
     color: "#2ECC71",
-    border: "rgba(46, 204, 113, 0.45)",
-    bg: "rgba(46, 204, 113, 0.12)",
+    border: "#2ECC71",
+    bg: "rgba(46, 204, 113, 0.06)",
   },
   code_submitted: {
-    label: "Code soumis",
+    label: "Code trouvé",
     icon: "🔒",
     color: GOLD,
-    border: "rgba(212, 160, 23, 0.45)",
-    bg: "rgba(212, 160, 23, 0.12)",
+    border: GOLD,
+    bg: "rgba(212, 160, 23, 0.08)",
   },
   not_completed: {
-    label: "Non complété",
+    label: "Non commencé",
     icon: "▶",
-    color: TEXT,
-    border: "rgba(245, 240, 232, 0.2)",
-    bg: "rgba(245, 240, 232, 0.06)",
+    color: "#888888",
+    border: "rgba(255, 255, 255, 0.12)",
+    bg: "transparent",
   },
 };
 
@@ -117,9 +117,9 @@ function VideoThumb({ youtubeId, title }: { youtubeId: string; title: string }):
         position: "relative",
         aspectRatio: "16 / 9",
         overflow: "hidden",
-        borderRadius: "10px 10px 0 0",
+        borderRadius: "4px",
         background: "rgba(245, 240, 232, 0.06)",
-      }}
+              }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -367,7 +367,7 @@ export default function VideosPage(): JSX.Element | null {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -436,7 +436,7 @@ export default function VideosPage(): JSX.Element | null {
               background: "transparent",
               color: ROUGE,
               border: `1px solid ${ROUGE}`,
-              borderRadius: "6px",
+              borderRadius: "4px",
               padding: "0.45rem 0.9rem",
               fontSize: "0.8rem",
               cursor: signingOut ? "wait" : "pointer",
@@ -491,7 +491,7 @@ export default function VideosPage(): JSX.Element | null {
             Aucune vidéo disponible pour le moment.
           </p>
         ) : (
-          <div className="leve-videos-grid">
+          <div className="leve-videos-grid font-mono">
             {videos.map((v) => {
               const title = v.title?.trim() || "Vidéo";
               const pts = Number(v.points_value ?? 0);
@@ -503,13 +503,13 @@ export default function VideosPage(): JSX.Element | null {
                 <article
                   key={v.id}
                   style={{
-                    borderRadius: "12px",
+                    borderRadius: "4px",
                     overflow: "hidden",
-                    background: "rgba(245, 240, 232, 0.04)",
+                    background: "#141414",
                     border: "1px solid rgba(245, 240, 232, 0.1)",
                     display: "flex",
                     flexDirection: "column",
-                  }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                 >
                   <VideoThumb youtubeId={v.youtube_id} title={title} />
                   <div style={{ padding: "1rem 1rem 1.1rem", flex: 1, display: "flex", flexDirection: "column" }}>
@@ -528,9 +528,11 @@ export default function VideosPage(): JSX.Element | null {
                           gap: "0.35rem",
                           fontSize: "0.72rem",
                           fontWeight: 600,
-                          letterSpacing: "0.03em",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          fontFamily: "var(--font-mono), ui-monospace, monospace",
                           padding: "0.28rem 0.55rem",
-                          borderRadius: "8px",
+                          borderRadius: "4px",
                           color: statusStyle.color,
                           background: statusStyle.bg,
                           border: `1px solid ${statusStyle.border}`,
@@ -573,7 +575,7 @@ export default function VideosPage(): JSX.Element | null {
                           fontWeight: 700,
                           letterSpacing: "0.04em",
                           padding: "0.3rem 0.55rem",
-                          borderRadius: "8px",
+                          borderRadius: "4px",
                         }}
                       >
                         {ptsLabel}
@@ -590,7 +592,7 @@ export default function VideosPage(): JSX.Element | null {
                         fontWeight: 600,
                         fontSize: "0.9rem",
                         padding: "0.65rem 1rem",
-                        borderRadius: "8px",
+                        borderRadius: "4px",
                         textDecoration: "none",
                         border: `1px solid ${ROUGE}`,
                       }}

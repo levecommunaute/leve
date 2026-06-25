@@ -113,17 +113,11 @@ Deno.serve(async (req) => {
         .map((row) => {
           const montant = round2(Number(row.valeur_dollars_cumul ?? 0));
           if (montant <= 0) return null;
-          const pts = round2(
-            Number(
-              row.points_pending_cumul ?? row.points_amount ?? row.pts_pending ?? 0,
-            ),
-          );
           return {
-            source: "pending_expire",
-            montant,
-            pts_equivalent: pts,
-            collaborateur_id: row.collaborateur_id ?? null,
             mois,
+            source: "pending_expire" as const,
+            montant,
+            description: `PCOL pending expiré — vidéo ${String(row.video_id ?? "").slice(0, 8)}…`,
           };
         })
         .filter((row): row is NonNullable<typeof row> => row != null);

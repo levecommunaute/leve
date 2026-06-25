@@ -19,6 +19,8 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const G2 = "#141414";
+const G3 = "#1A1A1A";
 
 const STORAGE_KEY = "leve_admin_secret";
 
@@ -617,7 +619,7 @@ function yesNoBadge(value: boolean): JSX.Element {
       style={{
         display: "inline-block",
         padding: "0.2rem 0.55rem",
-        borderRadius: "999px",
+        borderRadius: "4px",
         fontSize: "0.68rem",
         letterSpacing: "0.08em",
         textTransform: "uppercase",
@@ -652,13 +654,13 @@ function onOffSwitch(props: {
         position: "relative",
         width: "3.25rem",
         height: "1.75rem",
-        borderRadius: "999px",
+        borderRadius: "4px",
         border: `1px solid ${checked ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
         background: checked ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
         cursor: disabled || busy ? "wait" : "pointer",
         padding: 0,
         transition: "background 0.2s ease",
-      }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
     >
       <span
         style={{
@@ -670,7 +672,6 @@ function onOffSwitch(props: {
           height: "1.15rem",
           borderRadius: "50%",
           background: checked ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
           transition: "left 0.2s ease, background 0.2s ease",
         }}
       />
@@ -748,7 +749,8 @@ function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): JSX.El
   }
 
   return (
-    <div style={{ width: "100%", overflowX: "auto" }}>
+    <div style={{ width: "100%", overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
@@ -861,7 +863,8 @@ function ValorisationChart({ series }: { series: ValorisationRow[] }): JSX.Eleme
   const points = series.map((row, i) => `${xAt(i)},${yAt(row.valeur_societe)}`).join(" ");
 
   return (
-    <div style={{ width: "100%", overflowX: "auto" }}>
+    <div style={{ width: "100%", overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
@@ -992,9 +995,9 @@ function betaBugStatutLabel(statut: string): string {
 
 function cardStyle() {
   return {
-    background: "rgba(245, 240, 232, 0.03)",
-    border: "1px solid rgba(245, 240, 232, 0.1)",
-    borderRadius: "14px",
+    background: G2,
+    border: "1px solid rgba(255, 255, 255, 0.04)",
+    borderRadius: "4px",
     padding: "1.5rem",
     marginBottom: "1.75rem",
   };
@@ -1038,7 +1041,7 @@ function subSectionTitle(text: string): JSX.Element {
 const actionsSubCard = {
   background: "rgba(245, 240, 232, 0.025)",
   border: "1px solid rgba(245, 240, 232, 0.08)",
-  borderRadius: "10px",
+  borderRadius: "4px",
   padding: "1.25rem",
   marginBottom: "1.25rem",
 } as const;
@@ -3054,7 +3057,7 @@ export default function AdminPage(): JSX.Element {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-admin-root`}
       style={{
         minHeight: "100vh",
         background: BG,
@@ -3063,6 +3066,27 @@ export default function AdminPage(): JSX.Element {
         paddingBottom: "4rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .leve-admin-root input:not([type="checkbox"]):not([type="radio"]):focus,
+            .leve-admin-root select:focus,
+            .leve-admin-root textarea:focus {
+              outline: none;
+              border-color: ${GOLD} !important;
+            }
+            .leve-admin-table tbody tr:nth-child(odd) {
+              background: ${G2};
+            }
+            .leve-admin-table tbody tr:nth-child(even) {
+              background: ${G3};
+            }
+            .leve-admin-table tbody tr:hover {
+              background: ${G3};
+            }
+          `,
+        }}
+      />
       <header
         style={{
           display: "flex",
@@ -3109,11 +3133,8 @@ export default function AdminPage(): JSX.Element {
             type="button"
             onClick={handleLogout}
             style={{
-              background: "transparent",
-              color: TEXT,
-              border: `1px solid rgba(192, 57, 43, 0.55)`,
+              ...btnOutline,
               padding: "0.45rem 1rem",
-              cursor: "pointer",
               fontSize: "0.8rem",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -3171,7 +3192,7 @@ export default function AdminPage(): JSX.Element {
                   padding: "0.85rem 1rem",
                   background: "rgba(245, 240, 232, 0.06)",
                   border: "1px solid rgba(245, 240, 232, 0.14)",
-                  borderRadius: "8px",
+                  borderRadius: "4px",
                   color: TEXT,
                   fontSize: "1rem",
                   marginBottom: "1rem",
@@ -3185,9 +3206,9 @@ export default function AdminPage(): JSX.Element {
                 disabled={loginLoading || !secretInput.trim()}
                 style={{
                   width: "100%",
-                  background: ROUGE,
-                  color: TEXT,
-                  border: "none",
+                  background: GOLD,
+                  color: "#000000",
+                  border: `1px solid ${GOLD}`,
                   padding: "0.95rem",
                   cursor: loginLoading || !secretInput.trim() ? "not-allowed" : "pointer",
                   opacity: loginLoading || !secretInput.trim() ? 0.55 : 1,
@@ -3229,9 +3250,8 @@ export default function AdminPage(): JSX.Element {
                   width: "100%",
                   background: "#121212",
                   border: "1px solid rgba(245, 240, 232, 0.18)",
-                  borderRadius: "12px",
+                  borderRadius: "4px",
                   padding: "1.35rem 1.5rem",
-                  boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
                 }}
               >
                 <h2
@@ -3252,7 +3272,8 @@ export default function AdminPage(): JSX.Element {
                     invalidera les soumissions existantes. Confirmer ?
                   </p>
                 ) : (
-                  <div style={{ margin: "0 0 1.35rem" }}>
+                  <div style={{ margin: "0 0 1.35rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                     <label
                       htmlFor="modify-code-reentry-key"
                       style={{
@@ -3284,7 +3305,7 @@ export default function AdminPage(): JSX.Element {
                         padding: "0.75rem 0.85rem",
                         background: "rgba(245, 240, 232, 0.06)",
                         border: "1px solid rgba(245, 240, 232, 0.14)",
-                        borderRadius: "8px",
+                        borderRadius: "4px",
                         color: TEXT,
                         fontSize: "0.92rem",
                       }}
@@ -3313,9 +3334,9 @@ export default function AdminPage(): JSX.Element {
                       type="button"
                       onClick={() => setCodeModifyStep(2)}
                       style={{
-                        background: ROUGE,
-                        color: TEXT,
-                        border: "none",
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         padding: "0.5rem 1rem",
                         cursor: "pointer",
                         fontSize: "0.78rem",
@@ -3334,9 +3355,9 @@ export default function AdminPage(): JSX.Element {
                       }
                       onClick={() => handleCodeModifyConfirmKeyStep()}
                       style={{
-                        background: ROUGE,
-                        color: TEXT,
-                        border: "none",
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         padding: "0.5rem 1rem",
                         cursor:
                           codeLoadingId === codeModifyConfirmVideoId || !codeModifyReentryKey.trim()
@@ -3389,12 +3410,12 @@ export default function AdminPage(): JSX.Element {
                 <>
                   <span
                     style={{
-                      fontFamily: "ui-monospace, monospace",
+                      fontFamily: "var(--font-mono), ui-monospace, monospace",
                       fontSize: "1rem",
                       letterSpacing: "0.06em",
                       padding: "0.45rem 0.75rem",
                       background: "rgba(245, 240, 232, 0.06)",
-                      borderRadius: "8px",
+                      borderRadius: "4px",
                       border: "1px solid rgba(245, 240, 232, 0.12)",
                     }}
                   >
@@ -3404,16 +3425,16 @@ export default function AdminPage(): JSX.Element {
                     type="button"
                     onClick={() => void copyStandaloneCode()}
                     style={{
-                      background: ROUGE,
-                      color: TEXT,
-                      border: "none",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       padding: "0.5rem 0.95rem",
                       cursor: "pointer",
                       fontSize: "0.72rem",
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
                       fontWeight: 600,
-                      borderRadius: "8px",
+                      borderRadius: "4px",
                     }}
                   >
                     {standaloneGenCopied ? "Copié" : "Copier"}
@@ -3434,8 +3455,9 @@ export default function AdminPage(): JSX.Element {
             {videosLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement des vidéos…</p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table
+              <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                <table className="leve-admin-table"
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
@@ -3482,7 +3504,7 @@ export default function AdminPage(): JSX.Element {
                       return (
                         <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
                           <td style={{ padding: "0.75rem 0.5rem", maxWidth: "280px" }}>{v.title ?? "—"}</td>
-                          <td style={{ padding: "0.75rem 0.5rem", fontFamily: "ui-monospace, monospace", fontSize: "0.82rem" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "0.82rem" }}>
                             {v.youtube_id}
                           </td>
                           <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
@@ -3499,7 +3521,7 @@ export default function AdminPage(): JSX.Element {
                                 fontSize: "0.82rem",
                                 background: "rgba(245, 240, 232, 0.06)",
                                 border: "1px solid rgba(245, 240, 232, 0.14)",
-                                borderRadius: "6px",
+                                borderRadius: "4px",
                                 color: TEXT,
                                 cursor: collabBusy || membersLoading ? "wait" : "pointer",
                               }}
@@ -3551,11 +3573,11 @@ export default function AdminPage(): JSX.Element {
                                   flex: "1 1 140px",
                                   minWidth: "120px",
                                   padding: "0.45rem 0.55rem",
-                                  fontFamily: "ui-monospace, monospace",
+                                  fontFamily: "var(--font-mono), ui-monospace, monospace",
                                   fontSize: "0.8rem",
                                   background: linked ? "rgba(245, 240, 232, 0.04)" : "rgba(245, 240, 232, 0.06)",
                                   border: "1px solid rgba(245, 240, 232, 0.14)",
-                                  borderRadius: "6px",
+                                  borderRadius: "4px",
                                   color: TEXT,
                                   opacity: linked ? 0.92 : 1,
                                   cursor: linked ? "default" : "text",
@@ -3609,7 +3631,7 @@ export default function AdminPage(): JSX.Element {
                               <p
                                 style={{
                                   margin: "0.5rem 0 0",
-                                  fontFamily: "ui-monospace, monospace",
+                                  fontFamily: "var(--font-mono), ui-monospace, monospace",
                                   fontSize: "0.78rem",
                                   color: ROUGE,
                                   opacity: 0.95,
@@ -3619,7 +3641,8 @@ export default function AdminPage(): JSX.Element {
                               </p>
                             ) : null}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                             <button
                               type="button"
                               disabled={quizBusy}
@@ -3740,9 +3763,9 @@ export default function AdminPage(): JSX.Element {
                   type="submit"
                   disabled={addVideoLoading}
                   style={{
-                    background: ROUGE,
-                    color: TEXT,
-                    border: "none",
+                    background: GOLD,
+                    color: "#000000",
+                    border: `1px solid ${GOLD}`,
                     padding: "0.75rem 1.25rem",
                     cursor: addVideoLoading ? "wait" : "pointer",
                     letterSpacing: "0.12em",
@@ -3791,8 +3814,9 @@ export default function AdminPage(): JSX.Element {
             ) : quizQuestionsLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement des questions…</p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table
+              <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                <table className="leve-admin-table"
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
@@ -3937,9 +3961,9 @@ export default function AdminPage(): JSX.Element {
                     type="submit"
                     disabled={quizAddLoading || !quizVideoId}
                     style={{
-                      background: ROUGE,
-                      color: TEXT,
-                      border: "none",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       padding: "0.75rem 1.25rem",
                       cursor: quizAddLoading || !quizVideoId ? "not-allowed" : "pointer",
                       letterSpacing: "0.12em",
@@ -3991,9 +4015,9 @@ export default function AdminPage(): JSX.Element {
                   type="submit"
                   disabled={redistLoading}
                   style={{
-                    background: `linear-gradient(135deg, ${ROUGE}, #9b2f24)`,
-                    color: TEXT,
-                    border: "none",
+                    background: GOLD,
+                    color: "#000000",
+                    border: `1px solid ${GOLD}`,
                     padding: "0.85rem 1.5rem",
                     cursor: redistLoading ? "wait" : "pointer",
                     letterSpacing: "0.14em",
@@ -4012,10 +4036,10 @@ export default function AdminPage(): JSX.Element {
                 style={{
                   marginTop: "1.5rem",
                   padding: "1.25rem",
-                  borderRadius: "10px",
+                  borderRadius: "4px",
                   background: "rgba(212, 160, 23, 0.06)",
                   border: `1px solid rgba(212, 160, 23, 0.22)`,
-                }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <p style={{ margin: "0 0 0.5rem", fontSize: "0.72rem", letterSpacing: "0.2em", textTransform: "uppercase", opacity: 0.55 }}>
                   Résultat
@@ -4066,10 +4090,10 @@ export default function AdminPage(): JSX.Element {
                     gap: "0.65rem",
                     marginBottom: "1.35rem",
                     padding: "1rem",
-                    borderRadius: "10px",
+                    borderRadius: "4px",
                     background: "rgba(212, 160, 23, 0.04)",
                     border: "1px solid rgba(212, 160, 23, 0.15)",
-                  }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                 >
                   {memberMapCountries.slice(0, 12).map((row) => {
                     const max = memberMapCountries[0]?.count ?? 1;
@@ -4080,7 +4104,7 @@ export default function AdminPage(): JSX.Element {
                         title={`${row.country} — ${row.count} membre(s)`}
                         style={{
                           padding: "0.75rem 0.65rem",
-                          borderRadius: "8px",
+                          borderRadius: "4px",
                           background: `rgba(192, 57, 43, ${intensity * 0.35})`,
                           border: `1px solid rgba(212, 160, 23, ${intensity * 0.45})`,
                           textAlign: "center",
@@ -4104,8 +4128,9 @@ export default function AdminPage(): JSX.Element {
                     );
                   })}
                 </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Pays / zone", "Membres", "%"].map((h) => (
@@ -4167,14 +4192,14 @@ export default function AdminPage(): JSX.Element {
                         gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                         gap: "0.75rem",
                         marginBottom: "1.35rem",
-                      }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                     >
                       {POOL_SERIES.map((s) => (
                         <div
                           key={s.key}
                           style={{
                             padding: "0.85rem 1rem",
-                            borderRadius: "10px",
+                            borderRadius: "4px",
                             background: "rgba(245, 240, 232, 0.04)",
                             border: `1px solid ${s.color}33`,
                           }}
@@ -4190,10 +4215,10 @@ export default function AdminPage(): JSX.Element {
                       <div
                         style={{
                           padding: "0.85rem 1rem",
-                          borderRadius: "10px",
+                          borderRadius: "4px",
                           background: "rgba(245, 240, 232, 0.04)",
                           border: "1px solid rgba(46, 204, 113, 0.35)",
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
                           Pool PA (actuel)
@@ -4205,10 +4230,10 @@ export default function AdminPage(): JSX.Element {
                       <div
                         style={{
                           padding: "0.85rem 1rem",
-                          borderRadius: "10px",
+                          borderRadius: "4px",
                           background: "rgba(245, 240, 232, 0.04)",
                           border: "1px solid rgba(212, 160, 23, 0.35)",
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
                           Frais plateforme (actuel)
@@ -4220,10 +4245,10 @@ export default function AdminPage(): JSX.Element {
                       <div
                         style={{
                           padding: "0.85rem 1rem",
-                          borderRadius: "10px",
+                          borderRadius: "4px",
                           background: "rgba(245, 240, 232, 0.04)",
                           border: "1px solid rgba(46, 204, 113, 0.35)",
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
                           Taxe PA communauté (actuel)
@@ -4238,10 +4263,10 @@ export default function AdminPage(): JSX.Element {
                         style={{
                           marginBottom: "1.35rem",
                           padding: "1rem 1.15rem",
-                          borderRadius: "10px",
+                          borderRadius: "4px",
                           background: "rgba(46, 204, 113, 0.06)",
                           border: "1px solid rgba(46, 204, 113, 0.22)",
-                        }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <p
                           style={{
@@ -4268,8 +4293,9 @@ export default function AdminPage(): JSX.Element {
                 ) : null}
                 <PoolAccumulationChart series={poolSeries} />
                 {poolSeries.length > 0 ? (
-                  <div style={{ overflowX: "auto", marginTop: "1.25rem" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                  <div style={{ overflowX: "auto", marginTop: "1.25rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                    <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                       <thead>
                         <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                           {[
@@ -4349,10 +4375,10 @@ export default function AdminPage(): JSX.Element {
                         justifyContent: "space-between",
                         gap: "1rem",
                         padding: "0.85rem 1rem",
-                        borderRadius: "10px",
+                        borderRadius: "4px",
                         background: "rgba(245, 240, 232, 0.04)",
                         border: "1px solid rgba(245, 240, 232, 0.1)",
-                      }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                     >
                       <div style={{ minWidth: 0 }}>
                         <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{pool.label}</p>
@@ -4389,12 +4415,12 @@ export default function AdminPage(): JSX.Element {
                 style={{
                   marginBottom: "1.25rem",
                   padding: "0.9rem 1.1rem",
-                  borderRadius: "10px",
+                  borderRadius: "4px",
                   background: "rgba(46, 204, 113, 0.06)",
                   border: "1px solid rgba(46, 204, 113, 0.2)",
                   fontSize: "0.88rem",
                   lineHeight: 1.7,
-                }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <strong style={{ color: "#2ECC71" }}>Taxes PA 2 % (cumul)</strong> —{" "}
                 {cad.format(paTaxStats.total)} collectées · {cad.format(paTaxStats.communaute)} → taxe PA ·{" "}
@@ -4446,7 +4472,8 @@ export default function AdminPage(): JSX.Element {
                 />
               </div>
               <div
-                style={{ display: "flex", alignItems: "flex-end" }}
+                style={{ display: "flex", alignItems: "flex-end",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <button
                   type="button"
@@ -4479,10 +4506,10 @@ export default function AdminPage(): JSX.Element {
                     style={{
                       marginBottom: "1.25rem",
                       padding: "1.1rem 1.25rem",
-                      borderRadius: "10px",
+                      borderRadius: "4px",
                       background: "rgba(212, 160, 23, 0.06)",
                       border: "1px solid rgba(212, 160, 23, 0.22)",
-                    }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                   >
                     <p
                       style={{
@@ -4517,8 +4544,9 @@ export default function AdminPage(): JSX.Element {
                     </ul>
                   </div>
                 ) : null}
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {[
@@ -4585,8 +4613,9 @@ export default function AdminPage(): JSX.Element {
             {productionLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement…</p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+              <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
                     <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                       {[
@@ -4622,7 +4651,7 @@ export default function AdminPage(): JSX.Element {
                         <td
                           style={{
                             padding: "0.6rem 0.5rem",
-                            fontFamily: "ui-monospace, monospace",
+                            fontFamily: "var(--font-mono), ui-monospace, monospace",
                             fontSize: "0.78rem",
                           }}
                         >
@@ -4632,7 +4661,7 @@ export default function AdminPage(): JSX.Element {
                         <td
                           style={{
                             padding: "0.6rem 0.5rem",
-                            fontFamily: "ui-monospace, monospace",
+                            fontFamily: "var(--font-mono), ui-monospace, monospace",
                             fontSize: "0.78rem",
                             letterSpacing: "0.04em",
                           }}
@@ -4683,7 +4712,7 @@ export default function AdminPage(): JSX.Element {
                     gap: "1rem",
                     padding: "1rem 1.1rem",
                     marginBottom: "1.25rem",
-                    borderRadius: "10px",
+                    borderRadius: "4px",
                     background: "rgba(245, 240, 232, 0.04)",
                     border: "1px solid rgba(245, 240, 232, 0.1)",
                   }}
@@ -4722,8 +4751,9 @@ export default function AdminPage(): JSX.Element {
               <p style={{ opacity: 0.65 }}>Chargement des paliers…</p>
             ) : (
               <>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Palier", "Min ($)", "Max ($)", "%", "Actif", ""].map((h, i) => (
@@ -4839,11 +4869,10 @@ export default function AdminPage(): JSX.Element {
                       onClick={() => void handleSaveFraisPlateforme()}
                       style={{
                         padding: "0.65rem 1.35rem",
-                        borderRadius: "8px",
-                        border: "none",
-                        background: ROUGE,
-                        color: TEXT,
-                        fontWeight: 600,
+                        borderRadius: "4px",
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         fontSize: "0.78rem",
@@ -4885,8 +4914,9 @@ export default function AdminPage(): JSX.Element {
               </p>
             ) : (
               <>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Réseau", "Abonnés", "Actif", ""].map((h, i) => (
@@ -4963,11 +4993,10 @@ export default function AdminPage(): JSX.Element {
                     onClick={() => void handleSaveReseauxSociaux()}
                     style={{
                       padding: "0.65rem 1.35rem",
-                      borderRadius: "8px",
-                      border: "none",
-                      background: ROUGE,
-                      color: TEXT,
-                      fontWeight: 600,
+                      borderRadius: "4px",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       fontSize: "0.78rem",
@@ -5018,7 +5047,7 @@ export default function AdminPage(): JSX.Element {
                     alignItems: "center",
                     gap: "1rem",
                     marginBottom: "1.25rem",
-                  }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                 >
                   <span style={{ fontSize: "0.85rem", fontWeight: 600, opacity: 0.85 }}>
                     Afficher le bandeau
@@ -5104,11 +5133,10 @@ export default function AdminPage(): JSX.Element {
                     onClick={() => void handleSaveFondateurConfig()}
                     style={{
                       padding: "0.65rem 1.35rem",
-                      borderRadius: "8px",
-                      border: "none",
-                      background: ROUGE,
-                      color: TEXT,
-                      fontWeight: 600,
+                      borderRadius: "4px",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       fontSize: "0.78rem",
@@ -5147,10 +5175,10 @@ export default function AdminPage(): JSX.Element {
               style={{
                 marginBottom: "1.25rem",
                 padding: "1rem 1.1rem",
-                borderRadius: "10px",
+                borderRadius: "4px",
                 background: "rgba(212, 160, 23, 0.08)",
                 border: "1px solid rgba(212, 160, 23, 0.25)",
-              }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
             >
               <p style={{ margin: 0, fontSize: "0.78rem", opacity: 0.6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 Solde PTC actuel
@@ -5187,7 +5215,7 @@ export default function AdminPage(): JSX.Element {
                     gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
                     gap: "0.85rem",
                     marginBottom: "1.25rem",
-                  }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                 >
                   {ptcUtilisations.map((c) => {
                     const d = ptcUtilisationDrafts[c.id] ?? ptcUtilisationToDraft(c);
@@ -5196,7 +5224,7 @@ export default function AdminPage(): JSX.Element {
                       <article
                         key={c.id}
                         style={{
-                          borderRadius: "10px",
+                          borderRadius: "4px",
                           padding: "1rem",
                           background: dirty
                             ? "rgba(212, 160, 23, 0.06)"
@@ -5263,11 +5291,10 @@ export default function AdminPage(): JSX.Element {
                     onClick={() => void handleSavePtcUtilisations()}
                     style={{
                       padding: "0.65rem 1.35rem",
-                      borderRadius: "8px",
-                      border: "none",
-                      background: ROUGE,
-                      color: TEXT,
-                      fontWeight: 600,
+                      borderRadius: "4px",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       fontSize: "0.78rem",
@@ -5316,10 +5343,10 @@ export default function AdminPage(): JSX.Element {
                         justifyContent: "space-between",
                         gap: "1rem",
                         padding: "1rem 1.1rem",
-                        borderRadius: "10px",
+                        borderRadius: "4px",
                         background: "rgba(245, 240, 232, 0.04)",
                         border: "1px solid rgba(245, 240, 232, 0.1)",
-                      }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                     >
                       <div>
                         <p
@@ -5351,7 +5378,7 @@ export default function AdminPage(): JSX.Element {
                           position: "relative",
                           width: "3.25rem",
                           height: "1.75rem",
-                          borderRadius: "999px",
+                          borderRadius: "4px",
                           border: `1px solid ${flag.actif ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
                           background: flag.actif ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
                           cursor: busy ? "wait" : "pointer",
@@ -5369,7 +5396,6 @@ export default function AdminPage(): JSX.Element {
                             height: "1.15rem",
                             borderRadius: "50%",
                             background: flag.actif ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
-                            boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
                             transition: "left 0.2s ease, background 0.2s ease",
                           }}
                         />
@@ -5427,8 +5453,9 @@ export default function AdminPage(): JSX.Element {
                   <code style={{ fontSize: "0.82rem" }}>actionnaires</code>.
                 </p>
               ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Siège", "Nom", "Catégorie", "Actions", "Pourcentage", "Rôle", "Actif", ""].map((h, i) => (
@@ -5553,9 +5580,9 @@ export default function AdminPage(): JSX.Element {
                                     disabled={!dirty || busy}
                                     onClick={() => void saveActionnaire(a)}
                                     style={{
-                                      background: dirty ? ROUGE : "rgba(245, 240, 232, 0.06)",
-                                      color: TEXT,
-                                      border: `1px solid ${dirty ? ROUGE : "rgba(245, 240, 232, 0.12)"}`,
+                                      background: dirty ? GOLD : "rgba(245, 240, 232, 0.06)",
+                                      color: dirty ? "#000000" : TEXT,
+                                      border: `1px solid ${dirty ? GOLD : "rgba(245, 240, 232, 0.12)"}`,
                                       padding: "0.45rem 0.55rem",
                                       cursor: !dirty || busy ? "not-allowed" : "pointer",
                                       fontSize: "0.68rem",
@@ -5595,7 +5622,8 @@ export default function AdminPage(): JSX.Element {
                       })}
                     </tbody>
                   </table>
-                  <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", opacity: 0.55 }}>
+                  <p style={{ margin: "0.75rem 0 0", fontSize: "0.78rem", opacity: 0.55,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                     Total pourcentages :{" "}
                     {actionnaires
                       .reduce((s, a) => s + Number(a.pourcentage), 0)
@@ -5736,7 +5764,8 @@ export default function AdminPage(): JSX.Element {
                       />
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                     <button
                       type="button"
                       disabled={
@@ -5747,11 +5776,10 @@ export default function AdminPage(): JSX.Element {
                       onClick={() => void saveActionsConfig()}
                       style={{
                         padding: "0.65rem 1.35rem",
-                        borderRadius: "8px",
-                        border: "none",
-                        background: ROUGE,
-                        color: TEXT,
-                        fontWeight: 600,
+                        borderRadius: "4px",
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         fontSize: "0.78rem",
@@ -5772,7 +5800,7 @@ export default function AdminPage(): JSX.Element {
                       onClick={() => void toggleActionsConfigLock()}
                       style={{
                         padding: "0.65rem 1.35rem",
-                        borderRadius: "8px",
+                        borderRadius: "4px",
                         background: actionsConfig.locked
                           ? "rgba(212, 160, 23, 0.12)"
                           : "rgba(245, 240, 232, 0.06)",
@@ -5859,7 +5887,8 @@ export default function AdminPage(): JSX.Element {
                   />
                 </div>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", alignItems: "center",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                 <p style={{ margin: 0, fontSize: "1rem" }}>
                   Total brut :{" "}
                   <strong style={{ color: GOLD, fontSize: "1.2rem" }}>
@@ -5874,11 +5903,10 @@ export default function AdminPage(): JSX.Element {
                   onClick={() => void handleValiderRevenus()}
                   style={{
                     padding: "0.65rem 1.35rem",
-                    borderRadius: "8px",
-                    border: "none",
-                    background: ROUGE,
-                    color: TEXT,
-                    fontWeight: 600,
+                    borderRadius: "4px",
+                    background: GOLD,
+                    color: "#000000",
+                    border: `1px solid ${GOLD}`,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
                     fontSize: "0.78rem",
@@ -5931,7 +5959,7 @@ export default function AdminPage(): JSX.Element {
                             key={s.label}
                             style={{
                               padding: "1rem 1.1rem",
-                              borderRadius: "10px",
+                              borderRadius: "4px",
                               background: "rgba(245, 240, 232, 0.04)",
                               border: "1px solid rgba(245, 240, 232, 0.1)",
                             }}
@@ -6005,7 +6033,7 @@ export default function AdminPage(): JSX.Element {
                             fontWeight: 600,
                             color: poolDisponible > 0 ? GOLD : TEXT,
                             opacity: poolDisponible > 0 ? 1 : 0.6,
-                          }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                         >
                           {cad.format(poolDisponible)}
                         </p>
@@ -6031,11 +6059,12 @@ export default function AdminPage(): JSX.Element {
                     </div>
 
                     {previewOk && actifs.length > 0 ? (
-                      <div style={{ overflowX: "auto", marginBottom: "1.1rem" }}>
+                      <div style={{ overflowX: "auto", marginBottom: "1.1rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                         <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", opacity: 0.65 }}>
                           Aperçu de la distribution :
                         </p>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                        <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                           <thead>
                             <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                               {["Actionnaire", "Pourcentage", "Montant"].map((h) => (
@@ -6077,11 +6106,10 @@ export default function AdminPage(): JSX.Element {
                       onClick={() => void handleDistribuerDividendes()}
                       style={{
                         padding: "0.65rem 1.35rem",
-                        borderRadius: "8px",
-                        border: "none",
-                        background: ROUGE,
-                        color: TEXT,
-                        fontWeight: 600,
+                        borderRadius: "4px",
+                        background: GOLD,
+                        color: "#000000",
+                        border: `1px solid ${GOLD}`,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         fontSize: "0.78rem",
@@ -6102,13 +6130,14 @@ export default function AdminPage(): JSX.Element {
                       ) : divDecisions.length === 0 ? (
                         <p style={{ opacity: 0.6, margin: 0 }}>Aucune distribution passée.</p>
                       ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                           {divDecisions.map((dec) => (
                             <div
                               key={dec.id}
                               style={{
                                 padding: "0.85rem 1rem",
-                                borderRadius: "10px",
+                                borderRadius: "4px",
                                 background: "rgba(245, 240, 232, 0.04)",
                                 border: "1px solid rgba(245, 240, 232, 0.1)",
                               }}
@@ -6153,8 +6182,9 @@ export default function AdminPage(): JSX.Element {
             {membersLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement…</p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+              <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
                     <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                       {["Id", "Nom", "Courriel", "Type", "Mult.", "N° membre", ""].map((h, i) => (
@@ -6190,7 +6220,7 @@ export default function AdminPage(): JSX.Element {
                             <td
                               style={{
                                 padding: "0.6rem 0.5rem",
-                                fontFamily: "ui-monospace, monospace",
+                                fontFamily: "var(--font-mono), ui-monospace, monospace",
                                 fontSize: "0.72rem",
                                 wordBreak: "break-all",
                                 verticalAlign: "top",
@@ -6278,9 +6308,9 @@ export default function AdminPage(): JSX.Element {
                                     disabled={!dirty || savingMemberId === m.id}
                                     onClick={() => void saveMember(m.id)}
                                     style={{
-                                      background: dirty ? ROUGE : "rgba(245, 240, 232, 0.06)",
-                                      color: TEXT,
-                                      border: `1px solid ${dirty ? ROUGE : "rgba(245, 240, 232, 0.12)"}`,
+                                      background: dirty ? GOLD : "rgba(245, 240, 232, 0.06)",
+                                      color: dirty ? "#000000" : TEXT,
+                                      border: `1px solid ${dirty ? GOLD : "rgba(245, 240, 232, 0.12)"}`,
                                       padding: "0.45rem 0.55rem",
                                       cursor: !dirty || savingMemberId === m.id ? "not-allowed" : "pointer",
                                       fontSize: "0.68rem",
@@ -6357,7 +6387,7 @@ export default function AdminPage(): JSX.Element {
                 justifyContent: "space-between",
                 flexWrap: "wrap",
                 gap: "0.75rem",
-              }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
             >
               {sectionTitle("SUIVI BETA")}
               <button
@@ -6366,7 +6396,7 @@ export default function AdminPage(): JSX.Element {
                 onClick={() => void exportBetaCsv()}
                 style={{
                   padding: "0.55rem 1.1rem",
-                  borderRadius: "8px",
+                  borderRadius: "4px",
                   background: "transparent",
                   color: GOLD,
                   fontWeight: 600,
@@ -6395,7 +6425,7 @@ export default function AdminPage(): JSX.Element {
                 const statCard = {
                   background: "rgba(245, 240, 232, 0.04)",
                   border: "1px solid rgba(245, 240, 232, 0.1)",
-                  borderRadius: "10px",
+                  borderRadius: "4px",
                   padding: "0.85rem 1.1rem",
                   minWidth: "10rem",
                 } as const;
@@ -6419,8 +6449,9 @@ export default function AdminPage(): JSX.Element {
                         </strong>
                       </div>
                     </div>
-                    <div style={{ overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                    <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                      <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                         <thead>
                           <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                             {["N° membre", "Nom", "Courriel", "Temps total", "Points Beta", "Dernière activité", "Statut"].map(
@@ -6484,7 +6515,7 @@ export default function AdminPage(): JSX.Element {
                         style={{
                           marginTop: "1.75rem",
                           padding: "1.25rem",
-                          borderRadius: "12px",
+                          borderRadius: "4px",
                           background: "rgba(212, 175, 55, 0.06)",
                           border: `1px solid ${GOLD}33`,
                         }}
@@ -6522,7 +6553,7 @@ export default function AdminPage(): JSX.Element {
                                   minWidth: "13rem",
                                   background: "rgba(245, 240, 232, 0.04)",
                                   border: "1px solid rgba(245, 240, 232, 0.1)",
-                                  borderRadius: "10px",
+                                  borderRadius: "4px",
                                   padding: "1rem",
                                   display: "flex",
                                   flexDirection: "column",
@@ -6533,7 +6564,8 @@ export default function AdminPage(): JSX.Element {
                                   <span style={{ fontSize: "1.5rem" }}>{BETA_TOP_MEDAILLES[idx]}</span>
                                   <span style={{ fontWeight: 600 }}>{t.display_name ?? "—"}</span>
                                 </div>
-                                <div style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+                                <div style={{ fontSize: "0.8rem", opacity: 0.7,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                                   {betaNumber(t.beta_points).toLocaleString("fr-CA")} pts Beta
                                 </div>
                                 <div style={{ color: GOLD, fontWeight: 700, fontSize: "1.05rem" }}>
@@ -6545,7 +6577,7 @@ export default function AdminPage(): JSX.Element {
                                   onClick={() => void crediterBonusPa(t.id, bonus)}
                                   style={{
                                     padding: "0.55rem 1rem",
-                                    borderRadius: "8px",
+                                    borderRadius: "4px",
                                     background: credite ? "transparent" : GOLD,
                                     color: credite ? GOLD : "#1a1a1a",
                                     fontWeight: 600,
@@ -6635,11 +6667,11 @@ export default function AdminPage(): JSX.Element {
                   onClick={() => void addBetaEmail()}
                   style={{
                     padding: "0.65rem 1.25rem",
-                    borderRadius: "8px",
+                    borderRadius: "4px",
                     background: GOLD,
-                    color: BG,
+                    color: "#000000",
                     fontWeight: 600,
-                    border: "none",
+                    border: `1px solid ${GOLD}`,
                     cursor: betaEmailAdding ? "wait" : "pointer",
                     opacity: betaEmailAdding ? 0.7 : 1,
                     fontSize: "0.9rem",
@@ -6652,8 +6684,9 @@ export default function AdminPage(): JSX.Element {
               {betaEmailsLoading ? (
                 <p style={{ opacity: 0.65 }}>Chargement…</p>
               ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
                       <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
                         {["Email", "Nom", "Statut", "Actions"].map((h) => (
@@ -6692,7 +6725,7 @@ export default function AdminPage(): JSX.Element {
                                 style={{
                                   marginRight: "0.5rem",
                                   padding: "0.4rem 0.85rem",
-                                  borderRadius: "6px",
+                                  borderRadius: "4px",
                                   background: "transparent",
                                   color: TEXT,
                                   border: "1px solid rgba(245,240,232,0.25)",
@@ -6709,7 +6742,7 @@ export default function AdminPage(): JSX.Element {
                                 onClick={() => void deleteBetaEmail(row)}
                                 style={{
                                   padding: "0.4rem 0.85rem",
-                                  borderRadius: "6px",
+                                  borderRadius: "4px",
                                   background: "transparent",
                                   color: ROUGE,
                                   border: `1px solid ${ROUGE}`,
@@ -6753,7 +6786,7 @@ export default function AdminPage(): JSX.Element {
                 const statCard = {
                   background: "rgba(245, 240, 232, 0.04)",
                   border: "1px solid rgba(245, 240, 232, 0.1)",
-                  borderRadius: "10px",
+                  borderRadius: "4px",
                   padding: "0.85rem 1.1rem",
                   minWidth: "10rem",
                 } as const;
@@ -6796,8 +6829,9 @@ export default function AdminPage(): JSX.Element {
                         </strong>
                       </div>
                     </div>
-                    <div style={{ overflowX: "auto" }}>
-                      <table
+                    <div style={{ overflowX: "auto",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+                      <table className="leve-admin-table"
                         style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}
                       >
                         <thead>
@@ -6839,7 +6873,7 @@ export default function AdminPage(): JSX.Element {
                                     style={{
                                       display: "inline-block",
                                       padding: "0.2rem 0.6rem",
-                                      borderRadius: "999px",
+                                      borderRadius: "4px",
                                       background: `${couleur}22`,
                                       color: couleur,
                                       border: `1px solid ${couleur}`,
@@ -6888,7 +6922,7 @@ export default function AdminPage(): JSX.Element {
                                     }
                                     style={{
                                       padding: "0.4rem 0.6rem",
-                                      borderRadius: "6px",
+                                      borderRadius: "4px",
                                       background: "rgba(245,240,232,0.05)",
                                       color: TEXT,
                                       border: "1px solid rgba(245,240,232,0.25)",
@@ -6937,9 +6971,27 @@ const inputBase = {
   width: "100%",
   boxSizing: "border-box",
   padding: "0.65rem 0.75rem",
-  background: "rgba(245, 240, 232, 0.05)",
-  border: "1px solid rgba(245, 240, 232, 0.12)",
-  borderRadius: "8px",
+  background: G3,
+  border: "1px solid rgba(255, 255, 255, 0.08)",
+  borderRadius: "4px",
   color: TEXT,
   fontSize: "0.9rem",
+} as const;
+
+const btnFill = {
+  background: GOLD,
+  color: "#000000",
+  border: `1px solid ${GOLD}`,
+  borderRadius: "4px",
+  fontWeight: 600,
+  cursor: "pointer",
+} as const;
+
+const btnOutline = {
+  background: "transparent",
+  color: GOLD,
+  border: `1px solid ${GOLD}`,
+  borderRadius: "4px",
+  fontWeight: 600,
+  cursor: "pointer",
 } as const;

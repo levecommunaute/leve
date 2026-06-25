@@ -23,12 +23,11 @@ const fabStyle = {
   background: "#991b1b",
   color: "#ffffff",
   border: "none",
-  borderRadius: "9999px",
+  borderRadius: "4px",
   padding: "0.7rem 1.1rem",
   fontSize: "0.9rem",
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
 } as const;
 
 const overlayStyle = {
@@ -47,9 +46,8 @@ const modalStyle = {
   maxWidth: "440px",
   background: "#18181b",
   color: "#fafafa",
-  borderRadius: "12px",
+  borderRadius: "4px",
   padding: "1.5rem",
-  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
 } as const;
 
 const labelStyle = {
@@ -66,7 +64,7 @@ const fieldStyle = {
   background: "#27272a",
   color: "#fafafa",
   border: "1px solid #3f3f46",
-  borderRadius: "8px",
+  borderRadius: "4px",
   padding: "0.6rem 0.7rem",
   fontSize: "0.9rem",
   marginBottom: "1rem",
@@ -255,7 +253,7 @@ export function BetaBugButton(): JSX.Element | null {
                       background: "transparent",
                       color: "#a1a1aa",
                       border: "1px solid #3f3f46",
-                      borderRadius: "8px",
+                      borderRadius: "4px",
                       padding: "0.55rem 1rem",
                       fontSize: "0.9rem",
                       cursor: submitting ? "default" : "pointer",
@@ -271,7 +269,7 @@ export function BetaBugButton(): JSX.Element | null {
                       background: "#991b1b",
                       color: "#ffffff",
                       border: "none",
-                      borderRadius: "8px",
+                      borderRadius: "4px",
                       padding: "0.55rem 1.2rem",
                       fontSize: "0.9rem",
                       fontWeight: 700,

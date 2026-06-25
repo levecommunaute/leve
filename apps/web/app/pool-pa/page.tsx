@@ -427,7 +427,7 @@ export default function PoolPaPage(): JSX.Element | null {
         minHeight: "100vh",
         background: BG,
         color: TEXT,
-        fontFamily: "var(--font-dm), system-ui, sans-serif",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
     >
@@ -478,7 +478,7 @@ export default function PoolPaPage(): JSX.Element | null {
               background: "transparent",
               color: ROUGE,
               border: `1px solid ${ROUGE}`,
-              borderRadius: "6px",
+              borderRadius: "4px",
               padding: "0.45rem 0.9rem",
               fontSize: "0.8rem",
               cursor: signingOut ? "wait" : "pointer",
@@ -508,7 +508,8 @@ export default function PoolPaPage(): JSX.Element | null {
         >
           POOL ACTIVITÉS
         </h1>
-        <p style={{ margin: "0 0 1.25rem", opacity: 0.75, fontSize: "0.95rem", lineHeight: 1.5 }}>
+        <p style={{ margin: "0 0 1.25rem", opacity: 0.75, fontSize: "0.95rem", lineHeight: 1.5,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           Points d&apos;accès (PA) — {cad.format(PA_PRICE_CAD)} / pt
         </p>
 
@@ -517,7 +518,7 @@ export default function PoolPaPage(): JSX.Element | null {
         ) : featureFlagState === "disabled" ? (
           <section
             style={{
-              borderRadius: "16px",
+              borderRadius: "4px",
               padding: "3rem 1.75rem",
               textAlign: "center",
               marginBottom: "1.5rem",
@@ -546,12 +547,11 @@ export default function PoolPaPage(): JSX.Element | null {
           <>
             <section
               style={{
-                borderRadius: "16px",
+                borderRadius: "4px",
                 padding: "1.5rem 1.35rem",
                 marginBottom: "1rem",
                 background: `linear-gradient(135deg, ${VERT} 0%, #1e8449 55%, #145a32 100%)`,
                 border: "1px solid rgba(245, 240, 232, 0.2)",
-                boxShadow: "0 12px 40px rgba(46, 204, 113, 0.12)",
                 color: BG,
               }}
             >
@@ -584,7 +584,7 @@ export default function PoolPaPage(): JSX.Element | null {
 
             <section
               style={{
-                borderRadius: "16px",
+                borderRadius: "4px",
                 padding: "1.5rem 1.35rem",
                 marginBottom: "1.5rem",
                 border: "1px solid rgba(245, 240, 232, 0.12)",
@@ -603,7 +603,8 @@ export default function PoolPaPage(): JSX.Element | null {
                 Acheter des PA depuis ma Banque LEVE
               </h2>
 
-              <p style={{ margin: "0 0 1rem", fontSize: "0.9rem", opacity: 0.85 }}>
+              <p style={{ margin: "0 0 1rem", fontSize: "0.9rem", opacity: 0.85,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                 Solde banque disponible :{" "}
                 <strong style={{ color: GOLD }}>{cad.format(soldeBanque)}</strong>
                 {maxPtsAffordable > 0 ? (
@@ -632,7 +633,8 @@ export default function PoolPaPage(): JSX.Element | null {
               >
                 Nombre de points PA
               </label>
-              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                 <input
                   id="pts-pa-range"
                   type="range"
@@ -659,7 +661,7 @@ export default function PoolPaPage(): JSX.Element | null {
                   style={{
                     width: "5rem",
                     padding: "0.5rem",
-                    borderRadius: "8px",
+                    borderRadius: "4px",
                     border: "1px solid rgba(245, 240, 232, 0.2)",
                     background: BG,
                     color: TEXT,
@@ -674,7 +676,7 @@ export default function PoolPaPage(): JSX.Element | null {
                   display: "grid",
                   gap: "0.5rem",
                   fontSize: "0.92rem",
-                }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ opacity: 0.8 }}>Coût ({ptsPa} × {cad.format(PA_PRICE_CAD)})</span>
@@ -687,7 +689,7 @@ export default function PoolPaPage(): JSX.Element | null {
                     paddingTop: "0.5rem",
                     borderTop: "1px solid rgba(245, 240, 232, 0.1)",
                     fontWeight: 700,
-                  }}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                 >
                   <span>Total débité banque</span>
                   <span style={{ color: GOLD }}>{cad.format(cout)}</span>
@@ -714,7 +716,7 @@ export default function PoolPaPage(): JSX.Element | null {
                   width: "100%",
                   maxWidth: "420px",
                   padding: "0.85rem 1.25rem",
-                  borderRadius: "10px",
+                  borderRadius: "4px",
                   fontWeight: 700,
                   fontSize: "0.95rem",
                   letterSpacing: "0.04em",
@@ -756,7 +758,7 @@ export default function PoolPaPage(): JSX.Element | null {
                 fontSize: "1rem",
                 lineHeight: 1.55,
                 padding: "1.25rem",
-                borderRadius: "12px",
+                borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.1)",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
@@ -766,7 +768,7 @@ export default function PoolPaPage(): JSX.Element | null {
           ) : (
             <div
               style={{
-                borderRadius: "12px",
+                borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.1)",
                 overflow: "hidden",
                 background: "rgba(245, 240, 232, 0.03)",

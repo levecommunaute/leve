@@ -74,15 +74,32 @@ function loadYouTubeIframeApi(): Promise<void> {
   });
 }
 
-function inputStyle(disabled: boolean): React.CSSProperties {
+function formatCodeInput(raw: string): string {
+  const chars = raw.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
+  const parts: string[] = [];
+  for (let i = 0; i < chars.length; i += 4) {
+    parts.push(chars.slice(i, i + 4));
+  }
+  return parts.join("-");
+}
+
+function isCodeComplete(formatted: string): boolean {
+  return formatted.replace(/-/g, "").length === 12;
+}
+
+function codeInputStyle(disabled: boolean): React.CSSProperties {
   return {
-    width: "80px",
-    padding: ".75rem",
+    flex: "1 1 220px",
+    minWidth: "220px",
+    maxWidth: "320px",
+    padding: ".75rem 1rem",
     background: disabled ? "#1a1a1a" : "#222",
     border: "1px solid #333",
     color: disabled ? "rgba(245,240,232,0.45)" : "#F5F0E8",
     textAlign: "center",
     fontSize: "1.1rem",
+    letterSpacing: "0.08em",
+    fontFamily: "var(--font-mono), ui-monospace, monospace",
     cursor: disabled ? "not-allowed" : "text",
   };
 }
@@ -107,12 +124,11 @@ export default function VideoPage(): React.JSX.Element {
   const [userId, setUserId] = useState<string>("");
   const [progressLoaded, setProgressLoaded] = useState<boolean>(false);
   const [codeUnlocked, setCodeUnlocked] = useState<boolean>(false);
-  const [f1, setF1] = useState<string>("");
-  const [f2, setF2] = useState<string>("");
-  const [f3, setF3] = useState<string>("");
+  const [codeInput, setCodeInput] = useState<string>("");
+  const [codeValidated, setCodeValidated] = useState<boolean>(false);
+  const [showQuizReadyModal, setShowQuizReadyModal] = useState<boolean>(false);
   const [result, setResult] = useState<{
     success: boolean;
-    points_awarded?: number;
     message?: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -387,14 +403,23 @@ export default function VideoPage(): React.JSX.Element {
     const res = await fetch("/api/verify-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video_id: id, code: f1 + "-" + f2 + "-" + f3, token }),
+      body: JSON.stringify({ video_id: id, code: codeInput, token }),
     });
     const data = await res.json();
     setResult(data);
     if (data.success) {
-      router.push(`/videos/${id}/quiz`);
+      setCodeValidated(true);
+      setShowQuizReadyModal(true);
     }
     setSubmitting(false);
+  };
+
+  const startQuiz = (): void => {
+    router.push(`/videos/${id}/quiz`);
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setCodeInput(formatCodeInput(e.target.value));
   };
 
   if (loading || !flagLoaded || (verification60Enabled && !progressLoaded)) {
@@ -435,7 +460,8 @@ export default function VideoPage(): React.JSX.Element {
           Retour
         </span>
       </nav>
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem" }}>
+      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
         <h1 style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: "2.5rem" }}>{video.title}</h1>
         <div
           style={{
@@ -458,7 +484,8 @@ export default function VideoPage(): React.JSX.Element {
           </span>
           <BonusBadge bonusExpireAt={video.bonus_expire_at} />
         </div>
-        <div style={{ margin: "2rem 0", aspectRatio: "16/9" }}>
+        <div style={{ margin: "2rem 0", aspectRatio: "16/9",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           {verification60Enabled ? (
             <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
           ) : (
@@ -469,7 +496,8 @@ export default function VideoPage(): React.JSX.Element {
             />
           )}
         </div>
-        <div style={{ background: "#111", padding: "2rem" }}>
+        <div style={{ background: "#111", padding: "2rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           <h2
             style={{
               fontFamily: "Bebas Neue,sans-serif",
@@ -496,61 +524,144 @@ export default function VideoPage(): React.JSX.Element {
           ) : null}
           <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
             <input
-              maxLength={4}
-              value={f1}
-              onChange={(e) => setF1(e.target.value.toUpperCase())}
-              placeholder="XXXX"
-              disabled={formLocked}
-              style={inputStyle(formLocked)}
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={codeInput}
+              onChange={handleCodeChange}
+              placeholder="XXXX-YYYY-ZZZZ"
+              disabled={formLocked || codeValidated}
+              style={codeInputStyle(formLocked || codeValidated)}
             />
-            <span>-</span>
-            <input
-              maxLength={4}
-              value={f2}
-              onChange={(e) => setF2(e.target.value.toUpperCase())}
-              placeholder="XXXX"
-              disabled={formLocked}
-              style={inputStyle(formLocked)}
-            />
-            <span>-</span>
-            <input
-              maxLength={4}
-              value={f3}
-              onChange={(e) => setF3(e.target.value.toUpperCase())}
-              placeholder="XXXX"
-              disabled={formLocked}
-              style={inputStyle(formLocked)}
-            />
-            <button
-              onClick={() => void handleSubmit()}
-              disabled={formLocked || submitting || f1.length < 4 || f2.length < 4 || f3.length < 4}
-              style={{
-                background: formLocked ? "#555" : "#C0392B",
-                color: "#fff",
-                border: "none",
-                padding: ".75rem 2rem",
-                cursor: formLocked ? "not-allowed" : "pointer",
-                opacity: formLocked ? 0.6 : 1,
-              }}
-            >
-              VALIDER
-            </button>
+            {!codeValidated ? (
+              <button
+                onClick={() => void handleSubmit()}
+                disabled={formLocked || submitting || !isCodeComplete(codeInput)}
+                style={{
+                  background: formLocked ? "#555" : "#C0392B",
+                  color: "#fff",
+                  border: "none",
+                  padding: ".75rem 2rem",
+                  cursor: formLocked ? "not-allowed" : "pointer",
+                  opacity: formLocked ? 0.6 : 1,
+                }}
+              >
+                VALIDER
+              </button>
+            ) : (
+              <button
+                onClick={startQuiz}
+                style={{
+                  background: "#C0392B",
+                  color: "#fff",
+                  border: "none",
+                  padding: ".75rem 2rem",
+                  cursor: "pointer",
+                }}
+              >
+                Commencer le quiz
+              </button>
+            )}
           </div>
-          {result ? (
+          {result && !result.success ? (
             <div
               style={{
                 marginTop: "1.5rem",
                 padding: "1rem",
-                background: result.success ? "rgba(46,204,113,.1)" : "rgba(192,57,43,.1)",
+                background: "rgba(192,57,43,.1)",
+                fontFamily: "var(--font-mono), ui-monospace, monospace",
               }}
             >
-              {result.success
-                ? `✅ +${result.points_awarded} points`
-                : `❌ ${result.message || "Code incorrect"}`}
+              {`❌ ${result.message || "Code incorrect"}`}
             </div>
           ) : null}
         </div>
       </div>
+
+      {showQuizReadyModal ? (
+        <div
+          role="presentation"
+          onClick={() => setShowQuizReadyModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quiz-ready-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              background: "#111",
+              border: "1px solid rgba(255,255,255,.1)",
+              padding: "2rem",
+              fontFamily: "DM Sans,sans-serif",
+            }}
+          >
+            <h2
+              id="quiz-ready-title"
+              style={{
+                fontFamily: "Bebas Neue,sans-serif",
+                fontSize: "2rem",
+                margin: "0 0 1rem",
+                color: "#F5F0E8",
+              }}
+            >
+              Prêt pour le quiz ?
+            </h2>
+            <p
+              style={{
+                margin: "0 0 2rem",
+                opacity: 0.75,
+                lineHeight: 1.5,
+                fontFamily: "var(--font-mono), ui-monospace, monospace",
+              }}
+            >
+              90 secondes · Sans pause · Sans reprise possible
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <button
+                type="button"
+                onClick={startQuiz}
+                style={{
+                  background: "#C0392B",
+                  color: "#fff",
+                  border: "none",
+                  padding: ".85rem 1.5rem",
+                  cursor: "pointer",
+                  fontFamily: "Bebas Neue,sans-serif",
+                  fontSize: "1.1rem",
+                }}
+              >
+                Je suis prêt — Commencer
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowQuizReadyModal(false)}
+                style={{
+                  background: "transparent",
+                  color: "#F5F0E8",
+                  border: "1px solid rgba(255,255,255,.2)",
+                  padding: ".75rem 1.5rem",
+                  cursor: "pointer",
+                }}
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
