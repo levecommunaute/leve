@@ -8,7 +8,11 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
-import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
+import {
+  formatQuizTransactionLines,
+  sumMonthlyWeightedQuizPts,
+} from "../../lib/quizTransactionDisplay";
+import { getMonthlyMemberRankBadge } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 import { useYoutubeSubscriberCount } from "../../lib/use-youtube-subscriber-count";
@@ -224,6 +228,8 @@ export default function ProfilPage(): JSX.Element | null {
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
   const weightedPointsPmq = totalPointsPmq * profileMultiplier;
+  const monthPtsPonderes = sumMonthlyWeightedQuizPts(quizTxHistory, profileMultiplier);
+  const monthlyRankBadge = getMonthlyMemberRankBadge(monthPtsPonderes);
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
   const youtubeAbonnesLabel =
@@ -318,6 +324,26 @@ export default function ProfilPage(): JSX.Element | null {
             </div>
           </div>
           <span style={{ display: "inline-block", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", padding: "0.35rem 0.75rem", borderRadius: "4px", ...memberBadge }}>{memberLabel}</span>
+          {monthlyRankBadge ? (
+            <div>
+              <span
+                style={{
+                  display: "inline-block",
+                  marginTop: "0.6rem",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  padding: "0.3rem 0.65rem",
+                  borderRadius: "4px",
+                  background: monthlyRankBadge.background,
+                  color: monthlyRankBadge.color,
+                  border: monthlyRankBadge.border,
+                }}
+              >
+                {monthlyRankBadge.emoji} {monthlyRankBadge.label}
+              </span>
+            </div>
+          ) : null}
           {profile?.is_beta_tester ? (
             <div>
               <span style={{ display: "inline-block", marginTop: "0.6rem", background: "rgba(212, 160, 23, 0.14)", color: GOLD, fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.04em", padding: "0.3rem 0.65rem", borderRadius: "4px", border: "1px solid rgba(212, 160, 23, 0.35)" }}>
