@@ -8,10 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
-import {
-  formatQuizTransactionLines,
-  sumMonthlyWeightedQuizPts,
-} from "../../lib/quizTransactionDisplay";
+import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { getMonthlyMemberRankBadge } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
@@ -94,6 +91,36 @@ function memberTypeBadgeStyle(label: string): {
   };
 }
 
+const PP_PAGE_SIZE = 1000;
+
+function currentMonthStartIso(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+}
+
+async function sumMonthlyQuizPtsPonderes(
+  membreId: string,
+  token: string,
+): Promise<number> {
+  const monthStart = currentMonthStartIso();
+  let total = 0;
+  let offset = 0;
+  for (;;) {
+    const url =
+      `${SB}/rest/v1/points_ponderes?membre_id=eq.${encodeURIComponent(membreId)}` +
+      `&type=eq.quiz&created_at=gte.${encodeURIComponent(monthStart)}` +
+      `&select=pts_ponderes&offset=${offset}&limit=${PP_PAGE_SIZE}`;
+    const data = await fetchRestJson(url, token);
+    if (!Array.isArray(data)) break;
+    for (const row of data) {
+      total += Number((row as { pts_ponderes?: unknown }).pts_ponderes ?? 0);
+    }
+    if (data.length < PP_PAGE_SIZE) break;
+    offset += PP_PAGE_SIZE;
+  }
+  return total;
+}
+
 async function fetchRestJson(url: string, token: string): Promise<unknown> {
   const res = await fetch(url, {
     headers: { apikey: KEY, Authorization: `Bearer ${token}` },
@@ -124,6 +151,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [quizRows, setQuizRows] = useState<{ video_id: string; title: string; score: number; points: number; at: string | null; }[]>([]);
   const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
+  const [monthlyPtsTotal, setMonthlyPtsTotal] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const youtubeSubscriberCount = useYoutubeSubscriberCount();
@@ -132,11 +160,12 @@ export default function ProfilPage(): JSX.Element | null {
     const uid = activeSession.user.id;
     const token = activeSession.access_token;
 
-    const [profileRes, txRes, txHistoryRes, quizRes] = await Promise.all([
+    const [profileRes, txRes, txHistoryRes, quizRes, monthlyPts] = await Promise.all([
       fetchRestJson(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester`, token),
       fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=amount`, token),
       fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`, token),
       fetchRestJson(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, token),
+      sumMonthlyQuizPtsPonderes(uid, token),
     ]);
 
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -147,6 +176,7 @@ export default function ProfilPage(): JSX.Element | null {
     setTotalPointsPmq(sum);
 
     setQuizTxHistory(Array.isArray(txHistoryRes) ? (txHistoryRes as PointsTxRow[]) : []);
+    setMonthlyPtsTotal(monthlyPts);
 
     const quizSubs = Array.isArray(quizRes) ? quizRes as QuizSubmissionRow[] : [];
     const ids = [...new Set(quizSubs.map((s) => s.video_id).filter(Boolean))];
@@ -228,8 +258,7 @@ export default function ProfilPage(): JSX.Element | null {
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
   const weightedPointsPmq = totalPointsPmq * profileMultiplier;
-  const monthPtsPonderes = sumMonthlyWeightedQuizPts(quizTxHistory, profileMultiplier);
-  const monthlyRankBadge = getMonthlyMemberRankBadge(monthPtsPonderes);
+  const monthlyRankBadge = getMonthlyMemberRankBadge(monthlyPtsTotal);
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
   const youtubeAbonnesLabel =
