@@ -444,6 +444,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const { monthKey, monthDate } = parsed;
+  console.log("monthKey:", monthKey, "monthDate:", monthDate);
 
   try {
     const supabase = getServiceSupabase();
@@ -545,6 +546,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
     if (histError) {
+      console.log("redistribution_history insert error:", histError);
       return NextResponse.json({ error: histError.message }, { status: 500 });
     }
 
