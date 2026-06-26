@@ -428,6 +428,79 @@ function fondateurConfigDraftDirty(
   );
 }
 
+type RangConfigRow = {
+  id: string;
+  seuil_bronze: number;
+  seuil_argent: number;
+  seuil_or: number;
+  seuil_diamant: number;
+  bonus_bronze: number;
+  bonus_argent: number;
+  bonus_or: number;
+  bonus_diamant: number;
+  updated_at: string;
+};
+
+type RangConfigDraft = {
+  seuil_bronze: string;
+  seuil_argent: string;
+  seuil_or: string;
+  seuil_diamant: string;
+  bonus_bronze: string;
+  bonus_argent: string;
+  bonus_or: string;
+  bonus_diamant: string;
+};
+
+const RANG_TIER_FIELDS: {
+  tier: string;
+  label: string;
+  seuilKey: keyof Pick<
+    RangConfigDraft,
+    "seuil_bronze" | "seuil_argent" | "seuil_or" | "seuil_diamant"
+  >;
+  bonusKey: keyof Pick<
+    RangConfigDraft,
+    "bonus_bronze" | "bonus_argent" | "bonus_or" | "bonus_diamant"
+  >;
+}[] = [
+  { tier: "bronze", label: "Bronze", seuilKey: "seuil_bronze", bonusKey: "bonus_bronze" },
+  { tier: "argent", label: "Argent", seuilKey: "seuil_argent", bonusKey: "bonus_argent" },
+  { tier: "or", label: "Or", seuilKey: "seuil_or", bonusKey: "bonus_or" },
+  { tier: "diamant", label: "Diamant", seuilKey: "seuil_diamant", bonusKey: "bonus_diamant" },
+];
+
+function bonusDecimalToPctString(v: number): string {
+  const pct = v * 100;
+  return Number.isInteger(pct) ? String(pct) : String(Math.round(pct * 100) / 100);
+}
+
+function rangConfigToDraft(c: RangConfigRow): RangConfigDraft {
+  return {
+    seuil_bronze: String(c.seuil_bronze),
+    seuil_argent: String(c.seuil_argent),
+    seuil_or: String(c.seuil_or),
+    seuil_diamant: String(c.seuil_diamant),
+    bonus_bronze: bonusDecimalToPctString(c.bonus_bronze),
+    bonus_argent: bonusDecimalToPctString(c.bonus_argent),
+    bonus_or: bonusDecimalToPctString(c.bonus_or),
+    bonus_diamant: bonusDecimalToPctString(c.bonus_diamant),
+  };
+}
+
+function rangConfigDraftDirty(c: RangConfigRow, d: RangConfigDraft): boolean {
+  return (
+    String(c.seuil_bronze) !== d.seuil_bronze.trim() ||
+    String(c.seuil_argent) !== d.seuil_argent.trim() ||
+    String(c.seuil_or) !== d.seuil_or.trim() ||
+    String(c.seuil_diamant) !== d.seuil_diamant.trim() ||
+    bonusDecimalToPctString(c.bonus_bronze) !== d.bonus_bronze.trim() ||
+    bonusDecimalToPctString(c.bonus_argent) !== d.bonus_argent.trim() ||
+    bonusDecimalToPctString(c.bonus_or) !== d.bonus_or.trim() ||
+    bonusDecimalToPctString(c.bonus_diamant) !== d.bonus_diamant.trim()
+  );
+}
+
 function transparenceConfigSectionLabel(cle: string): string {
   return cle === "frais_plateforme" || cle === "taxe_pa"
     ? "Section Frais plateforme"
@@ -1173,6 +1246,13 @@ export default function AdminPage(): JSX.Element {
   const [fondateurConfigSaving, setFondateurConfigSaving] = useState(false);
   const [fondateurConfigSaveMsg, setFondateurConfigSaveMsg] = useState<string | null>(null);
 
+  const [rangConfig, setRangConfig] = useState<RangConfigRow | null>(null);
+  const [rangConfigDraft, setRangConfigDraft] = useState<RangConfigDraft | null>(null);
+  const [rangConfigLoading, setRangConfigLoading] = useState(false);
+  const [rangConfigError, setRangConfigError] = useState<string | null>(null);
+  const [rangConfigSaving, setRangConfigSaving] = useState(false);
+  const [rangConfigSaveMsg, setRangConfigSaveMsg] = useState<string | null>(null);
+
   const [ptcUtilisations, setPtcUtilisations] = useState<PtcUtilisationConfigRow[]>([]);
   const [ptcUtilisationDrafts, setPtcUtilisationDrafts] = useState<
     Record<string, PtcUtilisationDraft>
@@ -1638,6 +1718,33 @@ export default function AdminPage(): JSX.Element {
       setFondateurConfigDraft(null);
     } finally {
       setFondateurConfigLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadRangConfig = useCallback(async (): Promise<void> => {
+    setRangConfigLoading(true);
+    setRangConfigError(null);
+    try {
+      const r = await fetch("/api/admin/rang-config", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as { config?: RangConfigRow | null; error?: string };
+      if (!r.ok) {
+        setRangConfigError(j.error ?? "Erreur configuration rangs");
+        setRangConfig(null);
+        setRangConfigDraft(null);
+        return;
+      }
+      const config = j.config ?? null;
+      setRangConfig(config);
+      setRangConfigDraft(config ? rangConfigToDraft(config) : null);
+    } catch (e) {
+      setRangConfigError(e instanceof Error ? e.message : "Erreur réseau");
+      setRangConfig(null);
+      setRangConfigDraft(null);
+    } finally {
+      setRangConfigLoading(false);
     }
   }, [adminHeaders]);
 
@@ -2164,6 +2271,7 @@ export default function AdminPage(): JSX.Element {
     void loadProduction();
     void loadReseauxSociaux();
     void loadFondateurConfig();
+    void loadRangConfig();
     void loadPtcUtilisations();
     void loadActionnaires();
     void loadActionsConfig();
@@ -2186,6 +2294,7 @@ export default function AdminPage(): JSX.Element {
     loadProduction,
     loadReseauxSociaux,
     loadFondateurConfig,
+    loadRangConfig,
     loadPtcUtilisations,
     loadActionnaires,
     loadActionsConfig,
@@ -2326,6 +2435,10 @@ export default function AdminPage(): JSX.Element {
     setFondateurConfigDraft(null);
     setFondateurConfigError(null);
     setFondateurConfigSaveMsg(null);
+    setRangConfig(null);
+    setRangConfigDraft(null);
+    setRangConfigError(null);
+    setRangConfigSaveMsg(null);
     setActionnaires([]);
     setActionnaireDrafts({});
     setActionnairesError(null);
@@ -2394,6 +2507,71 @@ export default function AdminPage(): JSX.Element {
       setFondateurConfigError(e instanceof Error ? e.message : "Erreur réseau");
     } finally {
       setFondateurConfigSaving(false);
+    }
+  }
+
+  async function handleSaveRangConfig(): Promise<void> {
+    if (!rangConfig || !rangConfigDraft) return;
+
+    setRangConfigSaving(true);
+    setRangConfigError(null);
+    setRangConfigSaveMsg(null);
+    try {
+      if (!rangConfigDraftDirty(rangConfig, rangConfigDraft)) {
+        setRangConfigSaveMsg("Aucune modification à enregistrer.");
+        window.setTimeout(() => setRangConfigSaveMsg(null), 3000);
+        return;
+      }
+
+      const parseSeuil = (raw: string, label: string): number => {
+        const n = Number(raw.trim().replace(",", "."));
+        if (!Number.isFinite(n) || n < 0) {
+          throw new Error(`Seuil ${label} invalide (nombre ≥ 0)`);
+        }
+        return n;
+      };
+
+      const parseBonusPct = (raw: string, label: string): number => {
+        const n = Number(raw.trim().replace(",", "."));
+        if (!Number.isFinite(n) || n < 0) {
+          throw new Error(`Bonus ${label} invalide (pourcentage ≥ 0)`);
+        }
+        return n / 100;
+      };
+
+      const payload = {
+        seuil_bronze: parseSeuil(rangConfigDraft.seuil_bronze, "Bronze"),
+        seuil_argent: parseSeuil(rangConfigDraft.seuil_argent, "Argent"),
+        seuil_or: parseSeuil(rangConfigDraft.seuil_or, "Or"),
+        seuil_diamant: parseSeuil(rangConfigDraft.seuil_diamant, "Diamant"),
+        bonus_bronze: parseBonusPct(rangConfigDraft.bonus_bronze, "Bronze"),
+        bonus_argent: parseBonusPct(rangConfigDraft.bonus_argent, "Argent"),
+        bonus_or: parseBonusPct(rangConfigDraft.bonus_or, "Or"),
+        bonus_diamant: parseBonusPct(rangConfigDraft.bonus_diamant, "Diamant"),
+      };
+
+      const res = await fetch("/api/admin/rang-config", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(payload),
+      });
+      const j = (await res.json()) as { config?: RangConfigRow; error?: string };
+      if (!res.ok) {
+        setRangConfigError(j.error ?? "Échec de la sauvegarde");
+        return;
+      }
+
+      if (j.config) {
+        setRangConfig(j.config);
+        setRangConfigDraft(rangConfigToDraft(j.config));
+      }
+
+      setRangConfigSaveMsg("Configuration enregistrée.");
+      window.setTimeout(() => setRangConfigSaveMsg(null), 3000);
+    } catch (e) {
+      setRangConfigError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setRangConfigSaving(false);
     }
   }
 
@@ -5148,6 +5326,155 @@ export default function AdminPage(): JSX.Element {
                   </button>
                   <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
                     Le bandeau n&apos;apparaît que si le toggle est activé.
+                  </span>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* SECTION CONFIGURATION RANGS */}
+          <section style={cardStyle()}>
+            {sectionTitle("CONFIGURATION RANGS")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Seuils mensuels (pts pondérés quiz) et bonus appliqués aux points bruts lors de la
+              soumission d&apos;un quiz (table{" "}
+              <code style={{ fontSize: "0.82rem" }}>rang_config</code>).
+            </p>
+            {rangConfigError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+                {rangConfigError}
+              </p>
+            ) : null}
+            {rangConfigSaveMsg ? (
+              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+                {rangConfigSaveMsg}
+              </p>
+            ) : null}
+            {rangConfigLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : !rangConfig || !rangConfigDraft ? (
+              <p style={{ opacity: 0.6, margin: 0 }}>
+                Aucune configuration. Exécutez la migration{" "}
+                <code style={{ fontSize: "0.82rem" }}>rang_config</code>.
+              </p>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(10rem, 1fr))",
+                    gap: "1rem",
+                    marginBottom: "1.25rem",
+                  }}
+                >
+                  {RANG_TIER_FIELDS.map(({ tier, label, seuilKey, bonusKey }) => (
+                    <div
+                      key={tier}
+                      style={{
+                        padding: "1rem",
+                        borderRadius: "4px",
+                        background: G2,
+                        border: `1px solid ${G3}`,
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: "0 0 0.85rem",
+                          fontSize: "0.78rem",
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          opacity: 0.65,
+                        }}
+                      >
+                        {label}
+                      </p>
+                      <label
+                        style={{
+                          display: "block",
+                          marginBottom: "0.75rem",
+                          fontSize: "0.72rem",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          opacity: 0.55,
+                        }}
+                      >
+                        Seuil (pts pondérés)
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={rangConfigDraft[seuilKey]}
+                          onChange={(e) =>
+                            setRangConfigDraft((prev) =>
+                              prev ? { ...prev, [seuilKey]: e.target.value } : prev,
+                            )
+                          }
+                          aria-label={`Seuil ${label}`}
+                          style={{
+                            ...inputBase,
+                            display: "block",
+                            marginTop: "0.4rem",
+                            width: "100%",
+                            fontSize: "0.85rem",
+                          }}
+                        />
+                      </label>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "0.72rem",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          opacity: 0.55,
+                        }}
+                      >
+                        Bonus (%)
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={rangConfigDraft[bonusKey]}
+                          onChange={(e) =>
+                            setRangConfigDraft((prev) =>
+                              prev ? { ...prev, [bonusKey]: e.target.value } : prev,
+                            )
+                          }
+                          aria-label={`Bonus ${label}`}
+                          style={{
+                            ...inputBase,
+                            display: "block",
+                            marginTop: "0.4rem",
+                            width: "100%",
+                            fontSize: "0.85rem",
+                          }}
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    disabled={rangConfigSaving}
+                    onClick={() => void handleSaveRangConfig()}
+                    style={{
+                      padding: "0.65rem 1.35rem",
+                      borderRadius: "4px",
+                      background: GOLD,
+                      color: "#000000",
+                      border: `1px solid ${GOLD}`,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      fontSize: "0.78rem",
+                      cursor: rangConfigSaving ? "wait" : "pointer",
+                      opacity: rangConfigSaving ? 0.7 : 1,
+                    }}
+                  >
+                    {rangConfigSaving ? "Sauvegarde…" : "Sauvegarder"}
+                  </button>
+                  <span style={{ fontSize: "0.82rem", opacity: 0.55 }}>
+                    Le rang est calculé sur les pts pondérés quiz du mois en cours (avant le quiz
+                    soumis). Bronze = pas de bonus.
                   </span>
                 </div>
               </>

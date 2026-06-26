@@ -61,6 +61,25 @@ function parseBonusMultiplierFromDescription(
   return description?.includes("Bonus 72h") ? 2 : 1;
 }
 
+/** Bonus de rang mensuel encodé dans la description (aligné sur /api/quiz/submit). */
+export function parseBonusRangFromDescription(
+  description: string | null | undefined,
+): number {
+  if (!description) return 1;
+  if (description.includes("Rang Diamant")) return 1.6;
+  if (description.includes("Rang Or")) return 1.35;
+  if (description.includes("Rang Argent")) return 1.15;
+  return 1;
+}
+
+function parseRankLabelFromDescription(
+  description: string | null | undefined,
+): string | null {
+  if (!description?.trim()) return null;
+  const m = description.match(/Rang (?:Argent|Or|Diamant) \+\d+%/);
+  return m?.[0] ?? null;
+}
+
 function resolvePointsPerCorrect(
   amount: number,
   description: string | null | undefined,
@@ -83,7 +102,8 @@ function resolvePointsPerCorrect(
   const correct = score?.correct;
   if (correct != null && Number.isFinite(correct) && correct > 0) {
     const bonusMult = parseBonusMultiplierFromDescription(description);
-    const derived = Math.abs(amount) / (correct * bonusMult);
+    const bonusRang = parseBonusRangFromDescription(description);
+    const derived = Math.abs(amount) / (correct * bonusMult * bonusRang);
     if (Number.isFinite(derived) && derived > 0) {
       return derived;
     }
@@ -115,26 +135,59 @@ export function formatQuizTransactionLines(
   const ppc = resolvePointsPerCorrect(amount, description, score, pointsPerCorrect);
 
   const totalQuestions = score?.total ?? 5;
+  const bonusRang = parseBonusRangFromDescription(description);
+
   let correct = score?.correct;
   if (correct == null || !Number.isFinite(correct)) {
     const bonusMult = parseBonusMultiplierFromDescription(description);
     const absAmt = Math.abs(amount);
-    const baseFromAmount = Math.round(absAmt / (ppc * bonusMult));
+    const baseFromAmount = Math.round(absAmt / (ppc * bonusMult * bonusRang));
     correct = Math.max(0, Math.min(totalQuestions, baseFromAmount));
   }
 
   const basePts = correct * ppc;
   const bonusActif = description?.includes("Bonus 72h") ?? false;
-  const bonusMultiplier = bonusActif ? 2 : 1;
-  const weightedTotal = basePts * bonusMultiplier * mult;
+  const weightedTotal = basePts * bonusRang * mult;
   const multLabel = formatMultiplier(mult);
 
   const baseLine = `Quiz ${correct}/${totalQuestions} bonnes réponses — base ${pointsFmt.format(basePts)} pts`;
+  const rankLabel = parseRankLabelFromDescription(description);
+  const rankSuffix = rankLabel ? ` · ${rankLabel}` : "";
 
   return {
     line1: bonusActif
-      ? `⚡ ${baseLine} · Bonus 72h ×2`
-      : baseLine,
+      ? `⚡ ${baseLine} · Bonus 72h ×2${rankSuffix}`
+      : `${baseLine}${rankSuffix}`,
     line2: `Multiplicateur ×${multLabel} appliqué — total ${pointsFmt.format(weightedTotal)} pts pondérés`,
   };
+}
+
+type QuizTxLike = {
+  created_at: string;
+  amount: number | string | null;
+  description: string | null;
+};
+
+/** Points pondérés quiz du mois courant (amount × multiplicateur de la transaction). */
+export function sumMonthlyWeightedQuizPts(
+  transactions: QuizTxLike[],
+  profileMultiplier: number,
+  now = new Date(),
+): number {
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const profileMult =
+    Number.isFinite(profileMultiplier) && profileMultiplier > 0
+      ? profileMultiplier
+      : 1;
+
+  return transactions.reduce((acc, tx) => {
+    const created = new Date(tx.created_at);
+    if (Number.isNaN(created.getTime()) || created < monthStart) return acc;
+
+    const amount = Math.abs(Number(tx.amount ?? 0));
+    if (!Number.isFinite(amount) || amount <= 0) return acc;
+
+    const mult = parseMultiplierFromDescription(tx.description) ?? profileMult;
+    return acc + amount * mult;
+  }, 0);
 }

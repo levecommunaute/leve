@@ -92,3 +92,46 @@ export function rankBadgeStyle(tier: RankTier): {
       };
   }
 }
+
+export type MonthlyMemberRankBadge = {
+  emoji: string;
+  label: string;
+  background: string;
+  color: string;
+  border: string;
+};
+
+/** Rang mensuel (seuils 100 / 300 / 600) — Bronze n'affiche pas de badge. */
+export function getMonthlyMemberRankBadge(
+  ptsPonderesMois: number,
+): MonthlyMemberRankBadge | null {
+  const pts = Math.max(0, Number(ptsPonderesMois) || 0);
+  if (pts >= 600) {
+    return {
+      emoji: "💎",
+      label: "Diamant · +60%",
+      background: "rgba(185, 242, 255, 0.08)",
+      color: DIAMOND,
+      border: `1px solid ${DIAMOND}`,
+    };
+  }
+  if (pts >= 300) {
+    return {
+      emoji: "🥇",
+      label: "Or · +35%",
+      background: "rgba(212, 160, 23, 0.08)",
+      color: GOLD,
+      border: `1px solid ${GOLD}`,
+    };
+  }
+  if (pts >= 100) {
+    return {
+      emoji: "🥈",
+      label: "Argent · +15%",
+      background: "rgba(192, 192, 192, 0.08)",
+      color: SILVER,
+      border: `1px solid ${SILVER}`,
+    };
+  }
+  return null;
+}
