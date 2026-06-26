@@ -30,6 +30,7 @@ export async function crediterPtc(params: {
 
   const svc = getServiceSupabase();
   const mois = params.mois ?? currentMonthKey();
+  const moisDate = mois.length === 7 ? `${mois}-01` : mois;
   const description = params.description.trim();
   if (!description) throw new Error("description PTC requise");
 
@@ -52,7 +53,7 @@ export async function crediterPtc(params: {
   if (updateErr) throw new Error(updateErr.message);
 
   const { error: mvtErr } = await svc.from("ptc_mouvements").insert({
-    mois,
+    mois: moisDate,
     source: params.source,
     montant,
     description,
