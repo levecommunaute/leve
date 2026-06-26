@@ -33,7 +33,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from("quiz_questions")
-      .select("id, question, choix")
+      .select("id, question, choix, bonne_reponse")
       .eq("video_id", videoId);
 
     if (error) {
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       id: row.id as string,
       question: row.question as string,
       options: (Array.isArray(row.choix) ? row.choix : []).map((o) => String(o ?? "")),
+      correct_answer: String(row.bonne_reponse ?? ""),
     }));
 
     return NextResponse.json({ quiz_questions: picked });
