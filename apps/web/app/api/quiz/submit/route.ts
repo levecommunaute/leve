@@ -12,6 +12,11 @@ import {
 } from "../../../../lib/pcol";
 import { sendQuizCompletedEmail } from "../../../../lib/emails";
 import { crediterPtc } from "../../../../lib/ptc";
+import {
+  computeRankBonus,
+  getRangConfig,
+  sumMemberQuizPtsPonderesMonth,
+} from "../../../../lib/rang-config";
 
 export const dynamic = "force-dynamic";
 
@@ -280,17 +285,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
 
-    const pointsEarned = correct * POINTS_PER_CORRECT * bonusMultiplier;
-    const pointsPerdus = (denom - correct) * POINTS_PER_CORRECT * bonusMultiplier;
+    const rangConfig = await getRangConfig();
+    const ptsPonderesMois = await sumMemberQuizPtsPonderesMonth(user.id);
+    const { bonusRang, rankLabel } = rangConfig
+      ? computeRankBonus(ptsPonderesMois, rangConfig)
+      : { bonusRang: 1, rankLabel: null as string | null };
+
+    const pointsEarned =
+      correct * POINTS_PER_CORRECT * bonusMultiplier * bonusRang;
+    const pointsPerdus =
+      (denom - correct) * POINTS_PER_CORRECT * bonusMultiplier * bonusRang;
 
     const pointsEarnedPonderes = pointsEarned * multiplicateur;
     const pointsPerdusPonderes = pointsPerdus * multiplicateur;
 
     const multSuffix = ` · ×${multiplicateur}`;
     const bonusSuffix = bonusActive ? " · Bonus 72h ×2" : "";
+    const rankSuffix = rankLabel ? ` · ${rankLabel}` : "";
     const collabSuffix = isCollaborateurVideo ? " · vidéo collaborateur" : "";
     const quizLabel = bonusActive ? "Quiz + Bonus 72h" : "Quiz vidéo";
-    const quizDescription = `${quizLabel} — ${correct}/${denom} bonnes réponses · ${videoPointsValue} pts vidéo${multSuffix}${bonusSuffix}${collabSuffix}`;
+    const quizDescription = `${quizLabel} — ${correct}/${denom} bonnes réponses · ${videoPointsValue} pts vidéo${multSuffix}${bonusSuffix}${rankSuffix}${collabSuffix}`;
     const ptcDescription = bonusActive
       ? `Quiz vidéo — points non obtenus${multSuffix} · Bonus 72h ×2`
       : `Quiz vidéo — points non obtenus${multSuffix}`;
@@ -592,6 +606,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       points_perdus_ponderes: pointsPerdusPonderes,
       multiplicateur,
       bonus_active: bonusActive,
+      bonus_rang: bonusRang,
+      rank_label: rankLabel,
       collaborateur_video: isCollaborateurVideo,
       own_video_recovery: isOwnVideoQuiz,
     });
