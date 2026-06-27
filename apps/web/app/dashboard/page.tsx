@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
 import {
   getMonthlyMemberRankBadge,
+  isCommunauteMemberType,
   type MonthlyRankConfig,
 } from "../../lib/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
@@ -522,10 +523,10 @@ export default function DashboardPage(): JSX.Element | null {
   const isBetaTester = profile?.is_beta_tester === true;
   const betaPoints = Number(profile?.beta_points ?? 0);
   const betaTempsSecondes = Number(profile?.beta_temps_total_secondes ?? 0);
-  const monthlyRankBadge = getMonthlyMemberRankBadge(
-    memberPtsPonderes,
-    rangConfig ?? undefined,
-  );
+  const showRankBadge = isCommunauteMemberType(profile?.member_type);
+  const monthlyRankBadge = showRankBadge
+    ? getMonthlyMemberRankBadge(memberPtsPonderes, rangConfig ?? undefined)
+    : null;
 
   return (
     <div
@@ -685,11 +686,9 @@ export default function DashboardPage(): JSX.Element | null {
             }}
           >
             <span>Bonjour {name}</span>
-            <RankBadge
-              ptsPonderes={weightedPointsPmq}
-              memberType={profile?.member_type}
-              size="md"
-            />
+            {showRankBadge ? (
+              <RankBadge ptsPonderes={weightedPointsPmq} size="md" />
+            ) : null}
           </h1>
           <span
             style={{

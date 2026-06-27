@@ -9,7 +9,10 @@ import { RankBadge } from "../../components/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { signOut } from "../../lib/auth";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
-import { getMonthlyMemberRankBadge } from "../../lib/rank-badge";
+import {
+  getMonthlyMemberRankBadge,
+  isCommunauteMemberType,
+} from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 import { useYoutubeSubscriberCount } from "../../lib/use-youtube-subscriber-count";
@@ -258,7 +261,10 @@ export default function ProfilPage(): JSX.Element | null {
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
   const weightedPointsPmq = totalPointsPmq * profileMultiplier;
-  const monthlyRankBadge = getMonthlyMemberRankBadge(monthlyPtsTotal);
+  const showRankBadge = isCommunauteMemberType(profile?.member_type);
+  const monthlyRankBadge = showRankBadge
+    ? getMonthlyMemberRankBadge(monthlyPtsTotal)
+    : null;
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
   const youtubeAbonnesLabel =
@@ -348,7 +354,9 @@ export default function ProfilPage(): JSX.Element | null {
               <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}</p>
               <h1 style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0", lineHeight: 1.05, color: TEXT, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
                 <span>{name}</span>
-                <RankBadge ptsPonderes={weightedPointsPmq} memberType={profile?.member_type} size="md" />
+                {showRankBadge ? (
+                  <RankBadge ptsPonderes={weightedPointsPmq} size="md" />
+                ) : null}
               </h1>
             </div>
           </div>

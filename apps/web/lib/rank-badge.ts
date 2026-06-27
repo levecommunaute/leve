@@ -22,6 +22,13 @@ function normalizeMemberType(raw: string | null | undefined): string {
   return String(raw ?? "").trim().toLowerCase();
 }
 
+/** Rang mensuel et bonus quiz : uniquement pour member_type Communauté. */
+export function isCommunauteMemberType(raw: string | null | undefined): boolean {
+  if (!raw || typeof raw !== "string") return true;
+  const lower = normalizeMemberType(raw);
+  return lower === "communauté" || lower === "communaute";
+}
+
 /** Badge de rang selon les points pondérés ; Pionnier/Fondateur remplacent le palier. */
 export function getRankBadge(
   ptsPonderes: number,
