@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { isCollaborateurMemberType } from "../../lib/pcol";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
-import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
+import { AppBottomNav } from "../../components/app-bottom-nav";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
@@ -278,8 +278,6 @@ export default function CollaborateurPage(): JSX.Element | null {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [nowTick, setNowTick] = useState(Date.now());
-
-  const navPages = useAppBottomNavLinks(session, profile?.member_type);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(Date.now()), 60_000);
@@ -1030,49 +1028,7 @@ export default function CollaborateurPage(): JSX.Element | null {
         )}
       </main>
 
-      <nav
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "rgba(8, 8, 8, 0.97)",
-          borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-          padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
-          zIndex: 30,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            gap: "0.5rem",
-            justifyContent: "flex-start",
-            maxWidth: "960px",
-            margin: "0 auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-          }}
-        >
-          {navPages.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              style={{
-                flex: "0 0 auto",
-                fontSize: "0.68rem",
-                color: p.href === "/collaborateur" ? GOLD : TEXT,
-                opacity: p.href === "/collaborateur" ? 1 : 0.75,
-                textDecoration: "none",
-                padding: "0.35rem 0.5rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {p.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <AppBottomNav session={session} memberType={profile?.member_type} />
     </div>
   );
 }

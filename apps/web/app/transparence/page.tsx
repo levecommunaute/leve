@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
-import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
+import { AppBottomNav } from "../../components/app-bottom-nav";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 
@@ -280,7 +280,6 @@ const poolCards = [
 export default function TransparencePage(): JSX.Element {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
-  const navPages = useAppBottomNavLinks(session);
   const [authChecked, setAuthChecked] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [banque, setBanque] = useState<BanqueLeveRow | null>(null);
@@ -1101,49 +1100,7 @@ export default function TransparencePage(): JSX.Element {
         </section>
       </main>
 
-      <nav
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "rgba(8, 8, 8, 0.97)",
-          borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-          padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
-          zIndex: 30,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            gap: "0.5rem",
-            justifyContent: "flex-start",
-            maxWidth: "1024px",
-            margin: "0 auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-          }}
-        >
-          {navPages.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              style={{
-                flex: "0 0 auto",
-                fontSize: "0.68rem",
-                color: p.href === "/transparence" ? GOLD : TEXT,
-                opacity: p.href === "/transparence" ? 1 : 0.75,
-                textDecoration: "none",
-                padding: "0.35rem 0.5rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {p.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <AppBottomNav session={session} />
     </div>
   );
 }

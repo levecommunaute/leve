@@ -11,7 +11,8 @@ import {
   isCommunauteMemberType,
   type MonthlyRankConfig,
 } from "../../lib/rank-badge";
-import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
+import { AppBottomNav } from "../../components/app-bottom-nav";
+import { getAppBottomNavLinks } from "../../lib/appBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
@@ -268,7 +269,6 @@ export default function DashboardPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [graceFromUrl, setGraceFromUrl] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [pmqBalance, setPmqBalance] = useState(0);
   const [memberPtsPonderes, setMemberPtsPonderes] = useState(0);
@@ -444,8 +444,15 @@ export default function DashboardPage(): JSX.Element | null {
   }, [loadDashboard, router]);
 
   const blockedNav = useMemo(
-    () => (inGrace ? new Set(navPages.filter((p) => isGraceBlockedHref(p.href)).map((p) => p.href)) : new Set<string>()),
-    [inGrace],
+    () =>
+      inGrace
+        ? new Set(
+            getAppBottomNavLinks(profile?.member_type)
+              .filter((p) => isGraceBlockedHref(p.href))
+              .map((p) => p.href),
+          )
+        : new Set<string>(),
+    [inGrace, profile?.member_type],
   );
 
   function handleSignOut(): void {
@@ -1063,58 +1070,7 @@ export default function DashboardPage(): JSX.Element | null {
         </section>
       </main>
 
-      {/* Bottom nav */}
-      <nav
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "rgba(8, 8, 8, 0.97)",
-          borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-          padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
-          zIndex: 30,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            gap: "0.5rem",
-            justifyContent: "flex-start",
-            maxWidth: "960px",
-            margin: "0 auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-          }}
-        >
-          {navPages.map((p) => {
-            const blocked = blockedNav.has(p.href);
-            const navStyle = {
-              flex: "0 0 auto" as const,
-              fontSize: "0.68rem",
-              color: p.href === "/dashboard" ? GOLD : TEXT,
-              opacity: blocked ? 0.35 : p.href === "/dashboard" ? 1 : 0.75,
-              textDecoration: "none" as const,
-              padding: "0.35rem 0.5rem",
-              whiteSpace: "nowrap" as const,
-              cursor: blocked ? ("not-allowed" as const) : ("pointer" as const),
-            };
-            if (blocked) {
-              return (
-                <span key={p.href} style={navStyle} title="Accès suspendu (période de grâce)">
-                  {p.label}
-                </span>
-              );
-            }
-            return (
-              <Link key={p.href} href={p.href} style={navStyle}>
-                {p.label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <AppBottomNav session={session} memberType={profile?.member_type} blockedHrefs={blockedNav} />
 
     </div>
   );

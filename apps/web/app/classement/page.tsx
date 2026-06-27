@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
-import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
+import { AppBottomNav } from "../../components/app-bottom-nav";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 
@@ -451,7 +451,6 @@ function comingSoonSection(title: string): JSX.Element {
 export default function ClassementPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const navPages = useAppBottomNavLinks(session);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [rows, setRows] = useState<ClassementRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -654,49 +653,7 @@ export default function ClassementPage(): JSX.Element | null {
         <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
           {comingSoonSection("Classement")}
         </main>
-        <nav
-          style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: "rgba(8, 8, 8, 0.97)",
-            borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-            padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
-            zIndex: 30,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              overflowX: "auto",
-              gap: "0.5rem",
-              justifyContent: "flex-start",
-              maxWidth: "960px",
-              margin: "0 auto",
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "none",
-            }}
-          >
-            {navPages.map((p) => (
-              <Link
-                key={p.href}
-                href={p.href}
-                style={{
-                  flex: "0 0 auto",
-                  fontSize: "0.68rem",
-                  color: p.href === "/classement" ? GOLD : TEXT,
-                  opacity: p.href === "/classement" ? 1 : 0.75,
-                  textDecoration: "none",
-                  padding: "0.35rem 0.5rem",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {p.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
+        <AppBottomNav session={session} />
       </div>
     );
   }
@@ -1132,49 +1089,7 @@ export default function ClassementPage(): JSX.Element | null {
         ) : null}
       </main>
 
-      <nav
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "rgba(8, 8, 8, 0.97)",
-          borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-          padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))",
-          zIndex: 30,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            overflowX: "auto",
-            gap: "0.5rem",
-            justifyContent: "flex-start",
-            maxWidth: "960px",
-            margin: "0 auto",
-            WebkitOverflowScrolling: "touch",
-            scrollbarWidth: "none",
-          }}
-        >
-          {navPages.map((p) => (
-            <Link
-              key={p.href}
-              href={p.href}
-              style={{
-                flex: "0 0 auto",
-                fontSize: "0.68rem",
-                color: p.href === "/classement" ? GOLD : TEXT,
-                opacity: p.href === "/classement" ? 1 : 0.75,
-                textDecoration: "none",
-                padding: "0.35rem 0.5rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {p.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <AppBottomNav session={session} />
     </div>
   );
 }
