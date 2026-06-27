@@ -12,6 +12,7 @@ import {
   type MonthlyRankConfig,
 } from "../../lib/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
+import { EnDirectBanner } from "../../components/en-direct-banner";
 import { getAppBottomNavLinks } from "../../lib/appBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
@@ -546,6 +547,7 @@ export default function DashboardPage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <EnDirectBanner />
       {/* Top bar */}
       <header
         style={{

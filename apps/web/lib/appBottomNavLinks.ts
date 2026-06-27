@@ -82,3 +82,24 @@ export function getAppBottomNavLinks(memberType?: string | null): AppBottomNavLi
   links.splice(insertAt, 0, COLLABORATEUR_NAV);
   return links;
 }
+
+/** Membre connecté : Accueil → Dashboard (/dashboard), sans doublon. */
+export function resolveAppBottomNavLinksForSession(
+  links: AppBottomNavLink[],
+  loggedIn: boolean,
+): AppBottomNavLink[] {
+  if (!loggedIn) return links;
+
+  const mapped = links.map((link) =>
+    link.href === "/"
+      ? { href: "/dashboard", label: "Dashboard" }
+      : link,
+  );
+
+  const seen = new Set<string>();
+  return mapped.filter((link) => {
+    if (seen.has(link.href)) return false;
+    seen.add(link.href);
+    return true;
+  });
+}

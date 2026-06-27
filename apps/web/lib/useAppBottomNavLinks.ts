@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   APP_BOTTOM_NAV_LINKS,
   getAppBottomNavLinks,
+  resolveAppBottomNavLinksForSession,
   type AppBottomNavLink,
 } from "./appBottomNavLinks";
 
@@ -60,7 +61,10 @@ export function useAppBottomNavLinks(
   }, [session, memberTypeFromProfile]);
 
   if (memberType === undefined && session) {
-    return APP_BOTTOM_NAV_LINKS;
+    return resolveAppBottomNavLinksForSession(APP_BOTTOM_NAV_LINKS, true);
   }
-  return getAppBottomNavLinks(memberType ?? null);
+  return resolveAppBottomNavLinksForSession(
+    getAppBottomNavLinks(memberType ?? null),
+    Boolean(session),
+  );
 }

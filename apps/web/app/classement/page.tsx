@@ -718,6 +718,34 @@ export default function ClassementPage(): JSX.Element | null {
             .leve-classement-table tbody tr.leve-classement-me:hover {
               background: rgba(212, 160, 23, 0.08);
             }
+            @media (max-width: 479px) {
+              .leve-classement-table-wrap {
+                display: none !important;
+              }
+              .leve-classement-cards {
+                display: flex !important;
+              }
+            }
+            @media (min-width: 480px) {
+              .leve-classement-cards {
+                display: none !important;
+              }
+            }
+            .leve-classement-cards {
+              display: none;
+              flex-direction: column;
+              gap: 0.5rem;
+            }
+            .leve-classement-card {
+              padding: 0.85rem 1rem;
+              border-radius: 4px;
+              background: ${G2};
+              border: 1px solid rgba(245, 240, 232, 0.08);
+            }
+            .leve-classement-card.leve-classement-me {
+              background: rgba(212, 160, 23, 0.06);
+              border-left: 2px solid ${GOLD};
+            }
           `,
         }}
       />
@@ -928,7 +956,7 @@ export default function ClassementPage(): JSX.Element | null {
                 background: "rgba(245, 240, 232, 0.03)",
               }}
             >
-              <div style={{ overflowX: "auto" }}>
+              <div className="leve-classement-table-wrap" style={{ overflowX: "auto" }}>
                 <table
                   className="leve-classement-table"
                   style={{
@@ -1083,6 +1111,91 @@ export default function ClassementPage(): JSX.Element | null {
                     })}
                   </tbody>
                 </table>
+              </div>
+              <div className="leve-classement-cards">
+                {tableRows.map((row) => {
+                  const isMe = row.membre_id === uid;
+                  const badge = memberTypeBadgeStyle(row.member_type);
+                  return (
+                    <div
+                      key={row.membre_id}
+                      className={isMe ? "leve-classement-card leve-classement-me" : "leve-classement-card"}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          justifyContent: "space-between",
+                          gap: "0.75rem",
+                          marginBottom: "0.5rem",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: isMe ? GOLD : TEXT,
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {rankLabel(row.rank)}
+                        </span>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: GOLD,
+                            whiteSpace: "nowrap",
+                            fontFamily: "var(--font-mono), ui-monospace, monospace",
+                          }}
+                        >
+                          {pointsFmt.format(row.total_pts_ponderes)}
+                          <span style={{ fontSize: "0.65rem", opacity: 0.65, marginLeft: "0.25rem" }}>
+                            pts
+                          </span>
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          marginBottom: "0.45rem",
+                          fontWeight: isMe ? 700 : 500,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        <span>{row.display_name}</span>
+                        {row.is_beta_tester ? (
+                          <span title="Testeur Beta" aria-label="Testeur Beta">🧪</span>
+                        ) : null}
+                        <RankBadge
+                          ptsPonderes={row.total_pts_ponderes}
+                          memberType={row.member_type_raw}
+                        />
+                        {isMe ? (
+                          <span style={{ fontSize: "0.65rem", opacity: 0.65, fontWeight: 600 }}>
+                            (vous)
+                          </span>
+                        ) : null}
+                      </div>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          fontSize: "0.62rem",
+                          fontWeight: 600,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          padding: "0.22rem 0.45rem",
+                          borderRadius: "4px",
+                          ...badge,
+                        }}
+                      >
+                        {row.member_type}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>
