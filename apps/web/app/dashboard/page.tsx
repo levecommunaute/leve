@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
+import {
+  getMonthlyMemberRankBadge,
+  isCommunauteMemberType,
+  type MonthlyRankConfig,
+} from "../../lib/rank-badge";
 import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
@@ -70,6 +75,30 @@ type ProfileRow = {
   beta_points: number | string | null;
   beta_temps_total_secondes: number | string | null;
 };
+
+type RangConfigRow = {
+  seuil_argent?: unknown;
+  seuil_or?: unknown;
+  seuil_diamant?: unknown;
+  bonus_argent?: unknown;
+  bonus_or?: unknown;
+  bonus_diamant?: unknown;
+};
+
+function parseRangConfigRow(row: RangConfigRow | null | undefined): MonthlyRankConfig {
+  const num = (v: unknown, fallback: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  return {
+    seuil_argent: num(row?.seuil_argent, 100),
+    seuil_or: num(row?.seuil_or, 300),
+    seuil_diamant: num(row?.seuil_diamant, 600),
+    bonus_argent: num(row?.bonus_argent, 0.15),
+    bonus_or: num(row?.bonus_or, 0.35),
+    bonus_diamant: num(row?.bonus_diamant, 0.6),
+  };
+}
 
 function formatGraceCountdown(msLeft: number): string {
   if (msLeft <= 0) return "0j 00h 00m 00s";
@@ -253,6 +282,7 @@ export default function DashboardPage(): JSX.Element | null {
   const [lastRedistributionCad, setLastRedistributionCad] = useState<
     number | null
   >(null);
+  const [rangConfig, setRangConfig] = useState<MonthlyRankConfig | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [graceMsLeft, setGraceMsLeft] = useState<number | null>(null);
@@ -289,7 +319,7 @@ export default function DashboardPage(): JSX.Element | null {
     setPmqMonthLabel(currentMonth.label);
     setPrevMonthLabel(prevMonth.label);
 
-    const [profileRes, txRes, histRes, prevHistRes, bankRes, memberPpRes, prevPpRes, totalPp] =
+    const [profileRes, txRes, histRes, prevHistRes, bankRes, rangRes, memberPpRes, prevPpRes, totalPp] =
       await Promise.all([
         restJson<ProfileRow[]>(
           `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at,is_beta_tester,beta_points,beta_temps_total_secondes`,
@@ -312,6 +342,10 @@ export default function DashboardPage(): JSX.Element | null {
           `banque_leve?select=pmq_balance&limit=1`,
           token,
         ),
+        restJson<RangConfigRow[]>(
+          `rang_config?select=seuil_argent,seuil_or,seuil_diamant,bonus_argent,bonus_or,bonus_diamant&order=updated_at.desc&limit=1`,
+          token,
+        ),
         sumQuizPtsPonderesForMember(token, uid, currentMonth),
         sumQuizPtsPonderesForMember(token, uid, prevMonth),
         sumAllQuizPtsPonderes(token, currentMonth),
@@ -323,6 +357,7 @@ export default function DashboardPage(): JSX.Element | null {
       histRes.error ??
       prevHistRes.error ??
       bankRes.error ??
+      rangRes.error ??
       null;
     setLoadError(errMsg);
 
@@ -365,6 +400,13 @@ export default function DashboardPage(): JSX.Element | null {
     setPrevMonthPtsPonderes(prevPpRes);
     setPrevMonthRedistributed(!prevHistRes.error && (prevHistRes.data ?? []).length > 0);
     setTotalPtsPonderesAll(totalPp);
+
+    if (rangRes.error) {
+      setRangConfig(null);
+    } else {
+      const row = (rangRes.data ?? [])[0] as RangConfigRow | undefined;
+      setRangConfig(parseRangConfigRow(row));
+    }
   }, []);
 
   useEffect(() => {
@@ -485,6 +527,10 @@ export default function DashboardPage(): JSX.Element | null {
   const betaPoints = Number(profile?.beta_points ?? 0);
   const betaTempsSecondes = Number(profile?.beta_temps_total_secondes ?? 0);
   const betaMinutes = Math.floor(betaTempsSecondes / 60);
+  const showRankBadge = isCommunauteMemberType(profile?.member_type);
+  const monthlyRankBadge = showRankBadge
+    ? getMonthlyMemberRankBadge(memberPtsPonderes, rangConfig ?? undefined)
+    : null;
 
   return (
     <div
@@ -684,11 +730,9 @@ export default function DashboardPage(): JSX.Element | null {
             }}
           >
             <span>Bonjour {name}</span>
-            <RankBadge
-              ptsPonderes={weightedPointsPmq}
-              memberType={profile?.member_type}
-              size="md"
-            />
+            {showRankBadge ? (
+              <RankBadge ptsPonderes={weightedPointsPmq} size="md" />
+            ) : null}
           </h1>
           <span
             style={{
@@ -947,6 +991,26 @@ export default function DashboardPage(): JSX.Element | null {
             >
               {multiplierDisplay}
             </p>
+            {monthlyRankBadge ? (
+              <span
+                style={{
+                  display: "inline-block",
+                  marginTop: "0.6rem",
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  padding: "0.3rem 0.65rem",
+                  borderRadius: "4px",
+                  background: monthlyRankBadge.background,
+                  color: monthlyRankBadge.color,
+                  border: monthlyRankBadge.border,
+                }}
+              >
+                {monthlyRankBadge.emoji} {monthlyRankBadge.label}
+              </span>
+            ) : null}
           </article>
 
           <article

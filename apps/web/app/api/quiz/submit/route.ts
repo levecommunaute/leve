@@ -12,6 +12,7 @@ import {
 } from "../../../../lib/pcol";
 import { sendQuizCompletedEmail } from "../../../../lib/emails";
 import { crediterPtc } from "../../../../lib/ptc";
+import { isCommunauteMemberType } from "../../../../lib/rank-badge";
 import {
   computeRankBonus,
   getRangConfig,
@@ -280,16 +281,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { data: profile } = await svc
       .from("profiles")
-      .select("multiplier, display_name, email")
+      .select("multiplier, display_name, email, member_type")
       .eq("id", user.id)
       .single();
     const multiplicateur = Number(profile?.multiplier ?? 1);
+    const eligibleRankBonus = isCommunauteMemberType(profile?.member_type);
 
     const rangConfig = await getRangConfig();
     const ptsPonderesMois = await sumMemberQuizPtsPonderesMonth(user.id);
-    const { bonusRang, rankLabel } = rangConfig
-      ? computeRankBonus(ptsPonderesMois, rangConfig)
-      : { bonusRang: 1, rankLabel: null as string | null };
+    const { bonusRang, rankLabel } =
+      eligibleRankBonus && rangConfig
+        ? computeRankBonus(ptsPonderesMois, rangConfig)
+        : { bonusRang: 1, rankLabel: null as string | null };
 
     const pointsEarned =
       correct * POINTS_PER_CORRECT * bonusMultiplier * bonusRang;
