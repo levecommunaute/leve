@@ -62,6 +62,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const { data: existingQuiz } = await supabase
+    .from("quiz_submissions")
+    .select("id")
+    .eq("membre_id", user.id)
+    .eq("video_id", video_id)
+    .maybeSingle();
+
+  if (existingQuiz?.id) {
+    const { data: completedVideo } = await supabase
+      .from("videos")
+      .select("title")
+      .eq("id", video_id)
+      .maybeSingle();
+
+    return NextResponse.json({
+      success: false,
+      already_completed: true,
+      message: "Tu as déjà complété le quiz de cette vidéo",
+      video_title: completedVideo?.title ?? "",
+    });
+  }
+
   const youtubeMode = await getFeatureFlag("videos-mode-youtube");
   if (!youtubeMode) {
     const verification60 = await getFeatureFlag("verification-60-pct");

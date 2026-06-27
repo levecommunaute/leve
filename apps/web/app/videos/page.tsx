@@ -310,6 +310,7 @@ export default function VideosPage(): JSX.Element | null {
   const [codeInput, setCodeInput] = useState("");
   const [codeSubmitting, setCodeSubmitting] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [alreadyCompletedMessage, setAlreadyCompletedMessage] = useState<string | null>(null);
   const [watchFirstYoutubeId, setWatchFirstYoutubeId] = useState<string | null>(null);
   const [matchedVideoId, setMatchedVideoId] = useState<string | null>(null);
   const [showQuizReadyModal, setShowQuizReadyModal] = useState(false);
@@ -518,6 +519,7 @@ export default function VideosPage(): JSX.Element | null {
     if (!isCodeComplete(codeInput)) return;
     setCodeSubmitting(true);
     setCodeError(null);
+    setAlreadyCompletedMessage(null);
     setWatchFirstYoutubeId(null);
 
     const token = getAccessTokenFromCookies();
@@ -529,12 +531,17 @@ export default function VideosPage(): JSX.Element | null {
       });
       const data = (await res.json()) as {
         success?: boolean;
+        already_completed?: boolean;
         message?: string;
         video_id?: string;
+        video_title?: string;
         youtube_id?: string;
       };
 
-      if (
+      if (data.already_completed) {
+        const title = data.video_title?.trim() || "cette vidéo";
+        setAlreadyCompletedMessage(`✅ Tu as déjà complété le quiz de '${title}'`);
+      } else if (
         data.message?.includes("Regarde d'abord la vidéo") &&
         typeof data.youtube_id === "string" &&
         data.youtube_id.length > 0
@@ -987,6 +994,7 @@ export default function VideosPage(): JSX.Element | null {
               onChange={(e) => {
                 setCodeInput(formatCodeInput(e.target.value));
                 if (codeError) setCodeError(null);
+                if (alreadyCompletedMessage) setAlreadyCompletedMessage(null);
                 if (watchFirstYoutubeId) setWatchFirstYoutubeId(null);
               }}
               placeholder="XXXX-YYYY-ZZZZ"
@@ -1036,6 +1044,10 @@ export default function VideosPage(): JSX.Element | null {
               >
                 ▶ Regarder sur YouTube
               </a>
+            </p>
+          ) : alreadyCompletedMessage ? (
+            <p style={{ margin: "0.85rem 0 0", color: "#2ECC71", fontSize: "0.9rem", lineHeight: 1.5 }}>
+              {alreadyCompletedMessage}
             </p>
           ) : codeError ? (
             <p style={{ margin: "0.85rem 0 0", color: ROUGE, fontSize: "0.9rem" }}>❌ {codeError}</p>
