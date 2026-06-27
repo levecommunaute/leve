@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
-import { useAppBottomNavLinks } from "../../lib/useAppBottomNavLinks";
+import { AppBottomNav } from "../../components/app-bottom-nav";
+import { EnDirectBanner } from "../../components/en-direct-banner";
 import { signOut } from "../../lib/auth";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import {
@@ -16,7 +17,6 @@ import {
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
-import { useYoutubeSubscriberCount } from "../../lib/use-youtube-subscriber-count";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
@@ -152,14 +152,12 @@ export default function ProfilPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   useBetaTracking(session, "profil");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const navPages = useAppBottomNavLinks(session, profile?.member_type);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [quizRows, setQuizRows] = useState<{ video_id: string; title: string; score: number; points: number; at: string | null; }[]>([]);
   const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
   const [monthlyPtsTotal, setMonthlyPtsTotal] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
-  const youtubeSubscriberCount = useYoutubeSubscriberCount();
 
   const loadProfil = useCallback(async (activeSession: Session) => {
     const uid = activeSession.user.id;
@@ -269,23 +267,9 @@ export default function ProfilPage(): JSX.Element | null {
     : null;
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
 
-  const youtubeAbonnesLabel =
-    youtubeSubscriberCount !== null
-      ? new Intl.NumberFormat("fr-FR").format(Math.max(0, Math.floor(youtubeSubscriberCount)))
-      : null;
-
   return (
     <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            @keyframes leveLiveBlink {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.35; }
-            }
-          `,
-        }}
-      />
+      <EnDirectBanner />
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid rgba(245, 240, 232, 0.08)", position: "sticky", top: 0, background: "rgba(8, 8, 8, 0.92)", backdropFilter: "blur(8px)", zIndex: 20 }}>
         <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>LEVE</Link>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -295,36 +279,6 @@ export default function ProfilPage(): JSX.Element | null {
           </button>
         </div>
       </header>
-
-      {youtubeAbonnesLabel ? (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.45rem",
-            padding: "0.35rem 1rem",
-            fontSize: "0.68rem",
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-            opacity: 0.55,
-            borderBottom: "1px solid rgba(245, 240, 232, 0.05)",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
-        >
-          <span
-            aria-hidden
-            style={{
-              width: "0.35rem",
-              height: "0.35rem",
-              borderRadius: "50%",
-              background: ROUGE,
-              animation: "leveLiveBlink 1.2s ease-in-out infinite",
-            }}
-          />
-          <span>YouTube</span>
-          <span style={{ fontWeight: 600, opacity: 0.9 }}>{youtubeAbonnesLabel} abonnés</span>
-        </div>
-      ) : null}
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>{loadError}</p> : null}
@@ -505,13 +459,7 @@ export default function ProfilPage(): JSX.Element | null {
         </section>
       </main>
 
-      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(8, 8, 8, 0.97)", borderTop: "1px solid rgba(245, 240, 232, 0.1)", padding: "0.5rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom))", zIndex: 30 }}>
-        <div style={{ display: "flex", overflowX: "auto", gap: "0.5rem", justifyContent: "flex-start", maxWidth: "960px", margin: "0 auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
-          {navPages.map((p) => (
-            <Link key={p.href} href={p.href} style={{ flex: "0 0 auto", fontSize: "0.68rem", color: p.href === "/profil" ? GOLD : TEXT, opacity: p.href === "/profil" ? 1 : 0.75, textDecoration: "none", padding: "0.35rem 0.5rem", whiteSpace: "nowrap" }}>{p.label}</Link>
-          ))}
-        </div>
-      </nav>
+      <AppBottomNav session={session} memberType={profile?.member_type} />
     </div>
   );
 }
