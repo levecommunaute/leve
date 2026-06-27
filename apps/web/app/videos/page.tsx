@@ -310,6 +310,7 @@ export default function VideosPage(): JSX.Element | null {
   const [codeInput, setCodeInput] = useState("");
   const [codeSubmitting, setCodeSubmitting] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
+  const [watchFirstYoutubeId, setWatchFirstYoutubeId] = useState<string | null>(null);
   const [matchedVideoId, setMatchedVideoId] = useState<string | null>(null);
   const [showQuizReadyModal, setShowQuizReadyModal] = useState(false);
 
@@ -517,10 +518,11 @@ export default function VideosPage(): JSX.Element | null {
     if (!isCodeComplete(codeInput)) return;
     setCodeSubmitting(true);
     setCodeError(null);
+    setWatchFirstYoutubeId(null);
 
     const token = getAccessTokenFromCookies();
     try {
-      const res = await fetch("/api/verify-code", {
+      const res = await fetch("/api/code/valider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: codeInput, token }),
@@ -529,9 +531,16 @@ export default function VideosPage(): JSX.Element | null {
         success?: boolean;
         message?: string;
         video_id?: string;
+        youtube_id?: string;
       };
 
-      if (data.success && typeof data.video_id === "string") {
+      if (
+        data.message?.includes("Regarde d'abord la vidéo") &&
+        typeof data.youtube_id === "string" &&
+        data.youtube_id.length > 0
+      ) {
+        setWatchFirstYoutubeId(data.youtube_id);
+      } else if (data.success && typeof data.video_id === "string") {
         setMatchedVideoId(data.video_id);
         setCodeVideoIds((prev) => new Set([...prev, data.video_id!]));
         setShowQuizReadyModal(true);
@@ -978,6 +987,7 @@ export default function VideosPage(): JSX.Element | null {
               onChange={(e) => {
                 setCodeInput(formatCodeInput(e.target.value));
                 if (codeError) setCodeError(null);
+                if (watchFirstYoutubeId) setWatchFirstYoutubeId(null);
               }}
               placeholder="XXXX-YYYY-ZZZZ"
               disabled={codeSubmitting || showQuizReadyModal}
@@ -1015,7 +1025,19 @@ export default function VideosPage(): JSX.Element | null {
               {codeSubmitting ? "Validation…" : "VALIDER"}
             </button>
           </div>
-          {codeError ? (
+          {watchFirstYoutubeId ? (
+            <p style={{ margin: "0.85rem 0 0", color: GOLD, fontSize: "0.9rem", lineHeight: 1.5 }}>
+              Regarde d&apos;abord la vidéo pour débloquer le code —{" "}
+              <a
+                href={`https://www.youtube.com/watch?v=${watchFirstYoutubeId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: GOLD, fontWeight: 600 }}
+              >
+                ▶ Regarder sur YouTube
+              </a>
+            </p>
+          ) : codeError ? (
             <p style={{ margin: "0.85rem 0 0", color: ROUGE, fontSize: "0.9rem" }}>❌ {codeError}</p>
           ) : (
             <p style={{ margin: "0.75rem 0 0", fontSize: "0.82rem", opacity: 0.6, lineHeight: 1.45 }}>
