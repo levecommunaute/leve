@@ -101,33 +101,57 @@ export type MonthlyMemberRankBadge = {
   border: string;
 };
 
-/** Rang mensuel (seuils 100 / 300 / 600) — Bronze n'affiche pas de badge. */
+export type MonthlyRankConfig = {
+  seuil_argent: number;
+  seuil_or: number;
+  seuil_diamant: number;
+  bonus_argent: number;
+  bonus_or: number;
+  bonus_diamant: number;
+};
+
+const DEFAULT_MONTHLY_RANK_CONFIG: MonthlyRankConfig = {
+  seuil_argent: 100,
+  seuil_or: 300,
+  seuil_diamant: 600,
+  bonus_argent: 0.15,
+  bonus_or: 0.35,
+  bonus_diamant: 0.6,
+};
+
+function bonusPctLabel(bonus: number): string {
+  const pct = Math.round(Math.max(0, bonus) * 100);
+  return pct > 0 ? ` · +${pct}%` : "";
+}
+
+/** Rang mensuel depuis rang_config — Bronze n'affiche pas de badge. */
 export function getMonthlyMemberRankBadge(
   ptsPonderesMois: number,
+  config: MonthlyRankConfig = DEFAULT_MONTHLY_RANK_CONFIG,
 ): MonthlyMemberRankBadge | null {
   const pts = Math.max(0, Number(ptsPonderesMois) || 0);
-  if (pts >= 600) {
+  if (pts >= config.seuil_diamant) {
     return {
       emoji: "💎",
-      label: "Diamant · +60%",
+      label: `Diamant${bonusPctLabel(config.bonus_diamant)}`,
       background: "rgba(185, 242, 255, 0.08)",
       color: DIAMOND,
       border: `1px solid ${DIAMOND}`,
     };
   }
-  if (pts >= 300) {
+  if (pts >= config.seuil_or) {
     return {
       emoji: "🥇",
-      label: "Or · +35%",
+      label: `Or${bonusPctLabel(config.bonus_or)}`,
       background: "rgba(212, 160, 23, 0.08)",
       color: GOLD,
       border: `1px solid ${GOLD}`,
     };
   }
-  if (pts >= 100) {
+  if (pts >= config.seuil_argent) {
     return {
       emoji: "🥈",
-      label: "Argent · +15%",
+      label: `Argent${bonusPctLabel(config.bonus_argent)}`,
       background: "rgba(192, 192, 192, 0.08)",
       color: SILVER,
       border: `1px solid ${SILVER}`,
