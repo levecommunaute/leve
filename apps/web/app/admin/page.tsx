@@ -552,6 +552,7 @@ const FEATURE_FLAG_ORDER = [
   "concours",
   "classement",
   "verification-60-pct",
+  "videos-mode-youtube",
   "pool-pa",
   "collaborateur",
 ] as const;
