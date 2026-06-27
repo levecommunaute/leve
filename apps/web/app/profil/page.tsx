@@ -418,7 +418,7 @@ export default function ProfilPage(): JSX.Element | null {
             </div>
             <div>
               <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Numéro membre</dt>
-              <dd style={{ margin: "0.25rem 0 0" }}>{typeof profile?.numero_membre === "string" && profile.numero_membre.trim() ? `#${profile.numero_membre}` : "—"}</dd>
+              <dd style={{ margin: "0.25rem 0 0" }}>{profile?.numero_membre != null && String(profile.numero_membre).trim() ? `#${profile.numero_membre}` : "—"}</dd>
             </div>
           </dl>
         </section>
