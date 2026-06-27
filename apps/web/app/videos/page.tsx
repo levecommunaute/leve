@@ -724,8 +724,10 @@ export default function VideosPage(): JSX.Element | null {
           <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.65 }}>
             {formatPublishedAgo(v.created_at)} · {ptsLabel}
           </p>
-          <Link
-            href={`/videos/${v.id}`}
+          <a
+            href={`https://www.youtube.com/watch?v=${v.youtube_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               display: "inline-block",
               marginTop: "0.55rem",
@@ -734,8 +736,8 @@ export default function VideosPage(): JSX.Element | null {
               textDecoration: "none",
             }}
           >
-            Voir & Soumettre →
-          </Link>
+            ▶ Regarder la Vidéo
+          </a>
         </div>
       </article>
     );
@@ -817,7 +819,7 @@ export default function VideosPage(): JSX.Element | null {
                 border: `1px solid ${ROUGE}`,
               }}
             >
-              ▶ Regarder sur YouTube
+              ▶ Regarder la Vidéo
             </a>
           </article>
         ) : null}
