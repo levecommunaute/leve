@@ -142,6 +142,7 @@ export default function VideoPage(): React.JSX.Element {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
 
+  const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -211,6 +212,13 @@ export default function VideoPage(): React.JSX.Element {
     } else {
       player.playVideo();
     }
+    showControls();
+  }, [showControls]);
+
+  const handleFullscreen = useCallback((): void => {
+    const shell = videoShellRef.current;
+    if (!shell?.requestFullscreen) return;
+    void shell.requestFullscreen();
     showControls();
   }, [showControls]);
 
@@ -570,6 +578,15 @@ export default function VideoPage(): React.JSX.Element {
             .video-player-controls--visible .video-player-btn {
               pointer-events: all;
             }
+            .video-player-fullscreen-btn {
+              position: absolute;
+              right: 1rem;
+              bottom: 1rem;
+              pointer-events: none;
+            }
+            .video-player-controls--visible .video-player-fullscreen-btn {
+              pointer-events: all;
+            }
             .video-player-btn:hover {
               background: rgba(255, 255, 255, 0.15);
             }
@@ -646,7 +663,7 @@ export default function VideoPage(): React.JSX.Element {
           }}
         >
           {verification60Enabled ? (
-            <div className="video-player-shell">
+            <div ref={videoShellRef} className="video-player-shell">
               <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
               <div
                 className="video-player-block-overlay"
@@ -677,6 +694,14 @@ export default function VideoPage(): React.JSX.Element {
                     {isPlaying ? "⏸" : "▶"}
                   </button>
                 </div>
+                <button
+                  type="button"
+                  className="video-player-btn video-player-fullscreen-btn"
+                  aria-label="Plein écran"
+                  onClick={handleFullscreen}
+                >
+                  ⛶
+                </button>
               </div>
             </div>
           ) : (
