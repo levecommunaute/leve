@@ -199,8 +199,7 @@ export default function VideoPage(): React.JSX.Element {
   const handleRewind = useCallback((): void => {
     const player = playerRef.current;
     if (!player) return;
-    const t = Math.max(0, player.getCurrentTime() - 10);
-    player.seekTo(t, true);
+    player.seekTo(Math.max(0, player.getCurrentTime() - 10), true);
     showControls();
   }, [showControls]);
 
