@@ -419,6 +419,35 @@ export default function PoolPaPage(): JSX.Element | null {
 
   const name = displayNameFrom(profile, session);
 
+  function renderPaHistoryEntry(row: PaTxRow): {
+    dateLabel: string;
+    signed: string;
+    isAchat: boolean;
+    isTaxLine: boolean;
+    taxeRow: number;
+    coutRow: number;
+  } {
+    const amt = Number(row.amount ?? 0);
+    const isAchat = (row.type ?? "").toLowerCase() === "purchase";
+    const isTaxLine = isPaTaxLine(row);
+    const taxeRow = paTxTax(row);
+    const signed = isTaxLine
+      ? taxeRow > 0
+        ? `-${cad.format(taxeRow)}`
+        : "—"
+      : amt > 0
+        ? `+${ptsFmt.format(amt)} pt`
+        : `${ptsFmt.format(amt)} pt`;
+    let dateLabel = "—";
+    try {
+      dateLabel = dateFmt.format(new Date(row.created_at));
+    } catch {
+      dateLabel = row.created_at;
+    }
+    const coutRow = paTxCost(row);
+    return { dateLabel, signed, isAchat, isTaxLine, taxeRow, coutRow };
+  }
+
   return (
     <div
       className={fonts}
@@ -430,6 +459,35 @@ export default function PoolPaPage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .pool-pa-buy-btn {
+              min-height: 44px;
+              font-size: max(14px, 0.95rem) !important;
+            }
+            .pool-pa-history-cards {
+              display: none;
+              flex-direction: column;
+              gap: 0.65rem;
+            }
+            .pool-pa-history-card {
+              border-radius: 4px;
+              padding: 1rem;
+              background: rgba(245, 240, 232, 0.04);
+              border: 1px solid rgba(245, 240, 232, 0.1);
+            }
+            @media (max-width: 479px) {
+              .pool-pa-history-table-wrap {
+                display: none !important;
+              }
+              .pool-pa-history-cards {
+                display: flex !important;
+              }
+            }
+          `,
+        }}
+      />
       <header
         style={{
           display: "flex",
@@ -708,6 +766,7 @@ export default function PoolPaPage(): JSX.Element | null {
 
               <button
                 type="button"
+                className="pool-pa-buy-btn"
                 disabled={!canBuy}
                 onClick={() => void handleAcheter()}
                 style={{
@@ -765,14 +824,70 @@ export default function PoolPaPage(): JSX.Element | null {
               Aucune transaction PA pour le moment.
             </p>
           ) : (
-            <div
-              style={{
-                borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
-                overflow: "hidden",
-                background: "rgba(245, 240, 232, 0.03)",
-              }}
-            >
+            <>
+              <div className="pool-pa-history-cards">
+                {history.map((row) => {
+                  const { dateLabel, signed, isAchat, isTaxLine, taxeRow, coutRow } =
+                    renderPaHistoryEntry(row);
+                  return (
+                    <article key={row.id} className="pool-pa-history-card">
+                      <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.55 }}>{dateLabel}</p>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: "0.75rem",
+                          marginTop: "0.45rem",
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 600 }}>{paTxLabel(row)}</p>
+                          {isTaxLine && taxeRow > 0 ? (
+                            <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", opacity: 0.65 }}>
+                              Taxe : {cad.format(taxeRow)}
+                            </p>
+                          ) : coutRow > 0 ? (
+                            <p style={{ margin: "0.2rem 0 0", fontSize: "0.78rem", opacity: 0.65 }}>
+                              {cad.format(coutRow)}
+                              {taxeRow > 0 ? ` · taxe ${cad.format(taxeRow)}` : ""}
+                            </p>
+                          ) : null}
+                          <p
+                            style={{
+                              margin: "0.35rem 0 0",
+                              fontSize: "0.72rem",
+                              opacity: 0.55,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.06em",
+                            }}
+                          >
+                            {paTxTypeLabel(row.type, row.description)}
+                          </p>
+                        </div>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: isAchat && Number(row.amount ?? 0) > 0 ? VERT : TEXT,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {signed}
+                        </span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+              <div
+                className="pool-pa-history-table-wrap"
+                style={{
+                  borderRadius: "4px",
+                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  overflow: "hidden",
+                  background: "rgba(245, 240, 232, 0.03)",
+                }}
+              >
               <div style={{ overflowX: "auto" }}>
                 <table
                   style={{
@@ -814,24 +929,8 @@ export default function PoolPaPage(): JSX.Element | null {
                   </thead>
                   <tbody>
                     {history.map((row) => {
-                      const amt = Number(row.amount ?? 0);
-                      const isAchat = (row.type ?? "").toLowerCase() === "purchase";
-                      const isTaxLine = isPaTaxLine(row);
-                      const taxeRow = paTxTax(row);
-                      const signed = isTaxLine
-                        ? taxeRow > 0
-                          ? `-${cad.format(taxeRow)}`
-                          : "—"
-                        : amt > 0
-                          ? `+${ptsFmt.format(amt)} pt`
-                          : `${ptsFmt.format(amt)} pt`;
-                      let dateLabel = "—";
-                      try {
-                        dateLabel = dateFmt.format(new Date(row.created_at));
-                      } catch {
-                        dateLabel = row.created_at;
-                      }
-                      const coutRow = paTxCost(row);
+                      const { dateLabel, signed, isAchat, isTaxLine, taxeRow, coutRow } =
+                        renderPaHistoryEntry(row);
                       return (
                         <tr
                           key={row.id}
@@ -892,7 +991,7 @@ export default function PoolPaPage(): JSX.Element | null {
                               padding: "0.7rem 1rem",
                               textAlign: "right",
                               fontWeight: 700,
-                              color: isAchat && amt > 0 ? VERT : TEXT,
+                              color: isAchat && Number(row.amount ?? 0) > 0 ? VERT : TEXT,
                               whiteSpace: "nowrap",
                             }}
                           >
@@ -905,6 +1004,7 @@ export default function PoolPaPage(): JSX.Element | null {
                 </table>
               </div>
             </div>
+            </>
           )}
         </section>
       </main>

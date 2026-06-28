@@ -114,29 +114,46 @@ export function EnDirectBanner(): JSX.Element | null {
               0%, 100% { opacity: 1; }
               50% { opacity: 0.35; }
             }
+            .leve-en-direct-banner {
+              position: sticky;
+              top: 0;
+              z-index: 50;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-wrap: wrap;
+              gap: 0.65rem 1.25rem;
+              padding: 0.45rem 1rem;
+              background: #111111;
+              border-bottom: 1px solid #1f1f1f;
+              font-size: max(11px, 0.72rem);
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              font-family: var(--font-mono), ui-monospace, monospace;
+              color: ${TEXT};
+            }
+            .leve-reseau-item {
+              display: inline-flex;
+              align-items: center;
+              gap: 0.35rem;
+              opacity: 0.92;
+              white-space: nowrap;
+            }
+            @media (max-width: 479px) {
+              .leve-en-direct-banner {
+                padding: 0.4rem 0.5rem;
+                gap: 0.35rem 0.6rem;
+                font-size: max(10px, 0.62rem);
+                letter-spacing: 0.04em;
+              }
+              .leve-reseau-item {
+                gap: 0.25rem;
+              }
+            }
           `,
         }}
       />
-      <div
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexWrap: "wrap",
-          gap: "0.65rem 1.25rem",
-          padding: "0.45rem 1rem",
-          background: "#111111",
-          borderBottom: "1px solid #1f1f1f",
-          fontSize: "0.72rem",
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-          fontFamily: "var(--font-mono), ui-monospace, monospace",
-          color: TEXT,
-        }}
-      >
+      <div className="leve-en-direct-banner">
         <span
           style={{
             display: "inline-flex",
@@ -166,12 +183,7 @@ export function EnDirectBanner(): JSX.Element | null {
           return (
             <span
               key={r.id}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.35rem",
-                opacity: 0.92,
-              }}
+              className="leve-reseau-item"
             >
               <ReseauSocialIcon reseau={r.reseau} size={14} />
               <span style={{ opacity: 0.7 }}>{RESEAU_LABELS[r.reseau]}</span>

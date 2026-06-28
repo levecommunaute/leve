@@ -2,7 +2,14 @@
 
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent, type JSX } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+  type JSX,
+  type MouseEvent,
+} from "react";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -1075,6 +1082,38 @@ function cardStyle() {
     padding: "1.5rem",
     marginBottom: "1.75rem",
   };
+}
+
+const ADMIN_SECTION_SCROLL_OFFSET = 60;
+
+const ADMIN_SECTIONS: { id: string; label: string }[] = [
+  { id: "section-codes", label: "Codes" },
+  { id: "section-videos", label: "Vidéos" },
+  { id: "section-quiz", label: "Quiz" },
+  { id: "section-redistribution", label: "Redistribution" },
+  { id: "section-map", label: "Carte" },
+  { id: "section-pools", label: "Pools" },
+  { id: "section-transparence-vis", label: "Transparence" },
+  { id: "section-transparence-adv", label: "Transp. avancée" },
+  { id: "section-production", label: "Production" },
+  { id: "section-frais", label: "Frais" },
+  { id: "section-reseaux", label: "Réseaux" },
+  { id: "section-fondateur", label: "Fondateur" },
+  { id: "section-rangs", label: "Rangs" },
+  { id: "section-ptc", label: "PTC" },
+  { id: "section-features", label: "Features" },
+  { id: "section-actions", label: "Actions" },
+  { id: "section-membres", label: "Membres" },
+  { id: "section-beta", label: "Beta" },
+  { id: "section-bugs", label: "Bugs" },
+];
+
+function scrollToAdminSection(sectionId: string, ev: MouseEvent<HTMLAnchorElement>): void {
+  ev.preventDefault();
+  const el = document.getElementById(sectionId);
+  if (!el) return;
+  el.style.scrollMarginTop = `${ADMIN_SECTION_SCROLL_OFFSET}px`;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function sectionTitle(text: string): JSX.Element {
@@ -3263,6 +3302,71 @@ export default function AdminPage(): JSX.Element {
             .leve-admin-table tbody tr:hover {
               background: ${G3};
             }
+            .leve-admin-root button {
+              min-height: 44px;
+            }
+            .leve-admin-root input:not([type="checkbox"]):not([type="radio"]),
+            .leve-admin-root select,
+            .leve-admin-root textarea {
+              min-height: 44px;
+              font-size: 16px;
+            }
+            .leve-admin-root input[type="checkbox"],
+            .leve-admin-root input[type="radio"] {
+              min-height: unset;
+              font-size: inherit;
+            }
+            .leve-admin-root div:has(> .leve-admin-table) {
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
+            }
+            .leve-admin-table {
+              font-size: max(12px, 0.85rem);
+            }
+            .admin-section-nav {
+              display: none;
+            }
+            .leve-admin-root [id^="section-"] {
+              scroll-margin-top: ${ADMIN_SECTION_SCROLL_OFFSET}px;
+            }
+            @media (max-width: 767px) {
+              .admin-section-nav {
+                display: flex;
+                position: sticky;
+                top: 4.25rem;
+                z-index: 25;
+                gap: 0.45rem;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 0.65rem 0 1rem;
+                margin: -0.5rem 0 0.75rem;
+                background: linear-gradient(180deg, ${BG} 70%, transparent);
+                scrollbar-width: none;
+              }
+              .admin-section-nav::-webkit-scrollbar {
+                display: none;
+              }
+              .admin-section-nav a {
+                flex-shrink: 0;
+                padding: 0.45rem 0.75rem;
+                min-height: 44px;
+                display: inline-flex;
+                align-items: center;
+                border-radius: 4px;
+                border: 1px solid rgba(212, 160, 23, 0.35);
+                background: rgba(212, 160, 23, 0.08);
+                color: ${GOLD};
+                font-size: max(12px, 0.78rem);
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                text-decoration: none;
+                font-weight: 600;
+                white-space: nowrap;
+              }
+              .admin-section-nav a:hover {
+                background: rgba(212, 160, 23, 0.16);
+              }
+            }
           `,
         }}
       />
@@ -3559,8 +3663,19 @@ export default function AdminPage(): JSX.Element {
               </div>
             </div>
           ) : null}
+          <nav className="admin-section-nav" aria-label="Sections admin">
+            {ADMIN_SECTIONS.map((s) => (
+              <a
+                key={s.id}
+                href={`#${s.id}`}
+                onClick={(ev) => scrollToAdminSection(s.id, ev)}
+              >
+                {s.label}
+              </a>
+            ))}
+          </nav>
           {/* GÉNÉRATEUR DE CODES */}
-          <section style={cardStyle()}>
+          <section id="section-codes" style={cardStyle()}>
             {sectionTitle("GÉNÉRATEUR DE CODES")}
             <p style={{ margin: "0 0 1rem", opacity: 0.72, fontSize: "0.9rem", maxWidth: "42rem" }}>
               Générez un code unique vérifié en base (non lié à une vidéo). Vous pouvez ensuite le coller dans le champ
@@ -3629,7 +3744,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION VIDÉOS */}
-          <section style={cardStyle()}>
+          <section id="section-videos" style={cardStyle()}>
             {sectionTitle("VIDÉOS")}
             {videosLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement des vidéos…</p>
@@ -3963,7 +4078,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION GESTION DES QUIZ */}
-          <section style={cardStyle()}>
+          <section id="section-quiz" style={cardStyle()}>
             {sectionTitle("GESTION DES QUIZ")}
             <div style={{ maxWidth: "520px", marginBottom: "1.5rem" }}>
               <label style={labelSm}>Vidéo</label>
@@ -4163,7 +4278,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION REDISTRIBUTION */}
-          <section style={cardStyle()}>
+          <section id="section-redistribution" style={cardStyle()}>
             {sectionTitle("REDISTRIBUTION")}
             <form
               onSubmit={(ev) => void handleRedistribution(ev)}
@@ -4241,7 +4356,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* CARTE DES MEMBRES */}
-          <section style={cardStyle()}>
+          <section id="section-map" style={cardStyle()}>
             {sectionTitle("CARTE DES MEMBRES")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Répartition géographique des membres (métadonnées auth.users ou domaine courriel). Vue
@@ -4349,7 +4464,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* ACCUMULATION DES POOLS */}
-          <section style={cardStyle()}>
+          <section id="section-pools" style={cardStyle()}>
             {sectionTitle("ACCUMULATION DES POOLS")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Évolution mensuelle cumulative des pools PMQ, production, fondation, opérations, PTC et
@@ -4524,7 +4639,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* VISIBILITÉ PAGE TRANSPARENCE */}
-          <section style={cardStyle()}>
+          <section id="section-transparence-vis" style={cardStyle()}>
             {sectionTitle("VISIBILITÉ PAGE /TRANSPARENCE")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Contrôle quels soldes sont affichés sur la page publique{" "}
@@ -4579,7 +4694,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* TRANSPARENCE AVANCÉE */}
-          <section style={cardStyle()}>
+          <section id="section-transparence-adv" style={cardStyle()}>
             {sectionTitle("TRANSPARENCE AVANCÉE")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Historique complet des redistributions avec filtres par année et par mois. Total annuel et
@@ -4780,7 +4895,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* ÉQUIPE PRODUCTION */}
-          <section style={cardStyle()}>
+          <section id="section-production" style={cardStyle()}>
             {sectionTitle("ÉQUIPE PRODUCTION")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Vue technique pour la production : codes associés, disponibilité des quiz et volume de
@@ -4865,7 +4980,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION FRAIS DE PLATEFORME */}
-          <section style={cardStyle()}>
+          <section id="section-frais" style={cardStyle()}>
             {sectionTitle("FRAIS DE PLATEFORME")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Paliers de pourcentage appliqués selon le montant en USD. Le toggle principal active ou
@@ -5071,7 +5186,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION RÉSEAUX SOCIAUX */}
-          <section style={cardStyle()}>
+          <section id="section-reseaux" style={cardStyle()}>
             {sectionTitle("RÉSEAUX SOCIAUX")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Bandeau « En direct » en haut de la page d&apos;accueil. Activez un réseau et renseignez le
@@ -5194,7 +5309,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION FONDATEUR */}
-          <section style={cardStyle()}>
+          <section id="section-fondateur" style={cardStyle()}>
             {sectionTitle("FONDATEUR")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Bandeau « Statut Fondateur » sous les boutons de la page d&apos;accueil (table{" "}
@@ -5334,7 +5449,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION CONFIGURATION RANGS */}
-          <section style={cardStyle()}>
+          <section id="section-rangs" style={cardStyle()}>
             {sectionTitle("CONFIGURATION RANGS")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Seuils mensuels (pts pondérés quiz) et bonus appliqués aux points bruts lors de la
@@ -5483,7 +5598,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION UTILISATIONS PTC */}
-          <section style={cardStyle()}>
+          <section id="section-ptc" style={cardStyle()}>
             {sectionTitle("UTILISATIONS PTC")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Répartition du Pool de Croissance (table{" "}
@@ -5638,7 +5753,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION DÉPLOIEMENT DES FONCTIONNALITÉS */}
-          <section style={cardStyle()}>
+          <section id="section-features" style={cardStyle()}>
             {sectionTitle("DÉPLOIEMENT DES FONCTIONNALITÉS")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Activez ou désactivez les pages et espaces visibles sur le site. La modification est
@@ -5757,7 +5872,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION SYSTÈME ACTIONS & DIVIDENDES */}
-          <section style={cardStyle()}>
+          <section id="section-actions" style={cardStyle()}>
             {sectionTitle("SYSTÈME ACTIONS & DIVIDENDES")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
               Structure des actionnaires (actions A et B), configuration de la valorisation, saisie
@@ -6499,7 +6614,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION GESTION DES MEMBRES */}
-          <section style={cardStyle()}>
+          <section id="section-membres" style={cardStyle()}>
             {sectionTitle("GESTION DES MEMBRES")}
             <p style={{ margin: "0 0 1rem", fontSize: "1.1rem" }}>
               Total :{" "}
@@ -6707,7 +6822,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION SUIVI BETA */}
-          <section style={cardStyle()}>
+          <section id="section-beta" style={cardStyle()}>
             <div
               style={{
                 display: "flex",
@@ -7096,7 +7211,7 @@ export default function AdminPage(): JSX.Element {
           </section>
 
           {/* SECTION BUGS BETA */}
-          <section style={cardStyle()}>
+          <section id="section-bugs" style={cardStyle()}>
             {sectionTitle("BUGS BETA")}
             {betaBugsError ? (
               <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{betaBugsError}</p>
@@ -7303,7 +7418,8 @@ const inputBase = {
   border: "1px solid rgba(255, 255, 255, 0.08)",
   borderRadius: "4px",
   color: TEXT,
-  fontSize: "0.9rem",
+  fontSize: "16px",
+  minHeight: "44px",
 } as const;
 
 const btnFill = {

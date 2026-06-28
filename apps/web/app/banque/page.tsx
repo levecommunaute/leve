@@ -464,6 +464,38 @@ export default function BanquePage(): JSX.Element | null {
   const name = displayNameFrom(profile, session);
   const weightedPointsPmq = totalPoints * profileMultiplier;
 
+  function renderHistoryEntry(row: HistoryRow): {
+    dateLabel: string;
+    label: string;
+    signed: string;
+    color: string;
+    quizLines: ReturnType<typeof formatQuizTransactionLines> | null;
+    isDollars: boolean;
+  } {
+    const amt = row.amount;
+    const isDollars = row.kind === "dollars";
+    const signed = isDollars
+      ? amt > 0
+        ? `+${cad.format(amt)}`
+        : cad.format(amt)
+      : amt > 0
+        ? `+${pointsFmt.format(amt)} pts`
+        : `${pointsFmt.format(amt)} pts`;
+    const color = amt >= 0 ? GOLD : ROUGE;
+    const isQuizPoints = !isDollars && (row.type ?? "").toLowerCase() === "quiz";
+    const quizLines = isQuizPoints
+      ? formatQuizTransactionLines(row.amount, row.description, profileMultiplier)
+      : null;
+    const label = isDollars ? row.description : transactionDescription(row.type);
+    let dateLabel = "—";
+    try {
+      dateLabel = dateFmt.format(new Date(row.created_at));
+    } catch {
+      dateLabel = row.created_at;
+    }
+    return { dateLabel, label, signed, color, quizLines, isDollars };
+  }
+
   return (
     <div
       className={fonts}
@@ -475,6 +507,37 @@ export default function BanquePage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .banque-solde-amount {
+              font-size: clamp(1.5rem, 5vw, 2.5rem) !important;
+            }
+            .banque-transfer-btn {
+              min-height: 44px;
+            }
+            .banque-history-cards {
+              display: none;
+              flex-direction: column;
+              gap: 0.65rem;
+            }
+            .banque-history-card {
+              border-radius: 4px;
+              padding: 1rem;
+              background: rgba(245, 240, 232, 0.04);
+              border: 1px solid rgba(245, 240, 232, 0.1);
+            }
+            @media (max-width: 479px) {
+              .banque-history-table-wrap {
+                display: none !important;
+              }
+              .banque-history-cards {
+                display: flex !important;
+              }
+            }
+          `,
+        }}
+      />
       <header
         style={{
           display: "flex",
@@ -583,6 +646,7 @@ export default function BanquePage(): JSX.Element | null {
             Solde Banque ($)
           </p>
           <p
+            className="banque-solde-amount"
             style={{
               margin: "0.35rem 0 0.15rem",
               fontSize: "clamp(2.25rem, 7vw, 3rem)",
@@ -726,6 +790,7 @@ export default function BanquePage(): JSX.Element | null {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           <button
             type="button"
+            className="banque-transfer-btn"
             disabled={!canTransfer}
             onClick={() => void openRetraitConfirm()}
             style={{
@@ -988,14 +1053,61 @@ export default function BanquePage(): JSX.Element | null {
               Aucune transaction pour le moment. Soumets ton premier code!
             </p>
           ) : (
-            <div
-              style={{
-                borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
-                overflow: "hidden",
-                background: "rgba(245, 240, 232, 0.03)",
-              }}
-            >
+            <>
+              <div className="banque-history-cards">
+                {history.map((row) => {
+                  const { dateLabel, label, signed, color, quizLines, isDollars } =
+                    renderHistoryEntry(row);
+                  return (
+                    <article key={row.id} className="banque-history-card">
+                      <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.55 }}>{dateLabel}</p>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: "0.75rem",
+                          marginTop: "0.45rem",
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          {quizLines ? (
+                            <>
+                              <p style={{ margin: 0, fontWeight: 600 }}>{quizLines.line1}</p>
+                              <p style={{ margin: "0.25rem 0 0", fontSize: "0.85rem", opacity: 0.8 }}>
+                                {quizLines.line2}
+                              </p>
+                            </>
+                          ) : (
+                            <p style={{ margin: 0, fontWeight: 600 }}>{label}</p>
+                          )}
+                          <p
+                            style={{
+                              margin: "0.35rem 0 0",
+                              fontSize: "0.72rem",
+                              opacity: 0.55,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.06em",
+                            }}
+                          >
+                            {isDollars ? "Banque $" : "Points PMQ"}
+                          </p>
+                        </div>
+                        <span style={{ color, fontWeight: 700, whiteSpace: "nowrap" }}>{signed}</span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+              <div
+                className="banque-history-table-wrap"
+                style={{
+                  borderRadius: "4px",
+                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  overflow: "hidden",
+                  background: "rgba(245, 240, 232, 0.03)",
+                }}
+              >
               <div style={{ overflowX: "auto" }}>
                 <table
                   style={{
@@ -1039,35 +1151,8 @@ export default function BanquePage(): JSX.Element | null {
                   </thead>
                   <tbody>
                     {history.map((row) => {
-                      const amt = row.amount;
-                      const isDollars = row.kind === "dollars";
-                      const signed = isDollars
-                        ? amt > 0
-                          ? `+${cad.format(amt)}`
-                          : cad.format(amt)
-                        : amt > 0
-                          ? `+${pointsFmt.format(amt)} pts`
-                          : `${pointsFmt.format(amt)} pts`;
-                      const color = amt >= 0 ? GOLD : ROUGE;
-                      const isQuizPoints =
-                        !isDollars &&
-                        (row.type ?? "").toLowerCase() === "quiz";
-                      const quizLines = isQuizPoints
-                        ? formatQuizTransactionLines(
-                            row.amount,
-                            row.description,
-                            profileMultiplier,
-                          )
-                        : null;
-                      const label = isDollars
-                        ? row.description
-                        : transactionDescription(row.type);
-                      let dateLabel = "—";
-                      try {
-                        dateLabel = dateFmt.format(new Date(row.created_at));
-                      } catch {
-                        dateLabel = row.created_at;
-                      }
+                      const { dateLabel, label, signed, color, quizLines, isDollars } =
+                        renderHistoryEntry(row);
                       return (
                         <tr
                           key={row.id}
@@ -1134,6 +1219,7 @@ export default function BanquePage(): JSX.Element | null {
                 </table>
               </div>
             </div>
+            </>
           )}
         </section>
       </main>
