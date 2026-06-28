@@ -442,7 +442,42 @@ export default function VideoPage(): React.JSX.Element {
 
   return (
     <main style={pageShell}>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .video-page-title {
+              font-size: clamp(1.2rem, 5vw, 2.5rem);
+            }
+            .video-page-nav-back {
+              display: inline-flex;
+              align-items: center;
+              min-height: 44px;
+              padding: 0.25rem 0.5rem;
+            }
+            .video-page-content {
+              max-width: 900px;
+              margin: 0 auto;
+              padding: 2rem;
+            }
+            .video-page-code-box {
+              padding: 2rem;
+            }
+            @media (max-width: 479px) {
+              .video-page-nav {
+                padding: 1rem !important;
+              }
+              .video-page-content {
+                padding: 1rem;
+              }
+              .video-page-code-box {
+                padding: 1rem;
+              }
+            }
+          `,
+        }}
+      />
       <nav
+        className="video-page-nav"
         style={{
           padding: "1rem 2rem",
           borderBottom: "1px solid rgba(255,255,255,.08)",
@@ -456,13 +491,21 @@ export default function VideoPage(): React.JSX.Element {
         >
           LEVE
         </span>
-        <span style={{ opacity: 0.5, cursor: "pointer" }} onClick={() => router.push("/videos")}>
+        <span
+          className="video-page-nav-back"
+          style={{ opacity: 0.5, cursor: "pointer" }}
+          onClick={() => router.push("/videos")}
+        >
           Retour
         </span>
       </nav>
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-        <h1 style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: "2.5rem" }}>{video.title}</h1>
+      <div
+        className="video-page-content"
+        style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
+      >
+        <h1 className="video-page-title" style={{ fontFamily: "Bebas Neue,sans-serif", margin: 0 }}>
+          {video.title}
+        </h1>
         <div
           style={{
             display: "flex",
@@ -496,8 +539,7 @@ export default function VideoPage(): React.JSX.Element {
             />
           )}
         </div>
-        <div style={{ background: "#111", padding: "2rem",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+        <div className="video-page-code-box" style={{ background: "#111", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
           <h2
             style={{
               fontFamily: "Bebas Neue,sans-serif",

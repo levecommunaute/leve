@@ -62,7 +62,10 @@ function getOptionStyle(
   const base: React.CSSProperties = {
     textAlign: "left",
     padding: "0.75rem 1rem",
-    fontSize: "0.95rem",
+    fontSize: "max(14px, 0.95rem)",
+    minHeight: "44px",
+    display: "flex",
+    alignItems: "center",
   };
 
   if (!revealed) {
@@ -392,7 +395,58 @@ export default function VideoQuizPage(): React.JSX.Element {
 
   return (
     <main style={shellStyle}>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .quiz-page-content {
+              max-width: 900px;
+              margin: 0 auto;
+              padding: 2rem;
+            }
+            .quiz-nav-back {
+              display: inline-flex;
+              align-items: center;
+              min-height: 44px;
+              padding: 0.25rem 0.5rem;
+            }
+            .quiz-option-btn {
+              min-height: 44px;
+              font-size: max(14px, 0.95rem);
+            }
+            .quiz-timer {
+              font-size: clamp(1.5rem, 6vw, 1.75rem);
+              font-family: "Bebas Neue", sans-serif;
+              line-height: 1;
+            }
+            .quiz-timer-row {
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+              margin-bottom: 2rem;
+              flex-wrap: wrap;
+            }
+            @media (max-width: 479px) {
+              .quiz-page-nav {
+                padding: 1rem !important;
+              }
+              .quiz-page-content {
+                padding: 1rem;
+              }
+              .quiz-timer-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.35rem;
+                margin-bottom: 1.5rem;
+              }
+              .quiz-timer {
+                font-size: clamp(2rem, 10vw, 2.5rem);
+              }
+            }
+          `,
+        }}
+      />
       <nav
+        className="quiz-page-nav"
         style={{
           padding: "1rem 2rem",
           borderBottom: "1px solid rgba(255,255,255,.08)",
@@ -412,18 +466,18 @@ export default function VideoQuizPage(): React.JSX.Element {
           LEVE
         </span>
         <span
-          style={{ opacity: 0.5, cursor: "pointer",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+          className="quiz-nav-back"
+          style={{ opacity: 0.5, cursor: "pointer", fontFamily: "var(--font-mono), ui-monospace, monospace" }}
           onClick={() => router.push(`/videos/${videoId}`)}
         >
           Retour
         </span>
       </nav>
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "2rem" }}>
+      <div className="quiz-page-content">
         <h1
           style={{
             fontFamily: "Bebas Neue, sans-serif",
-            fontSize: "2.5rem",
+            fontSize: "clamp(1.2rem, 5vw, 2.5rem)",
             marginBottom: "0.5rem",
           }}
         >
@@ -434,29 +488,20 @@ export default function VideoQuizPage(): React.JSX.Element {
         ) : null}
 
         {phase === "running" ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "1rem",
-              marginBottom: "2rem",
-              flexWrap: "wrap",
-            }}
-          >
+          <div className="quiz-timer-row">
             <span
+              className="quiz-timer"
               style={{
-                fontFamily: "Bebas Neue, sans-serif",
-                fontSize: "1.75rem",
                 color: timerUrgent ? "#C0392B" : "#D4A017",
               }}
             >
               {formatTime(secondsLeft)}
             </span>
-            <span style={{ opacity: 0.6, fontSize: "0.9rem" }}>
+            <span style={{ opacity: 0.6, fontSize: "max(14px, 0.9rem)" }}>
               {quiz_questions.length} questions · 90 secondes
             </span>
             {currentQuestion ? (
-              <span style={{ opacity: 0.6, fontSize: "0.9rem" }}>
+              <span style={{ opacity: 0.6, fontSize: "max(14px, 0.9rem)" }}>
                 Question {currentQuestionIndex + 1} / {quiz_questions.length}
               </span>
             ) : null}
@@ -495,6 +540,7 @@ export default function VideoQuizPage(): React.JSX.Element {
                     <button
                       key={oi}
                       type="button"
+                      className="quiz-option-btn"
                       disabled={revealed}
                       onClick={() => onSelect(currentQuestion, oi)}
                       style={getOptionStyle(oi, selectedIndex, correctIndex, revealed)}

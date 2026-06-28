@@ -541,8 +541,18 @@ export default function ConcoursPage(): JSX.Element | null {
     const canVote = !alreadyVoted && !votesMaxed;
     const needsPaRecharge = canVote && soldePa < votePaRequired;
     return (
-      <article key={artiste.id} style={{ borderRadius: "4px", padding: "1rem", marginBottom: "0.75rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+      <article
+        key={artiste.id}
+        className="concours-artiste-card"
+        style={{
+          borderRadius: "4px",
+          padding: "1rem",
+          marginBottom: "0.75rem",
+          background: "#111",
+          border: "1px solid rgba(245, 240, 232, 0.1)",
+          fontFamily: "var(--font-mono), ui-monospace, monospace",
+        }}
+      >
         <h3 style={{ margin: 0, color: GOLD }}>{artiste.artiste_nom?.trim() || "Artiste"}</h3>
         <p style={{ margin: "0.35rem 0 0.75rem", opacity: 0.82 }}>
           {artiste.artiste_nom?.trim() || "Artiste"} · {voteCountLabel(pts(artiste.total_votes_pts))}
@@ -554,8 +564,11 @@ export default function ConcoursPage(): JSX.Element | null {
           <>
             <Link
               href="/pool-pa"
+              className="concours-vote-btn"
               style={{
-                display: "inline-block",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
                 background: GOLD,
                 color: BG,
                 border: "none",
@@ -575,9 +588,13 @@ export default function ConcoursPage(): JSX.Element | null {
         ) : (
           <button
             type="button"
+            className="concours-vote-btn"
             disabled={votingArtisteId === artiste.id || !canVote}
             onClick={() => void handleVoteArtiste(artiste.id)}
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
               background: canVote ? ROUGE : "rgba(192, 57, 43, 0.25)",
               color: TEXT,
               border: "none",
@@ -648,6 +665,26 @@ export default function ConcoursPage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .concours-section-title {
+              font-size: clamp(1rem, 4vw, 2rem);
+            }
+            .concours-vote-btn {
+              min-height: 44px;
+              font-size: max(12px, 0.875rem);
+            }
+            @media (max-width: 479px) {
+              .concours-artiste-card {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+              }
+            }
+          `,
+        }}
+      />
       <header
         style={{
           display: "flex",
@@ -754,7 +791,7 @@ export default function ConcoursPage(): JSX.Element | null {
             </p>
 
             <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "0.75rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-              <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
+              <h2 className="concours-section-title" style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em" }}>
                 🌍 CONCOURS INTERNATIONAL
               </h2>
               <p style={{ margin: "0.4rem 0 1rem", opacity: 0.7, fontSize: "0.9rem" }}>
@@ -768,7 +805,7 @@ export default function ConcoursPage(): JSX.Element | null {
             </section>
 
             <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
-              <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
+              <h2 className="concours-section-title" style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em" }}>
                 🇭🇹 CONCOURS CULTURE HAÏTIENNE — Par département
               </h2>
               <p style={{ margin: "0.4rem 0 1rem", opacity: 0.7, fontSize: "0.9rem" }}>
