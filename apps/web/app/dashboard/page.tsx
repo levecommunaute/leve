@@ -547,6 +547,37 @@ export default function DashboardPage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .dash-logo {
+              font-size: clamp(1.2rem, 4vw, 2rem) !important;
+            }
+            .dash-stats-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+              gap: 0.85rem;
+            }
+            .dash-shortcuts-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 0.65rem;
+            }
+            .dash-formule-text {
+              font-size: max(12px, 0.75rem);
+            }
+            @media (max-width: 479px) {
+              .dash-shortcuts-grid {
+                grid-template-columns: 1fr;
+              }
+              .dash-stats-grid {
+                display: flex;
+                flex-direction: column;
+              }
+            }
+          `,
+        }}
+      />
       <EnDirectBanner />
       {/* Top bar */}
       <header
@@ -565,6 +596,7 @@ export default function DashboardPage(): JSX.Element | null {
       >
         <Link
           href="/"
+          className="dash-logo"
           style={{
             fontFamily: "var(--font-bebas), Impact, sans-serif",
             fontSize: "2rem",
@@ -797,12 +829,11 @@ export default function DashboardPage(): JSX.Element | null {
 
         {/* Stats */}
         <div
+          className="dash-stats-grid"
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-            gap: "0.85rem",
             marginBottom: "1.75rem",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+            fontFamily: "var(--font-mono), ui-monospace, monospace",
+          }}
         >
           <article
             style={{
@@ -876,6 +907,7 @@ export default function DashboardPage(): JSX.Element | null {
                   Estimation redistribution : ~{cad.format(redistributionEstimate)}
                 </p>
                 <p
+                  className="dash-formule-text"
                   style={{
                     margin: "0.25rem 0 0",
                     fontSize: "0.75rem",
@@ -1025,11 +1057,10 @@ export default function DashboardPage(): JSX.Element | null {
             Raccourcis
           </h2>
           <div
+            className="dash-shortcuts-grid"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: "0.65rem",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
           >
             {[
               { href: "/videos", label: "Vidéos", blockOnGrace: false },

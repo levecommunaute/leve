@@ -267,6 +267,35 @@ export default function ProfilPage(): JSX.Element | null {
 
   return (
     <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .profil-stat-label {
+              font-size: max(12px, 0.72rem) !important;
+            }
+            .profil-tx-card {
+              border-radius: 4px;
+              padding: 1rem;
+              background: rgba(245, 240, 232, 0.04);
+              border: 1px solid rgba(245, 240, 232, 0.1);
+              display: flex;
+              flex-wrap: wrap;
+              align-items: flex-start;
+              justify-content: space-between;
+              gap: 0.5rem;
+            }
+            @media (max-width: 479px) {
+              .profil-tx-card {
+                flex-direction: column;
+                align-items: stretch;
+              }
+              .profil-tx-amount {
+                text-align: left !important;
+              }
+            }
+          `,
+        }}
+      />
       <EnDirectBanner />
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid rgba(245, 240, 232, 0.08)", position: "sticky", top: 0, background: "rgba(8, 8, 8, 0.92)", backdropFilter: "blur(8px)", zIndex: 20 }}>
         <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>LEVE</Link>
@@ -347,16 +376,16 @@ export default function ProfilPage(): JSX.Element | null {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           <article style={{ borderRadius: "4px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
-            <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>Total points PMQ</p>
+            <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>Total points PMQ</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
-            <p style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>Points pondérés (base redistribution)</p>
+            <p className="profil-stat-label" style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>Points pondérés (base redistribution)</p>
             <p style={{ margin: "0.25rem 0 0", fontSize: "0.95rem", fontWeight: 600, opacity: 0.75 }}>{pointsFmt.format(weightedPointsPmq)}</p>
             <p style={{ margin: "0.3rem 0 0", fontSize: "0.7rem", opacity: 0.45, lineHeight: 1.4 }}>
               Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} — utilisé pour calculer votre part de redistribution
             </p>
           </article>
           <article style={{ borderRadius: "4px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.12)" }}>
-            <p style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
+            <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: TEXT }}>{multiplierDisplay}</p>
           </article>
         </div>
@@ -407,24 +436,14 @@ export default function ProfilPage(): JSX.Element | null {
                 return (
                   <li
                     key={tx.id}
-                    style={{
-                      borderRadius: "4px",
-                      padding: "1rem",
-                      background: "rgba(245, 240, 232, 0.04)",
-                      border: "1px solid rgba(245, 240, 232, 0.1)",
-                      display: "flex",
-                      flexWrap: "wrap",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      gap: "0.5rem",
-                    }}
+                    className="profil-tx-card"
                   >
                     <div style={{ flex: "1 1 12rem", minWidth: 0 }}>
                       <p style={{ margin: 0, fontWeight: 600 }}>{lines.line1}</p>
                       <p style={{ margin: "0.3rem 0 0", fontSize: "0.88rem", opacity: 0.8 }}>{lines.line2}</p>
                       <p style={{ margin: "0.4rem 0 0", fontSize: "0.8rem", opacity: 0.55 }}>{dateLabel}</p>
                     </div>
-                    <span style={{ color, fontWeight: 700, whiteSpace: "nowrap" }}>{signed}</span>
+                    <span className="profil-tx-amount" style={{ color, fontWeight: 700, whiteSpace: "nowrap" }}>{signed}</span>
                   </li>
                 );
               })}
