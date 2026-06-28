@@ -377,6 +377,8 @@ export default function VideoPage(): React.JSX.Element {
           modestbranding: 1,
           disablekb: 1,
           controls: 0,
+          loop: 1,
+          playlist: video.youtube_id,
         },
         events: {
           onReady: (event) => {
