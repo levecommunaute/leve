@@ -526,6 +526,66 @@ export default function TransparencePage(): JSX.Element {
                 gap: 1rem;
               }
             }
+            .leve-transparence-section-title {
+              font-size: clamp(1rem, 4vw, 1.8rem);
+            }
+            .leve-transparence-stat-label {
+              font-size: max(12px, 0.72rem);
+            }
+            .leve-transparence-filter-btn {
+              min-height: 44px;
+            }
+            .leve-transparence-history-cards {
+              display: none;
+              flex-direction: column;
+              gap: 0.65rem;
+            }
+            .leve-transparence-history-card {
+              border-radius: 4px;
+              padding: 1rem;
+              background: rgba(245, 240, 232, 0.04);
+              border: 1px solid rgba(245, 240, 232, 0.1);
+            }
+            .leve-transparence-history-card-month {
+              margin: 0 0 0.65rem;
+              font-weight: 600;
+              color: ${GOLD};
+              text-transform: capitalize;
+              font-size: max(12px, 0.9rem);
+            }
+            .leve-transparence-history-card-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 0.5rem 0.75rem;
+              font-size: max(12px, 0.82rem);
+            }
+            .leve-transparence-history-card-grid dt {
+              margin: 0;
+              opacity: 0.62;
+              font-size: max(12px, 0.72rem);
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+            }
+            .leve-transparence-history-card-grid dd {
+              margin: 0.15rem 0 0;
+              font-weight: 600;
+            }
+            .leve-transparence-history-card-pmq {
+              color: ${ROUGE};
+            }
+            @media (max-width: 479px) {
+              .leve-transparence-history-table-wrap {
+                display: none !important;
+              }
+              .leve-transparence-history-cards {
+                display: flex !important;
+              }
+            }
+            @media (min-width: 480px) {
+              .leve-transparence-history-cards {
+                display: none !important;
+              }
+            }
           `,
         }}
       />
@@ -666,9 +726,9 @@ export default function TransparencePage(): JSX.Element {
 
         <section style={{ marginBottom: "2.25rem" }}>
           <h2
+            className="leve-transparence-section-title"
             style={{
               fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "1.2rem",
               letterSpacing: "0.14em",
               margin: "0 0 1rem",
               color: GOLD,
@@ -727,9 +787,9 @@ export default function TransparencePage(): JSX.Element {
         {showBanqueSection ? (
           <section style={{ marginBottom: "2.25rem" }}>
             <h2
+              className="leve-transparence-section-title"
               style={{
                 fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "1.2rem",
                 letterSpacing: "0.14em",
                 margin: "0 0 1rem",
                 color: ROUGE,
@@ -759,9 +819,9 @@ export default function TransparencePage(): JSX.Element {
                   }}
                 >
                   <p
+                    className="leve-transparence-stat-label"
                     style={{
                       margin: 0,
-                      fontSize: "0.72rem",
                       letterSpacing: "0.14em",
                       textTransform: "uppercase",
                       opacity: 0.65,
@@ -807,9 +867,9 @@ export default function TransparencePage(): JSX.Element {
                         }}
                       >
                         <p
+                          className="leve-transparence-stat-label"
                           style={{
                             margin: 0,
-                            fontSize: "0.72rem",
                             letterSpacing: "0.1em",
                             textTransform: "uppercase",
                             opacity: 0.6,
@@ -837,12 +897,13 @@ export default function TransparencePage(): JSX.Element {
                           Équivalent : {ptcUnits.toLocaleString("fr-CA", { maximumFractionDigits: 2 })} PTC générés
                         </p>
                         <div
+                          className="leve-transparence-stat-label"
                           style={{
                             marginTop: "0.85rem",
                             display: "grid",
                             gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                             gap: "0.65rem",
-                            fontSize: "0.82rem",
+                            fontSize: "max(12px, 0.82rem)",
                             opacity: 0.85,
                           }}
                         >
@@ -872,9 +933,9 @@ export default function TransparencePage(): JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                   >
                     <p
+                      className="leve-transparence-stat-label"
                       style={{
                         margin: 0,
-                        fontSize: "0.72rem",
                         letterSpacing: "0.1em",
                         textTransform: "uppercase",
                         opacity: 0.6,
@@ -902,9 +963,9 @@ export default function TransparencePage(): JSX.Element {
         {showFraisSection ? (
           <section style={{ marginBottom: "2.25rem" }}>
             <h2
+              className="leve-transparence-section-title"
               style={{
                 fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "1.2rem",
                 letterSpacing: "0.14em",
                 margin: "0 0 1rem",
                 color: GOLD,
@@ -936,9 +997,9 @@ export default function TransparencePage(): JSX.Element {
                     }}
                   >
                     <p
+                      className="leve-transparence-stat-label"
                       style={{
                         margin: 0,
-                        fontSize: "0.72rem",
                         letterSpacing: "0.1em",
                         textTransform: "uppercase",
                         opacity: 0.6,
@@ -964,9 +1025,9 @@ export default function TransparencePage(): JSX.Element {
 
         <section>
           <h2
+            className="leve-transparence-section-title"
             style={{
               fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "1.2rem",
               letterSpacing: "0.14em",
               margin: "0 0 1rem",
               color: TEXT,
@@ -1010,12 +1071,16 @@ export default function TransparencePage(): JSX.Element {
                 background: "rgba(245, 240, 232, 0.03)",
               }}
             >
-              <div style={{ overflowX: "auto" }}>
+              <div
+                className="leve-transparence-history-table-wrap"
+                style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+              >
                 <table
                   style={{
                     width: "100%",
+                    minWidth: "520px",
                     borderCollapse: "collapse",
-                    fontSize: "0.86rem",
+                    fontSize: "max(12px, 0.86rem)",
                   }}
                 >
                   <thead>
@@ -1094,6 +1159,38 @@ export default function TransparencePage(): JSX.Element {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="leve-transparence-history-cards">
+                {history.map((row) => (
+                  <article
+                    key={row.month}
+                    className="leve-transparence-history-card"
+                  >
+                    <p className="leve-transparence-history-card-month">
+                      {formatMonthLabel(row.month)}
+                    </p>
+                    <dl className="leve-transparence-history-card-grid">
+                      <div>
+                        <dt>Revenu</dt>
+                        <dd>{cadCompact.format(row.total_revenue)}</dd>
+                      </div>
+                      <div>
+                        <dt>PMQ</dt>
+                        <dd className="leve-transparence-history-card-pmq">
+                          {cadCompact.format(row.total_distributed)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Valeur / pt</dt>
+                        <dd>
+                          {row.value_per_point != null
+                            ? cadCompact.format(row.value_per_point)
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </article>
+                ))}
               </div>
             </div>
           )}
