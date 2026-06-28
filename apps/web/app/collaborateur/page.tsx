@@ -553,6 +553,35 @@ export default function CollaborateurPage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .collab-ptc-text {
+              word-wrap: break-word;
+              overflow-wrap: break-word;
+            }
+            .collab-pending-wrap {
+              overflow-x: auto;
+              -webkit-overflow-scrolling: touch;
+            }
+            .collab-pending-cards {
+              min-width: 0;
+            }
+            @media (max-width: 479px) {
+              .collab-prev-month {
+                position: relative !important;
+                right: auto !important;
+                bottom: auto !important;
+                margin-top: 1rem !important;
+                text-align: left !important;
+              }
+              .collab-pcol-section {
+                padding-bottom: 1.75rem !important;
+              }
+            }
+          `,
+        }}
+      />
       <header
         style={{
           display: "flex",
@@ -596,6 +625,7 @@ export default function CollaborateurPage(): JSX.Element | null {
         ) : (
           <>
             <section
+              className="collab-pcol-section"
               style={{
                 position: "relative",
                 borderRadius: "4px",
@@ -644,6 +674,7 @@ export default function CollaborateurPage(): JSX.Element | null {
               </p>
               {prevMonthLabel ? (
                 <p
+                  className="collab-prev-month"
                   style={{
                     position: "absolute",
                     right: "1.1rem",
@@ -695,7 +726,7 @@ export default function CollaborateurPage(): JSX.Element | null {
               >
                 PTC généré ce mois · {pcolMonthLabel || "—"}
               </p>
-              <p style={{ margin: "0.65rem 0 0", fontSize: "1.05rem", lineHeight: 1.55 }}>
+              <p className="collab-ptc-text" style={{ margin: "0.65rem 0 0", fontSize: "1.05rem", lineHeight: 1.55 }}>
                 {pointsFmt.format(ptcInfo?.pts_perdus_mois ?? 0)} pts perdus
                 {ptcInfo?.valeur_par_pt != null
                   ? ` × ${cadFmt.format(ptcInfo.valeur_par_pt)}/pt`
@@ -709,7 +740,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                 </span>{" "}
                 (÷ {PTC_UNIT_DOLLARS} $)
               </p>
-              <p style={{ margin: "0.65rem 0 0", fontSize: "0.95rem", lineHeight: 1.55 }}>
+              <p className="collab-ptc-text" style={{ margin: "0.65rem 0 0", fontSize: "0.95rem", lineHeight: 1.55 }}>
                 PTC cumulé total :{" "}
                 <span style={{ color: GOLD, fontWeight: 700 }}>
                   {ptcInfo != null
@@ -797,7 +828,9 @@ export default function CollaborateurPage(): JSX.Element | null {
               {pendingList.length === 0 ? (
                 <p style={{ opacity: 0.65 }}>Aucun pending.</p>
               ) : (
+                <div className="collab-pending-wrap">
                 <ul
+                  className="collab-pending-cards"
                   style={{
                     listStyle: "none",
                     margin: 0,
@@ -884,6 +917,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                     );
                   })}
                 </ul>
+                </div>
               )}
             </section>
 
