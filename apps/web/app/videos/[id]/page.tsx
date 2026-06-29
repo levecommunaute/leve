@@ -141,6 +141,7 @@ export default function VideoPage(): React.JSX.Element {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -216,9 +217,13 @@ export default function VideoPage(): React.JSX.Element {
   }, [showControls]);
 
   const handleFullscreen = useCallback((): void => {
-    const shell = videoShellRef.current;
-    if (!shell?.requestFullscreen) return;
-    void shell.requestFullscreen();
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      const container = videoShellRef.current;
+      if (!container?.requestFullscreen) return;
+      void container.requestFullscreen();
+    }
     showControls();
   }, [showControls]);
 
@@ -247,6 +252,18 @@ export default function VideoPage(): React.JSX.Element {
       markUnlocked();
     }
   }, [markUnlocked]);
+
+  useEffect(() => {
+    const onFullscreenChange = (): void => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    onFullscreenChange();
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     userIdRef.current = userId;
@@ -697,10 +714,10 @@ export default function VideoPage(): React.JSX.Element {
                 <button
                   type="button"
                   className="video-player-btn video-player-fullscreen-btn"
-                  aria-label="Plein écran"
+                  aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
                   onClick={handleFullscreen}
                 >
-                  ⛶
+                  {isFullscreen ? "↙" : "⛶"}
                 </button>
               </div>
             </div>
