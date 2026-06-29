@@ -27,8 +27,15 @@ interface VideoProgressRow {
 interface YTPlayer {
   getCurrentTime(): number;
   getDuration(): number;
+  getPlayerState(): number;
+  playVideo(): void;
+  pauseVideo(): void;
+  seekTo(seconds: number, allowSeekAhead?: boolean): void;
   destroy(): void;
 }
+
+const YT_STATE_PLAYING = 1;
+const CONTROLS_HIDE_MS = 3000;
 
 declare global {
   interface Window {
@@ -132,8 +139,13 @@ export default function VideoPage(): React.JSX.Element {
     message?: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [controlsVisible, setControlsVisible] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
+  const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -176,6 +188,45 @@ export default function VideoPage(): React.JSX.Element {
     void saveProgress();
   }, [saveProgress]);
 
+  const showControls = useCallback((): void => {
+    setControlsVisible(true);
+    if (controlsHideTimeoutRef.current) {
+      clearTimeout(controlsHideTimeoutRef.current);
+    }
+    controlsHideTimeoutRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, CONTROLS_HIDE_MS);
+  }, []);
+
+  const handleRewind = useCallback((): void => {
+    const player = playerRef.current;
+    if (!player) return;
+    player.seekTo(Math.max(0, player.getCurrentTime() - 10), true);
+    showControls();
+  }, [showControls]);
+
+  const handlePlayPause = useCallback((): void => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (player.getPlayerState() === YT_STATE_PLAYING) {
+      player.pauseVideo();
+    } else {
+      player.playVideo();
+    }
+    showControls();
+  }, [showControls]);
+
+  const handleFullscreen = useCallback((): void => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      const container = videoShellRef.current;
+      if (!container?.requestFullscreen) return;
+      void container.requestFullscreen();
+    }
+    showControls();
+  }, [showControls]);
+
   const trackLinearProgress = useCallback((): void => {
     const player = playerRef.current;
     if (!player) return;
@@ -201,6 +252,18 @@ export default function VideoPage(): React.JSX.Element {
       markUnlocked();
     }
   }, [markUnlocked]);
+
+  useEffect(() => {
+    const onFullscreenChange = (): void => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    onFullscreenChange();
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     userIdRef.current = userId;
@@ -336,6 +399,10 @@ export default function VideoPage(): React.JSX.Element {
         playerVars: {
           rel: 0,
           modestbranding: 1,
+          disablekb: 1,
+          controls: 0,
+          loop: 1,
+          playlist: video.youtube_id,
         },
         events: {
           onReady: (event) => {
@@ -343,6 +410,11 @@ export default function VideoPage(): React.JSX.Element {
             if (duration && duration > 0) {
               lastKnownPositionRef.current = event.target.getCurrentTime();
             }
+            setIsPlaying(event.target.getPlayerState() === YT_STATE_PLAYING);
+            showControls();
+          },
+          onStateChange: (event) => {
+            setIsPlaying(event.data === YT_STATE_PLAYING);
           },
         },
       });
@@ -361,6 +433,10 @@ export default function VideoPage(): React.JSX.Element {
     return () => {
       cancelled = true;
       void saveProgress();
+      if (controlsHideTimeoutRef.current) {
+        clearTimeout(controlsHideTimeoutRef.current);
+        controlsHideTimeoutRef.current = null;
+      }
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
@@ -379,6 +455,7 @@ export default function VideoPage(): React.JSX.Element {
     progressLoaded,
     trackLinearProgress,
     saveProgress,
+    showControls,
   ]);
 
   const handleSubmit = async (): Promise<void> => {
@@ -462,6 +539,74 @@ export default function VideoPage(): React.JSX.Element {
             .video-page-code-box {
               padding: 2rem;
             }
+            .video-player-shell {
+              position: relative;
+              width: 100%;
+              height: 100%;
+            }
+            .video-player-block-overlay {
+              position: absolute;
+              inset: 0;
+              z-index: 2;
+              pointer-events: all;
+              background: transparent;
+            }
+            .video-player-controls {
+              position: absolute;
+              inset: 0;
+              z-index: 3;
+              display: flex;
+              align-items: flex-end;
+              justify-content: center;
+              padding-bottom: 1rem;
+              pointer-events: none;
+              opacity: 0;
+              transition: opacity 0.25s ease;
+            }
+            .video-player-controls--visible {
+              opacity: 1;
+            }
+            .video-player-controls-bar {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 1.5rem;
+              padding: 0.65rem 1.25rem;
+              background: rgba(0, 0, 0, 0.65);
+              border-radius: 4px;
+              pointer-events: none;
+            }
+            .video-player-btn {
+              pointer-events: none;
+              min-width: 44px;
+              min-height: 44px;
+              padding: 0 0.75rem;
+              border: 1px solid rgba(255, 255, 255, 0.2);
+              border-radius: 4px;
+              background: rgba(255, 255, 255, 0.08);
+              color: #F5F0E8;
+              font-family: var(--font-mono), ui-monospace, monospace;
+              font-size: 0.85rem;
+              cursor: pointer;
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .video-player-controls--visible .video-player-btn {
+              pointer-events: all;
+            }
+            .video-player-fullscreen-btn {
+              position: absolute;
+              right: 1rem;
+              bottom: 1rem;
+              pointer-events: none;
+            }
+            .video-player-controls--visible .video-player-fullscreen-btn {
+              pointer-events: all;
+            }
+            .video-player-btn:hover {
+              background: rgba(255, 255, 255, 0.15);
+            }
             @media (max-width: 479px) {
               .video-page-nav {
                 padding: 1rem !important;
@@ -527,10 +672,55 @@ export default function VideoPage(): React.JSX.Element {
           </span>
           <BonusBadge bonusExpireAt={video.bonus_expire_at} />
         </div>
-        <div style={{ margin: "2rem 0", aspectRatio: "16/9",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
+        <div
+          style={{
+            margin: "2rem 0",
+            aspectRatio: "16/9",
+            fontFamily: "var(--font-mono), ui-monospace, monospace",
+          }}
+        >
           {verification60Enabled ? (
-            <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
+            <div ref={videoShellRef} className="video-player-shell">
+              <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
+              <div
+                className="video-player-block-overlay"
+                aria-hidden="true"
+                onClick={showControls}
+                onMouseEnter={showControls}
+                onMouseMove={showControls}
+              />
+              <div
+                className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
+                onMouseEnter={showControls}
+              >
+                <div className="video-player-controls-bar">
+                  <button
+                    type="button"
+                    className="video-player-btn"
+                    aria-label="Reculer 10 secondes"
+                    onClick={handleRewind}
+                  >
+                    ◀ 10s
+                  </button>
+                  <button
+                    type="button"
+                    className="video-player-btn"
+                    aria-label={isPlaying ? "Pause" : "Lecture"}
+                    onClick={handlePlayPause}
+                  >
+                    {isPlaying ? "⏸" : "▶"}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="video-player-btn video-player-fullscreen-btn"
+                  aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                  onClick={handleFullscreen}
+                >
+                  {isFullscreen ? "↙" : "⛶"}
+                </button>
+              </div>
+            </div>
           ) : (
             <iframe
               src={`https://www.youtube.com/embed/${video.youtube_id}`}
