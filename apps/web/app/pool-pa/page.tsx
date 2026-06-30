@@ -193,6 +193,11 @@ const ptsFmt = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 0,
 });
 
+const ptsDecimalFmt = new Intl.NumberFormat("fr-CA", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 const dateFmt = new Intl.DateTimeFormat("fr-CA", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -292,6 +297,16 @@ export default function PoolPaPage(): JSX.Element | null {
   const tipTaxePts = useMemo(
     () => round2(tipAmount * PA_TAX_RATE),
     [tipAmount],
+  );
+
+  const tipTaxeCad = useMemo(
+    () => round2(tipAmount * PA_PRICE_CAD * PA_TAX_RATE),
+    [tipAmount],
+  );
+
+  const tipNetPts = useMemo(
+    () => round2(tipAmount - tipTaxePts),
+    [tipAmount, tipTaxePts],
   );
 
   const canConfirmTip =
@@ -1500,9 +1515,7 @@ export default function PoolPaPage(): JSX.Element | null {
                 }}
               >
                 <span>Taxe 2%</span>
-                <strong>
-                  {tipTaxePts > 0 ? `${ptsFmt.format(tipTaxePts)} pt${tipTaxePts > 1 ? "s" : ""}` : "—"}
-                </strong>
+                <strong>{tipTaxeCad > 0 ? cad.format(tipTaxeCad) : "—"}</strong>
               </div>
               <div
                 style={{
@@ -1516,7 +1529,15 @@ export default function PoolPaPage(): JSX.Element | null {
                 }}
               >
                 <span>{tipModalCollab.display_name} reçoit</span>
-                <span>{ptsFmt.format(tipAmount)} pt{tipAmount > 1 ? "s" : ""}</span>
+                <span>
+                  {ptsDecimalFmt.format(tipNetPts)} pt
+                  {tipNetPts !== tipAmount ? (
+                    <span style={{ opacity: 0.75, fontWeight: 400 }}>
+                      {" "}
+                      ({cad.format(round2(tipNetPts * PA_PRICE_CAD))})
+                    </span>
+                  ) : null}
+                </span>
               </div>
             </div>
 

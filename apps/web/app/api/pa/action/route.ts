@@ -287,7 +287,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { error: creditErr } = await supabase.from("pa_transactions").insert({
       membre_id: targetId,
-      type: "tip",
+      type: "purchase",
       amount: ptsPa,
       description: `Pourboire reçu — ${senderLabel}`,
       cost_usd: 0,
