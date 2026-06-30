@@ -263,12 +263,12 @@ export default function PoolPaPage(): JSX.Element | null {
 
   const loadCollaborateurs = useCallback(async (accessToken: string) => {
     let profilesRes = await restJson<CollaborateurProfileRow[]>(
-      `profiles?or=(member_type.eq.Collaborateur,member_type.eq.collaborateur)&select=id,display_name,categorie,icone&order=display_name.asc`,
+      `profiles?member_type=eq.collaborateur&select=id,display_name,categorie,icone&order=display_name.asc`,
       accessToken,
     );
     if (profilesRes.error) {
       profilesRes = await restJson<CollaborateurProfileRow[]>(
-        `profiles?or=(member_type.eq.Collaborateur,member_type.eq.collaborateur)&select=id,display_name&order=display_name.asc`,
+        `profiles?member_type=eq.collaborateur&select=id,display_name&order=display_name.asc`,
         accessToken,
       );
     }
