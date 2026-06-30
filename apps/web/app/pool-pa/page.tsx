@@ -27,6 +27,8 @@ const GOLD = "#D4A017";
 const VERT = "#2ECC71";
 const VIOLET = "#7B5EA7";
 const CARD_BG = "#141414";
+const MODAL_BG = "#1A1A1A";
+const MUTED = "rgba(245, 240, 232, 0.5)";
 const PA_TAX_RATE = 0.02;
 const TIP_AMOUNTS = [1, 2, 5, 10] as const;
 const SB = "https://lrolatbudvianeazliax.supabase.co";
@@ -205,12 +207,49 @@ function episodeLabel(count: number): string {
   return n <= 1 ? `${n} épisode` : `${n} épisodes`;
 }
 
-function collabDisplayIcon(row: CollaborateurCard): string {
-  return row.icone?.trim() || "🎬";
-}
-
 function collabCategoryLabel(row: CollaborateurCard): string {
   return row.categorie?.trim() || "Contenu";
+}
+
+function IconVideo({ size = 14 }: { size?: number }): JSX.Element {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z" />
+      <rect x="3" y="6" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+
+function IconCoin({ size = 14 }: { size?: number }): JSX.Element {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+      <path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1" />
+      <path d="M12 7v10" />
+    </svg>
+  );
 }
 
 export default function PoolPaPage(): JSX.Element | null {
@@ -643,10 +682,6 @@ export default function PoolPaPage(): JSX.Element | null {
               min-height: 44px;
               font-size: max(14px, 0.95rem) !important;
             }
-            .pool-pa-tip-btn {
-              min-height: 44px;
-              font-size: max(14px, 0.88rem) !important;
-            }
             @media (max-width: 479px) {
               .pool-pa-collab-grid {
                 grid-template-columns: 1fr !important;
@@ -1032,93 +1067,104 @@ export default function PoolPaPage(): JSX.Element | null {
                       key={collab.id}
                       style={{
                         borderRadius: "4px",
-                        padding: "1.1rem 1rem 1rem",
+                        padding: 0,
                         background: CARD_BG,
-                        border: "1px solid rgba(245, 240, 232, 0.08)",
                         borderTop: `2px solid ${VIOLET}`,
+                        overflow: "hidden",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          justifyContent: "space-between",
-                          gap: "0.65rem",
-                          marginBottom: "0.65rem",
-                        }}
-                      >
+                      <div style={{ padding: "1rem 1.25rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "0.65rem",
+                            marginBottom: "0.5rem",
+                          }}
+                        >
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              lineHeight: 1.25,
+                              color: TEXT,
+                            }}
+                          >
+                            {collab.display_name}
+                          </p>
+                          <span
+                            style={{
+                              flexShrink: 0,
+                              fontSize: "11px",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              background: "rgba(123, 94, 167, 0.08)",
+                              color: VIOLET,
+                              border: "1px solid rgba(123, 94, 167, 0.3)",
+                            }}
+                          >
+                            Collaborateur
+                          </span>
+                        </div>
+
                         <p
                           style={{
                             margin: 0,
-                            fontWeight: 700,
-                            fontSize: "1rem",
-                            lineHeight: 1.25,
+                            fontSize: "12px",
+                            color: MUTED,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.35rem",
+                            flexWrap: "wrap",
                           }}
                         >
-                          {collab.display_name}
+                          <IconVideo size={14} />
+                          <span>Membre Collaborateur</span>
+                          <span>·</span>
+                          <span>{collabCategoryLabel(collab)}</span>
+                          <span>·</span>
+                          <span>{episodeLabel(collab.video_count)}</span>
                         </p>
-                        <span
-                          style={{
-                            flexShrink: 0,
-                            fontSize: "0.68rem",
-                            letterSpacing: "0.06em",
-                            textTransform: "uppercase",
-                            fontWeight: 700,
-                            padding: "0.2rem 0.45rem",
-                            borderRadius: "3px",
-                            background: "rgba(123, 94, 167, 0.18)",
-                            color: VIOLET,
-                            border: "1px solid rgba(123, 94, 167, 0.35)",
-                          }}
-                        >
-                          Collaborateur
-                        </span>
                       </div>
 
-                      <p
+                      <div
                         style={{
-                          margin: "0 0 0.55rem",
-                          fontSize: "0.85rem",
-                          opacity: 0.82,
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.4rem",
-                          flexWrap: "wrap",
+                          justifyContent: "space-between",
+                          gap: "0.75rem",
+                          borderTop: "0.5px solid rgba(255, 255, 255, 0.08)",
+                          padding: "0.875rem 1.25rem",
                         }}
                       >
-                        <span aria-hidden>{collabDisplayIcon(collab)}</span>
-                        <span>{collabCategoryLabel(collab)}</span>
-                        <span style={{ opacity: 0.55 }}>·</span>
-                        <span>{episodeLabel(collab.video_count)}</span>
-                      </p>
-
-                      <p style={{ margin: "0 0 0.85rem", fontSize: "0.88rem", opacity: 0.9 }}>
-                        Solde PA :{" "}
-                        <strong style={{ color: VIOLET }}>
-                          {ptsFmt.format(collab.solde_pa)} pt{collab.solde_pa !== 1 ? "s" : ""}
-                        </strong>
-                      </p>
-
-                      <button
-                        type="button"
-                        className="pool-pa-tip-btn"
-                        onClick={() => openTipModal(collab)}
-                        style={{
-                          width: "100%",
-                          minHeight: "44px",
-                          padding: "0.65rem 0.85rem",
-                          borderRadius: "4px",
-                          fontWeight: 700,
-                          fontSize: "0.88rem",
-                          letterSpacing: "0.03em",
-                          cursor: "pointer",
-                          background: "rgba(123, 94, 167, 0.08)",
-                          border: "1px solid rgba(123, 94, 167, 0.3)",
-                          color: VIOLET,
-                        }}
-                      >
-                        Envoyer un pourboire
-                      </button>
+                        <p style={{ margin: 0, fontSize: "12px", color: MUTED }}>
+                          Solde PA : {ptsFmt.format(collab.solde_pa)} pt
+                          {collab.solde_pa !== 1 ? "s" : ""}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => openTipModal(collab)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.35rem",
+                            padding: "6px 14px",
+                            borderRadius: "4px",
+                            fontWeight: 500,
+                            fontSize: "12px",
+                            cursor: "pointer",
+                            background: "rgba(123, 94, 167, 0.08)",
+                            border: "1px solid rgba(123, 94, 167, 0.3)",
+                            color: VIOLET,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <IconCoin size={14} />
+                          Envoyer un pourboire
+                        </button>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -1363,25 +1409,24 @@ export default function PoolPaPage(): JSX.Element | null {
             style={{
               maxWidth: "26rem",
               width: "100%",
-              background: CARD_BG,
-              border: "1px solid rgba(123, 94, 167, 0.35)",
+              background: MODAL_BG,
+              border: "1px solid rgba(255, 255, 255, 0.08)",
               borderRadius: "4px",
-              padding: "1.35rem 1.5rem",
+              padding: "1.25rem",
             }}
           >
             <h3
               id="tip-modal-title"
               style={{
                 margin: "0 0 0.35rem",
-                fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "1.35rem",
-                letterSpacing: "0.08em",
+                fontSize: "14px",
+                fontWeight: 500,
                 color: TEXT,
               }}
             >
               Pourboire à {tipModalCollab.display_name}
             </h3>
-            <p style={{ margin: "0 0 1rem", fontSize: "0.85rem", opacity: 0.78 }}>
+            <p style={{ margin: "0 0 1rem", fontSize: "12px", color: MUTED }}>
               Taxe 2% appliquée · Votre solde PA : {ptsFmt.format(soldePa)} pts
             </p>
 
@@ -1402,16 +1447,15 @@ export default function PoolPaPage(): JSX.Element | null {
                     disabled={tipSending}
                     onClick={() => setTipAmount(amt)}
                     style={{
-                      minHeight: "44px",
                       padding: "0.55rem 0.35rem",
                       borderRadius: "4px",
-                      fontWeight: 700,
-                      fontSize: "0.82rem",
+                      fontWeight: 500,
+                      fontSize: "12px",
                       cursor: tipSending ? "wait" : "pointer",
-                      background: selected ? "rgba(123, 94, 167, 0.12)" : "rgba(245, 240, 232, 0.04)",
+                      background: selected ? "rgba(123, 94, 167, 0.08)" : CARD_BG,
                       border: selected
                         ? `2px solid ${VIOLET}`
-                        : "1px solid rgba(245, 240, 232, 0.14)",
+                        : "0.5px solid rgba(255, 255, 255, 0.08)",
                       color: selected ? VIOLET : TEXT,
                     }}
                   >
@@ -1425,17 +1469,18 @@ export default function PoolPaPage(): JSX.Element | null {
               style={{
                 display: "grid",
                 gap: "0.45rem",
-                fontSize: "0.9rem",
+                fontSize: "12px",
                 marginBottom: "1rem",
-                padding: "0.85rem",
+                padding: "0.75rem",
                 borderRadius: "4px",
-                background: "rgba(245, 240, 232, 0.04)",
-                border: "1px solid rgba(245, 240, 232, 0.08)",
+                background: CARD_BG,
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
-                <span style={{ opacity: 0.85 }}>Montant envoyé</span>
-                <strong>{ptsFmt.format(tipAmount)} pt{tipAmount > 1 ? "s" : ""}</strong>
+                <span style={{ color: MUTED }}>Montant envoyé</span>
+                <strong style={{ color: TEXT }}>
+                  {ptsFmt.format(tipAmount)} pt{tipAmount > 1 ? "s" : ""}
+                </strong>
               </div>
               <div
                 style={{
@@ -1457,8 +1502,8 @@ export default function PoolPaPage(): JSX.Element | null {
                   gap: "1rem",
                   color: VERT,
                   paddingTop: "0.45rem",
-                  borderTop: "1px solid rgba(245, 240, 232, 0.1)",
-                  fontWeight: 700,
+                  borderTop: "0.5px solid rgba(255, 255, 255, 0.08)",
+                  fontWeight: 500,
                 }}
               >
                 <span>{tipModalCollab.display_name} reçoit</span>
@@ -1467,12 +1512,12 @@ export default function PoolPaPage(): JSX.Element | null {
             </div>
 
             {tipError ? (
-              <p role="alert" style={{ color: ROUGE, fontSize: "0.88rem", margin: "0 0 0.75rem" }}>
+              <p role="alert" style={{ color: ROUGE, fontSize: "12px", margin: "0 0 0.75rem" }}>
                 {tipError}
               </p>
             ) : null}
             {soldePa < tipAmount ? (
-              <p role="alert" style={{ color: ROUGE, fontSize: "0.82rem", margin: "0 0 0.75rem" }}>
+              <p role="alert" style={{ color: ROUGE, fontSize: "12px", margin: "0 0 0.75rem" }}>
                 Solde PA insuffisant pour ce montant.
               </p>
             ) : null}
@@ -1484,14 +1529,14 @@ export default function PoolPaPage(): JSX.Element | null {
                 onClick={closeTipModal}
                 style={{
                   flex: "1 1 120px",
-                  minHeight: "44px",
                   padding: "0.65rem 1rem",
                   borderRadius: "4px",
-                  fontWeight: 600,
+                  fontWeight: 500,
+                  fontSize: "12px",
                   cursor: tipSending ? "wait" : "pointer",
                   background: "transparent",
-                  border: "1px solid rgba(245, 240, 232, 0.22)",
-                  color: TEXT,
+                  border: "0.5px solid rgba(255, 255, 255, 0.08)",
+                  color: MUTED,
                 }}
               >
                 Annuler
@@ -1502,15 +1547,15 @@ export default function PoolPaPage(): JSX.Element | null {
                 onClick={() => void handleConfirmTip()}
                 style={{
                   flex: "1.5 1 160px",
-                  minHeight: "44px",
                   padding: "0.65rem 1rem",
                   borderRadius: "4px",
-                  fontWeight: 700,
+                  fontWeight: 500,
+                  fontSize: "12px",
                   cursor: canConfirmTip ? "pointer" : "not-allowed",
-                  background: canConfirmTip ? VIOLET : "rgba(123, 94, 167, 0.25)",
-                  border: `1px solid ${canConfirmTip ? VIOLET : "rgba(123, 94, 167, 0.35)"}`,
-                  color: TEXT,
-                  opacity: canConfirmTip ? 1 : 0.65,
+                  background: "rgba(123, 94, 167, 0.15)",
+                  border: "1px solid rgba(123, 94, 167, 0.4)",
+                  color: VIOLET,
+                  opacity: canConfirmTip ? 1 : 0.55,
                 }}
               >
                 {tipSending ? "Envoi…" : "Confirmer le pourboire"}
