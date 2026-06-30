@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
+import { isCollaborateurMemberType } from "../../../../lib/pcol";
 import {
   PA_USD_PER_PT,
   calculerTaxePaUtilisation,
@@ -157,6 +158,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  if (type === "pourboire") {
+    if (targetId === membreId) {
+      return NextResponse.json({ error: "Impossible de s'envoyer un pourboire" }, { status: 400 });
+    }
+    const { data: targetProfile, error: targetErr } = await supabase
+      .from("profiles")
+      .select("member_type, display_name")
+      .eq("id", targetId)
+      .maybeSingle();
+    if (targetErr) {
+      return NextResponse.json({ error: targetErr.message }, { status: 500 });
+    }
+    if (!targetProfile?.member_type || !isCollaborateurMemberType(targetProfile.member_type)) {
+      return NextResponse.json({ error: "Collaborateur introuvable" }, { status: 404 });
+    }
+  }
+
   const ptsDebit = effectiveDebit;
   const { taxe_communaute, taxe_fonctionnement } = calculerTaxePaUtilisation(ptsDebit);
   const taxUsd = ptsDebit > 0 ? ptsDebit * PA_USD_PER_PT * 0.02 : 0;
@@ -253,6 +271,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         nb_tickets: 1,
       });
       if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    }
+  }
+
+  if (type === "pourboire") {
+    const { data: senderProfile } = await supabase
+      .from("profiles")
+      .select("display_name, email")
+      .eq("id", membreId)
+      .maybeSingle();
+    const senderLabel =
+      senderProfile?.display_name?.trim() ||
+      senderProfile?.email?.split("@")[0] ||
+      "Membre";
+
+    const { error: creditErr } = await supabase.from("pa_transactions").insert({
+      membre_id: targetId,
+      type: "purchase",
+      amount: ptsPa,
+      description: `Pourboire reçu — ${senderLabel}`,
+      cost_usd: 0,
+      tax_usd: 0,
+    });
+    if (creditErr) {
+      return NextResponse.json({ error: creditErr.message }, { status: 500 });
     }
   }
 

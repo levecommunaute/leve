@@ -25,6 +25,12 @@ const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 const VERT = "#2ECC71";
+const VIOLET = "#7B5EA7";
+const CARD_BG = "#141414";
+const MODAL_BG = "#1A1A1A";
+const MUTED = "rgba(245, 240, 232, 0.5)";
+const PA_TAX_RATE = 0.02;
+const TIP_AMOUNTS = [1, 2, 5, 10] as const;
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
@@ -69,6 +75,22 @@ async function restJson<T>(
 type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
+};
+
+type CollaborateurProfileRow = {
+  id: string;
+  display_name: string | null;
+  categorie?: string | null;
+  icone?: string | null;
+};
+
+type CollaborateurCard = {
+  id: string;
+  display_name: string;
+  categorie: string | null;
+  icone: string | null;
+  video_count: number;
+  solde_pa: number;
 };
 
 type BanqueMembreRow = {
@@ -117,6 +139,10 @@ function paTxLabel(row: PaTxRow): string {
   if (descLower.includes("tirage")) {
     return "Ticket Tirage Trimestriel";
   }
+  if (descLower.includes("pourboire")) {
+    if (descLower.startsWith("pourboire reçu")) return desc;
+    return desc || "Pourboire créateur";
+  }
   if (desc === "Vote — Concours Artistes") {
     return desc;
   }
@@ -139,6 +165,7 @@ function paTxTypeLabel(type: string | null, description?: string | null): string
   const t = (type ?? "").toLowerCase();
   const desc = description?.trim() ?? "";
   if (t === "purchase") return "Achat";
+  if (t === "tip") return "Pourboire";
   if (t === "spend" && desc.startsWith("Taxe 2% —")) return "Taxe 2%";
   if (t === "spend") return "Dépense";
   if (t === "tax") return "Taxe 2%";
@@ -166,6 +193,11 @@ const ptsFmt = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 0,
 });
 
+const ptsDecimalFmt = new Intl.NumberFormat("fr-CA", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 const dateFmt = new Intl.DateTimeFormat("fr-CA", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -173,6 +205,56 @@ const dateFmt = new Intl.DateTimeFormat("fr-CA", {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function episodeLabel(count: number): string {
+  const n = Math.max(0, Math.round(count));
+  return n <= 1 ? `${n} épisode` : `${n} épisodes`;
+}
+
+function collabCategoryLabel(row: CollaborateurCard): string {
+  return row.categorie?.trim() || "Contenu";
+}
+
+function IconVideo({ size = 14 }: { size?: number }): JSX.Element {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z" />
+      <rect x="3" y="6" width="12" height="12" rx="2" />
+    </svg>
+  );
+}
+
+function IconCoin({ size = 14 }: { size?: number }): JSX.Element {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+      <path d="M14.8 9a2 2 0 0 0 -1.8 -1h-2a2 2 0 1 0 0 4h2a2 2 0 1 1 0 4h-2a2 2 0 0 1 -1.8 -1" />
+      <path d="M12 7v10" />
+    </svg>
+  );
 }
 
 export default function PoolPaPage(): JSX.Element | null {
@@ -191,6 +273,13 @@ export default function PoolPaPage(): JSX.Element | null {
   const [featureFlagState, setFeatureFlagState] = useState<
     "loading" | "enabled" | "disabled"
   >("loading");
+  const [collaborateurs, setCollaborateurs] = useState<CollaborateurCard[]>([]);
+  const [collabLoadError, setCollabLoadError] = useState<string | null>(null);
+  const [tipModalCollab, setTipModalCollab] = useState<CollaborateurCard | null>(null);
+  const [tipAmount, setTipAmount] = useState<number>(TIP_AMOUNTS[0]);
+  const [tipSending, setTipSending] = useState(false);
+  const [tipError, setTipError] = useState<string | null>(null);
+  const [tipSuccess, setTipSuccess] = useState<string | null>(null);
 
   const maxPtsAffordable = useMemo(() => {
     if (soldeBanque < PA_PRICE_CAD) return 0;
@@ -204,6 +293,92 @@ export default function PoolPaPage(): JSX.Element | null {
     ptsPa <= maxPtsAffordable &&
     soldeBanque >= cout &&
     !buying;
+
+  const tipTaxePts = useMemo(
+    () => round2(tipAmount * PA_TAX_RATE),
+    [tipAmount],
+  );
+
+  const tipTaxeCad = useMemo(
+    () => round2(tipAmount * PA_PRICE_CAD * PA_TAX_RATE),
+    [tipAmount],
+  );
+
+  const tipNetPts = useMemo(
+    () => round2(tipAmount - tipTaxePts),
+    [tipAmount, tipTaxePts],
+  );
+
+  const canConfirmTip =
+    tipModalCollab != null &&
+    tipAmount >= 1 &&
+    soldePa >= tipAmount &&
+    !tipSending;
+
+  const loadCollaborateurs = useCallback(async (accessToken: string) => {
+    let profilesRes = await restJson<CollaborateurProfileRow[]>(
+      `profiles?member_type=eq.collaborateur&select=id,display_name,categorie,icone&order=display_name.asc`,
+      accessToken,
+    );
+    if (profilesRes.error) {
+      profilesRes = await restJson<CollaborateurProfileRow[]>(
+        `profiles?member_type=eq.collaborateur&select=id,display_name&order=display_name.asc`,
+        accessToken,
+      );
+    }
+
+    const videosRes = await restJson<{ collaborateur_id: string | null }[]>(
+      `videos?select=collaborateur_id&collaborateur_id=not.is.null`,
+      accessToken,
+    );
+
+    const errMsg = profilesRes.error ?? videosRes.error ?? null;
+    if (errMsg && (await checkJwtExpired({ message: errMsg }))) {
+      return;
+    }
+    if (errMsg) {
+      setCollabLoadError(errMsg);
+      setCollaborateurs([]);
+      return;
+    }
+
+    const videoCountById = new Map<string, number>();
+    for (const row of videosRes.data ?? []) {
+      const cid = String(row.collaborateur_id ?? "");
+      if (!cid) continue;
+      videoCountById.set(cid, (videoCountById.get(cid) ?? 0) + 1);
+    }
+
+    const soldeById = new Map<string, number>();
+    try {
+      const soldeRes = await fetch("/api/pa/collaborateurs", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      if (soldeRes.ok) {
+        const soldeJson = (await soldeRes.json()) as {
+          collaborateurs?: { id: string; solde_pa: number | string | null }[];
+        };
+        for (const row of soldeJson.collaborateurs ?? []) {
+          soldeById.set(String(row.id), Number(row.solde_pa ?? 0));
+        }
+      }
+    } catch {
+      /* solde PA affiché à 0 si indisponible */
+    }
+
+    setCollabLoadError(null);
+    setCollaborateurs(
+      (profilesRes.data ?? []).map((p) => ({
+        id: p.id,
+        display_name: p.display_name?.trim() || "Collaborateur",
+        categorie: p.categorie?.trim() || null,
+        icone: p.icone?.trim() || null,
+        video_count: videoCountById.get(p.id) ?? 0,
+        solde_pa: soldeById.get(p.id) ?? 0,
+      })),
+    );
+  }, []);
 
   const loadPoolPa = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -264,7 +439,9 @@ export default function PoolPaPage(): JSX.Element | null {
     } else {
       setHistory(historyRes.data ?? []);
     }
-  }, []);
+
+    await loadCollaborateurs(token);
+  }, [loadCollaborateurs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -364,6 +541,58 @@ export default function PoolPaPage(): JSX.Element | null {
     }
   }
 
+  function openTipModal(collab: CollaborateurCard): void {
+    setTipModalCollab(collab);
+    setTipAmount(TIP_AMOUNTS[0]);
+    setTipError(null);
+    setTipSuccess(null);
+  }
+
+  function closeTipModal(): void {
+    if (tipSending) return;
+    setTipModalCollab(null);
+    setTipError(null);
+  }
+
+  async function handleConfirmTip(): Promise<void> {
+    if (!session || !tipModalCollab || !canConfirmTip) return;
+    setTipSending(true);
+    setTipError(null);
+    setTipSuccess(null);
+
+    try {
+      const res = await fetch("/api/pa/action", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          membre_id: session.user.id,
+          type: "pourboire",
+          pts_pa: tipAmount,
+          target_id: tipModalCollab.id,
+        }),
+      });
+      const json = (await res.json()) as { success?: boolean; error?: string };
+
+      if (!res.ok || !json.success) {
+        setTipError(json.error ?? "Pourboire impossible");
+        return;
+      }
+
+      setTipSuccess(
+        `Pourboire de ${ptsFmt.format(tipAmount)} pt(s) envoyé à ${tipModalCollab.display_name}.`,
+      );
+      setTipModalCollab(null);
+      await loadPoolPa(session);
+    } catch {
+      setTipError("Erreur réseau");
+    } finally {
+      setTipSending(false);
+    }
+  }
+
   function handleSignOut(): void {
     setSigningOut(true);
     const cookieNames = document.cookie
@@ -423,12 +652,14 @@ export default function PoolPaPage(): JSX.Element | null {
     dateLabel: string;
     signed: string;
     isAchat: boolean;
+    isTipCredit: boolean;
     isTaxLine: boolean;
     taxeRow: number;
     coutRow: number;
   } {
     const amt = Number(row.amount ?? 0);
     const isAchat = (row.type ?? "").toLowerCase() === "purchase";
+    const isTipCredit = (row.type ?? "").toLowerCase() === "tip" && amt > 0;
     const isTaxLine = isPaTaxLine(row);
     const taxeRow = paTxTax(row);
     const signed = isTaxLine
@@ -445,7 +676,7 @@ export default function PoolPaPage(): JSX.Element | null {
       dateLabel = row.created_at;
     }
     const coutRow = paTxCost(row);
-    return { dateLabel, signed, isAchat, isTaxLine, taxeRow, coutRow };
+    return { dateLabel, signed, isAchat, isTipCredit, isTaxLine, taxeRow, coutRow };
   }
 
   return (
@@ -465,6 +696,11 @@ export default function PoolPaPage(): JSX.Element | null {
             .pool-pa-buy-btn {
               min-height: 44px;
               font-size: max(14px, 0.95rem) !important;
+            }
+            @media (max-width: 479px) {
+              .pool-pa-collab-grid {
+                grid-template-columns: 1fr !important;
+              }
             }
             .pool-pa-history-cards {
               display: none;
@@ -793,6 +1029,171 @@ export default function PoolPaPage(): JSX.Element | null {
                 </Link>
               </p>
             </section>
+
+            <section style={{ marginBottom: "1.5rem" }}>
+              <h2
+                style={{
+                  fontFamily: "var(--font-bebas), Impact, sans-serif",
+                  fontSize: "1.35rem",
+                  letterSpacing: "0.1em",
+                  margin: "0 0 1rem",
+                  color: VIOLET,
+                }}
+              >
+                COLLABORATEURS
+              </h2>
+
+              {collabLoadError ? (
+                <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "0.75rem" }}>
+                  {collabLoadError}
+                </p>
+              ) : null}
+              {tipSuccess ? (
+                <p role="status" style={{ color: VERT, fontSize: "0.9rem", marginBottom: "0.75rem" }}>
+                  {tipSuccess}
+                </p>
+              ) : null}
+
+              {collaborateurs.length === 0 ? (
+                <p
+                  style={{
+                    opacity: 0.78,
+                    fontSize: "0.95rem",
+                    lineHeight: 1.55,
+                    padding: "1.25rem",
+                    borderRadius: "4px",
+                    border: "1px solid rgba(123, 94, 167, 0.22)",
+                    background: "rgba(123, 94, 167, 0.04)",
+                  }}
+                >
+                  Aucun collaborateur disponible pour le moment.
+                </p>
+              ) : (
+                <div
+                  className="pool-pa-collab-grid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                    gap: "0.85rem",
+                  }}
+                >
+                  {collaborateurs.map((collab) => (
+                    <article
+                      key={collab.id}
+                      style={{
+                        borderRadius: "4px",
+                        padding: 0,
+                        background: CARD_BG,
+                        borderTop: `2px solid ${VIOLET}`,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div style={{ padding: "1rem 1.25rem" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "0.65rem",
+                            marginBottom: "0.5rem",
+                          }}
+                        >
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: 500,
+                              fontSize: "14px",
+                              lineHeight: 1.25,
+                              color: TEXT,
+                            }}
+                          >
+                            {collab.display_name}
+                          </p>
+                          <span
+                            style={{
+                              flexShrink: 0,
+                              fontSize: "11px",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              background: "rgba(123, 94, 167, 0.08)",
+                              color: VIOLET,
+                              border: "1px solid rgba(123, 94, 167, 0.3)",
+                            }}
+                          >
+                            Collaborateur
+                          </span>
+                        </div>
+
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "12px",
+                            color: MUTED,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.35rem",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {collab.icone ? (
+                            <span
+                              aria-hidden
+                              style={{ fontSize: "14px", lineHeight: 1, flexShrink: 0 }}
+                            >
+                              {collab.icone}
+                            </span>
+                          ) : (
+                            <IconVideo size={14} />
+                          )}
+                          <span>Membre Collaborateur</span>
+                          <span>·</span>
+                          <span>{collabCategoryLabel(collab)}</span>
+                          <span>·</span>
+                          <span>{episodeLabel(collab.video_count)}</span>
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "0.75rem",
+                          borderTop: "0.5px solid rgba(255, 255, 255, 0.08)",
+                          padding: "0.875rem 1.25rem",
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: "12px", color: MUTED }}>
+                          Solde PA : {ptsFmt.format(collab.solde_pa)} pt
+                          {collab.solde_pa !== 1 ? "s" : ""}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => openTipModal(collab)}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.35rem",
+                            padding: "6px 14px",
+                            borderRadius: "4px",
+                            fontWeight: 500,
+                            fontSize: "12px",
+                            cursor: "pointer",
+                            background: "rgba(123, 94, 167, 0.08)",
+                            border: "1px solid rgba(123, 94, 167, 0.3)",
+                            color: VIOLET,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <IconCoin size={14} />
+                          Envoyer un pourboire
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
           </>
         )}
 
@@ -827,7 +1228,7 @@ export default function PoolPaPage(): JSX.Element | null {
             <>
               <div className="pool-pa-history-cards">
                 {history.map((row) => {
-                  const { dateLabel, signed, isAchat, isTaxLine, taxeRow, coutRow } =
+                  const { dateLabel, signed, isAchat, isTipCredit, isTaxLine, taxeRow, coutRow } =
                     renderPaHistoryEntry(row);
                   return (
                     <article key={row.id} className="pool-pa-history-card">
@@ -868,7 +1269,7 @@ export default function PoolPaPage(): JSX.Element | null {
                         <span
                           style={{
                             fontWeight: 700,
-                            color: isAchat && Number(row.amount ?? 0) > 0 ? VERT : TEXT,
+                            color: (isAchat || isTipCredit) && Number(row.amount ?? 0) > 0 ? VERT : TEXT,
                             whiteSpace: "nowrap",
                           }}
                         >
@@ -929,7 +1330,7 @@ export default function PoolPaPage(): JSX.Element | null {
                   </thead>
                   <tbody>
                     {history.map((row) => {
-                      const { dateLabel, signed, isAchat, isTaxLine, taxeRow, coutRow } =
+                      const { dateLabel, signed, isAchat, isTipCredit, isTaxLine, taxeRow, coutRow } =
                         renderPaHistoryEntry(row);
                       return (
                         <tr
@@ -991,7 +1392,7 @@ export default function PoolPaPage(): JSX.Element | null {
                               padding: "0.7rem 1rem",
                               textAlign: "right",
                               fontWeight: 700,
-                              color: isAchat && Number(row.amount ?? 0) > 0 ? VERT : TEXT,
+                              color: (isAchat || isTipCredit) && Number(row.amount ?? 0) > 0 ? VERT : TEXT,
                               whiteSpace: "nowrap",
                             }}
                           >
@@ -1008,6 +1409,191 @@ export default function PoolPaPage(): JSX.Element | null {
           )}
         </section>
       </main>
+
+      {tipModalCollab ? (
+        <div
+          role="presentation"
+          onClick={closeTipModal}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(0, 0, 0, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1.25rem",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tip-modal-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "26rem",
+              width: "100%",
+              background: MODAL_BG,
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              borderRadius: "4px",
+              padding: "1.25rem",
+            }}
+          >
+            <h3
+              id="tip-modal-title"
+              style={{
+                margin: "0 0 0.35rem",
+                fontSize: "14px",
+                fontWeight: 500,
+                color: TEXT,
+              }}
+            >
+              Pourboire à {tipModalCollab.display_name}
+            </h3>
+            <p style={{ margin: "0 0 1rem", fontSize: "12px", color: MUTED }}>
+              Taxe 2% appliquée · Votre solde PA : {ptsFmt.format(soldePa)} pts
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: "0.5rem",
+                marginBottom: "1rem",
+              }}
+            >
+              {TIP_AMOUNTS.map((amt) => {
+                const selected = tipAmount === amt;
+                return (
+                  <button
+                    key={amt}
+                    type="button"
+                    disabled={tipSending}
+                    onClick={() => setTipAmount(amt)}
+                    style={{
+                      padding: "0.55rem 0.35rem",
+                      borderRadius: "4px",
+                      fontWeight: 500,
+                      fontSize: "12px",
+                      cursor: tipSending ? "wait" : "pointer",
+                      background: selected ? "rgba(123, 94, 167, 0.08)" : CARD_BG,
+                      border: selected
+                        ? `2px solid ${VIOLET}`
+                        : "0.5px solid rgba(255, 255, 255, 0.08)",
+                      color: selected ? VIOLET : TEXT,
+                    }}
+                  >
+                    {amt} pt{amt > 1 ? "s" : ""}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "0.45rem",
+                fontSize: "12px",
+                marginBottom: "1rem",
+                padding: "0.75rem",
+                borderRadius: "4px",
+                background: CARD_BG,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+                <span style={{ color: MUTED }}>Montant envoyé</span>
+                <strong style={{ color: TEXT }}>
+                  {ptsFmt.format(tipAmount)} pt{tipAmount > 1 ? "s" : ""}
+                </strong>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "1rem",
+                  color: ROUGE,
+                }}
+              >
+                <span>Taxe 2%</span>
+                <strong>{tipTaxeCad > 0 ? cad.format(tipTaxeCad) : "—"}</strong>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "1rem",
+                  color: VERT,
+                  paddingTop: "0.45rem",
+                  borderTop: "0.5px solid rgba(255, 255, 255, 0.08)",
+                  fontWeight: 500,
+                }}
+              >
+                <span>{tipModalCollab.display_name} reçoit</span>
+                <span>
+                  {ptsDecimalFmt.format(tipNetPts)} pt
+                  {tipNetPts !== tipAmount ? (
+                    <span style={{ opacity: 0.75, fontWeight: 400 }}>
+                      {" "}
+                      ({cad.format(round2(tipNetPts * PA_PRICE_CAD))})
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            </div>
+
+            {tipError ? (
+              <p role="alert" style={{ color: ROUGE, fontSize: "12px", margin: "0 0 0.75rem" }}>
+                {tipError}
+              </p>
+            ) : null}
+            {soldePa < tipAmount ? (
+              <p role="alert" style={{ color: ROUGE, fontSize: "12px", margin: "0 0 0.75rem" }}>
+                Solde PA insuffisant pour ce montant.
+              </p>
+            ) : null}
+
+            <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                disabled={tipSending}
+                onClick={closeTipModal}
+                style={{
+                  flex: "1 1 120px",
+                  padding: "0.65rem 1rem",
+                  borderRadius: "4px",
+                  fontWeight: 500,
+                  fontSize: "12px",
+                  cursor: tipSending ? "wait" : "pointer",
+                  background: "transparent",
+                  border: "0.5px solid rgba(255, 255, 255, 0.08)",
+                  color: MUTED,
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={!canConfirmTip}
+                onClick={() => void handleConfirmTip()}
+                style={{
+                  flex: "1.5 1 160px",
+                  padding: "0.65rem 1rem",
+                  borderRadius: "4px",
+                  fontWeight: 500,
+                  fontSize: "12px",
+                  cursor: canConfirmTip ? "pointer" : "not-allowed",
+                  background: "rgba(123, 94, 167, 0.15)",
+                  border: "1px solid rgba(123, 94, 167, 0.4)",
+                  color: VIOLET,
+                  opacity: canConfirmTip ? 1 : 0.55,
+                }}
+              >
+                {tipSending ? "Envoi…" : "Confirmer le pourboire"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AppBottomNav session={session} memberType={profile?.member_type} />
     </div>
