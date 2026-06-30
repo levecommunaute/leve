@@ -1120,7 +1120,16 @@ export default function PoolPaPage(): JSX.Element | null {
                             flexWrap: "wrap",
                           }}
                         >
-                          <IconVideo size={14} />
+                          {collab.icone ? (
+                            <span
+                              aria-hidden
+                              style={{ fontSize: "14px", lineHeight: 1, flexShrink: 0 }}
+                            >
+                              {collab.icone}
+                            </span>
+                          ) : (
+                            <IconVideo size={14} />
+                          )}
                           <span>Membre Collaborateur</span>
                           <span>·</span>
                           <span>{collabCategoryLabel(collab)}</span>
