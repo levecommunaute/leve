@@ -47,6 +47,8 @@ type MemberRow = {
   multiplier: number | string | null;
   /** Colonne Supabase en entier ; l’API peut renvoyer un nombre ou une chaîne selon le driver. */
   numero_membre: string | number | null;
+  categorie: string | null;
+  icone: string | null;
 };
 
 type BetaTesterRow = {
@@ -602,6 +604,8 @@ type MemberDraft = {
   member_type: MemberTypeForm;
   multiplier: MultiplierValue;
   numero_membre: string;
+  categorie: string;
+  icone: string;
 };
 
 function memberTypeToForm(raw: string | null): MemberTypeForm {
@@ -655,10 +659,13 @@ function rowNumeroMembreString(m: MemberRow): string {
 }
 
 function memberRowDirty(m: MemberRow, d: MemberDraft): boolean {
+  const categorieDirty = (m.categorie ?? "").trim() !== d.categorie.trim();
+  const iconeDirty = (m.icone ?? "").trim() !== d.icone.trim();
   return (
     memberTypeToForm(m.member_type) !== d.member_type ||
     multiplierToForm(m.multiplier) !== d.multiplier ||
-    rowNumeroMembreString(m) !== d.numero_membre
+    rowNumeroMembreString(m) !== d.numero_membre ||
+    (d.member_type === "collaborateur" && (categorieDirty || iconeDirty))
   );
 }
 
@@ -667,6 +674,8 @@ function defaultMemberDraft(m: MemberRow): MemberDraft {
     member_type: memberTypeToForm(m.member_type),
     multiplier: multiplierToForm(m.multiplier),
     numero_membre: rowNumeroMembreString(m),
+    categorie: (m.categorie ?? "").trim(),
+    icone: (m.icone ?? "").trim(),
   };
 }
 
@@ -3226,15 +3235,20 @@ export default function AdminPage(): JSX.Element {
     setSavingMemberId(id);
     setMembersError(null);
     try {
+      const patchBody: Record<string, unknown> = {
+        id,
+        member_type: d.member_type.toLowerCase(),
+        multiplier: d.multiplier,
+        numero_membre: numeroPayload,
+      };
+      if (d.member_type === "collaborateur") {
+        patchBody.categorie = d.categorie.trim() || null;
+        patchBody.icone = d.icone.trim() || null;
+      }
       const r = await fetch("/api/admin/members", {
         method: "PATCH",
         headers: adminHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({
-          id,
-          member_type: d.member_type.toLowerCase(),
-          multiplier: d.multiplier,
-          numero_membre: numeroPayload,
-        }),
+        body: JSON.stringify(patchBody),
       });
       const j = (await r.json()) as { error?: string };
       if (!r.ok) {
@@ -6812,6 +6826,59 @@ export default function AdminPage(): JSX.Element {
                               )}
                             </td>
                           </tr>
+                          {editingMemberId === m.id && d.member_type === "collaborateur" ? (
+                            <tr style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                              <td colSpan={7} style={{ padding: "0.5rem 0.5rem 0.75rem", verticalAlign: "top" }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: "0.75rem 1.25rem",
+                                    alignItems: "flex-end",
+                                  }}
+                                >
+                                  <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem", minWidth: "12rem" }}>
+                                    <span style={{ fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.55 }}>
+                                      Catégorie
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={d.categorie}
+                                      onChange={(e) =>
+                                        setMemberDrafts((prev) => ({
+                                          ...prev,
+                                          [m.id]: { ...d, categorie: e.target.value },
+                                        }))
+                                      }
+                                      aria-label="Catégorie collaborateur"
+                                      autoComplete="off"
+                                      placeholder="Musique, Football, Histoire, Cuisine…"
+                                      style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem" }}
+                                    />
+                                  </label>
+                                  <label style={{ display: "flex", flexDirection: "column", gap: "0.3rem", minWidth: "8rem" }}>
+                                    <span style={{ fontSize: "0.65rem", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.55 }}>
+                                      Icône
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={d.icone}
+                                      onChange={(e) =>
+                                        setMemberDrafts((prev) => ({
+                                          ...prev,
+                                          [m.id]: { ...d, icone: e.target.value },
+                                        }))
+                                      }
+                                      aria-label="Icône collaborateur"
+                                      autoComplete="off"
+                                      placeholder="🎵 🏈 📚 🍳"
+                                      style={{ ...inputBase, fontSize: "0.82rem", padding: "0.5rem 0.55rem", maxWidth: "8rem" }}
+                                    />
+                                  </label>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
                         </tbody>
                       );
                     })}

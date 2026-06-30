@@ -34,7 +34,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, display_name, email, member_type, multiplier, numero_membre")
+      .select("id, display_name, email, member_type, multiplier, numero_membre, categorie, icone")
       .order("display_name", { ascending: true, nullsFirst: false });
 
     if (error) {
@@ -57,6 +57,8 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     member_type?: unknown;
     multiplier?: unknown;
     numero_membre?: unknown;
+    categorie?: unknown;
+    icone?: unknown;
   };
   try {
     body = await request.json();
@@ -72,7 +74,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const hasType = "member_type" in body;
   const hasMult = "multiplier" in body;
   const hasNum = "numero_membre" in body;
-  if (!hasType && !hasMult && !hasNum) {
+  const hasCategorie = "categorie" in body;
+  const hasIcone = "icone" in body;
+  if (!hasType && !hasMult && !hasNum && !hasCategorie && !hasIcone) {
     return NextResponse.json({ error: "Aucun champ à mettre à jour" }, { status: 400 });
   }
 
@@ -119,6 +123,30 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       }
     } else {
       return NextResponse.json({ error: "numero_membre invalide" }, { status: 400 });
+    }
+  }
+
+  if (hasCategorie) {
+    const v = body.categorie;
+    if (v === null) {
+      patch.categorie = null;
+    } else if (typeof v === "string") {
+      const t = v.trim();
+      patch.categorie = t || null;
+    } else {
+      return NextResponse.json({ error: "categorie invalide" }, { status: 400 });
+    }
+  }
+
+  if (hasIcone) {
+    const v = body.icone;
+    if (v === null) {
+      patch.icone = null;
+    } else if (typeof v === "string") {
+      const t = v.trim();
+      patch.icone = t || null;
+    } else {
+      return NextResponse.json({ error: "icone invalide" }, { status: 400 });
     }
   }
 
