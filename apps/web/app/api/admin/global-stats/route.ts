@@ -6,7 +6,6 @@ import { currentMonthStartIso } from "../../../../lib/rang-config";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 1000;
-const ACTIVE_MEMBER_TYPES = ["communaute", "pionnier", "fondateur", "collaborateur"] as const;
 
 export type AdminGlobalStats = {
   membres_actifs: number;
@@ -94,6 +93,14 @@ async function countSinceMonthStart(
   return count ?? 0;
 }
 
+async function countActiveMembers(supabase: SupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc("count_active_members");
+  if (error) {
+    throw new Error(error.message);
+  }
+  return Number(data ?? 0);
+}
+
 async function sumRedistributionRevenue(supabase: SupabaseClient): Promise<number> {
   let total = 0;
   let offset = 0;
@@ -130,17 +137,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const monthStartIso = currentMonthStartIso();
 
     const [
-      membresRes,
+      membresActifs,
       ptsPonderesMois,
       quizMois,
       codesMois,
       revenusRedistribues,
       bankRes,
     ] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .in("member_type", [...ACTIVE_MEMBER_TYPES]),
+      countActiveMembers(supabase),
       sumPtsPonderesCurrentMonth(supabase),
       countSinceMonthStart(supabase, "quiz_submissions", monthStartIso),
       countSinceMonthStart(supabase, "code_submissions", monthStartIso),
@@ -152,9 +156,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         .maybeSingle(),
     ]);
 
-    if (membresRes.error) {
-      return NextResponse.json({ error: membresRes.error.message }, { status: 500 });
-    }
     if (bankRes.error) {
       return NextResponse.json({ error: bankRes.error.message }, { status: 500 });
     }
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const round2 = (n: number) => Math.round(n * 100) / 100;
 
     const stats: AdminGlobalStats = {
-      membres_actifs: membresRes.count ?? 0,
+      membres_actifs: membresActifs,
       pts_ponderes_mois: round2(ptsPonderesMois),
       quiz_mois: quizMois,
       codes_mois: codesMois,
