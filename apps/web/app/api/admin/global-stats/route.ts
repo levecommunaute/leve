@@ -80,17 +80,33 @@ async function countSinceMonthStart(
   supabase: SupabaseClient,
   table: "quiz_submissions" | "code_submissions",
   monthStartIso: string,
+  dateColumn = "created_at",
 ): Promise<number> {
   const { count, error } = await supabase
     .from(table)
     .select("*", { count: "exact", head: true })
-    .gte("created_at", monthStartIso);
+    .gte(dateColumn, monthStartIso);
 
   if (error) {
     throw new Error(error.message);
   }
 
   return count ?? 0;
+}
+
+async function countCodeSubmissionsSinceMonthStart(
+  supabase: SupabaseClient,
+  monthStartIso: string,
+): Promise<number> {
+  try {
+    return await countSinceMonthStart(supabase, "code_submissions", monthStartIso, "created_at");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/created_at|column|schema cache/i.test(msg)) {
+      throw e;
+    }
+    return countSinceMonthStart(supabase, "code_submissions", monthStartIso, "soumis_at");
+  }
 }
 
 async function countActiveMembers(supabase: SupabaseClient): Promise<number> {
@@ -148,8 +164,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ] = await Promise.all([
       countActiveMembers(supabase),
       sumPtsPonderesCurrentMonth(supabase),
-      countSinceMonthStart(supabase, "quiz_submissions", monthStartIso),
-      countSinceMonthStart(supabase, "code_submissions", monthStartIso),
+      countSinceMonthStart(supabase, "quiz_submissions", monthStartIso, "completed_at"),
+      countCodeSubmissionsSinceMonthStart(supabase, monthStartIso),
       sumRedistributionRevenue(supabase),
       supabase
         .from("banque_leve")
