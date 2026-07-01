@@ -1449,7 +1449,10 @@ export default function AdminPage(): JSX.Element {
     (init?: HeadersInit): Headers => {
       const h = new Headers(init);
       const s = getStoredSecret();
-      if (s) h.set("X-Admin-Secret", s);
+      if (s) {
+        h.set("X-Admin-Secret", s);
+        h.set("Authorization", `Bearer ${s}`);
+      }
       return h;
     },
     [getStoredSecret],
@@ -1684,8 +1687,16 @@ export default function AdminPage(): JSX.Element {
     setGlobalStatsLoading(true);
     setGlobalStatsError(null);
     try {
+      const headers = adminHeaders();
+      console.log(
+        "[loadGlobalStats] headers envoyés:",
+        Object.fromEntries(headers.entries()),
+      );
+      if (!headers.get("Authorization")) {
+        console.warn("[loadGlobalStats] header Authorization absent");
+      }
       const r = await fetch("/api/admin/global-stats", {
-        headers: adminHeaders(),
+        headers,
         cache: "no-store",
       });
       const j = (await r.json()) as GlobalStats & { error?: string };
