@@ -1,0 +1,179 @@
+import { type NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
+import { currentMonthStartIso } from "../../../../lib/rang-config";
+
+export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 1000;
+const ACTIVE_MEMBER_TYPES = ["communaute", "pionnier", "fondateur", "collaborateur"] as const;
+
+export type AdminGlobalStats = {
+  membres_actifs: number;
+  pts_ponderes_mois: number;
+  quiz_mois: number;
+  codes_mois: number;
+  revenus_redistribues: number;
+  pool_pmq: number;
+  pool_ptc: number;
+};
+
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function currentMonthEndIso(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+}
+
+async function paginatedSumPtsPonderes(
+  supabase: SupabaseClient,
+  filter: "mois" | "created_at",
+): Promise<number> {
+  const monthKey = currentMonthKey();
+  const monthDate = `${monthKey}-01`;
+  const monthStartIso = currentMonthStartIso();
+  const monthEndIso = currentMonthEndIso();
+  let total = 0;
+  let offset = 0;
+
+  for (;;) {
+    let query = supabase.from("points_ponderes").select("pts_ponderes");
+    if (filter === "mois") {
+      query = query.or(`mois.eq.${monthKey},mois.eq.${monthDate}`);
+    } else {
+      query = query.gte("created_at", monthStartIso).lt("created_at", monthEndIso);
+    }
+    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const amt = Number(row.pts_ponderes ?? 0);
+      if (Number.isFinite(amt)) total += amt;
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return total;
+}
+
+async function sumPtsPonderesCurrentMonth(supabase: SupabaseClient): Promise<number> {
+  try {
+    return await paginatedSumPtsPonderes(supabase, "mois");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/mois|column|schema cache/i.test(msg)) {
+      throw e;
+    }
+    return paginatedSumPtsPonderes(supabase, "created_at");
+  }
+}
+
+async function countSinceMonthStart(
+  supabase: SupabaseClient,
+  table: "quiz_submissions" | "code_submissions",
+  monthStartIso: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from(table)
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", monthStartIso);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
+}
+
+async function sumRedistributionRevenue(supabase: SupabaseClient): Promise<number> {
+  let total = 0;
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("redistribution_history")
+      .select("total_revenue")
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const amt = Number(row.total_revenue ?? 0);
+      if (Number.isFinite(amt)) total += amt;
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return total;
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const denied = requireAdminSecret(request);
+  if (denied) return denied;
+
+  try {
+    const supabase = getServiceSupabase();
+    const monthStartIso = currentMonthStartIso();
+
+    const [
+      membresRes,
+      ptsPonderesMois,
+      quizMois,
+      codesMois,
+      revenusRedistribues,
+      bankRes,
+    ] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .in("member_type", [...ACTIVE_MEMBER_TYPES]),
+      sumPtsPonderesCurrentMonth(supabase),
+      countSinceMonthStart(supabase, "quiz_submissions", monthStartIso),
+      countSinceMonthStart(supabase, "code_submissions", monthStartIso),
+      sumRedistributionRevenue(supabase),
+      supabase
+        .from("banque_leve")
+        .select("pmq_balance, ptc_balance")
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (membresRes.error) {
+      return NextResponse.json({ error: membresRes.error.message }, { status: 500 });
+    }
+    if (bankRes.error) {
+      return NextResponse.json({ error: bankRes.error.message }, { status: 500 });
+    }
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
+    const stats: AdminGlobalStats = {
+      membres_actifs: membresRes.count ?? 0,
+      pts_ponderes_mois: round2(ptsPonderesMois),
+      quiz_mois: quizMois,
+      codes_mois: codesMois,
+      revenus_redistribues: round2(revenusRedistribues),
+      pool_pmq: round2(Number(bankRes.data?.pmq_balance ?? 0)),
+      pool_ptc: round2(Number(bankRes.data?.ptc_balance ?? 0)),
+    };
+
+    return NextResponse.json(stats);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

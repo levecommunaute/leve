@@ -26,8 +26,12 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const VERT = "#2ECC71";
+const BLEU = "#5DADE2";
+const VIOLET = "#9B59B6";
 const G2 = "#141414";
 const G3 = "#1A1A1A";
+const GLOBAL_STATS_REFRESH_MS = 60_000;
 
 const STORAGE_KEY = "leve_admin_secret";
 
@@ -162,6 +166,16 @@ type PoolCurrent = {
   frais_plateforme_balance: number;
   taxe_pa_balance: number;
   total_revenue: number;
+};
+
+type GlobalStats = {
+  membres_actifs: number;
+  pts_ponderes_mois: number;
+  quiz_mois: number;
+  codes_mois: number;
+  revenus_redistribues: number;
+  pool_pmq: number;
+  pool_ptc: number;
 };
 
 type TransparenceConfigRow = {
@@ -685,6 +699,12 @@ const cad = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 6,
 });
 
+const intFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 0 });
+
+const pointsFmt = new Intl.NumberFormat("fr-CA", {
+  maximumFractionDigits: 2,
+});
+
 const monthTitleFr = new Intl.DateTimeFormat("fr-CA", {
   month: "long",
   year: "numeric",
@@ -1096,6 +1116,7 @@ function cardStyle() {
 const ADMIN_SECTION_SCROLL_OFFSET = 60;
 
 const ADMIN_SECTIONS: { id: string; label: string }[] = [
+  { id: "section-stats", label: "Stats" },
   { id: "section-codes", label: "Codes" },
   { id: "section-videos", label: "Vidéos" },
   { id: "section-quiz", label: "Quiz" },
@@ -1157,6 +1178,56 @@ function subSectionTitle(text: string): JSX.Element {
     >
       {text}
     </h3>
+  );
+}
+
+function GlobalStatCard({
+  title,
+  value,
+  accent,
+  loading,
+}: {
+  title: string;
+  value: string;
+  accent: string;
+  loading: boolean;
+}): JSX.Element {
+  return (
+    <div
+      style={{
+        background: G2,
+        borderTop: `2px solid ${accent}`,
+        borderRadius: "4px",
+        padding: "1rem 1.15rem",
+        minHeight: "5.5rem",
+      }}
+    >
+      <p
+        style={{
+          fontFamily: "var(--font-mono), ui-monospace, monospace",
+          fontSize: "0.68rem",
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          opacity: 0.55,
+          margin: 0,
+          lineHeight: 1.35,
+        }}
+      >
+        {title}
+      </p>
+      <p
+        style={{
+          fontFamily: "var(--font-bebas), Impact, sans-serif",
+          fontSize: "clamp(1.75rem, 4vw, 2.35rem)",
+          letterSpacing: "0.04em",
+          margin: "0.4rem 0 0",
+          color: TEXT,
+          lineHeight: 1,
+        }}
+      >
+        {loading ? "…" : value}
+      </p>
+    </div>
   );
 }
 
@@ -1255,6 +1326,10 @@ export default function AdminPage(): JSX.Element {
   const [memberMapTotal, setMemberMapTotal] = useState(0);
   const [memberMapLoading, setMemberMapLoading] = useState(false);
   const [memberMapError, setMemberMapError] = useState<string | null>(null);
+
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
+  const [globalStatsLoading, setGlobalStatsLoading] = useState(false);
+  const [globalStatsError, setGlobalStatsError] = useState<string | null>(null);
 
   const [poolSeries, setPoolSeries] = useState<PoolMonthPoint[]>([]);
   const [poolCurrent, setPoolCurrent] = useState<PoolCurrent | null>(null);
@@ -1602,6 +1677,35 @@ export default function AdminPage(): JSX.Element {
       setMemberMapTotal(0);
     } finally {
       setMemberMapLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadGlobalStats = useCallback(async (): Promise<void> => {
+    setGlobalStatsLoading(true);
+    setGlobalStatsError(null);
+    try {
+      const r = await fetch("/api/admin/global-stats", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      const j = (await r.json()) as GlobalStats & { error?: string };
+      if (!r.ok) {
+        setGlobalStatsError(j.error ?? "Erreur statistiques");
+        return;
+      }
+      setGlobalStats({
+        membres_actifs: Number(j.membres_actifs ?? 0),
+        pts_ponderes_mois: Number(j.pts_ponderes_mois ?? 0),
+        quiz_mois: Number(j.quiz_mois ?? 0),
+        codes_mois: Number(j.codes_mois ?? 0),
+        revenus_redistribues: Number(j.revenus_redistribues ?? 0),
+        pool_pmq: Number(j.pool_pmq ?? 0),
+        pool_ptc: Number(j.pool_ptc ?? 0),
+      });
+    } catch (e) {
+      setGlobalStatsError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setGlobalStatsLoading(false);
     }
   }, [adminHeaders]);
 
@@ -2315,6 +2419,7 @@ export default function AdminPage(): JSX.Element {
     void loadFeatureFlags();
     void loadFraisPlateforme();
     void loadMemberMap();
+    void loadGlobalStats();
     void loadPoolAccumulation();
     void loadTransparencePools();
     void loadProduction();
@@ -2338,6 +2443,7 @@ export default function AdminPage(): JSX.Element {
     loadFeatureFlags,
     loadFraisPlateforme,
     loadMemberMap,
+    loadGlobalStats,
     loadPoolAccumulation,
     loadTransparencePools,
     loadProduction,
@@ -2355,6 +2461,12 @@ export default function AdminPage(): JSX.Element {
     if (!hydrated || !authed) return;
     void loadTransparency();
   }, [hydrated, authed, loadTransparency]);
+
+  useEffect(() => {
+    if (!hydrated || !authed) return;
+    const id = window.setInterval(() => void loadGlobalStats(), GLOBAL_STATS_REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, [hydrated, authed, loadGlobalStats]);
 
   useEffect(() => {
     if (!hydrated || !authed) return;
@@ -3337,6 +3449,21 @@ export default function AdminPage(): JSX.Element {
             .leve-admin-table {
               font-size: max(12px, 0.85rem);
             }
+            .admin-global-stats-grid {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 0.85rem;
+            }
+            @media (min-width: 768px) {
+              .admin-global-stats-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+              }
+            }
+            @media (min-width: 1024px) {
+              .admin-global-stats-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+              }
+            }
             .admin-section-nav {
               display: none;
             }
@@ -3677,6 +3804,57 @@ export default function AdminPage(): JSX.Element {
               </div>
             </div>
           ) : null}
+          <section id="section-stats" style={{ ...cardStyle(), marginBottom: "1.75rem" }}>
+            {sectionTitle("STATISTIQUES GLOBALES")}
+            {globalStatsError ? (
+              <p style={{ color: ROUGE, margin: "0 0 0.85rem", fontSize: "0.9rem" }}>{globalStatsError}</p>
+            ) : null}
+            <div className="admin-global-stats-grid">
+              <GlobalStatCard
+                title="Membres actifs"
+                value={intFmt.format(globalStats?.membres_actifs ?? 0)}
+                accent={GOLD}
+                loading={globalStatsLoading && !globalStats}
+              />
+              <GlobalStatCard
+                title="Pts pondérés (mois)"
+                value={pointsFmt.format(globalStats?.pts_ponderes_mois ?? 0)}
+                accent={VERT}
+                loading={globalStatsLoading && !globalStats}
+              />
+              <GlobalStatCard
+                title="Quiz complétés (mois)"
+                value={intFmt.format(globalStats?.quiz_mois ?? 0)}
+                accent={BLEU}
+                loading={globalStatsLoading && !globalStats}
+              />
+              <GlobalStatCard
+                title="Codes soumis (mois)"
+                value={intFmt.format(globalStats?.codes_mois ?? 0)}
+                accent={ROUGE}
+                loading={globalStatsLoading && !globalStats}
+              />
+              <GlobalStatCard
+                title="Revenus redistribués"
+                value={cad.format(globalStats?.revenus_redistribues ?? 0)}
+                accent={GOLD}
+                loading={globalStatsLoading && !globalStats}
+              />
+              <GlobalStatCard
+                title="Pool PMQ"
+                value={cad.format(globalStats?.pool_pmq ?? 0)}
+                accent={ROUGE}
+                loading={globalStatsLoading && !globalStats}
+              />
+              <GlobalStatCard
+                title="Pool PTC"
+                value={cad.format(globalStats?.pool_ptc ?? 0)}
+                accent={VIOLET}
+                loading={globalStatsLoading && !globalStats}
+              />
+            </div>
+          </section>
+
           <nav className="admin-section-nav" aria-label="Sections admin">
             {ADMIN_SECTIONS.map((s) => (
               <a
