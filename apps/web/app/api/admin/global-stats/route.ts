@@ -185,7 +185,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(stats);
   } catch (e) {
-    console.error("[global-stats] erreur fatale:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    const stack = e instanceof Error ? e.stack : "";
+    console.error("[global-stats] erreur fatale message:", msg);
+    console.error("[global-stats] erreur fatale stack:", stack);
+    return NextResponse.json({ error: msg || "Erreur inconnue" }, { status: 500 });
   }
 }
