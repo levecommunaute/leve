@@ -158,6 +158,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         .maybeSingle(),
     ]);
 
+    console.log("[global-stats] 1 membres:", membresActifs);
+    console.log("[global-stats] 2 pts_ponderes:", ptsPonderesMois);
+    console.log("[global-stats] 3 quiz:", quizMois);
+    console.log("[global-stats] 4 codes:", codesMois);
+    console.log("[global-stats] 5 revenus:", revenusRedistribues);
+    const poolPmq = Number(bankRes.data?.pmq_balance ?? 0);
+    const poolPtc = Number(bankRes.data?.ptc_balance ?? 0);
+    console.log("[global-stats] 6 banque:", poolPmq, poolPtc);
+
     if (bankRes.error) {
       return NextResponse.json({ error: bankRes.error.message }, { status: 500 });
     }
@@ -170,8 +179,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       quiz_mois: quizMois,
       codes_mois: codesMois,
       revenus_redistribues: round2(revenusRedistribues),
-      pool_pmq: round2(Number(bankRes.data?.pmq_balance ?? 0)),
-      pool_ptc: round2(Number(bankRes.data?.ptc_balance ?? 0)),
+      pool_pmq: round2(poolPmq),
+      pool_ptc: round2(poolPtc),
     };
 
     return NextResponse.json(stats);
