@@ -131,10 +131,10 @@ async function sumRedistributionRevenue(supabase: SupabaseClient): Promise<numbe
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const denied = requireAdminSecret(request);
-  if (denied) return denied;
-
   try {
+    const denied = requireAdminSecret(request);
+    if (denied) return denied;
+
     const supabase = getServiceSupabase();
     const monthStartIso = currentMonthStartIso();
 
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(stats);
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[global-stats] erreur fatale:", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
