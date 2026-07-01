@@ -94,7 +94,9 @@ async function countSinceMonthStart(
 }
 
 async function countActiveMembers(supabase: SupabaseClient): Promise<number> {
-  const { data, error } = await supabase.rpc("count_active_members");
+  const result = await supabase.rpc("count_active_members");
+  console.log("[global-stats] count_active_members raw:", JSON.stringify(result, null, 2));
+  const { data, error } = result;
   if (error) {
     throw new Error(error.message);
   }
