@@ -26,13 +26,13 @@ type RedistributionRow = {
 };
 
 type PaTransactionRow = {
+  id: unknown;
+  membre_id: unknown;
   created_at: string;
   type: string | null;
   amount: unknown;
   cost_usd: unknown;
-  cout_dollars: unknown;
   tax_usd: unknown;
-  taxe: unknown;
   description: string | null;
 };
 
@@ -118,15 +118,13 @@ function parseFraisRetrait(description: string | null): number {
 }
 
 function paMontant(row: PaTransactionRow): number {
-  const cost = toNumber(row.cost_usd) || toNumber(row.cout_dollars);
+  const cost = toNumber(row.cost_usd);
   if (cost > 0) return round2(cost);
   return round2(toNumber(row.amount));
 }
 
 function paTaxe(row: PaTransactionRow): number {
-  const taxUsd = toNumber(row.tax_usd);
-  if (taxUsd > 0) return round2(taxUsd);
-  return round2(toNumber(row.taxe));
+  return round2(toNumber(row.tax_usd));
 }
 
 async function fetchRedistributions(
@@ -168,7 +166,7 @@ async function fetchPaTransactions(filter: MoisFilter): Promise<PaTransactionRow
   for (;;) {
     let query = supabase
       .from("pa_transactions")
-      .select("created_at, type, amount, cost_usd, cout_dollars, tax_usd, taxe, description")
+      .select("id, membre_id, type, amount, cost_usd, tax_usd, description, created_at")
       .order("created_at", { ascending: true });
 
     if (filter.startIso && filter.endIso) {
