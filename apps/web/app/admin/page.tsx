@@ -1330,6 +1330,9 @@ export default function AdminPage(): JSX.Element {
   const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
   const [globalStatsLoading, setGlobalStatsLoading] = useState(false);
   const [globalStatsError, setGlobalStatsError] = useState<string | null>(null);
+  const [comptabiliteExportMois, setComptabiliteExportMois] = useState("");
+  const [comptabiliteExporting, setComptabiliteExporting] = useState(false);
+  const [comptabiliteExportError, setComptabiliteExportError] = useState<string | null>(null);
 
   const [poolSeries, setPoolSeries] = useState<PoolMonthPoint[]>([]);
   const [poolCurrent, setPoolCurrent] = useState<PoolCurrent | null>(null);
@@ -1537,6 +1540,51 @@ export default function AdminPage(): JSX.Element {
       setBetaLoading(false);
     }
   }, [adminHeaders]);
+
+  const exportComptabiliteCsv = useCallback(async (): Promise<void> => {
+    setComptabiliteExporting(true);
+    setComptabiliteExportError(null);
+    try {
+      const qs = comptabiliteExportMois.trim()
+        ? `?mois=${encodeURIComponent(comptabiliteExportMois.trim())}`
+        : "";
+      const r = await fetch(`/api/admin/comptabilite-export-csv${qs}`, {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      if (!r.ok) {
+        let message = "Erreur export CSV comptabilité";
+        try {
+          const j = (await r.json()) as { error?: string };
+          if (j.error) message = j.error;
+        } catch {
+          /* réponse non JSON */
+        }
+        setComptabiliteExportError(message);
+        return;
+      }
+      const blob = await r.blob();
+      const disposition = r.headers.get("Content-Disposition") ?? "";
+      const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+      const filename =
+        filenameMatch?.[1] ??
+        (comptabiliteExportMois.trim()
+          ? `leve-comptabilite-${comptabiliteExportMois.trim()}.csv`
+          : "leve-comptabilite-complet.csv");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setComptabiliteExportError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setComptabiliteExporting(false);
+    }
+  }, [adminHeaders, comptabiliteExportMois]);
 
   const exportBetaCsv = useCallback(async (): Promise<void> => {
     setBetaExporting(true);
@@ -3864,6 +3912,50 @@ export default function AdminPage(): JSX.Element {
                 loading={globalStatsLoading && !globalStats}
               />
             </div>
+            <div
+              style={{
+                marginTop: "1.25rem",
+                paddingTop: "1.1rem",
+                borderTop: "1px solid rgba(245, 240, 232, 0.1)",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.75rem",
+                alignItems: "flex-end",
+              }}
+            >
+              <div>
+                <label style={labelSm}>Mois (optionnel)</label>
+                <input
+                  type="month"
+                  value={comptabiliteExportMois}
+                  onChange={(e) => setComptabiliteExportMois(e.target.value)}
+                  style={{ ...inputBase, cursor: "pointer", minWidth: "11rem" }}
+                />
+              </div>
+              <button
+                type="button"
+                disabled={comptabiliteExporting}
+                onClick={() => void exportComptabiliteCsv()}
+                style={{
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: "4px",
+                  background: "transparent",
+                  color: GOLD,
+                  fontWeight: 600,
+                  border: `1px solid ${GOLD}`,
+                  cursor: comptabiliteExporting ? "wait" : "pointer",
+                  opacity: comptabiliteExporting ? 0.55 : 1,
+                  fontSize: "0.85rem",
+                }}
+              >
+                {comptabiliteExporting ? "Export…" : "Exporter CSV Comptabilité"}
+              </button>
+            </div>
+            {comptabiliteExportError ? (
+              <p style={{ color: ROUGE, margin: "0.75rem 0 0", fontSize: "0.9rem" }}>
+                {comptabiliteExportError}
+              </p>
+            ) : null}
           </section>
 
           <nav className="admin-section-nav" aria-label="Sections admin">
