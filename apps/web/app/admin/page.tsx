@@ -86,6 +86,18 @@ type BetaBugRow = {
   created_at: string | null;
 };
 
+type ConcoursArtisteRow = {
+  id: string;
+  artiste_nom: string | null;
+  artiste_pays: string | null;
+  categorie: string | null;
+  type_concours: string | null;
+  actif: boolean;
+  total_votes_pts: number | string | null;
+};
+
+type ConcoursTab = "international" | "haiti_culture";
+
 type QuizQuestionRow = {
   id: string;
   video_id: string;
@@ -1095,6 +1107,31 @@ const BETA_BUG_STATUTS: { value: string; label: string }[] = [
   { value: "ferme", label: "Fermé" },
 ];
 
+const CONCOURS_CATEGORIES: { value: string; label: string }[] = [
+  { value: "musique", label: "Musique" },
+  { value: "art_visuel", label: "Art visuel" },
+  { value: "poesie", label: "Poésie" },
+  { value: "micro_doc", label: "Micro-doc" },
+];
+
+const CONCOURS_TYPES: { value: ConcoursTab; label: string }[] = [
+  { value: "international", label: "International" },
+  { value: "haiti_culture", label: "Haïti Culture" },
+];
+
+function concoursCategorieLabel(value: string | null): string {
+  return CONCOURS_CATEGORIES.find((c) => c.value === value)?.label ?? (value ?? "—");
+}
+
+function concoursTypeLabel(value: string | null): string {
+  return CONCOURS_TYPES.find((t) => t.value === value)?.label ?? (value ?? "—");
+}
+
+function concoursVotesNumber(value: number | string | null | undefined): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function betaBugSeveriteCouleur(severite: string): string {
   return BETA_BUG_SEVERITES.find((s) => s.value === severite)?.couleur ?? "rgba(245,240,232,0.4)";
 }
@@ -1120,6 +1157,7 @@ const ADMIN_SECTIONS: { id: string; label: string }[] = [
   { id: "section-codes", label: "Codes" },
   { id: "section-videos", label: "Vidéos" },
   { id: "section-quiz", label: "Quiz" },
+  { id: "section-concours", label: "Concours" },
   { id: "section-redistribution", label: "Redistribution" },
   { id: "section-map", label: "Carte" },
   { id: "section-pools", label: "Pools" },
@@ -1435,6 +1473,19 @@ export default function AdminPage(): JSX.Element {
   const [betaBugsError, setBetaBugsError] = useState<string | null>(null);
   const [betaBugBusyId, setBetaBugBusyId] = useState<string | null>(null);
 
+  const [concoursArtistes, setConcoursArtistes] = useState<ConcoursArtisteRow[]>([]);
+  const [concoursLoading, setConcoursLoading] = useState(false);
+  const [concoursError, setConcoursError] = useState<string | null>(null);
+  const [concoursTab, setConcoursTab] = useState<ConcoursTab>("international");
+  const [concoursFormOpen, setConcoursFormOpen] = useState(false);
+  const [concoursNomDraft, setConcoursNomDraft] = useState("");
+  const [concoursPaysDraft, setConcoursPaysDraft] = useState("");
+  const [concoursCategorieDraft, setConcoursCategorieDraft] = useState("musique");
+  const [concoursTypeDraft, setConcoursTypeDraft] = useState<ConcoursTab>("international");
+  const [concoursActifDraft, setConcoursActifDraft] = useState(true);
+  const [concoursAdding, setConcoursAdding] = useState(false);
+  const [concoursBusyId, setConcoursBusyId] = useState<string | null>(null);
+
   const [divTrimestre, setDivTrimestre] = useState(currentTrimestre);
   const [divMontant, setDivMontant] = useState("");
   const [divDecisions, setDivDecisions] = useState<DividendeDecisionRow[]>([]);
@@ -1658,6 +1709,26 @@ export default function AdminPage(): JSX.Element {
       setBetaBugs([]);
     } finally {
       setBetaBugsLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadConcoursArtistes = useCallback(async (): Promise<void> => {
+    setConcoursLoading(true);
+    setConcoursError(null);
+    try {
+      const r = await fetch("/api/admin/concours", { headers: adminHeaders(), cache: "no-store" });
+      const j = (await r.json()) as { artistes?: ConcoursArtisteRow[]; error?: string };
+      if (!r.ok) {
+        setConcoursError(j.error ?? "Erreur liste artistes concours");
+        setConcoursArtistes([]);
+        return;
+      }
+      setConcoursArtistes(j.artistes ?? []);
+    } catch (e) {
+      setConcoursError(e instanceof Error ? e.message : "Erreur réseau");
+      setConcoursArtistes([]);
+    } finally {
+      setConcoursLoading(false);
     }
   }, [adminHeaders]);
 
@@ -2237,6 +2308,105 @@ export default function AdminPage(): JSX.Element {
     }
   }
 
+  function resetConcoursForm(tab: ConcoursTab = concoursTab): void {
+    setConcoursNomDraft("");
+    setConcoursPaysDraft("");
+    setConcoursCategorieDraft("musique");
+    setConcoursTypeDraft(tab);
+    setConcoursActifDraft(true);
+  }
+
+  async function addConcoursArtiste(): Promise<void> {
+    const nom = concoursNomDraft.trim();
+    const pays = concoursPaysDraft.trim();
+    if (!nom) {
+      setConcoursError("Nom de l'artiste requis");
+      return;
+    }
+    if (!pays) {
+      setConcoursError("Pays requis");
+      return;
+    }
+    setConcoursAdding(true);
+    setConcoursError(null);
+    try {
+      const r = await fetch("/api/admin/concours", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          artiste_nom: nom,
+          artiste_pays: pays,
+          categorie: concoursCategorieDraft,
+          type_concours: concoursTypeDraft,
+          actif: concoursActifDraft,
+        }),
+      });
+      const j = (await r.json()) as { artiste?: ConcoursArtisteRow; error?: string };
+      if (!r.ok || !j.artiste) {
+        setConcoursError(j.error ?? "Échec de l'ajout");
+        return;
+      }
+      setConcoursArtistes((prev) =>
+        [...prev, j.artiste!].sort((a, b) =>
+          (a.artiste_nom ?? "").localeCompare(b.artiste_nom ?? "", "fr"),
+        ),
+      );
+      resetConcoursForm(concoursTypeDraft);
+      setConcoursFormOpen(false);
+    } catch (e) {
+      setConcoursError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setConcoursAdding(false);
+    }
+  }
+
+  async function toggleConcoursArtisteActif(row: ConcoursArtisteRow): Promise<void> {
+    setConcoursBusyId(row.id);
+    setConcoursError(null);
+    try {
+      const r = await fetch("/api/admin/concours", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: row.id, actif: !row.actif }),
+      });
+      const j = (await r.json()) as { artiste?: ConcoursArtisteRow; error?: string };
+      if (!r.ok || !j.artiste) {
+        setConcoursError(j.error ?? "Échec du changement de statut");
+        return;
+      }
+      setConcoursArtistes((prev) => prev.map((a) => (a.id === j.artiste!.id ? j.artiste! : a)));
+    } catch (e) {
+      setConcoursError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setConcoursBusyId(null);
+    }
+  }
+
+  async function deleteConcoursArtiste(row: ConcoursArtisteRow): Promise<void> {
+    const label = row.artiste_nom?.trim() || "cet artiste";
+    if (!window.confirm(`Supprimer « ${label} » du concours ? Cette action est irréversible.`)) {
+      return;
+    }
+    setConcoursBusyId(row.id);
+    setConcoursError(null);
+    try {
+      const r = await fetch(`/api/admin/concours?id=${encodeURIComponent(row.id)}`, {
+        method: "DELETE",
+        headers: adminHeaders(),
+      });
+      const j = (await r.json()) as { ok?: boolean; error?: string };
+      if (!r.ok || !j.ok) {
+        setConcoursError(j.error ?? "Échec de la suppression");
+        return;
+      }
+      setConcoursArtistes((prev) => prev.filter((a) => a.id !== row.id));
+    } catch (e) {
+      setConcoursError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setConcoursBusyId(null);
+    }
+  }
+
   async function saveActionnaire(a: ActionnaireRow): Promise<void> {
     const d = actionnaireDrafts[a.id];
     if (!d) return;
@@ -2475,6 +2645,7 @@ export default function AdminPage(): JSX.Element {
     void loadBetaSuivi();
     void loadBetaEmails();
     void loadBetaBugs();
+    void loadConcoursArtistes();
     void loadFeatureFlags();
     void loadFraisPlateforme();
     void loadMemberMap();
@@ -2499,6 +2670,7 @@ export default function AdminPage(): JSX.Element {
     loadBetaSuivi,
     loadBetaEmails,
     loadBetaBugs,
+    loadConcoursArtistes,
     loadFeatureFlags,
     loadFraisPlateforme,
     loadMemberMap,
@@ -4570,6 +4742,312 @@ export default function AdminPage(): JSX.Element {
                 <p style={{ marginTop: "0.85rem", fontSize: "0.88rem", opacity: 0.85 }}>{quizAddMsg}</p>
               ) : null}
             </div>
+          </section>
+
+          {/* SECTION CONCOURS */}
+          <section id="section-concours" style={cardStyle()}>
+            {sectionTitle("CONCOURS")}
+            {concoursError ? (
+              <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{concoursError}</p>
+            ) : null}
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.5rem",
+                marginBottom: "1.25rem",
+              }}
+            >
+              {CONCOURS_TYPES.map((t) => {
+                const active = concoursTab === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => {
+                      setConcoursTab(t.value);
+                      setConcoursTypeDraft(t.value);
+                    }}
+                    style={{
+                      padding: "0.55rem 1.1rem",
+                      borderRadius: "4px",
+                      background: active ? GOLD : "transparent",
+                      color: active ? "#000000" : TEXT,
+                      fontWeight: 600,
+                      border: `1px solid ${active ? GOLD : "rgba(245,240,232,0.25)"}`,
+                      cursor: "pointer",
+                      fontSize: "0.85rem",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.75rem",
+                alignItems: "center",
+                marginBottom: "1.25rem",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (!concoursFormOpen) {
+                    resetConcoursForm(concoursTab);
+                  }
+                  setConcoursFormOpen((open) => !open);
+                }}
+                style={{
+                  padding: "0.65rem 1.25rem",
+                  borderRadius: "4px",
+                  background: GOLD,
+                  color: "#000000",
+                  fontWeight: 600,
+                  border: `1px solid ${GOLD}`,
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                }}
+              >
+                {concoursFormOpen ? "Fermer le formulaire" : "Ajouter un artiste"}
+              </button>
+            </div>
+
+            {concoursFormOpen ? (
+              <div
+                style={{
+                  marginBottom: "1.5rem",
+                  padding: "1.25rem",
+                  borderRadius: "4px",
+                  background: "rgba(245, 240, 232, 0.04)",
+                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: "0.95rem",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    opacity: 0.8,
+                    margin: "0 0 1rem",
+                  }}
+                >
+                  Nouvel artiste — {concoursTypeLabel(concoursTab)}
+                </h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "1rem",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    alignItems: "end",
+                  }}
+                >
+                  <div>
+                    <span style={labelSm}>Nom de l&apos;artiste</span>
+                    <input
+                      type="text"
+                      value={concoursNomDraft}
+                      onChange={(e) => setConcoursNomDraft(e.target.value)}
+                      placeholder="Nom complet"
+                      style={inputBase}
+                    />
+                  </div>
+                  <div>
+                    <span style={labelSm}>Pays</span>
+                    <input
+                      type="text"
+                      value={concoursPaysDraft}
+                      onChange={(e) => setConcoursPaysDraft(e.target.value)}
+                      placeholder="Ex. Haïti, Canada…"
+                      style={inputBase}
+                    />
+                  </div>
+                  <div>
+                    <span style={labelSm}>Catégorie</span>
+                    <select
+                      value={concoursCategorieDraft}
+                      onChange={(e) => setConcoursCategorieDraft(e.target.value)}
+                      style={{ ...inputBase, cursor: "pointer" }}
+                    >
+                      {CONCOURS_CATEGORIES.map((c) => (
+                        <option key={c.value} value={c.value} style={{ color: BG }}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <span style={labelSm}>Type concours</span>
+                    <select
+                      value={concoursTypeDraft}
+                      onChange={(e) => setConcoursTypeDraft(e.target.value as ConcoursTab)}
+                      style={{ ...inputBase, cursor: "pointer" }}
+                    >
+                      {CONCOURS_TYPES.map((t) => (
+                        <option key={t.value} value={t.value} style={{ color: BG }}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      cursor: "pointer",
+                      paddingBottom: "0.35rem",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={concoursActifDraft}
+                      onChange={(e) => setConcoursActifDraft(e.target.checked)}
+                    />
+                    <span style={{ fontSize: "0.88rem" }}>Actif</span>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={concoursAdding}
+                    onClick={() => void addConcoursArtiste()}
+                    style={{
+                      padding: "0.65rem 1.25rem",
+                      borderRadius: "4px",
+                      background: ROUGE,
+                      color: TEXT,
+                      fontWeight: 600,
+                      border: `1px solid ${ROUGE}`,
+                      cursor: concoursAdding ? "wait" : "pointer",
+                      opacity: concoursAdding ? 0.7 : 1,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    {concoursAdding ? "Ajout…" : "Enregistrer"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {concoursLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement…</p>
+            ) : (
+              (() => {
+                const filtered = concoursArtistes.filter(
+                  (a) => (a.type_concours ?? "").trim() === concoursTab,
+                );
+                return (
+                  <div
+                    style={{
+                      overflowX: "auto",
+                      fontFamily: "var(--font-mono), ui-monospace, monospace",
+                    }}
+                  >
+                    <table
+                      className="leve-admin-table"
+                      style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}
+                    >
+                      <thead>
+                        <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                          {[
+                            "Nom",
+                            "Pays",
+                            "Catégorie",
+                            "Type concours",
+                            "Actif",
+                            "Votes totaux",
+                            "Actions",
+                          ].map((h) => (
+                            <th
+                              key={h}
+                              style={{
+                                padding: "0.65rem 0.5rem",
+                                letterSpacing: "0.08em",
+                                fontSize: "0.65rem",
+                                textTransform: "uppercase",
+                                opacity: 0.55,
+                              }}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((row) => {
+                          const busy = concoursBusyId === row.id;
+                          return (
+                            <tr key={row.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                              <td style={{ padding: "0.6rem 0.5rem" }}>{row.artiste_nom ?? "—"}</td>
+                              <td style={{ padding: "0.6rem 0.5rem" }}>{row.artiste_pays ?? "—"}</td>
+                              <td style={{ padding: "0.6rem 0.5rem" }}>
+                                {concoursCategorieLabel(row.categorie)}
+                              </td>
+                              <td style={{ padding: "0.6rem 0.5rem" }}>
+                                {concoursTypeLabel(row.type_concours)}
+                              </td>
+                              <td style={{ padding: "0.6rem 0.5rem" }}>
+                                <label
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "0.4rem",
+                                    cursor: busy ? "wait" : "pointer",
+                                    opacity: busy ? 0.6 : 1,
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={row.actif}
+                                    disabled={busy}
+                                    onChange={() => void toggleConcoursArtisteActif(row)}
+                                  />
+                                  <span style={{ fontSize: "0.82rem", color: row.actif ? GOLD : "rgba(245,240,232,0.5)" }}>
+                                    {row.actif ? "Oui" : "Non"}
+                                  </span>
+                                </label>
+                              </td>
+                              <td style={{ padding: "0.6rem 0.5rem", color: GOLD, fontWeight: 600 }}>
+                                {concoursVotesNumber(row.total_votes_pts).toLocaleString("fr-CA")}
+                              </td>
+                              <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => void deleteConcoursArtiste(row)}
+                                  style={{
+                                    padding: "0.4rem 0.85rem",
+                                    borderRadius: "4px",
+                                    background: "transparent",
+                                    color: ROUGE,
+                                    border: `1px solid ${ROUGE}`,
+                                    cursor: busy ? "wait" : "pointer",
+                                    opacity: busy ? 0.6 : 1,
+                                    fontSize: "0.8rem",
+                                  }}
+                                >
+                                  Supprimer
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {filtered.length === 0 ? (
+                      <p style={{ opacity: 0.6, marginTop: "1rem" }}>
+                        Aucun artiste pour {concoursTypeLabel(concoursTab)}.
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })()
+            )}
           </section>
 
           {/* SECTION REDISTRIBUTION */}
