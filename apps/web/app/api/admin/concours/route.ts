@@ -111,6 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         categorie: categorieRaw,
         type_concours: typeRaw,
         actif,
+        annee: new Date().getFullYear(),
         total_votes_pts: 0,
       })
       .select(SELECT_COLUMNS)
