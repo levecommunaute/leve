@@ -19,8 +19,7 @@ const PMQ_MONTHLY_TYPES = [
   "fragment",
   "video_code",
   "code_secret",
-  "don_recu",
-  "don_envoye",
+  "pa_transfer",
 ] as const;
 
 const UUID_RE =
@@ -160,33 +159,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const { data: donneurProfile } = await svc
     .from("profiles")
-    .select("display_name, email")
+    .select("numero_membre")
     .eq("id", auth.uid)
     .maybeSingle();
 
   const { data: receveurProfile } = await svc
     .from("profiles")
-    .select("display_name, email")
+    .select("numero_membre")
     .eq("id", receveurId)
     .maybeSingle();
 
-  const donneurLabel =
-    (typeof donneurProfile?.display_name === "string"
-      ? donneurProfile.display_name.trim()
-      : "") ||
-    (typeof donneurProfile?.email === "string"
-      ? donneurProfile.email.split("@")[0]
-      : "") ||
-    "Membre";
+  const donneurRef =
+    donneurProfile?.numero_membre != null &&
+    String(donneurProfile.numero_membre).trim()
+      ? `#${String(donneurProfile.numero_membre).trim()}`
+      : "#????";
 
-  const receveurLabel =
-    (typeof receveurProfile?.display_name === "string"
-      ? receveurProfile.display_name.trim()
-      : "") ||
-    (typeof receveurProfile?.email === "string"
-      ? receveurProfile.email.split("@")[0]
-      : "") ||
-    "Membre";
+  const receveurRef =
+    receveurProfile?.numero_membre != null &&
+    String(receveurProfile.numero_membre).trim()
+      ? `#${String(receveurProfile.numero_membre).trim()}`
+      : "#????";
 
   const { error: donError } = await svc.from("dons_membres").insert({
     donneur_id: auth.uid,
@@ -201,8 +194,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { error: debitError } = await svc.from("points_transactions").insert({
     membre_id: auth.uid,
     amount: -ptsPmq,
-    type: "don_envoye",
-    description: `Don envoyé à ${receveurLabel} — ${ptsPmq} pts PMQ`,
+    type: "pa_transfer",
+    description: `Don envoyé à ${receveurRef}`,
   });
 
   if (debitError) {
@@ -212,8 +205,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { error: creditError } = await svc.from("points_transactions").insert({
     membre_id: receveurId,
     amount: ptsPmq,
-    type: "don_recu",
-    description: `Don reçu de ${donneurLabel} — ${ptsPmq} pts PMQ`,
+    type: "pa_transfer",
+    description: `Don reçu de ${donneurRef}`,
   });
 
   if (creditError) {
