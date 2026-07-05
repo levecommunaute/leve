@@ -205,7 +205,7 @@ export default function ProfilPage(): JSX.Element | null {
 
     const [txRes, monthlyPts] = await Promise.all([
       fetchRestJson(
-        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye)&select=amount`,
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye,pa_transfer)&select=amount`,
         token,
       ),
       sumMonthlyQuizPtsPonderes(targetId, token),
@@ -228,7 +228,7 @@ export default function ProfilPage(): JSX.Element | null {
 
     const [txHistoryRes, quizRes, parrainagesRes] = await Promise.all([
       fetchRestJson(
-        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye)&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye,pa_transfer)&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
         token,
       ),
       fetchRestJson(

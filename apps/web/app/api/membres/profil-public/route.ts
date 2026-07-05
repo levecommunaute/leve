@@ -18,6 +18,7 @@ const PMQ_TYPES = [
   "code_secret",
   "don_recu",
   "don_envoye",
+  "pa_transfer",
 ] as const;
 
 async function resolveAuthUser(
