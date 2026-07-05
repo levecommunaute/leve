@@ -387,6 +387,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ error: qsError.message }, { status: 500 });
       }
 
+      void svc
+        .from("profiles")
+        .update({ derniere_activite: new Date().toISOString() })
+        .eq("id", user.id);
+
       const memberEmail = String(profile?.email ?? user.email ?? "").trim();
       if (memberEmail && (correct > 0 || hasAnySelectedAnswer)) {
         void sendQuizCompletedEmail(

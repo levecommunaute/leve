@@ -15,6 +15,7 @@ import {
   isCommunauteMemberType,
 } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import { buildReferralLink } from "../../lib/parrainage";
 import { checkJwtExpired } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
@@ -34,6 +35,7 @@ type ProfileRow = {
   multiplier: number | string | null;
   numero_membre: string | null;
   is_beta_tester: boolean | null;
+  code_parrainage: string | null;
 };
 
 type QuizSubmissionRow = {
@@ -154,6 +156,8 @@ export default function ProfilPage(): JSX.Element | null {
   const [quizRows, setQuizRows] = useState<{ video_id: string; title: string; score: number; points: number; at: string | null; }[]>([]);
   const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
   const [monthlyPtsTotal, setMonthlyPtsTotal] = useState(0);
+  const [filleulsActifs, setFilleulsActifs] = useState(0);
+  const [referralCopied, setReferralCopied] = useState<"code" | "link" | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -161,12 +165,13 @@ export default function ProfilPage(): JSX.Element | null {
     const uid = activeSession.user.id;
     const token = activeSession.access_token;
 
-    const [profileRes, txRes, txHistoryRes, quizRes, monthlyPts] = await Promise.all([
-      fetchRestJson(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester`, token),
-      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=amount`, token),
-      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`, token),
+    const [profileRes, txRes, txHistoryRes, quizRes, monthlyPts, parrainagesRes] = await Promise.all([
+      fetchRestJson(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage`, token),
+      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=in.(quiz,parrainage)&select=amount`, token),
+      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=in.(quiz,parrainage)&select=id,created_at,amount,description&order=created_at.desc&limit=20`, token),
       fetchRestJson(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, token),
       sumMonthlyQuizPtsPonderes(uid, token),
+      fetchRestJson(`${SB}/rest/v1/parrainages?parrain_id=eq.${uid}&statut=eq.actif&select=id`, token),
     ]);
 
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -178,6 +183,7 @@ export default function ProfilPage(): JSX.Element | null {
 
     setQuizTxHistory(Array.isArray(txHistoryRes) ? (txHistoryRes as PointsTxRow[]) : []);
     setMonthlyPtsTotal(monthlyPts);
+    setFilleulsActifs(Array.isArray(parrainagesRes) ? parrainagesRes.length : 0);
 
     const quizSubs = Array.isArray(quizRes) ? quizRes as QuizSubmissionRow[] : [];
     const ids = [...new Set(quizSubs.map((s) => s.video_id).filter(Boolean))];
@@ -239,6 +245,16 @@ export default function ProfilPage(): JSX.Element | null {
     try { await signOut(); router.replace("/"); } catch { setSigningOut(false); }
   }
 
+  async function copyReferral(value: string, kind: "code" | "link"): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(value);
+      setReferralCopied(kind);
+      window.setTimeout(() => setReferralCopied(null), 2000);
+    } catch {
+      setLoadError("Impossible de copier dans le presse-papiers.");
+    }
+  }
+
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
   if (session === undefined) {
@@ -264,6 +280,11 @@ export default function ProfilPage(): JSX.Element | null {
     ? getMonthlyMemberRankBadge(monthlyPtsTotal)
     : null;
   const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
+  const referralCode =
+    typeof profile?.code_parrainage === "string" && profile.code_parrainage.trim()
+      ? profile.code_parrainage.trim().toUpperCase()
+      : null;
+  const referralLink = referralCode ? buildReferralLink(referralCode) : null;
 
   return (
     <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
@@ -410,6 +431,47 @@ export default function ProfilPage(): JSX.Element | null {
               <dd style={{ margin: "0.25rem 0 0" }}>{profile?.numero_membre != null && String(profile.numero_membre).trim() ? `#${profile.numero_membre}` : "—"}</dd>
             </div>
           </dl>
+        </section>
+
+        <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+          <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.06em", color: GOLD, margin: "0 0 0.75rem" }}>Inviter un ami</h2>
+          <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem", lineHeight: 1.5 }}>
+            Partagez votre code : votre ami reçoit +20 pts PMQ à l&apos;inscription, et vous recevez +50 pts
+            lorsqu&apos;il est actif depuis 30 jours.
+          </p>
+          {referralCode ? (
+            <>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
+                <span style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "1.35rem", fontWeight: 700, letterSpacing: "0.08em", color: GOLD }}>
+                  {referralCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void copyReferral(referralCode, "code")}
+                  style={{ background: "transparent", color: TEXT, border: `1px solid rgba(245, 240, 232, 0.25)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
+                >
+                  {referralCopied === "code" ? "Copié ✓" : "Copier le code"}
+                </button>
+              </div>
+              {referralLink ? (
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
+                  <span style={{ fontSize: "0.85rem", opacity: 0.8, wordBreak: "break-all" }}>{referralLink}</span>
+                  <button
+                    type="button"
+                    onClick={() => void copyReferral(referralLink, "link")}
+                    style={{ background: "transparent", color: TEXT, border: `1px solid rgba(245, 240, 232, 0.25)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
+                  >
+                    {referralCopied === "link" ? "Copié ✓" : "Copier le lien"}
+                  </button>
+                </div>
+              ) : null}
+              <p style={{ margin: 0, fontSize: "0.88rem", opacity: 0.65 }}>
+                Filleuls actifs : <strong style={{ color: GOLD }}>{filleulsActifs}</strong>
+              </p>
+            </>
+          ) : (
+            <p style={{ margin: 0, opacity: 0.65, fontSize: "0.95rem" }}>Votre code parrainage sera disponible prochainement.</p>
+          )}
         </section>
 
         <section style={{ marginBottom: "1.75rem" }}>

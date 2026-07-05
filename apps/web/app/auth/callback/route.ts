@@ -11,6 +11,11 @@ import {
 import { getServiceSupabase } from "../../../lib/admin-server";
 import { sendWelcomeEmail } from "../../../lib/emails";
 import { sendGracePeriodEmail } from "../../../lib/grace-email";
+import {
+  generateUniqueReferralCode,
+  parseReferralRef,
+  processReferralSignup,
+} from "../../../lib/parrainage";
 import { checkYoutubeSubscription } from "../../../lib/youtube-subscription";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +47,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const code = searchParams.get("code");
   const mode = parseMode(searchParams.get("mode"));
   const beta = searchParams.get("beta") === "true";
+  const referralRef = parseReferralRef(searchParams.get("ref"));
 
   if (!code) {
     return NextResponse.redirect(`${origin}/?error=auth`);
@@ -104,6 +110,16 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     const now = new Date();
+    const svc = getServiceSupabase();
+    let referralCode: string;
+
+    try {
+      referralCode = await generateUniqueReferralCode(svc);
+    } catch (e) {
+      console.error("[auth/callback] referral code:", e);
+      return NextResponse.redirect(`${origin}/?error=profile`);
+    }
+
     const { error: insertError } = await supabase
       .from("profiles")
       .upsert(
@@ -111,6 +127,8 @@ export async function GET(request: Request): Promise<NextResponse> {
           id: user.id,
           email: user.email ?? null,
           display_name: displayName,
+          code_parrainage: referralCode,
+          derniere_activite: now.toISOString(),
           ...(beta ? { is_beta_tester: true } : {}),
           ...buildActiveSubscriptionPatch(now),
         },
@@ -122,10 +140,18 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.redirect(`${origin}/?error=profile`);
     }
 
+    if (referralRef) {
+      try {
+        await processReferralSignup(svc, user.id, referralRef);
+      } catch (e) {
+        console.error("[auth/callback] parrainage:", e);
+      }
+    }
+
     if (user.email) {
       const { data: profileRow } = await supabase
         .from("profiles")
-        .select("numero_membre, display_name")
+        .select("numero_membre, display_name, code_parrainage")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -143,12 +169,20 @@ export async function GET(request: Request): Promise<NextResponse> {
           ? profileRow.display_name
           : displayName;
 
+      const welcomeCode =
+        parseReferralRef(
+          typeof profileRow?.code_parrainage === "string"
+            ? profileRow.code_parrainage
+            : referralCode,
+        ) ?? referralCode;
+
       console.log("[auth/callback] sendWelcomeEmail before", {
         email: user.email,
         welcomeName,
         numeroMembre,
+        referralCode: welcomeCode,
       });
-      await sendWelcomeEmail(user.email, welcomeName, numeroMembre);
+      await sendWelcomeEmail(user.email, welcomeName, numeroMembre, welcomeCode);
       console.log("[auth/callback] sendWelcomeEmail after", {
         email: user.email,
         numeroMembre,

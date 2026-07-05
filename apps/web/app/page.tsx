@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type JSX } from "react";
 import { APP_BOTTOM_NAV_LINKS } from "../lib/appBottomNavLinks";
 import { getSession, signInWithGoogle } from "../lib/auth";
+import { getStoredReferralRef, storeReferralRef } from "../lib/parrainage";
 import { readSessionFromAuthCookies } from "../lib/supabase-auth-cookies";
 import { useYoutubeSubscriberCount } from "../lib/use-youtube-subscriber-count";
 
@@ -236,6 +237,15 @@ export default function Home(): JSX.Element {
   const [membresInscrits, setMembresInscrits] = useState<number | null>(null);
   const [betaExclusif, setBetaExclusif] = useState<"loading" | "on" | "off">("loading");
   const youtubeSubscriberCount = useYoutubeSubscriberCount();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    storeReferralRef(params.get("ref"));
+  }, []);
+
+  function joinWithReferral(): void {
+    void signInWithGoogle("rejoindre", { ref: getStoredReferralRef() });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -533,13 +543,13 @@ export default function Home(): JSX.Element {
               <p className="text-base leading-relaxed opacity-90">
                 Une erreur est survenue, veuillez réessayer
               </p>
-              <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+              <RougeButton onClick={joinWithReferral}>
                 Rejoindre
               </RougeButton>
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-center gap-4 font-mono">
-              <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+              <RougeButton onClick={joinWithReferral}>
                 Rejoindre
               </RougeButton>
               <RougeButton
@@ -780,7 +790,7 @@ export default function Home(): JSX.Element {
             </p>
           ) : betaExclusif === "loading" ? null : (
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <RougeButton onClick={() => void signInWithGoogle("rejoindre")}>
+              <RougeButton onClick={joinWithReferral}>
                 Rejoindre
               </RougeButton>
               <RougeButton onClick={() => void signInWithGoogle("connecter")}>

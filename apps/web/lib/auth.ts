@@ -16,13 +16,18 @@ function getAppOrigin(): string {
 
 export async function signInWithGoogle(
   mode: AuthMode = "rejoindre",
-  options?: { beta?: boolean },
+  options?: { beta?: boolean; ref?: string | null },
 ): Promise<void> {
   const supabase = createBrowserClient();
   const origin = getAppOrigin();
   const base = origin ? `${origin}/auth/callback` : "/auth/callback";
   const betaParam = options?.beta ? "&beta=true" : "";
-  const redirectTo = `${base}?mode=${encodeURIComponent(mode)}${betaParam}`;
+  const refRaw = options?.ref ?? null;
+  const refParam =
+    refRaw && /^LEVE-[A-Z0-9]{6}$/i.test(refRaw.trim())
+      ? `&ref=${encodeURIComponent(refRaw.trim().toUpperCase())}`
+      : "";
+  const redirectTo = `${base}?mode=${encodeURIComponent(mode)}${betaParam}${refParam}`;
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
