@@ -586,6 +586,7 @@ const FEATURE_FLAG_ORDER = [
   "boutique",
   "concours",
   "classement",
+  "parrainage",
   "verification-60-pct",
   "videos-mode-youtube",
   "pool-pa",

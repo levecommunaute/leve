@@ -122,6 +122,7 @@ export async function sendWelcomeEmail(
   email: string,
   displayName: string,
   numeroMembre: number,
+  codeParrainage?: string | null,
 ): Promise<void> {
   const to = email.trim();
   if (!to) return;
@@ -132,6 +133,22 @@ export async function sendWelcomeEmail(
   const name = escapeHtml(displayName.trim() || "membre");
   const numero = escapeHtml(String(numeroMembre));
   const appUrl = escapeHtml(getAppUrl());
+  const code = codeParrainage?.trim().toUpperCase() ?? "";
+  const hasCode = /^LEVE-[A-Z0-9]{6}$/.test(code);
+  const codeHtml = hasCode ? escapeHtml(code) : "";
+  const referralLink = hasCode
+    ? escapeHtml(`${getAppUrl()}?ref=${encodeURIComponent(code)}`)
+    : appUrl;
+
+  const parrainageBlock = hasCode
+    ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Votre code parrainage est <strong style="letter-spacing:0.06em;">${codeHtml}</strong>.
+        Partagez-le avec vos amis : <a href="${referralLink}" style="color:#18181b;">${referralLink}</a>
+      </p>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#15803d;background:#f0fdf4;border-radius:8px;padding:12px 14px;">
+        <strong>+10 pts bonus</strong> — gagnez des points PMQ supplémentaires en invitant un ami avec votre code.
+      </p>`
+    : "";
 
   const html = emailLayout(`
     <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Communauté</p>
@@ -140,6 +157,7 @@ export async function sendWelcomeEmail(
       Vous faites maintenant partie de la communauté LEVE. Votre numéro de membre est
       <strong>#${numero}</strong> — conservez-le, il vous identifie parmi les membres.
     </p>
+    ${parrainageBlock}
     <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
       Accédez à votre tableau de bord, gagnez des points et participez aux activités de la communauté.
     </p>
