@@ -375,6 +375,64 @@ export async function sendCodeSoumisEmail(
   }
 }
 
+/** Email envoyé au gagnant du tirage trimestriel pondéré. */
+export async function sendTirageGagnantEmail(
+  email: string,
+  displayName: string,
+  trimestre: string,
+  seedSha256: string,
+  totalTickets: number,
+): Promise<void> {
+  const to = email.trim();
+  if (!to) return;
+
+  const resend = getResend();
+  if (!resend) return;
+
+  const name = escapeHtml(displayName.trim() || "membre");
+  const trimestreLabel = escapeHtml(trimestre.trim() || "trimestriel");
+  const seed = escapeHtml(seedSha256.trim());
+  const appUrl = escapeHtml(getAppUrl());
+  const concoursUrl = `${appUrl}/concours`;
+
+  const html = emailLayout(`
+    <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Communauté</p>
+    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">Félicitations — vous avez gagné le tirage ${trimestreLabel} 🎉</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bonjour ${name},</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Vous avez été sélectionné(e) gagnant(e) du tirage trimestriel LEVE
+      (${trimestreLabel}) parmi <strong>${totalTickets}</strong> ticket${totalTickets > 1 ? "s" : ""}.
+    </p>
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#52525b;">
+      <strong>Seed SHA256 (vérification publique) :</strong><br />
+      <span style="font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;">${seed}</span>
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
+      Le seed est publié sur la page concours pour garantir la transparence du tirage pondéré.
+    </p>
+    <p style="margin:0 0 12px;">
+      <a href="${concoursUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;">Voir la page concours</a>
+    </p>
+  `);
+
+  const subject = `🎉 Gagnant tirage ${trimestre.trim() || "trimestriel"} — LEVE Communauté`;
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to,
+      subject,
+      html,
+    });
+    if (error) {
+      console.error("[emails] sendTirageGagnantEmail:", error.message);
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[emails] sendTirageGagnantEmail:", message);
+  }
+}
+
 /** Email envoyé après crédit de redistribution PMQ mensuelle. */
 export async function sendRedistributionEmail(
   email: string,

@@ -98,6 +98,26 @@ type ConcoursArtisteRow = {
 
 type ConcoursTab = "international" | "haiti_culture";
 
+type TirageActifRow = {
+  id: string;
+  trimestre: string | null;
+  date_tirage: string | null;
+  actif: boolean;
+  gagnant_id: string | null;
+  seed_sha256: string | null;
+  date_tirage_reel: string | null;
+  total_tickets: number | string | null;
+};
+
+type TirageLancerResult = {
+  gagnant_id: string;
+  gagnant_nom: string;
+  seed_sha256: string;
+  total_tickets: number;
+  trimestre: string | null;
+  date_tirage_reel: string;
+};
+
 type QuizQuestionRow = {
   id: string;
   video_id: string;
@@ -1487,6 +1507,14 @@ export default function AdminPage(): JSX.Element {
   const [concoursAdding, setConcoursAdding] = useState(false);
   const [concoursBusyId, setConcoursBusyId] = useState<string | null>(null);
 
+  const [tirageActif, setTirageActif] = useState<TirageActifRow | null>(null);
+  const [tirageTicketsVendus, setTirageTicketsVendus] = useState(0);
+  const [tirageLoading, setTirageLoading] = useState(false);
+  const [tirageError, setTirageError] = useState<string | null>(null);
+  const [tirageLancerLoading, setTirageLancerLoading] = useState(false);
+  const [tirageLancerError, setTirageLancerError] = useState<string | null>(null);
+  const [tirageLancerResult, setTirageLancerResult] = useState<TirageLancerResult | null>(null);
+
   const [divTrimestre, setDivTrimestre] = useState(currentTrimestre);
   const [divMontant, setDivMontant] = useState("");
   const [divDecisions, setDivDecisions] = useState<DividendeDecisionRow[]>([]);
@@ -1730,6 +1758,33 @@ export default function AdminPage(): JSX.Element {
       setConcoursArtistes([]);
     } finally {
       setConcoursLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadTirageAdmin = useCallback(async (): Promise<void> => {
+    setTirageLoading(true);
+    setTirageError(null);
+    try {
+      const r = await fetch("/api/admin/tirage", { headers: adminHeaders(), cache: "no-store" });
+      const j = (await r.json()) as {
+        tirage_actif?: TirageActifRow | null;
+        tickets_vendus?: number;
+        error?: string;
+      };
+      if (!r.ok) {
+        setTirageError(j.error ?? "Erreur chargement tirage");
+        setTirageActif(null);
+        setTirageTicketsVendus(0);
+        return;
+      }
+      setTirageActif(j.tirage_actif ?? null);
+      setTirageTicketsVendus(j.tickets_vendus ?? 0);
+    } catch (e) {
+      setTirageError(e instanceof Error ? e.message : "Erreur réseau");
+      setTirageActif(null);
+      setTirageTicketsVendus(0);
+    } finally {
+      setTirageLoading(false);
     }
   }, [adminHeaders]);
 
@@ -2408,6 +2463,53 @@ export default function AdminPage(): JSX.Element {
     }
   }
 
+  async function handleLancerTirage(): Promise<void> {
+    if (!tirageActif?.id) {
+      setTirageLancerError("Aucun tirage actif.");
+      return;
+    }
+    if (tirageTicketsVendus <= 0) {
+      setTirageLancerError("Aucun ticket vendu — tirage impossible.");
+      return;
+    }
+    const trimestreLabel = tirageActif.trimestre?.trim() || "en cours";
+    if (
+      !window.confirm(
+        `Lancer le tirage ${trimestreLabel} avec ${tirageTicketsVendus} ticket(s) ? Cette action est irréversible.`,
+      )
+    ) {
+      return;
+    }
+
+    setTirageLancerLoading(true);
+    setTirageLancerError(null);
+    setTirageLancerResult(null);
+    try {
+      const r = await fetch("/api/admin/tirage/lancer", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+      });
+      const j = (await r.json()) as TirageLancerResult & { error?: string; ok?: boolean };
+      if (!r.ok || !j.ok) {
+        setTirageLancerError(j.error ?? "Échec du tirage");
+        return;
+      }
+      setTirageLancerResult({
+        gagnant_id: j.gagnant_id,
+        gagnant_nom: j.gagnant_nom,
+        seed_sha256: j.seed_sha256,
+        total_tickets: j.total_tickets,
+        trimestre: j.trimestre ?? null,
+        date_tirage_reel: j.date_tirage_reel,
+      });
+      void loadTirageAdmin();
+    } catch (e) {
+      setTirageLancerError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally {
+      setTirageLancerLoading(false);
+    }
+  }
+
   async function saveActionnaire(a: ActionnaireRow): Promise<void> {
     const d = actionnaireDrafts[a.id];
     if (!d) return;
@@ -2647,6 +2749,7 @@ export default function AdminPage(): JSX.Element {
     void loadBetaEmails();
     void loadBetaBugs();
     void loadConcoursArtistes();
+    void loadTirageAdmin();
     void loadFeatureFlags();
     void loadFraisPlateforme();
     void loadMemberMap();
@@ -2672,6 +2775,7 @@ export default function AdminPage(): JSX.Element {
     loadBetaEmails,
     loadBetaBugs,
     loadConcoursArtistes,
+    loadTirageAdmin,
     loadFeatureFlags,
     loadFraisPlateforme,
     loadMemberMap,
@@ -5049,6 +5153,112 @@ export default function AdminPage(): JSX.Element {
                 );
               })()
             )}
+
+            <div
+              style={{
+                marginTop: "2rem",
+                paddingTop: "1.5rem",
+                borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+              }}
+            >
+              <h3
+                style={{
+                  margin: "0 0 1rem",
+                  fontFamily: "var(--font-bebas), Impact, sans-serif",
+                  letterSpacing: "0.08em",
+                  fontSize: "1.35rem",
+                }}
+              >
+                TIRAGE TRIMESTRIEL
+              </h3>
+              {tirageError ? (
+                <p style={{ color: ROUGE, marginBottom: "0.75rem" }}>{tirageError}</p>
+              ) : null}
+              {tirageLoading ? (
+                <p style={{ opacity: 0.65 }}>Chargement du tirage…</p>
+              ) : tirageActif ? (
+                <>
+                  <p style={{ margin: "0 0 0.35rem", opacity: 0.85 }}>
+                    Trimestre : <strong style={{ color: GOLD }}>{tirageActif.trimestre ?? "—"}</strong>
+                  </p>
+                  <p style={{ margin: "0 0 0.35rem", opacity: 0.85 }}>
+                    Date prévue :{" "}
+                    {tirageActif.date_tirage
+                      ? new Date(tirageActif.date_tirage).toLocaleString("fr-CA", {
+                          dateStyle: "long",
+                          timeStyle: "short",
+                        })
+                      : "—"}
+                  </p>
+                  <p style={{ margin: "0 0 1rem", opacity: 0.85 }}>
+                    Tickets vendus : <strong style={{ color: GOLD }}>{tirageTicketsVendus}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    disabled={tirageLancerLoading || tirageTicketsVendus <= 0}
+                    onClick={() => void handleLancerTirage()}
+                    style={{
+                      padding: "0.65rem 1.25rem",
+                      borderRadius: "4px",
+                      background: ROUGE,
+                      color: TEXT,
+                      fontWeight: 600,
+                      border: `1px solid ${ROUGE}`,
+                      cursor:
+                        tirageLancerLoading || tirageTicketsVendus <= 0 ? "not-allowed" : "pointer",
+                      opacity: tirageLancerLoading || tirageTicketsVendus <= 0 ? 0.6 : 1,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    {tirageLancerLoading ? "Tirage en cours…" : "Lancer le tirage"}
+                  </button>
+                </>
+              ) : (
+                <p style={{ opacity: 0.65, margin: 0 }}>Aucun tirage actif.</p>
+              )}
+              {tirageLancerError ? (
+                <p style={{ color: ROUGE, marginTop: "0.85rem" }}>{tirageLancerError}</p>
+              ) : null}
+              {tirageLancerResult ? (
+                <div
+                  style={{
+                    marginTop: "1.25rem",
+                    padding: "1.25rem",
+                    borderRadius: "4px",
+                    background: "rgba(212, 160, 23, 0.06)",
+                    border: "1px solid rgba(212, 160, 23, 0.22)",
+                    fontFamily: "var(--font-mono), ui-monospace, monospace",
+                  }}
+                >
+                  <p
+                    style={{
+                      margin: "0 0 0.5rem",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      opacity: 0.55,
+                    }}
+                  >
+                    Résultat du tirage
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: "1.1rem", lineHeight: 1.9 }}>
+                    <li>
+                      <strong style={{ color: GOLD }}>Gagnant</strong> : {tirageLancerResult.gagnant_nom}
+                    </li>
+                    <li>
+                      <strong style={{ color: GOLD }}>Seed SHA256</strong> :{" "}
+                      <span style={{ wordBreak: "break-all", fontSize: "0.78rem" }}>
+                        {tirageLancerResult.seed_sha256}
+                      </span>
+                    </li>
+                    <li>
+                      <strong style={{ color: GOLD }}>Total tickets</strong> :{" "}
+                      {tirageLancerResult.total_tickets}
+                    </li>
+                  </ul>
+                </div>
+              ) : null}
+            </div>
           </section>
 
           {/* SECTION REDISTRIBUTION */}

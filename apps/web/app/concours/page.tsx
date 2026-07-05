@@ -48,6 +48,19 @@ type TirageRow = {
   date_tirage: string | null;
 };
 
+type DernierTirageRow = {
+  id: string;
+  trimestre: string | null;
+  date_tirage_reel: string | null;
+  seed_sha256: string | null;
+  gagnant_id: string | null;
+  total_tickets: number | string | null;
+};
+
+type GagnantProfileRow = {
+  display_name: string | null;
+};
+
 type VoteArtisteRow = {
   id: string;
   concours_artiste_id: string;
@@ -166,6 +179,8 @@ export default function ConcoursPage(): JSX.Element | null {
   const [votesArtistesUsed, setVotesArtistesUsed] = useState(0);
   const [votedArtisteIds, setVotedArtisteIds] = useState<Set<string>>(() => new Set());
   const [tirageActif, setTirageActif] = useState<TirageRow | null>(null);
+  const [dernierTirage, setDernierTirage] = useState<DernierTirageRow | null>(null);
+  const [dernierGagnantNom, setDernierGagnantNom] = useState<string | null>(null);
   const [ticketsTirage, setTicketsTirage] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -268,15 +283,32 @@ export default function ConcoursPage(): JSX.Element | null {
               token,
             )
           : Promise.resolve({ data: [] as TirageRow[], error: null }),
+        flagTirage
+          ? fetchRest<DernierTirageRow[]>(
+              "tirages?select=id,trimestre,date_tirage_reel,seed_sha256,gagnant_id,total_tickets&gagnant_id=not.is.null&order=date_tirage_reel.desc&limit=1",
+              token,
+            )
+          : Promise.resolve({ data: [] as DernierTirageRow[], error: null }),
       ]);
 
-      const [profileRes, txRes, paTxRes, concoursRes, artistesRes, votesRes, tiragesRes] =
+      const [profileRes, txRes, paTxRes, concoursRes, artistesRes, votesRes, tiragesRes, dernierTirageRes] =
         baseReqs;
       let ticketsRes:
         | { data: TirageTicketRow[]; error: null }
         | { data: null; error: RestErr } = { data: [], error: null };
 
+      let gagnantProfileRes:
+        | { data: GagnantProfileRow[]; error: null }
+        | { data: null; error: RestErr } = { data: [], error: null };
+
       const activeTirage = tiragesRes.error ? null : (tiragesRes.data?.[0] ?? null);
+      const lastTirage = dernierTirageRes.error ? null : (dernierTirageRes.data?.[0] ?? null);
+      if (flagTirage && lastTirage?.gagnant_id) {
+        gagnantProfileRes = await fetchRest<GagnantProfileRow[]>(
+          `profiles?select=display_name&id=eq.${encodeURIComponent(lastTirage.gagnant_id)}`,
+          token,
+        );
+      }
       if (flagTirage && activeTirage?.id) {
         ticketsRes = await fetchRest<TirageTicketRow[]>(
           `tirage_tickets?select=nb_tickets&membre_id=eq.${encodeURIComponent(uid)}&tirage_id=eq.${encodeURIComponent(activeTirage.id)}`,
@@ -292,6 +324,8 @@ export default function ConcoursPage(): JSX.Element | null {
         artistesRes.error?.message ??
         votesRes.error?.message ??
         tiragesRes.error?.message ??
+        dernierTirageRes.error?.message ??
+        gagnantProfileRes.error?.message ??
         ticketsRes.error?.message ??
         null;
       setLoadError(errMsg);
@@ -338,6 +372,12 @@ export default function ConcoursPage(): JSX.Element | null {
       }
 
       setTirageActif(activeTirage);
+      setDernierTirage(lastTirage);
+      setDernierGagnantNom(
+        gagnantProfileRes.error
+          ? null
+          : gagnantProfileRes.data?.[0]?.display_name?.trim() || null,
+      );
       console.log("[concours] tirages (actif=true)", {
         flagTirage,
         error: tiragesRes.error?.message ?? null,
@@ -368,6 +408,8 @@ export default function ConcoursPage(): JSX.Element | null {
         setConcours([]);
         setArtistes([]);
         setTirageActif(null);
+        setDernierTirage(null);
+        setDernierGagnantNom(null);
         setTicketsTirage(0);
         setTotalPointsPmq(0);
         setSoldePa(0);
@@ -891,6 +933,49 @@ export default function ConcoursPage(): JSX.Element | null {
               <p role={ticketMsg.kind === "err" ? "alert" : "status"} style={{ color: ticketMsg.kind === "ok" ? GOLD : ROUGE, margin: "0.6rem 0 0" }}>
                 {ticketMsg.text}
               </p>
+            ) : null}
+            {dernierTirage?.gagnant_id ? (
+              <div
+                style={{
+                  marginTop: "1.25rem",
+                  paddingTop: "1rem",
+                  borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+                }}
+              >
+                <h3
+                  style={{
+                    margin: "0 0 0.65rem",
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    letterSpacing: "0.06em",
+                    fontSize: "1.25rem",
+                    color: GOLD,
+                  }}
+                >
+                  Dernier gagnant
+                </h3>
+                <p style={{ margin: "0 0 0.35rem", opacity: 0.85 }}>
+                  Trimestre : {dernierTirage.trimestre || "—"}
+                </p>
+                <p style={{ margin: "0 0 0.35rem", opacity: 0.85 }}>
+                  Gagnant : {dernierGagnantNom || "Membre LEVE"}
+                </p>
+                <p style={{ margin: "0 0 0.35rem", opacity: 0.85 }}>
+                  Date du tirage :{" "}
+                  {dernierTirage.date_tirage_reel
+                    ? dateFmt.format(new Date(dernierTirage.date_tirage_reel))
+                    : "—"}
+                </p>
+                <p style={{ margin: "0 0 0.35rem", opacity: 0.85 }}>
+                  Total tickets : {pts(dernierTirage.total_tickets)}
+                </p>
+                {dernierTirage.seed_sha256 ? (
+                  <p style={{ margin: "0.75rem 0 0", opacity: 0.78, fontSize: "0.82rem", lineHeight: 1.5 }}>
+                    <strong>Seed SHA256 (vérification publique) :</strong>
+                    <br />
+                    <span style={{ wordBreak: "break-all" }}>{dernierTirage.seed_sha256}</span>
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </section>
         ) : null}
