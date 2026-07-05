@@ -148,8 +148,17 @@ async function fetchRestJson(url: string, token: string): Promise<unknown> {
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
 const dateFmt = new Intl.DateTimeFormat("fr-CA", { dateStyle: "medium", timeStyle: "short" });
 
+const MIN_DON_PTS = 5;
+const MAX_DON_PTS = 50;
+
+function readViewedMemberFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("membre")?.trim() ?? null;
+}
+
 export default function ProfilPage(): JSX.Element | null {
   const router = useRouter();
+  const [viewedMemberParam, setViewedMemberParam] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
@@ -161,62 +170,123 @@ export default function ProfilPage(): JSX.Element | null {
   const [parrainageFlagState, setParrainageFlagState] = useState<
     "loading" | "enabled" | "disabled"
   >("loading");
+  const [donsFlagState, setDonsFlagState] = useState<
+    "loading" | "enabled" | "disabled"
+  >("loading");
+  const [donModalOpen, setDonModalOpen] = useState(false);
+  const [donPts, setDonPts] = useState(MIN_DON_PTS);
+  const [donSubmitting, setDonSubmitting] = useState(false);
+  const [donSuccess, setDonSuccess] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
-  const loadProfil = useCallback(async (activeSession: Session) => {
-    const uid = activeSession.user.id;
+  const loadProfil = useCallback(async (activeSession: Session, targetId: string) => {
     const token = activeSession.access_token;
+    const isOwnProfile = targetId === activeSession.user.id;
 
-    const [profileRes, txRes, txHistoryRes, quizRes, monthlyPts, parrainagesRes] = await Promise.all([
-      fetchRestJson(`${SB}/rest/v1/profiles?id=eq.${uid}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage`, token),
-      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=in.(quiz,parrainage)&select=amount`, token),
-      fetchRestJson(`${SB}/rest/v1/points_transactions?membre_id=eq.${uid}&type=in.(quiz,parrainage)&select=id,created_at,amount,description&order=created_at.desc&limit=20`, token),
-      fetchRestJson(`${SB}/rest/v1/quiz_submissions?membre_id=eq.${uid}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`, token),
-      sumMonthlyQuizPtsPonderes(uid, token),
-      fetchRestJson(`${SB}/rest/v1/parrainages?parrain_id=eq.${uid}&statut=eq.actif&select=id`, token),
-    ]);
-
+    const profileRes = await fetchRestJson(
+      `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage`,
+      token,
+    );
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
     setProfile(profileData as ProfileRow | null);
 
+    const [txRes, monthlyPts] = await Promise.all([
+      fetchRestJson(
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye)&select=amount`,
+        token,
+      ),
+      sumMonthlyQuizPtsPonderes(targetId, token),
+    ]);
+
     const txData = Array.isArray(txRes) ? txRes : [];
-    const sum = txData.reduce((acc: number, row: { amount: unknown }) => acc + Number(row.amount ?? 0), 0);
+    const sum = txData.reduce(
+      (acc: number, row: { amount: unknown }) => acc + Number(row.amount ?? 0),
+      0,
+    );
     setTotalPointsPmq(sum);
+    setMonthlyPtsTotal(monthlyPts);
+
+    if (!isOwnProfile) {
+      setQuizTxHistory([]);
+      setQuizRows([]);
+      setFilleulsActifs(0);
+      return;
+    }
+
+    const [txHistoryRes, quizRes, parrainagesRes] = await Promise.all([
+      fetchRestJson(
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye)&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/quiz_submissions?membre_id=eq.${encodeURIComponent(targetId)}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/parrainages?parrain_id=eq.${encodeURIComponent(targetId)}&statut=eq.actif&select=id`,
+        token,
+      ),
+    ]);
 
     setQuizTxHistory(Array.isArray(txHistoryRes) ? (txHistoryRes as PointsTxRow[]) : []);
-    setMonthlyPtsTotal(monthlyPts);
     setFilleulsActifs(Array.isArray(parrainagesRes) ? parrainagesRes.length : 0);
 
-    const quizSubs = Array.isArray(quizRes) ? quizRes as QuizSubmissionRow[] : [];
+    const quizSubs = Array.isArray(quizRes) ? (quizRes as QuizSubmissionRow[]) : [];
     const ids = [...new Set(quizSubs.map((s) => s.video_id).filter(Boolean))];
     let titles = new Map<string, string>();
     if (ids.length > 0) {
-      const vRes = await fetchRestJson(`${SB}/rest/v1/videos?id=in.(${ids.join(",")})&select=id,title`, token);
+      const vRes = await fetchRestJson(
+        `${SB}/rest/v1/videos?id=in.(${ids.join(",")})&select=id,title`,
+        token,
+      );
       if (Array.isArray(vRes)) {
-        titles = new Map(vRes.map((v: { id: string; title: string }) => [String(v.id), String(v.title ?? "")]));
+        titles = new Map(
+          vRes.map((v: { id: string; title: string }) => [
+            String(v.id),
+            String(v.title ?? ""),
+          ]),
+        );
       }
     }
-    setQuizRows(quizSubs.map((s) => ({
-      video_id: s.video_id,
-      title: titles.get(s.video_id)?.trim() || "Vidéo",
-      score: Number(s.score ?? 0),
-      points: Number(s.points_awarded ?? 0),
-      at: s.completed_at ?? null,
-    })));
+    setQuizRows(
+      quizSubs.map((s) => ({
+        video_id: s.video_id,
+        title: titles.get(s.video_id)?.trim() || "Vidéo",
+        score: Number(s.score ?? 0),
+        points: Number(s.points_awarded ?? 0),
+        at: s.completed_at ?? null,
+      })),
+    );
+  }, []);
 
+  useEffect(() => {
+    setViewedMemberParam(readViewedMemberFromUrl());
+    const onPopState = (): void => {
+      setViewedMemberParam(readViewedMemberFromUrl());
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const r = await fetch("/api/feature-flags?nom=parrainage", { cache: "no-store" });
-        const j = (await r.json()) as { actif?: boolean };
+        const [parrainageRes, donsRes] = await Promise.all([
+          fetch("/api/feature-flags?nom=parrainage", { cache: "no-store" }),
+          fetch("/api/feature-flags?nom=dons-membres", { cache: "no-store" }),
+        ]);
+        const parrainageJson = (await parrainageRes.json()) as { actif?: boolean };
+        const donsJson = (await donsRes.json()) as { actif?: boolean };
         if (cancelled) return;
-        setParrainageFlagState(j.actif ? "enabled" : "disabled");
+        setParrainageFlagState(parrainageJson.actif ? "enabled" : "disabled");
+        setDonsFlagState(donsJson.actif ? "enabled" : "disabled");
       } catch {
-        if (!cancelled) setParrainageFlagState("disabled");
+        if (!cancelled) {
+          setParrainageFlagState("disabled");
+          setDonsFlagState("disabled");
+        }
       }
     })();
     return () => {
@@ -235,7 +305,8 @@ export default function ProfilPage(): JSX.Element | null {
         return;
       }
       setSession(next);
-      await loadProfil(next);
+      const targetId = viewedMemberParam ?? next.user.id;
+      await loadProfil(next, targetId);
     }
 
     function syncFromCookies(): void {
@@ -258,7 +329,7 @@ export default function ProfilPage(): JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [loadProfil, router]);
+  }, [loadProfil, router, viewedMemberParam]);
 
   async function handleSignOut(): Promise<void> {
     setSigningOut(true);
@@ -275,6 +346,38 @@ export default function ProfilPage(): JSX.Element | null {
     }
   }
 
+  async function handleConfirmDon(receveurId: string): Promise<void> {
+    if (!session) return;
+    setDonSubmitting(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/membres/don", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ receveur_id: receveurId, pts_pmq: donPts }),
+      });
+      const json = (await res.json()) as { error?: string; success?: boolean };
+      if (!res.ok) {
+        setLoadError(json.error ?? "Échec de l'envoi des points.");
+        return;
+      }
+      setDonSuccess(true);
+      window.setTimeout(() => {
+        setDonModalOpen(false);
+        setDonSuccess(false);
+        setDonPts(MIN_DON_PTS);
+        void loadProfil(session, receveurId);
+      }, 1500);
+    } catch {
+      setLoadError("Erreur réseau lors de l'envoi des points.");
+    } finally {
+      setDonSubmitting(false);
+    }
+  }
+
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
   if (session === undefined) {
@@ -287,7 +390,14 @@ export default function ProfilPage(): JSX.Element | null {
 
   if (!session) return null;
 
-  const name = displayNameFrom(profile, session);
+  const viewedMemberId = viewedMemberParam ?? session.user.id;
+  const isOwnProfile = viewedMemberId === session.user.id;
+
+  const name = isOwnProfile
+    ? displayNameFrom(profile, session)
+    : profile?.display_name?.trim() ||
+      profile?.email?.split("@")[0] ||
+      "Membre";
   const memberLabel = formatMemberTypeLabel(profile?.member_type ?? null);
   const memberBadge = memberTypeBadgeStyle(memberLabel);
   const initials = avatarInitials(name);
@@ -299,7 +409,13 @@ export default function ProfilPage(): JSX.Element | null {
   const monthlyRankBadge = showRankBadge
     ? getMonthlyMemberRankBadge(monthlyPtsTotal)
     : null;
-  const emailDisplay = (typeof profile?.email === "string" ? profile.email.trim() : "") || (typeof session.user.email === "string" ? session.user.email.trim() : "") || "—";
+  const emailDisplay = isOwnProfile
+    ? (typeof profile?.email === "string" ? profile.email.trim() : "") ||
+      (typeof session.user.email === "string" ? session.user.email.trim() : "") ||
+      "—"
+    : null;
+  const showDonButton =
+    !isOwnProfile && donsFlagState === "enabled" && Boolean(profile);
   const referralCode =
     typeof profile?.code_parrainage === "string" && profile.code_parrainage.trim()
       ? profile.code_parrainage.trim().toUpperCase()
@@ -350,7 +466,11 @@ export default function ProfilPage(): JSX.Element | null {
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>{loadError}</p> : null}
-
+        {!isOwnProfile && !profile ? (
+          <p style={{ opacity: 0.7, fontSize: "0.95rem" }}>Membre introuvable.</p>
+        ) : null}
+        {profile ? (
+        <>
         <section style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "#141414", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
             <div
@@ -412,6 +532,30 @@ export default function ProfilPage(): JSX.Element | null {
               </span>
             </div>
           ) : null}
+          {showDonButton ? (
+            <div style={{ marginTop: "1rem" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDonPts(MIN_DON_PTS);
+                  setDonSuccess(false);
+                  setDonModalOpen(true);
+                }}
+                style={{
+                  background: "rgba(212, 160, 23, 0.12)",
+                  color: GOLD,
+                  border: `1px solid ${GOLD}`,
+                  borderRadius: "4px",
+                  padding: "0.55rem 1rem",
+                  fontSize: "0.88rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                🎁 Envoyer des points
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem",
@@ -438,10 +582,12 @@ export default function ProfilPage(): JSX.Element | null {
               <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Nom affiché</dt>
               <dd style={{ margin: "0.25rem 0 0" }}>{name}</dd>
             </div>
-            <div>
-              <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Courriel</dt>
-              <dd style={{ margin: "0.25rem 0 0", wordBreak: "break-word" }}>{emailDisplay}</dd>
-            </div>
+            {emailDisplay ? (
+              <div>
+                <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Courriel</dt>
+                <dd style={{ margin: "0.25rem 0 0", wordBreak: "break-word" }}>{emailDisplay}</dd>
+              </div>
+            ) : null}
             <div>
               <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Type de membre</dt>
               <dd style={{ margin: "0.25rem 0 0" }}>{memberLabel}</dd>
@@ -453,7 +599,7 @@ export default function ProfilPage(): JSX.Element | null {
           </dl>
         </section>
 
-        {parrainageFlagState === "enabled" ? (
+        {isOwnProfile && parrainageFlagState === "enabled" ? (
           <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
             <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.06em", color: GOLD, margin: "0 0 0.75rem" }}>Inviter un ami</h2>
             <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem", lineHeight: 1.5 }}>
@@ -496,6 +642,7 @@ export default function ProfilPage(): JSX.Element | null {
           </section>
         ) : null}
 
+        {isOwnProfile ? (
         <section style={{ marginBottom: "1.75rem" }}>
           <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.08em", margin: "0 0 0.75rem", color: GOLD }}>Historique des transactions quiz</h2>
           <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem" }}>Points PMQ crédités ou débités par quiz.</p>
@@ -534,7 +681,9 @@ export default function ProfilPage(): JSX.Element | null {
             </ul>
           )}
         </section>
+        ) : null}
 
+        {isOwnProfile ? (
         <section style={{ marginBottom: "2rem" }}>
           <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.08em", margin: "0 0 0.75rem", color: GOLD }}>Derniers quiz</h2>
           <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem" }}>Les 5 dernières soumissions enregistrées.</p>
@@ -558,7 +707,138 @@ export default function ProfilPage(): JSX.Element | null {
             </ul>
           )}
         </section>
+        ) : null}
+        </>
+        ) : null}
       </main>
+
+      {donModalOpen && !isOwnProfile ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="don-modal-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            background: "rgba(0, 0, 0, 0.72)",
+          }}
+          onClick={() => {
+            if (!donSubmitting) setDonModalOpen(false);
+          }}
+        >
+          <div
+            style={{
+              width: "min(100%, 22rem)",
+              borderRadius: "4px",
+              padding: "1.35rem",
+              background: "#141414",
+              border: `1px solid rgba(212, 160, 23, 0.45)`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="don-modal-title"
+              style={{
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "1.45rem",
+                letterSpacing: "0.06em",
+                color: GOLD,
+                margin: "0 0 0.75rem",
+              }}
+            >
+              Envoyer des points
+            </h2>
+            <p style={{ margin: "0 0 1rem", fontSize: "0.88rem", opacity: 0.75, lineHeight: 1.5 }}>
+              Transférer des points PMQ à <strong style={{ color: TEXT }}>{name}</strong> (min {MIN_DON_PTS} · max {MAX_DON_PTS} pts ce mois).
+            </p>
+            <label htmlFor="don-pts-range" style={{ display: "block", fontSize: "0.78rem", opacity: 0.65, marginBottom: "0.35rem" }}>
+              Montant
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+              <input
+                id="don-pts-range"
+                type="range"
+                min={MIN_DON_PTS}
+                max={MAX_DON_PTS}
+                step={1}
+                value={donPts}
+                onChange={(e) => setDonPts(Number(e.target.value))}
+                disabled={donSubmitting || donSuccess}
+                style={{ flex: 1, accentColor: GOLD }}
+              />
+              <input
+                type="number"
+                min={MIN_DON_PTS}
+                max={MAX_DON_PTS}
+                step={1}
+                value={donPts}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (Number.isFinite(n)) {
+                    setDonPts(Math.min(MAX_DON_PTS, Math.max(MIN_DON_PTS, Math.round(n))));
+                  }
+                }}
+                disabled={donSubmitting || donSuccess}
+                style={{
+                  width: "4.5rem",
+                  padding: "0.35rem 0.45rem",
+                  borderRadius: "4px",
+                  border: "1px solid rgba(245, 240, 232, 0.2)",
+                  background: "#111",
+                  color: GOLD,
+                  fontWeight: 700,
+                  textAlign: "center",
+                }}
+              />
+            </div>
+            {donSuccess ? (
+              <p style={{ margin: "0 0 1rem", color: "#2ECC71", fontSize: "0.9rem" }}>
+                Points envoyés avec succès ✓
+              </p>
+            ) : null}
+            <div style={{ display: "flex", gap: "0.65rem", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                disabled={donSubmitting}
+                onClick={() => setDonModalOpen(false)}
+                style={{
+                  background: "transparent",
+                  color: TEXT,
+                  border: "1px solid rgba(245, 240, 232, 0.25)",
+                  borderRadius: "4px",
+                  padding: "0.45rem 0.85rem",
+                  fontSize: "0.82rem",
+                  cursor: donSubmitting ? "wait" : "pointer",
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={donSubmitting || donSuccess}
+                onClick={() => void handleConfirmDon(viewedMemberId)}
+                style={{
+                  background: GOLD,
+                  color: BG,
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "0.45rem 0.95rem",
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  cursor: donSubmitting || donSuccess ? "wait" : "pointer",
+                }}
+              >
+                {donSubmitting ? "…" : "Confirmer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AppBottomNav session={session} memberType={profile?.member_type} />
     </div>
