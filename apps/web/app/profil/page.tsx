@@ -36,6 +36,7 @@ type ProfileRow = {
   numero_membre: string | null;
   is_beta_tester: boolean | null;
   code_parrainage: string | null;
+  profil_public: boolean | null;
 };
 
 type QuizSubmissionRow = {
@@ -177,6 +178,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [donPts, setDonPts] = useState(MIN_DON_PTS);
   const [donSubmitting, setDonSubmitting] = useState(false);
   const [donSuccess, setDonSuccess] = useState(false);
+  const [profilPublicSaving, setProfilPublicSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -185,7 +187,7 @@ export default function ProfilPage(): JSX.Element | null {
     const isOwnProfile = targetId === activeSession.user.id;
 
     const profileRes = await fetchRestJson(
-      `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage`,
+      `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public`,
       token,
     );
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -346,6 +348,37 @@ export default function ProfilPage(): JSX.Element | null {
     }
   }
 
+  async function handleToggleProfilPublic(next: boolean): Promise<void> {
+    if (!session) return;
+    setProfilPublicSaving(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/membres/profil-public", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ profil_public: next }),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        profil_public?: boolean;
+      };
+      if (!res.ok) {
+        setLoadError(json.error ?? "Impossible de mettre à jour le profil.");
+        return;
+      }
+      setProfile((prev) =>
+        prev ? { ...prev, profil_public: json.profil_public ?? next } : prev,
+      );
+    } catch {
+      setLoadError("Erreur réseau lors de la mise à jour du profil.");
+    } finally {
+      setProfilPublicSaving(false);
+    }
+  }
+
   async function handleConfirmDon(receveurId: string): Promise<void> {
     if (!session) return;
     setDonSubmitting(true);
@@ -421,6 +454,13 @@ export default function ProfilPage(): JSX.Element | null {
       ? profile.code_parrainage.trim().toUpperCase()
       : null;
   const referralLink = referralCode ? buildReferralLink(referralCode) : null;
+  const profilPublic = Boolean(profile?.profil_public);
+  const publicProfileHref =
+    profilPublic &&
+    profile?.numero_membre != null &&
+    String(profile.numero_membre).trim()
+      ? `/profil/${String(profile.numero_membre).trim()}`
+      : null;
 
   return (
     <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
@@ -596,6 +636,43 @@ export default function ProfilPage(): JSX.Element | null {
               <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Numéro membre</dt>
               <dd style={{ margin: "0.25rem 0 0" }}>{profile?.numero_membre != null && String(profile.numero_membre).trim() ? `#${profile.numero_membre}` : "—"}</dd>
             </div>
+            {isOwnProfile ? (
+              <div>
+                <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Visibilité</dt>
+                <dd style={{ margin: "0.5rem 0 0" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.65rem",
+                      cursor: profilPublicSaving ? "wait" : "pointer",
+                      fontSize: "0.92rem",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={profilPublic}
+                      disabled={profilPublicSaving}
+                      onChange={(e) => void handleToggleProfilPublic(e.target.checked)}
+                      style={{ width: "1.1rem", height: "1.1rem", accentColor: GOLD }}
+                    />
+                    Rendre mon profil public
+                  </label>
+                  {publicProfileHref ? (
+                    <p style={{ margin: "0.65rem 0 0", fontSize: "0.85rem", opacity: 0.75 }}>
+                      Lien public :{" "}
+                      <Link href={publicProfileHref} style={{ color: GOLD, wordBreak: "break-all" }}>
+                        {publicProfileHref}
+                      </Link>
+                    </p>
+                  ) : profilPublic ? (
+                    <p style={{ margin: "0.65rem 0 0", fontSize: "0.82rem", opacity: 0.55 }}>
+                      Un numéro de membre est requis pour afficher le lien public.
+                    </p>
+                  ) : null}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </section>
 

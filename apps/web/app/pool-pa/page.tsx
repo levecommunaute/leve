@@ -31,6 +31,8 @@ const MODAL_BG = "#1A1A1A";
 const MUTED = "rgba(245, 240, 232, 0.5)";
 const PA_TAX_RATE = 0.02;
 const TIP_AMOUNTS = [1, 2, 5, 10] as const;
+const MIN_DON_PTS = 5;
+const MAX_DON_PTS = 50;
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
@@ -216,6 +218,42 @@ function collabCategoryLabel(row: CollaborateurCard): string {
   return row.categorie?.trim() || "Contenu";
 }
 
+function formatMemberTypeLabel(raw: string | null | undefined): string {
+  if (!raw || typeof raw !== "string") return "Communauté";
+  const n = raw.trim();
+  const lower = n.toLowerCase();
+  if (lower === "communauté" || lower === "communaute" || n === "Communauté") return "Communauté";
+  if (lower === "pionnier" || n === "Pionnier") return "Pionnier";
+  if (lower === "fondateur" || n === "Fondateur") return "Fondateur";
+  if (lower === "collaborateur" || n === "Collaborateur") return "Collaborateur";
+  return n;
+}
+
+function memberTypeBadgeStyle(label: string): {
+  background: string;
+  color: string;
+  border: string;
+} {
+  if (label === "Fondateur" || label === "Pionnier") {
+    return {
+      background: "rgba(212, 160, 23, 0.08)",
+      color: GOLD,
+      border: `1px solid ${GOLD}`,
+    };
+  }
+  return {
+    background: "rgba(255, 255, 255, 0.04)",
+    color: "#888888",
+    border: "1px solid rgba(255, 255, 255, 0.15)",
+  };
+}
+
+type RecipientSearchResult = {
+  id: string;
+  display_name: string | null;
+  member_type: string | null;
+};
+
 function IconVideo({ size = 14 }: { size?: number }): JSX.Element {
   return (
     <svg
@@ -280,6 +318,17 @@ export default function PoolPaPage(): JSX.Element | null {
   const [tipSending, setTipSending] = useState(false);
   const [tipError, setTipError] = useState<string | null>(null);
   const [tipSuccess, setTipSuccess] = useState<string | null>(null);
+  const [donsFlagState, setDonsFlagState] = useState<
+    "loading" | "enabled" | "disabled"
+  >("loading");
+  const [recipientNumero, setRecipientNumero] = useState("");
+  const [recipientSearching, setRecipientSearching] = useState(false);
+  const [recipientFound, setRecipientFound] = useState<RecipientSearchResult | null>(null);
+  const [recipientSearchError, setRecipientSearchError] = useState<string | null>(null);
+  const [donPts, setDonPts] = useState(MIN_DON_PTS);
+  const [donSending, setDonSending] = useState(false);
+  const [donError, setDonError] = useState<string | null>(null);
+  const [donSuccess, setDonSuccess] = useState<string | null>(null);
 
   const maxPtsAffordable = useMemo(() => {
     if (soldeBanque < PA_PRICE_CAD) return 0;
@@ -447,12 +496,20 @@ export default function PoolPaPage(): JSX.Element | null {
     let cancelled = false;
     void (async () => {
       try {
-        const r = await fetch("/api/feature-flags?nom=pool-pa", { cache: "no-store" });
-        const j = (await r.json()) as { actif?: boolean };
+        const [poolRes, donsRes] = await Promise.all([
+          fetch("/api/feature-flags?nom=pool-pa", { cache: "no-store" }),
+          fetch("/api/feature-flags?nom=dons-membres", { cache: "no-store" }),
+        ]);
+        const poolJson = (await poolRes.json()) as { actif?: boolean };
+        const donsJson = (await donsRes.json()) as { actif?: boolean };
         if (cancelled) return;
-        setFeatureFlagState(j.actif ? "enabled" : "disabled");
+        setFeatureFlagState(poolJson.actif ? "enabled" : "disabled");
+        setDonsFlagState(donsJson.actif ? "enabled" : "disabled");
       } catch {
-        if (!cancelled) setFeatureFlagState("disabled");
+        if (!cancelled) {
+          setFeatureFlagState("disabled");
+          setDonsFlagState("disabled");
+        }
       }
     })();
     return () => {
@@ -590,6 +647,75 @@ export default function PoolPaPage(): JSX.Element | null {
       setTipError("Erreur réseau");
     } finally {
       setTipSending(false);
+    }
+  }
+
+  async function handleChercherRecipient(): Promise<void> {
+    if (!session) return;
+    const numero = recipientNumero.trim();
+    if (!numero) {
+      setRecipientSearchError("Entrez un numéro de membre.");
+      return;
+    }
+    setRecipientSearching(true);
+    setRecipientSearchError(null);
+    setRecipientFound(null);
+    setDonError(null);
+    setDonSuccess(null);
+    try {
+      const res = await fetch(
+        `/api/membres/chercher?numero=${encodeURIComponent(numero)}`,
+        {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        },
+      );
+      const json = (await res.json()) as RecipientSearchResult & { error?: string };
+      if (!res.ok) {
+        setRecipientSearchError(json.error ?? "Membre introuvable");
+        return;
+      }
+      setRecipientFound(json);
+      setDonPts(MIN_DON_PTS);
+    } catch {
+      setRecipientSearchError("Erreur réseau");
+    } finally {
+      setRecipientSearching(false);
+    }
+  }
+
+  async function handleEnvoyerDon(): Promise<void> {
+    if (!session || !recipientFound) return;
+    setDonSending(true);
+    setDonError(null);
+    setDonSuccess(null);
+    try {
+      const res = await fetch("/api/membres/don", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          receveur_id: recipientFound.id,
+          pts_pmq: donPts,
+        }),
+      });
+      const json = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || !json.success) {
+        setDonError(json.error ?? "Envoi impossible");
+        return;
+      }
+      const label =
+        recipientFound.display_name?.trim() || `membre #${recipientNumero.trim()}`;
+      setDonSuccess(`${ptsFmt.format(donPts)} pt(s) PMQ envoyé(s) à ${label}.`);
+      setRecipientFound(null);
+      setRecipientNumero("");
+      setDonPts(MIN_DON_PTS);
+    } catch {
+      setDonError("Erreur réseau");
+    } finally {
+      setDonSending(false);
     }
   }
 
@@ -1194,6 +1320,256 @@ export default function PoolPaPage(): JSX.Element | null {
                 </div>
               )}
             </section>
+
+            {donsFlagState === "enabled" ? (
+              <section
+                style={{
+                  borderRadius: "4px",
+                  padding: "1.5rem 1.35rem",
+                  marginBottom: "1.5rem",
+                  border: "1px solid rgba(212, 160, 23, 0.28)",
+                  background: "rgba(212, 160, 23, 0.04)",
+                }}
+              >
+                <h2
+                  style={{
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.35rem",
+                    letterSpacing: "0.1em",
+                    margin: "0 0 1rem",
+                    color: GOLD,
+                  }}
+                >
+                  ENVOYER DES POINTS
+                </h2>
+                <p
+                  style={{
+                    margin: "0 0 1rem",
+                    fontSize: "0.9rem",
+                    opacity: 0.82,
+                    lineHeight: 1.5,
+                    fontFamily: "var(--font-mono), ui-monospace, monospace",
+                  }}
+                >
+                  Transférer des points PMQ à un autre membre ({MIN_DON_PTS} à {MAX_DON_PTS} pts).
+                </p>
+
+                <label
+                  htmlFor="recipient-numero"
+                  style={{
+                    display: "block",
+                    fontSize: "0.78rem",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    marginBottom: "0.5rem",
+                    opacity: 0.8,
+                  }}
+                >
+                  Numéro de membre du destinataire
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "0.65rem",
+                    flexWrap: "wrap",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <input
+                    id="recipient-numero"
+                    type="text"
+                    inputMode="numeric"
+                    value={recipientNumero}
+                    disabled={recipientSearching || donSending}
+                    onChange={(e) => {
+                      setRecipientNumero(e.target.value);
+                      setRecipientFound(null);
+                      setRecipientSearchError(null);
+                    }}
+                    placeholder="Ex. 10042"
+                    style={{
+                      flex: "1 1 180px",
+                      padding: "0.55rem 0.75rem",
+                      borderRadius: "4px",
+                      border: "1px solid rgba(245, 240, 232, 0.2)",
+                      background: BG,
+                      color: TEXT,
+                      fontSize: "0.95rem",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={recipientSearching || donSending || !recipientNumero.trim()}
+                    onClick={() => void handleChercherRecipient()}
+                    style={{
+                      padding: "0.55rem 1rem",
+                      borderRadius: "4px",
+                      fontWeight: 600,
+                      fontSize: "0.88rem",
+                      cursor:
+                        recipientSearching || donSending || !recipientNumero.trim()
+                          ? "not-allowed"
+                          : "pointer",
+                      background: "rgba(212, 160, 23, 0.12)",
+                      border: `1px solid ${GOLD}`,
+                      color: GOLD,
+                      opacity:
+                        recipientSearching || donSending || !recipientNumero.trim()
+                          ? 0.55
+                          : 1,
+                    }}
+                  >
+                    {recipientSearching ? "Recherche…" : "Chercher"}
+                  </button>
+                </div>
+
+                {recipientSearchError ? (
+                  <p role="alert" style={{ color: ROUGE, fontSize: "0.88rem", margin: "0 0 1rem" }}>
+                    {recipientSearchError}
+                  </p>
+                ) : null}
+
+                {recipientFound ? (
+                  <div
+                    style={{
+                      marginBottom: "1rem",
+                      padding: "1rem",
+                      borderRadius: "4px",
+                      background: CARD_BG,
+                      border: "1px solid rgba(245, 240, 232, 0.1)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "0.65rem",
+                        flexWrap: "wrap",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: "0.95rem" }}>
+                        {recipientFound.display_name?.trim() || "Membre"}
+                      </p>
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          padding: "0.3rem 0.65rem",
+                          borderRadius: "4px",
+                          ...memberTypeBadgeStyle(
+                            formatMemberTypeLabel(recipientFound.member_type),
+                          ),
+                        }}
+                      >
+                        {formatMemberTypeLabel(recipientFound.member_type)}
+                      </span>
+                    </div>
+
+                    <label
+                      htmlFor="don-pts-range"
+                      style={{
+                        display: "block",
+                        fontSize: "0.78rem",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        marginBottom: "0.5rem",
+                        opacity: 0.8,
+                      }}
+                    >
+                      Montant ({MIN_DON_PTS}–{MAX_DON_PTS} pts PMQ)
+                    </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "0.75rem",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <input
+                        id="don-pts-range"
+                        type="range"
+                        min={MIN_DON_PTS}
+                        max={MAX_DON_PTS}
+                        step={1}
+                        value={donPts}
+                        disabled={donSending}
+                        onChange={(e) => setDonPts(Number(e.target.value))}
+                        style={{ flex: "1 1 180px", accentColor: GOLD }}
+                      />
+                      <input
+                        type="number"
+                        min={MIN_DON_PTS}
+                        max={MAX_DON_PTS}
+                        step={1}
+                        value={donPts}
+                        disabled={donSending}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (Number.isFinite(n)) {
+                            setDonPts(
+                              Math.min(
+                                MAX_DON_PTS,
+                                Math.max(MIN_DON_PTS, Math.round(n)),
+                              ),
+                            );
+                          }
+                        }}
+                        style={{
+                          width: "5rem",
+                          padding: "0.5rem",
+                          borderRadius: "4px",
+                          border: "1px solid rgba(245, 240, 232, 0.2)",
+                          background: BG,
+                          color: GOLD,
+                          fontWeight: 700,
+                          fontSize: "1rem",
+                          textAlign: "center",
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={donSending}
+                      onClick={() => void handleEnvoyerDon()}
+                      style={{
+                        width: "100%",
+                        maxWidth: "420px",
+                        padding: "0.75rem 1.25rem",
+                        borderRadius: "4px",
+                        fontWeight: 700,
+                        fontSize: "0.92rem",
+                        letterSpacing: "0.04em",
+                        border: `2px solid ${GOLD}`,
+                        background: "rgba(212, 160, 23, 0.18)",
+                        color: GOLD,
+                        cursor: donSending ? "wait" : "pointer",
+                        opacity: donSending ? 0.7 : 1,
+                      }}
+                    >
+                      {donSending ? "Envoi en cours…" : "Envoyer"}
+                    </button>
+                  </div>
+                ) : null}
+
+                {donError ? (
+                  <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginTop: "0.5rem" }}>
+                    {donError}
+                  </p>
+                ) : null}
+                {donSuccess ? (
+                  <p role="status" style={{ color: VERT, fontSize: "0.9rem", marginTop: "0.5rem" }}>
+                    {donSuccess}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
           </>
         )}
 
