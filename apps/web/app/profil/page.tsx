@@ -158,6 +158,9 @@ export default function ProfilPage(): JSX.Element | null {
   const [monthlyPtsTotal, setMonthlyPtsTotal] = useState(0);
   const [filleulsActifs, setFilleulsActifs] = useState(0);
   const [referralCopied, setReferralCopied] = useState<"code" | "link" | null>(null);
+  const [parrainageFlagState, setParrainageFlagState] = useState<
+    "loading" | "enabled" | "disabled"
+  >("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -202,6 +205,23 @@ export default function ProfilPage(): JSX.Element | null {
       at: s.completed_at ?? null,
     })));
 
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch("/api/feature-flags?nom=parrainage", { cache: "no-store" });
+        const j = (await r.json()) as { actif?: boolean };
+        if (cancelled) return;
+        setParrainageFlagState(j.actif ? "enabled" : "disabled");
+      } catch {
+        if (!cancelled) setParrainageFlagState("disabled");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -433,46 +453,48 @@ export default function ProfilPage(): JSX.Element | null {
           </dl>
         </section>
 
-        <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
-          <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.06em", color: GOLD, margin: "0 0 0.75rem" }}>Inviter un ami</h2>
-          <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem", lineHeight: 1.5 }}>
-            Partagez votre code : votre ami reçoit +20 pts PMQ à l&apos;inscription, et vous recevez +50 pts
-            lorsqu&apos;il est actif depuis 30 jours.
-          </p>
-          {referralCode ? (
-            <>
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
-                <span style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "1.35rem", fontWeight: 700, letterSpacing: "0.08em", color: GOLD }}>
-                  {referralCode}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void copyReferral(referralCode, "code")}
-                  style={{ background: "transparent", color: TEXT, border: `1px solid rgba(245, 240, 232, 0.25)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
-                >
-                  {referralCopied === "code" ? "Copié ✓" : "Copier le code"}
-                </button>
-              </div>
-              {referralLink ? (
+        {parrainageFlagState === "enabled" ? (
+          <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+            <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.06em", color: GOLD, margin: "0 0 0.75rem" }}>Inviter un ami</h2>
+            <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem", lineHeight: 1.5 }}>
+              Partagez votre code : votre ami reçoit +20 pts PMQ à l&apos;inscription, et vous recevez +50 pts
+              lorsqu&apos;il est actif depuis 30 jours.
+            </p>
+            {referralCode ? (
+              <>
                 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
-                  <span style={{ fontSize: "0.85rem", opacity: 0.8, wordBreak: "break-all" }}>{referralLink}</span>
+                  <span style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "1.35rem", fontWeight: 700, letterSpacing: "0.08em", color: GOLD }}>
+                    {referralCode}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => void copyReferral(referralLink, "link")}
+                    onClick={() => void copyReferral(referralCode, "code")}
                     style={{ background: "transparent", color: TEXT, border: `1px solid rgba(245, 240, 232, 0.25)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
                   >
-                    {referralCopied === "link" ? "Copié ✓" : "Copier le lien"}
+                    {referralCopied === "code" ? "Copié ✓" : "Copier le code"}
                   </button>
                 </div>
-              ) : null}
-              <p style={{ margin: 0, fontSize: "0.88rem", opacity: 0.65 }}>
-                Filleuls actifs : <strong style={{ color: GOLD }}>{filleulsActifs}</strong>
-              </p>
-            </>
-          ) : (
-            <p style={{ margin: 0, opacity: 0.65, fontSize: "0.95rem" }}>Votre code parrainage sera disponible prochainement.</p>
-          )}
-        </section>
+                {referralLink ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
+                    <span style={{ fontSize: "0.85rem", opacity: 0.8, wordBreak: "break-all" }}>{referralLink}</span>
+                    <button
+                      type="button"
+                      onClick={() => void copyReferral(referralLink, "link")}
+                      style={{ background: "transparent", color: TEXT, border: `1px solid rgba(245, 240, 232, 0.25)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
+                    >
+                      {referralCopied === "link" ? "Copié ✓" : "Copier le lien"}
+                    </button>
+                  </div>
+                ) : null}
+                <p style={{ margin: 0, fontSize: "0.88rem", opacity: 0.65 }}>
+                  Filleuls actifs : <strong style={{ color: GOLD }}>{filleulsActifs}</strong>
+                </p>
+              </>
+            ) : (
+              <p style={{ margin: 0, opacity: 0.65, fontSize: "0.95rem" }}>Votre code parrainage sera disponible prochainement.</p>
+            )}
+          </section>
+        ) : null}
 
         <section style={{ marginBottom: "1.75rem" }}>
           <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.08em", margin: "0 0 0.75rem", color: GOLD }}>Historique des transactions quiz</h2>
