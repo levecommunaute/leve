@@ -130,20 +130,54 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   });
 }
 
+const MAX_MESSAGE_DON = 200;
+
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const auth = await resolveAuthUser(request);
   if (auth instanceof NextResponse) return auth;
 
-  let body: { profil_public?: unknown };
+  let body: { profil_public?: unknown; message_don?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Corps JSON invalide" }, { status: 400 });
   }
 
-  if (typeof body.profil_public !== "boolean") {
+  const update: { profil_public?: boolean; message_don?: string | null } = {};
+
+  if (body.profil_public !== undefined) {
+    if (typeof body.profil_public !== "boolean") {
+      return NextResponse.json(
+        { error: "profil_public doit être un booléen" },
+        { status: 400 },
+      );
+    }
+    update.profil_public = body.profil_public;
+  }
+
+  if (body.message_don !== undefined) {
+    if (body.message_don === null) {
+      update.message_don = null;
+    } else if (typeof body.message_don === "string") {
+      const trimmed = body.message_don.trim();
+      if (trimmed.length > MAX_MESSAGE_DON) {
+        return NextResponse.json(
+          { error: `message_don ne peut pas dépasser ${MAX_MESSAGE_DON} caractères` },
+          { status: 400 },
+        );
+      }
+      update.message_don = trimmed.length > 0 ? trimmed : null;
+    } else {
+      return NextResponse.json(
+        { error: "message_don doit être une chaîne ou null" },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (Object.keys(update).length === 0) {
     return NextResponse.json(
-      { error: "profil_public doit être un booléen" },
+      { error: "Aucun champ à mettre à jour" },
       { status: 400 },
     );
   }
@@ -151,9 +185,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const svc = getServiceSupabase();
   const { data, error } = await svc
     .from("profiles")
-    .update({ profil_public: body.profil_public })
+    .update(update)
     .eq("id", auth.uid)
-    .select("profil_public, numero_membre")
+    .select("profil_public, numero_membre, message_don")
     .maybeSingle();
 
   if (error) {
@@ -167,5 +201,6 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     success: true,
     profil_public: data.profil_public,
     numero_membre: data.numero_membre,
+    message_don: data.message_don,
   });
 }

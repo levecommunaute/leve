@@ -37,7 +37,10 @@ type ProfileRow = {
   is_beta_tester: boolean | null;
   code_parrainage: string | null;
   profil_public: boolean | null;
+  message_don: string | null;
 };
+
+const MAX_MESSAGE_DON = 200;
 
 type QuizSubmissionRow = {
   video_id: string;
@@ -179,6 +182,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [donSubmitting, setDonSubmitting] = useState(false);
   const [donSuccess, setDonSuccess] = useState(false);
   const [profilPublicSaving, setProfilPublicSaving] = useState(false);
+  const [messageDon, setMessageDon] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -187,11 +191,17 @@ export default function ProfilPage(): JSX.Element | null {
     const isOwnProfile = targetId === activeSession.user.id;
 
     const profileRes = await fetchRestJson(
-      `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public`,
+      `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don`,
       token,
     );
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
-    setProfile(profileData as ProfileRow | null);
+    const row = profileData as ProfileRow | null;
+    setProfile(row);
+    if (isOwnProfile) {
+      setMessageDon(
+        typeof row?.message_don === "string" ? row.message_don : "",
+      );
+    }
 
     const [txRes, monthlyPts] = await Promise.all([
       fetchRestJson(
@@ -348,7 +358,9 @@ export default function ProfilPage(): JSX.Element | null {
     }
   }
 
-  async function handleToggleProfilPublic(next: boolean): Promise<void> {
+  async function handleSaveProfilDon(
+    patch: { profil_public?: boolean; message_don?: string },
+  ): Promise<void> {
     if (!session) return;
     setProfilPublicSaving(true);
     setLoadError(null);
@@ -359,19 +371,32 @@ export default function ProfilPage(): JSX.Element | null {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ profil_public: next }),
+        body: JSON.stringify(patch),
       });
       const json = (await res.json()) as {
         error?: string;
         profil_public?: boolean;
+        message_don?: string | null;
       };
       if (!res.ok) {
         setLoadError(json.error ?? "Impossible de mettre à jour le profil.");
         return;
       }
       setProfile((prev) =>
-        prev ? { ...prev, profil_public: json.profil_public ?? next } : prev,
+        prev
+          ? {
+              ...prev,
+              profil_public: json.profil_public ?? prev.profil_public,
+              message_don:
+                json.message_don !== undefined
+                  ? json.message_don
+                  : prev.message_don,
+            }
+          : prev,
       );
+      if (json.message_don !== undefined) {
+        setMessageDon(json.message_don ?? "");
+      }
     } catch {
       setLoadError("Erreur réseau lors de la mise à jour du profil.");
     } finally {
@@ -636,9 +661,9 @@ export default function ProfilPage(): JSX.Element | null {
               <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Numéro membre</dt>
               <dd style={{ margin: "0.25rem 0 0" }}>{profile?.numero_membre != null && String(profile.numero_membre).trim() ? `#${profile.numero_membre}` : "—"}</dd>
             </div>
-            {isOwnProfile ? (
+            {isOwnProfile && donsFlagState === "enabled" ? (
               <div>
-                <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Visibilité</dt>
+                <dt style={{ opacity: 0.55, fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>Dons communautaires</dt>
                 <dd style={{ margin: "0.5rem 0 0" }}>
                   <label
                     style={{
@@ -653,11 +678,59 @@ export default function ProfilPage(): JSX.Element | null {
                       type="checkbox"
                       checked={profilPublic}
                       disabled={profilPublicSaving}
-                      onChange={(e) => void handleToggleProfilPublic(e.target.checked)}
+                      onChange={(e) =>
+                        void handleSaveProfilDon({
+                          profil_public: e.target.checked,
+                          message_don: messageDon,
+                        })
+                      }
                       style={{ width: "1.1rem", height: "1.1rem", accentColor: GOLD }}
                     />
-                    Rendre mon profil public
+                    Activer ma demande de don
                   </label>
+                  <label
+                    htmlFor="message-don"
+                    style={{
+                      display: "block",
+                      marginTop: "0.85rem",
+                      fontSize: "0.78rem",
+                      opacity: 0.65,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    Mon message
+                  </label>
+                  <textarea
+                    id="message-don"
+                    value={messageDon}
+                    maxLength={MAX_MESSAGE_DON}
+                    disabled={profilPublicSaving}
+                    onChange={(e) => setMessageDon(e.target.value)}
+                    onBlur={() => {
+                      const trimmed = messageDon.trim();
+                      if (trimmed === (profile?.message_don ?? "").trim()) return;
+                      void handleSaveProfilDon({ message_don: trimmed });
+                    }}
+                    rows={3}
+                    placeholder="Expliquez pourquoi vous sollicitez des points…"
+                    style={{
+                      width: "100%",
+                      marginTop: "0.35rem",
+                      padding: "0.65rem 0.75rem",
+                      borderRadius: "4px",
+                      border: "1px solid rgba(245, 240, 232, 0.15)",
+                      background: "#111",
+                      color: TEXT,
+                      fontSize: "0.9rem",
+                      lineHeight: 1.5,
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                  <p style={{ margin: "0.35rem 0 0", fontSize: "0.75rem", opacity: 0.5, textAlign: "right" }}>
+                    {messageDon.length}/{MAX_MESSAGE_DON}
+                  </p>
                   {publicProfileHref ? (
                     <p style={{ margin: "0.65rem 0 0", fontSize: "0.85rem", opacity: 0.75 }}>
                       Lien public :{" "}

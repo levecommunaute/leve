@@ -12,6 +12,7 @@ export const APP_BOTTOM_NAV_LINKS: AppBottomNavLink[] = [
   { href: "/classement", label: "Classement" },
   { href: "/concours", label: "Concours" },
   { href: "/transparence", label: "Transparence" },
+  { href: "/dons", label: "Dons" },
   { href: "/profil", label: "Profil" },
 ];
 
@@ -34,6 +35,7 @@ export const APP_BOTTOM_NAV_ICONS: Record<string, string> = {
   "/classement": "🏆",
   "/concours": "🎯",
   "/transparence": "🔍",
+  "/dons": "🎁",
   "/profil": "👤",
   "/collaborateur": "🤝",
 };
