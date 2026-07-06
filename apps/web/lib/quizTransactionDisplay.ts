@@ -114,9 +114,19 @@ function resolvePointsPerCorrect(
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
 
+/** Affiche tel quel un don pa_transfer (« Don envoyé à #XX », « Don reçu de #XX »). */
+export function formatPaTransferDonLines(
+  description: string | null | undefined,
+): QuizTransactionLines | null {
+  if (!description?.includes("Don")) return null;
+  const line1 = description.trim();
+  return line1 ? { line1, line2: "" } : null;
+}
+
 /**
- * Libellés en 2 lignes pour une transaction points de type quiz.
+ * Libellés en 2 lignes pour une transaction points de type quiz uniquement.
  * Multiplicateur : description (×N) puis profil.
+ * Pour les dons pa_transfer, utiliser {@link formatPaTransferDonLines}.
  */
 export function formatQuizTransactionLines(
   amount: number,

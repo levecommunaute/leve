@@ -78,7 +78,7 @@ export async function creditPmqPoints(
   const { error: ptError } = await svc.from("points_transactions").insert({
     membre_id: membreId,
     amount,
-    type: "parrainage",
+    type: "quiz",
     description,
   });
   if (ptError) throw new Error(ptError.message);
@@ -88,7 +88,7 @@ export async function creditPmqPoints(
     pts_bruts: amount,
     multiplicateur: multiplier,
     pts_ponderes: ptsPonderes,
-    type: "parrainage",
+    type: "quiz",
   });
   if (ppError) throw new Error(ppError.message);
 }
@@ -151,7 +151,7 @@ export async function processReferralSignup(
     svc,
     filleulId,
     PARRAINAGE_FILLEUL_PTS,
-    `Bonus parrainage filleul (${code})`,
+    "Bonus parrainage — filleul",
   );
 }
 
@@ -226,7 +226,7 @@ export async function activateEligibleParrainages(
         svc,
         String(row.parrain_id),
         PARRAINAGE_PARRAIN_PTS,
-        `Parrainage actif — filleul ${filleulId.slice(0, 8)}`,
+        "Bonus parrainage — parrain",
       );
       result.activated += 1;
     } catch (e) {
