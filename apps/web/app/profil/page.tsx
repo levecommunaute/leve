@@ -9,7 +9,10 @@ import { RankBadge } from "../../components/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { signOut } from "../../lib/auth";
-import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
+import {
+  formatPaTransferDonLines,
+  formatQuizTransactionLines,
+} from "../../lib/quizTransactionDisplay";
 import {
   getMonthlyMemberRankBadge,
   isCommunauteMemberType,
@@ -168,6 +171,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [quizRows, setQuizRows] = useState<{ video_id: string; title: string; score: number; points: number; at: string | null; }[]>([]);
   const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
+  const [donTxHistory, setDonTxHistory] = useState<PointsTxRow[]>([]);
   const [monthlyPtsTotal, setMonthlyPtsTotal] = useState(0);
   const [filleulsActifs, setFilleulsActifs] = useState(0);
   const [referralCopied, setReferralCopied] = useState<"code" | "link" | null>(null);
@@ -221,14 +225,19 @@ export default function ProfilPage(): JSX.Element | null {
 
     if (!isOwnProfile) {
       setQuizTxHistory([]);
+      setDonTxHistory([]);
       setQuizRows([]);
       setFilleulsActifs(0);
       return;
     }
 
-    const [txHistoryRes, quizRes, parrainagesRes] = await Promise.all([
+    const [txHistoryRes, donHistoryRes, quizRes, parrainagesRes] = await Promise.all([
       fetchRestJson(
-        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye,pa_transfer)&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=eq.pa_transfer&description=ilike.*Don*&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
         token,
       ),
       fetchRestJson(
@@ -242,6 +251,7 @@ export default function ProfilPage(): JSX.Element | null {
     ]);
 
     setQuizTxHistory(Array.isArray(txHistoryRes) ? (txHistoryRes as PointsTxRow[]) : []);
+    setDonTxHistory(Array.isArray(donHistoryRes) ? (donHistoryRes as PointsTxRow[]) : []);
     setFilleulsActifs(Array.isArray(parrainagesRes) ? parrainagesRes.length : 0);
 
     const quizSubs = Array.isArray(quizRes) ? (quizRes as QuizSubmissionRow[]) : [];
@@ -830,6 +840,43 @@ export default function ProfilPage(): JSX.Element | null {
               })}
             </ul>
           )}
+        </section>
+        ) : null}
+
+        {isOwnProfile && donTxHistory.length > 0 ? (
+        <section style={{ marginBottom: "1.75rem" }}>
+          <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.08em", margin: "0 0 0.75rem", color: GOLD }}>Historique des dons</h2>
+          <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem" }}>Points PMQ envoyés ou reçus entre membres.</p>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+            {donTxHistory.map((tx) => {
+              const amount = Number(tx.amount ?? 0);
+              const lines = formatPaTransferDonLines(tx.description);
+              if (!lines) return null;
+              let dateLabel = "—";
+              try {
+                dateLabel = dateFmt.format(new Date(tx.created_at));
+              } catch {
+                dateLabel = tx.created_at;
+              }
+              const color = amount >= 0 ? GOLD : ROUGE;
+              const signed =
+                amount > 0
+                  ? `+${pointsFmt.format(amount)} pts`
+                  : `${pointsFmt.format(amount)} pts`;
+              return (
+                <li
+                  key={tx.id}
+                  className="profil-tx-card"
+                >
+                  <div style={{ flex: "1 1 12rem", minWidth: 0 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{lines.line1}</p>
+                    <p style={{ margin: "0.4rem 0 0", fontSize: "0.8rem", opacity: 0.55 }}>{dateLabel}</p>
+                  </div>
+                  <span className="profil-tx-amount" style={{ color, fontWeight: 700, whiteSpace: "nowrap" }}>{signed}</span>
+                </li>
+              );
+            })}
+          </ul>
         </section>
         ) : null}
 
