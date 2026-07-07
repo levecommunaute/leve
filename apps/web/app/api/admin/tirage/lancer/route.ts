@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase, requireAdminSecret } from "../../../../../lib/admin-server";
-import { sendTirageGagnantEmail } from "../../../../../lib/emails";
+import { sendRedistributionEmail } from "../../../../../lib/emails";
+import { PA_USD_PER_PT } from "../../../../../lib/frais-plateforme";
 import {
   computeRankBonus,
   getRangConfig,
@@ -17,6 +18,62 @@ import {
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 1000;
+const PA_PER_TIRAGE_TICKET = 10;
+const TIRAGE_GAGNANT_RATE = 0.8;
+const TIRAGE_FONDATION_RATE = 0.1;
+const TIRAGE_FONCTIONNEMENT_RATE = 0.1;
+
+async function creditGagnantTirage(
+  supabase: ReturnType<typeof getServiceSupabase>,
+  membreId: string,
+  montant: number,
+  trimestre: string,
+): Promise<void> {
+  if (!Number.isFinite(montant) || montant <= 0) return;
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("banque_membres")
+    .select("solde_dollars")
+    .eq("membre_id", membreId)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(fetchError.message);
+  }
+
+  const previous = Number(existing?.solde_dollars ?? 0);
+  const nextSolde = previous + montant;
+  const now = new Date().toISOString();
+
+  if (existing) {
+    const { error: updateError } = await supabase
+      .from("banque_membres")
+      .update({ solde_dollars: nextSolde, updated_at: now })
+      .eq("membre_id", membreId);
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+  } else {
+    const { error: insertError } = await supabase.from("banque_membres").insert({
+      membre_id: membreId,
+      solde_dollars: montant,
+      updated_at: now,
+    });
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
+  }
+
+  const { error: mouvementError } = await supabase.from("banque_membres_mouvements").insert({
+    membre_id: membreId,
+    montant,
+    type: "tirage",
+    description: `Gain tirage trimestriel — ${trimestre}`,
+  });
+  if (mouvementError) {
+    throw new Error(mouvementError.message);
+  }
+}
 
 type TicketRow = {
   membre_id: string;
@@ -136,6 +193,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const seedSha256 = generateTirageSeed(dateTirageReel, totalTickets);
     const winner = pickWeightedWinner(entries, seedSha256);
 
+    const montantPool = totalTickets * PA_PER_TIRAGE_TICKET * PA_USD_PER_PT;
+    const montantGagnant = montantPool * TIRAGE_GAGNANT_RATE;
+    const montantFondation = montantPool * TIRAGE_FONDATION_RATE;
+    const montantFonctionnement = montantPool * TIRAGE_FONCTIONNEMENT_RATE;
+
     const { data: updated, error: updateErr } = await supabase
       .from("tirages")
       .update({
@@ -143,11 +205,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         seed_sha256: seedSha256,
         date_tirage_reel: dateTirageReel,
         total_tickets: totalTickets,
+        montant_pool: montantPool,
+        montant_gagnant: montantGagnant,
+        montant_fondation: montantFondation,
+        montant_fonctionnement: montantFonctionnement,
         actif: false,
       })
       .eq("id", tirage.id)
       .is("gagnant_id", null)
-      .select("id, trimestre, gagnant_id, seed_sha256, date_tirage_reel, total_tickets")
+      .select(
+        "id, trimestre, gagnant_id, seed_sha256, date_tirage_reel, total_tickets, montant_pool, montant_gagnant, montant_fondation, montant_fonctionnement",
+      )
       .maybeSingle();
 
     if (updateErr) {
@@ -166,14 +234,51 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       winnerProfile?.email?.split("@")[0] ||
       "Membre";
     const gagnantEmail = String(winnerProfile?.email ?? "").trim();
+    const trimestreLabel = String(tirage.trimestre ?? "");
+
+    try {
+      await creditGagnantTirage(supabase, winner.membre_id, montantGagnant, trimestreLabel);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+
+    const { data: bank, error: bankErr } = await supabase
+      .from("banque_leve")
+      .select("id, fondation_balance, operations_balance")
+      .limit(1)
+      .maybeSingle();
+
+    if (bankErr) {
+      return NextResponse.json({ error: bankErr.message }, { status: 500 });
+    }
+    if (!bank?.id) {
+      return NextResponse.json({ error: "banque_leve introuvable" }, { status: 404 });
+    }
+
+    const { error: bankUpdateErr } = await supabase
+      .from("banque_leve")
+      .update({
+        fondation_balance: Number(bank.fondation_balance ?? 0) + montantFondation,
+        operations_balance: Number(bank.operations_balance ?? 0) + montantFonctionnement,
+      })
+      .eq("id", bank.id);
+
+    if (bankUpdateErr) {
+      return NextResponse.json({ error: bankUpdateErr.message }, { status: 500 });
+    }
 
     if (gagnantEmail) {
-      void sendTirageGagnantEmail(
+      void sendRedistributionEmail(
         gagnantEmail,
         gagnantNom,
-        String(tirage.trimestre ?? ""),
-        seedSha256,
-        totalTickets,
+        montantGagnant,
+        trimestreLabel,
+        {
+          kind: "tirage",
+          seedSha256,
+          totalTickets,
+        },
       );
     }
 
@@ -186,6 +291,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       seed_sha256: updated.seed_sha256,
       date_tirage_reel: updated.date_tirage_reel,
       total_tickets: updated.total_tickets,
+      montant_pool: montantPool,
+      montant_gagnant: montantGagnant,
+      montant_fondation: montantFondation,
+      montant_fonctionnement: montantFonctionnement,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

@@ -433,12 +433,19 @@ export async function sendTirageGagnantEmail(
   }
 }
 
-/** Email envoyé après crédit de redistribution PMQ mensuelle. */
+export type RedistributionEmailOptions = {
+  kind?: "redistribution" | "tirage";
+  seedSha256?: string;
+  totalTickets?: number;
+};
+
+/** Email envoyé après crédit de redistribution PMQ mensuelle ou gain tirage trimestriel. */
 export async function sendRedistributionEmail(
   email: string,
   displayName: string,
   montantCredite: number,
-  mois: string,
+  periode: string,
+  options?: RedistributionEmailOptions,
 ): Promise<void> {
   const to = email.trim();
   if (!to) return;
@@ -446,33 +453,77 @@ export async function sendRedistributionEmail(
   const resend = getResend();
   if (!resend) return;
 
+  const kind = options?.kind ?? "redistribution";
   const name = escapeHtml(displayName.trim() || "membre");
   const montant = escapeHtml(formatMontantDollars(montantCredite));
-  const moisLabel = escapeHtml(formatMonthLabel(mois));
   const appUrl = escapeHtml(getAppUrl());
   const banqueUrl = `${appUrl}/banque`;
+  const concoursUrl = `${appUrl}/concours`;
 
-  const html = emailLayout(`
-    <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Communauté</p>
-    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">Redistribution ${moisLabel} 💰</h1>
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bonjour ${name},</p>
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
-      <strong>${montant}&nbsp;$</strong> ont été crédités sur votre banque LEVE pour la redistribution de ${moisLabel}.
-    </p>
-    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#52525b;">
-      <strong>Formule PMQ :</strong> 45&nbsp;% des revenus mensuels de LEVE alimentent le pool PMQ.
-      Votre part est calculée proportionnellement à vos points quiz pondérés par rapport au total
-      communautaire du mois (points gagnés × votre multiplicateur).
-    </p>
-    <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
-      Consultez votre solde et l'historique de vos mouvements sur votre page banque.
-    </p>
-    <p style="margin:0 0 12px;">
-      <a href="${banqueUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;">Voir ma banque</a>
-    </p>
-  `);
+  let html: string;
+  let subject: string;
 
-  const subject = `💰 Redistribution ${formatMonthLabel(mois)} — ${formatMontantDollars(montantCredite)}$ crédités sur votre banque`;
+  if (kind === "tirage") {
+    const trimestreLabel = escapeHtml(periode.trim() || "trimestriel");
+    const seed = escapeHtml(String(options?.seedSha256 ?? "").trim());
+    const totalTickets = Number(options?.totalTickets ?? 0);
+    const ticketsLabel =
+      Number.isFinite(totalTickets) && totalTickets > 0 ? String(totalTickets) : "—";
+
+    html = emailLayout(`
+      <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Communauté</p>
+      <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">Félicitations — tirage ${trimestreLabel} 🎉</h1>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bonjour ${name},</p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        Vous avez été sélectionné(e) gagnant(e) du tirage trimestriel LEVE (${trimestreLabel})
+        parmi <strong>${ticketsLabel}</strong> ticket${totalTickets > 1 ? "s" : ""}.
+      </p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        <strong>${montant}&nbsp;$</strong> (80&nbsp;% du pool) ont été crédités sur votre banque LEVE.
+      </p>
+      ${
+        seed
+          ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#52525b;">
+        <strong>Seed SHA256 (vérification publique) :</strong><br />
+        <span style="font-family:ui-monospace,monospace;font-size:12px;word-break:break-all;">${seed}</span>
+      </p>`
+          : ""
+      }
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
+        Consultez votre solde sur votre page banque ou la page concours pour vérifier le tirage.
+      </p>
+      <p style="margin:0 0 12px;">
+        <a href="${banqueUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;margin-right:8px;">Voir ma banque</a>
+        <a href="${concoursUrl}" style="display:inline-block;background:#ffffff;color:#18181b;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;border:1px solid #e4e4e7;">Page concours</a>
+      </p>
+    `);
+
+    subject = `🎉 Gagnant tirage ${periode.trim() || "trimestriel"} — ${formatMontantDollars(montantCredite)}$ crédités`;
+  } else {
+    const moisLabel = escapeHtml(formatMonthLabel(periode));
+
+    html = emailLayout(`
+      <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Communauté</p>
+      <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">Redistribution ${moisLabel} 💰</h1>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bonjour ${name},</p>
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+        <strong>${montant}&nbsp;$</strong> ont été crédités sur votre banque LEVE pour la redistribution de ${moisLabel}.
+      </p>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#52525b;">
+        <strong>Formule PMQ :</strong> 45&nbsp;% des revenus mensuels de LEVE alimentent le pool PMQ.
+        Votre part est calculée proportionnellement à vos points quiz pondérés par rapport au total
+        communautaire du mois (points gagnés × votre multiplicateur).
+      </p>
+      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
+        Consultez votre solde et l'historique de vos mouvements sur votre page banque.
+      </p>
+      <p style="margin:0 0 12px;">
+        <a href="${banqueUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;">Voir ma banque</a>
+      </p>
+    `);
+
+    subject = `💰 Redistribution ${formatMonthLabel(periode)} — ${formatMontantDollars(montantCredite)}$ crédités sur votre banque`;
+  }
 
   try {
     const { error } = await resend.emails.send({
