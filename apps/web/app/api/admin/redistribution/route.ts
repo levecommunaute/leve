@@ -7,6 +7,7 @@ import {
 } from "../../../../lib/pcol";
 import { sendRedistributionEmail } from "../../../../lib/emails";
 import { crediterPtc } from "../../../../lib/ptc";
+import { redis } from "../../../../lib/redis";
 
 export const dynamic = "force-dynamic";
 
@@ -644,6 +645,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
     }
+
+    await redis.del("classement", "transparence");
 
     return NextResponse.json({
       pmq_pool: pmqPool,
