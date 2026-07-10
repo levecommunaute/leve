@@ -31,6 +31,11 @@ function currentMonthDate(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
+
+function formatPmqPtValue(v: number): string {
+  return `~$${v.toFixed(4)}/pt · Mois en cours`;
+}
+
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
@@ -440,6 +445,7 @@ export default function BanquePage(): JSX.Element | null {
       ? totalPoints * pmqValuePerPoint
       : 0;
   const typeMembre = profile?.member_type?.trim() || "—";
+  const weightedPointsPmq = totalPoints * profileMultiplier;
 
   if (session === undefined) {
     return (
@@ -791,6 +797,53 @@ export default function BanquePage(): JSX.Element | null {
             }}
           >
             Multiplicateur ×{profileMultiplier} · {typeMembre}
+          </p>
+          <p
+            style={{
+              margin: "0.55rem 0 0",
+              fontSize: "0.78rem",
+              letterSpacing: "0.04em",
+              opacity: 0.75,
+              lineHeight: 1.4,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
+          >
+            {pmqValuePerPoint != null
+              ? formatPmqPtValue(pmqValuePerPoint)
+              : "(Revenus × 45%) ÷ Total pts · Variable mensuel"}
+          </p>
+          <p
+            style={{
+              margin: "0.68rem 0 0",
+              fontSize: "0.68rem",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              opacity: 0.65,
+            }}
+          >
+            Points pondérés (base redistribution)
+          </p>
+          <p
+            style={{
+              margin: "0.2rem 0 0",
+              fontSize: "1.05rem",
+              fontWeight: 700,
+              opacity: 0.85,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
+          >
+            {pointsFmt.format(weightedPointsPmq)} pts
+          </p>
+          <p
+            style={{
+              margin: "0.3rem 0 0",
+              fontSize: "0.72rem",
+              opacity: 0.65,
+              lineHeight: 1.4,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
+          >
+            Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} — utilisé pour calculer votre part de redistribution
           </p>
           <div
             style={{
