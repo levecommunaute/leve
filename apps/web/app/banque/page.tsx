@@ -31,10 +31,6 @@ function currentMonthDate(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
-
-function formatPmqPtValue(v: number): string {
-  return `~$${v.toFixed(4)}/pt · Mois en cours`;
-}
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
@@ -435,6 +431,15 @@ export default function BanquePage(): JSX.Element | null {
     100,
     Math.max(0, (soldeDollars / MIN_TRANSFER_CAD) * 100),
   );
+  const moisCourantLabel = new Date()
+    .toLocaleDateString("fr-CA", { month: "long", year: "numeric" })
+    .toUpperCase();
+  const classementRang: number | null = null; // pas de fetch — badge masqué
+  const estimation =
+    pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
+      ? totalPoints * pmqValuePerPoint
+      : 0;
+  const typeMembre = profile?.member_type?.trim() || "—";
 
   if (session === undefined) {
     return (
@@ -460,7 +465,6 @@ export default function BanquePage(): JSX.Element | null {
   }
 
   const name = displayNameFrom(profile, session);
-  const weightedPointsPmq = totalPoints * profileMultiplier;
 
   function renderHistoryEntry(row: HistoryRow): {
     dateLabel: string;
@@ -608,17 +612,30 @@ export default function BanquePage(): JSX.Element | null {
           </p>
         ) : null}
 
+        <p
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.55rem",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            opacity: 0.3,
+            marginBottom: "0.4rem",
+          }}
+        >
+          MA BANQUE · LEVE MÉDIA INC.
+        </p>
         <h1
           style={{
             fontFamily: "var(--font-bebas), Impact, sans-serif",
-            fontSize: "clamp(2.5rem, 8vw, 3.5rem)",
-            letterSpacing: "0.14em",
-            margin: "0 0 1.25rem",
-            lineHeight: 1.05,
-            color: TEXT,
+            fontSize: "clamp(2rem, 8vw, 3.5rem)",
+            lineHeight: 0.88,
+            letterSpacing: "0.02em",
+            marginBottom: "1.25rem",
           }}
         >
-          MA BANQUE
+          BANQUE
+          <br />
+          <span style={{ color: GOLD }}>LEVE</span>
         </h1>
 
         <section
@@ -641,7 +658,7 @@ export default function BanquePage(): JSX.Element | null {
               opacity: 0.3,
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
           >
-            Solde Banque ($)
+            SOLDE BANQUE · {moisCourantLabel}
           </p>
           <p
             className="banque-solde-amount"
@@ -694,6 +711,16 @@ export default function BanquePage(): JSX.Element | null {
               ? "Seuil atteint — transfert disponible"
               : `${progressPct.toFixed(0)} % vers le seuil de ${cad.format(MIN_TRANSFER_CAD)}`}
           </p>
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.58rem",
+              opacity: 0.35,
+              marginTop: "0.35rem",
+            }}
+          >
+            Minimum $100 pour transférer · PayPal · Virement · Mobile Money
+          </p>
         </section>
 
         <section
@@ -709,19 +736,40 @@ export default function BanquePage(): JSX.Element | null {
             color: TEXT,
           }}
         >
-          <p
+          <div
             style={{
-              margin: 0,
-              fontSize: "0.72rem",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              fontWeight: 700,
-              opacity: 0.85,
-              color: GOLD,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
             }}
           >
-            Points PMQ
-          </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.72rem",
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                opacity: 0.85,
+                color: GOLD,
+              }}
+            >
+              POINTS PMQ · {moisCourantLabel}
+            </p>
+            {classementRang != null ? (
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.5rem",
+                  color: ROUGE,
+                  letterSpacing: "0.1em",
+                  marginLeft: "auto",
+                }}
+              >
+                #{classementRang} classement
+              </span>
+            ) : null}
+          </div>
           <p
             style={{
               margin: "0.35rem 0 0.15rem",
@@ -736,53 +784,61 @@ export default function BanquePage(): JSX.Element | null {
           </p>
           <p
             style={{
-              margin: "0.55rem 0 0",
-              fontSize: "0.78rem",
-              letterSpacing: "0.04em",
-              opacity: 0.75,
-              lineHeight: 1.4,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.65rem",
+              opacity: 0.45,
+              marginTop: "0.2rem",
             }}
           >
-            {pmqValuePerPoint != null
-              ? formatPmqPtValue(pmqValuePerPoint)
-              : "(Revenus × 45%) ÷ Total pts · Variable mensuel"}
+            Multiplicateur ×{profileMultiplier} · {typeMembre}
           </p>
-          <p
+          <div
             style={{
-              margin: "0.68rem 0 0",
-              fontSize: "0.68rem",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              opacity: 0.65,
+              borderTop: "1px solid rgba(245,240,232,0.06)",
+              marginTop: "0.85rem",
+              paddingTop: "0.85rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
-            Points pondérés (base redistribution)
-          </p>
-          <p
-            style={{
-              margin: "0.2rem 0 0",
-              fontSize: "1.05rem",
-              fontWeight: 700,
-              opacity: 0.85,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-            }}
-          >
-            {pointsFmt.format(weightedPointsPmq)} pts
-          </p>
-          <p
-            style={{
-              margin: "0.3rem 0 0",
-              fontSize: "0.72rem",
-              opacity: 0.65,
-              lineHeight: 1.4,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-            }}
-          >
-            Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
-            utilisé pour calculer votre part de redistribution
-          </p>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.52rem",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                opacity: 0.28,
+              }}
+            >
+              ESTIMATION REDISTRIB.
+            </span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.9rem",
+                color: "#2ECC71",
+                fontWeight: 700,
+              }}
+            >
+              {estimation > 0 ? `≈ $${estimation.toFixed(0)}` : "—"}
+            </span>
+          </div>
         </section>
+
+        {!canTransfer ? (
+          <p
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "0.65rem",
+              color: ROUGE,
+              opacity: 0.8,
+              margin: "0.5rem 0",
+            }}
+          >
+            🔒 Solde insuffisant · ${(100 - soldeDollars).toFixed(2)} manquants
+          </p>
+        ) : null}
 
         <div style={{ marginBottom: "2rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
@@ -797,8 +853,9 @@ export default function BanquePage(): JSX.Element | null {
               padding: "0.85rem 1.25rem",
               borderRadius: "4px",
               fontWeight: 700,
-              fontSize: "0.95rem",
-              letterSpacing: "0.04em",
+              fontSize: "0.82rem",
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
               border: canTransfer
                 ? "1px solid rgba(212, 160, 23, 0.4)"
                 : "2px solid rgba(245, 240, 232, 0.2)",
@@ -809,21 +866,6 @@ export default function BanquePage(): JSX.Element | null {
           >
             Transférer vers mon compte
           </button>
-          {!canTransfer ? (
-            <p
-              style={{
-                margin: "0.5rem 0 0",
-                fontSize: "0.82rem",
-                color: ROUGE,
-                opacity: 0.95,
-              }}
-            >
-              Minimum {cad.format(MIN_TRANSFER_CAD)} requis
-              <span style={{ display: "block", marginTop: "0.25rem", opacity: 0.85 }}>
-                Solde banque : {cad.format(soldeDollars)}
-              </span>
-            </p>
-          ) : null}
 
           {retraitOpen ? (
             <div
