@@ -16,6 +16,7 @@ import {
   parseReferralRef,
   processReferralSignup,
 } from "../../../lib/parrainage";
+import { getClientIp, lookupGeoFromIp } from "../../../lib/geo-ip";
 import { checkYoutubeSubscription } from "../../../lib/youtube-subscription";
 
 export const dynamic = "force-dynamic";
@@ -120,6 +121,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       return NextResponse.redirect(`${origin}/?error=profile`);
     }
 
+    const clientIp = getClientIp(request);
+    const geo = await lookupGeoFromIp(clientIp);
+    if (geo.pays || geo.ville || geo.continent) {
+      console.log("[auth/callback] geo", { ip: clientIp, ...geo });
+    }
+
     const { error: insertError } = await supabase
       .from("profiles")
       .upsert(
@@ -129,6 +136,9 @@ export async function GET(request: Request): Promise<NextResponse> {
           display_name: displayName,
           code_parrainage: referralCode,
           derniere_activite: now.toISOString(),
+          ...(geo.pays ? { pays: geo.pays } : {}),
+          ...(geo.ville ? { ville: geo.ville } : {}),
+          ...(geo.continent ? { continent: geo.continent } : {}),
           ...(beta ? { is_beta_tester: true } : {}),
           ...buildActiveSubscriptionPatch(now),
         },

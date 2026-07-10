@@ -10,6 +10,7 @@ import {
   type JSX,
   type MouseEvent,
 } from "react";
+import { MemberWorldMap, type MemberGeoRow } from "./MemberWorldMap";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -173,11 +174,6 @@ function fraisPalierDraftDirty(p: FraisPlateformePalierRow, d: FraisPalierDraft)
     p.actif !== d.actif
   );
 }
-
-type CountryCount = {
-  country: string;
-  count: number;
-};
 
 type PoolMonthPoint = {
   month: string;
@@ -1404,7 +1400,7 @@ export default function AdminPage(): JSX.Element {
   const [fraisPlateformeSaving, setFraisPlateformeSaving] = useState(false);
   const [fraisPlateformeSaveMsg, setFraisPlateformeSaveMsg] = useState<string | null>(null);
 
-  const [memberMapCountries, setMemberMapCountries] = useState<CountryCount[]>([]);
+  const [memberMapMembers, setMemberMapMembers] = useState<MemberGeoRow[]>([]);
   const [memberMapTotal, setMemberMapTotal] = useState(0);
   const [memberMapLoading, setMemberMapLoading] = useState(false);
   const [memberMapError, setMemberMapError] = useState<string | null>(null);
@@ -1860,21 +1856,21 @@ export default function AdminPage(): JSX.Element {
     try {
       const r = await fetch("/api/admin/member-map", { headers: adminHeaders(), cache: "no-store" });
       const j = (await r.json()) as {
-        countries?: CountryCount[];
+        members?: MemberGeoRow[];
         total?: number;
         error?: string;
       };
       if (!r.ok) {
         setMemberMapError(j.error ?? "Erreur carte membres");
-        setMemberMapCountries([]);
+        setMemberMapMembers([]);
         setMemberMapTotal(0);
         return;
       }
-      setMemberMapCountries(j.countries ?? []);
+      setMemberMapMembers(j.members ?? []);
       setMemberMapTotal(j.total ?? 0);
     } catch (e) {
       setMemberMapError(e instanceof Error ? e.message : "Erreur réseau");
-      setMemberMapCountries([]);
+      setMemberMapMembers([]);
       setMemberMapTotal(0);
     } finally {
       setMemberMapLoading(false);
@@ -2975,7 +2971,7 @@ export default function AdminPage(): JSX.Element {
     setFraisPalierDrafts({});
     setFraisPlateformeError(null);
     setFraisPlateformeSaveMsg(null);
-    setMemberMapCountries([]);
+    setMemberMapMembers([]);
     setMemberMapTotal(0);
     setMemberMapError(null);
     setPoolSeries([]);
@@ -5486,107 +5482,18 @@ export default function AdminPage(): JSX.Element {
           <section id="section-map" style={cardStyle()}>
             {sectionTitle("CARTE DES MEMBRES")}
             <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
-              Répartition géographique des membres (métadonnées auth.users ou domaine courriel). Vue
-              synthétique par pays — le détail complet est dans le tableau ci-dessous.
+              Répartition géographique des membres (pays / ville / continent détectés à
+              l&apos;inscription). Bulles proportionnelles par continent — cliquez pour filtrer.
             </p>
             {memberMapError ? (
               <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{memberMapError}</p>
             ) : null}
             {memberMapLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement de la carte…</p>
-            ) : memberMapCountries.length === 0 ? (
+            ) : memberMapTotal === 0 ? (
               <p style={{ opacity: 0.6 }}>Aucun membre trouvé.</p>
             ) : (
-              <>
-                <p style={{ margin: "0 0 1rem", fontSize: "1.05rem" }}>
-                  Total :{" "}
-                  <strong style={{ color: GOLD, fontSize: "1.3rem" }}>{memberMapTotal}</strong> membre
-                  {memberMapTotal !== 1 ? "s" : ""} ·{" "}
-                  <strong style={{ color: GOLD }}>{memberMapCountries.length}</strong> pays / zones
-                </p>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-                    gap: "0.65rem",
-                    marginBottom: "1.35rem",
-                    padding: "1rem",
-                    borderRadius: "4px",
-                    background: "rgba(212, 160, 23, 0.04)",
-                    border: "1px solid rgba(212, 160, 23, 0.15)",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
-                >
-                  {memberMapCountries.slice(0, 12).map((row) => {
-                    const max = memberMapCountries[0]?.count ?? 1;
-                    const intensity = 0.35 + (row.count / max) * 0.65;
-                    return (
-                      <div
-                        key={row.country}
-                        title={`${row.country} — ${row.count} membre(s)`}
-                        style={{
-                          padding: "0.75rem 0.65rem",
-                          borderRadius: "4px",
-                          background: `rgba(192, 57, 43, ${intensity * 0.35})`,
-                          border: `1px solid rgba(212, 160, 23, ${intensity * 0.45})`,
-                          textAlign: "center",
-                        }}
-                      >
-                        <p
-                          style={{
-                            margin: 0,
-                            fontFamily: "var(--font-bebas), Impact, sans-serif",
-                            fontSize: "1.5rem",
-                            letterSpacing: "0.06em",
-                            color: GOLD,
-                          }}
-                        >
-                          {row.count}
-                        </p>
-                        <p style={{ margin: "0.25rem 0 0", fontSize: "0.78rem", opacity: 0.85, lineHeight: 1.3 }}>
-                          {row.country}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{ overflowX: "auto",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                  <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                    <thead>
-                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
-                        {["Pays / zone", "Membres", "%"].map((h) => (
-                          <th
-                            key={h}
-                            style={{
-                              padding: "0.65rem 0.5rem",
-                              letterSpacing: "0.08em",
-                              fontSize: "0.65rem",
-                              textTransform: "uppercase",
-                              opacity: 0.55,
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {memberMapCountries.map((row) => {
-                        const pct = memberMapTotal > 0 ? (row.count / memberMapTotal) * 100 : 0;
-                        return (
-                          <tr key={row.country} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
-                            <td style={{ padding: "0.6rem 0.5rem" }}>{row.country}</td>
-                            <td style={{ padding: "0.6rem 0.5rem", color: GOLD, fontWeight: 600 }}>{row.count}</td>
-                            <td style={{ padding: "0.6rem 0.5rem", opacity: 0.75 }}>
-                              {pct.toFixed(1).replace(".", ",")} %
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+              <MemberWorldMap members={memberMapMembers} total={memberMapTotal} />
             )}
           </section>
 
