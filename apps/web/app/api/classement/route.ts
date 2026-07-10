@@ -1,8 +1,11 @@
 import { createServerClient } from "@repo/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { redis } from "../../../lib/redis";
 
 const PAGE_SIZE = 1000;
+const CACHE_KEY = "classement";
+const CACHE_TTL = 300;
 
 export type ClassementMember = {
   rank: number;
@@ -66,6 +69,14 @@ export async function GET(): Promise<NextResponse> {
       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     }
 
+    const cached = await redis.get<{
+      members: ClassementMember[];
+      updated_at: string;
+    }>(CACHE_KEY);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
+
     const totals = await aggregatePointsByUser(supabase);
 
     const sortedIds = [...totals.entries()]
@@ -77,10 +88,12 @@ export async function GET(): Promise<NextResponse> {
       .map(([id]) => id);
 
     if (sortedIds.length === 0) {
-      return NextResponse.json({
+      const emptyPayload = {
         members: [] as ClassementMember[],
         updated_at: new Date().toISOString(),
-      });
+      };
+      await redis.set(CACHE_KEY, emptyPayload, { ex: CACHE_TTL });
+      return NextResponse.json(emptyPayload);
     }
 
     const { data: profiles, error: profilesError } = await supabase
@@ -123,10 +136,12 @@ export async function GET(): Promise<NextResponse> {
       };
     });
 
-    return NextResponse.json({
+    const payload = {
       members,
       updated_at: new Date().toISOString(),
-    });
+    };
+    await redis.set(CACHE_KEY, payload, { ex: CACHE_TTL });
+    return NextResponse.json(payload);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: message }, { status: 500 });

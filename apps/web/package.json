@@ -14,6 +14,7 @@
     "@repo/supabase": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
+    "@upstash/redis": "^1.38.0",
     "next": "^15.3.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
