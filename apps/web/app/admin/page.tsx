@@ -1201,6 +1201,24 @@ const ADMIN_SECTIONS: { id: string; label: string }[] = [
   { id: "section-bugs", label: "Bugs" },
 ];
 
+/** Liens du sidebar desktop (ordre de navigation). */
+const ADMIN_SIDEBAR_SECTIONS: { id: string; label: string }[] = [
+  { id: "section-stats", label: "Stats" },
+  { id: "section-codes", label: "Codes" },
+  { id: "section-videos", label: "Vidéos" },
+  { id: "section-quiz", label: "Quiz" },
+  { id: "section-redistribution", label: "Redistribution" },
+  { id: "section-pools", label: "Pools" },
+  { id: "section-features", label: "Features" },
+  { id: "section-membres", label: "Membres" },
+  { id: "section-concours", label: "Concours" },
+  { id: "section-beta", label: "Beta" },
+  { id: "section-bugs", label: "Bugs" },
+  { id: "section-comptabilite", label: "Comptabilité" },
+];
+
+const ADMIN_SIDEBAR_WIDTH_PX = 200;
+
 function scrollToAdminSection(sectionId: string, ev: MouseEvent<HTMLAnchorElement>): void {
   ev.preventDefault();
   const el = document.getElementById(sectionId);
@@ -1310,6 +1328,7 @@ export default function AdminPage(): JSX.Element {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authed, setAuthed] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState(ADMIN_SIDEBAR_SECTIONS[0]?.id ?? "section-stats");
 
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [videosLoading, setVideosLoading] = useState(false);
@@ -2746,6 +2765,42 @@ export default function AdminPage(): JSX.Element {
 
   useEffect(() => {
     if (!hydrated || !authed) return;
+
+    const elements = ADMIN_SIDEBAR_SECTIONS.map((s) => document.getElementById(s.id)).filter(
+      (el): el is HTMLElement => el != null,
+    );
+    if (elements.length === 0) return;
+
+    const ratios = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          ratios.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+        }
+        let bestId: string | null = null;
+        let bestRatio = 0;
+        for (const s of ADMIN_SIDEBAR_SECTIONS) {
+          const r = ratios.get(s.id) ?? 0;
+          if (r > bestRatio) {
+            bestRatio = r;
+            bestId = s.id;
+          }
+        }
+        if (bestId) setActiveSection(bestId);
+      },
+      {
+        root: null,
+        rootMargin: "-15% 0px -55% 0px",
+        threshold: [0, 0.1, 0.25, 0.5, 0.75, 1],
+      },
+    );
+
+    for (const el of elements) observer.observe(el);
+    return () => observer.disconnect();
+  }, [hydrated, authed]);
+
+  useEffect(() => {
+    if (!hydrated || !authed) return;
     void loadVideos();
     void loadLinkedVideoCodes();
     void loadMembers();
@@ -3741,7 +3796,7 @@ export default function AdminPage(): JSX.Element {
 
   return (
     <div
-      className={`${fonts} leve-admin-root`}
+      className={`${fonts} leve-admin-root${authed ? " admin-with-sidebar" : ""}`}
       style={{
         minHeight: "100vh",
         background: BG,
@@ -3807,6 +3862,9 @@ export default function AdminPage(): JSX.Element {
             .admin-section-nav {
               display: none;
             }
+            .admin-sidebar {
+              display: none;
+            }
             .leve-admin-root [id^="section-"] {
               scroll-margin-top: ${ADMIN_SECTION_SCROLL_OFFSET}px;
             }
@@ -3848,9 +3906,89 @@ export default function AdminPage(): JSX.Element {
                 background: rgba(212, 160, 23, 0.16);
               }
             }
+            @media (min-width: 768px) {
+              .leve-admin-root.admin-with-sidebar {
+                padding-left: ${ADMIN_SIDEBAR_WIDTH_PX}px;
+              }
+              .admin-sidebar {
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: ${ADMIN_SIDEBAR_WIDTH_PX}px;
+                height: 100vh;
+                z-index: 40;
+                background: #0E0E0E;
+                border-right: 1px solid rgba(255, 255, 255, 0.06);
+                box-sizing: border-box;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+              }
+              .admin-sidebar-logo {
+                font-family: var(--font-bebas), Impact, sans-serif;
+                font-size: 1.35rem;
+                letter-spacing: 0.14em;
+                color: ${GOLD};
+                padding: 1.15rem 16px 1rem;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                flex-shrink: 0;
+              }
+              .admin-sidebar-nav {
+                display: flex;
+                flex-direction: column;
+                padding: 0.5rem 0 1.25rem;
+                flex: 1;
+              }
+              .admin-sidebar-nav a {
+                display: flex;
+                align-items: center;
+                min-height: 36px;
+                padding: 8px 16px;
+                font-size: 12px;
+                letter-spacing: 0.06em;
+                text-decoration: none;
+                color: rgba(245, 240, 232, 0.5);
+                background: transparent;
+                border-left: 2px solid transparent;
+                box-sizing: border-box;
+                transition: background 0.15s ease, color 0.15s ease;
+              }
+              .admin-sidebar-nav a:hover {
+                background: rgba(255, 255, 255, 0.04);
+              }
+              .admin-sidebar-nav a.is-active {
+                background: rgba(212, 160, 23, 0.08);
+                border-left-color: ${GOLD};
+                color: ${GOLD};
+              }
+              .admin-sidebar-nav a.is-active:hover {
+                background: rgba(212, 160, 23, 0.08);
+              }
+            }
           `,
         }}
       />
+      {authed ? (
+        <aside className="admin-sidebar" aria-label="Navigation admin">
+          <div className="admin-sidebar-logo">LEVE ADMIN</div>
+          <nav className="admin-sidebar-nav">
+            {ADMIN_SIDEBAR_SECTIONS.map((s) => (
+              <a
+                key={s.id}
+                href={`#${s.id}`}
+                className={activeSection === s.id ? "is-active" : undefined}
+                onClick={(ev) => {
+                  setActiveSection(s.id);
+                  scrollToAdminSection(s.id, ev);
+                }}
+              >
+                {s.label}
+              </a>
+            ))}
+          </nav>
+        </aside>
+      ) : null}
       <header
         style={{
           display: "flex",
@@ -4194,6 +4332,7 @@ export default function AdminPage(): JSX.Element {
               />
             </div>
             <div
+              id="section-comptabilite"
               style={{
                 marginTop: "1.25rem",
                 paddingTop: "1.1rem",
