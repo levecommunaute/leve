@@ -41,9 +41,24 @@ type ProfileRow = {
   code_parrainage: string | null;
   profil_public: boolean | null;
   message_don: string | null;
+  cotisation_active: boolean | null;
+  cotisation_montant: number | string | null;
+  cotisation_points_bonus: number | string | null;
 };
 
 const MAX_MESSAGE_DON = 200;
+const COTISATION_MONTANTS = [5, 10, 15] as const;
+type CotisationMontant = (typeof COTISATION_MONTANTS)[number];
+
+function pointsBonusForMontant(montant: CotisationMontant): number {
+  return montant * 2;
+}
+
+function parseCotisationMontant(raw: unknown): CotisationMontant {
+  const n = Number(raw);
+  if (n === 10 || n === 15) return n;
+  return 5;
+}
 
 type QuizSubmissionRow = {
   video_id: string;
@@ -181,12 +196,19 @@ export default function ProfilPage(): JSX.Element | null {
   const [donsFlagState, setDonsFlagState] = useState<
     "loading" | "enabled" | "disabled"
   >("loading");
+  const [cotisationFlagState, setCotisationFlagState] = useState<
+    "loading" | "enabled" | "disabled"
+  >("loading");
   const [donModalOpen, setDonModalOpen] = useState(false);
   const [donPts, setDonPts] = useState(MIN_DON_PTS);
   const [donSubmitting, setDonSubmitting] = useState(false);
   const [donSuccess, setDonSuccess] = useState(false);
   const [profilPublicSaving, setProfilPublicSaving] = useState(false);
   const [messageDon, setMessageDon] = useState("");
+  const [cotisationActive, setCotisationActive] = useState(false);
+  const [cotisationMontant, setCotisationMontant] = useState<CotisationMontant>(5);
+  const [cotisationPointsBonus, setCotisationPointsBonus] = useState(10);
+  const [cotisationSaving, setCotisationSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -195,7 +217,7 @@ export default function ProfilPage(): JSX.Element | null {
     const isOwnProfile = targetId === activeSession.user.id;
 
     const profileRes = await fetchRestJson(
-      `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don`,
+      `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,cotisation_active,cotisation_montant,cotisation_points_bonus`,
       token,
     );
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -204,6 +226,15 @@ export default function ProfilPage(): JSX.Element | null {
     if (isOwnProfile) {
       setMessageDon(
         typeof row?.message_don === "string" ? row.message_don : "",
+      );
+      const montant = parseCotisationMontant(row?.cotisation_montant);
+      setCotisationActive(Boolean(row?.cotisation_active));
+      setCotisationMontant(montant);
+      const bonus = Number(row?.cotisation_points_bonus);
+      setCotisationPointsBonus(
+        Number.isFinite(bonus) && bonus > 0
+          ? bonus
+          : pointsBonusForMontant(montant),
       );
     }
 
@@ -295,19 +326,23 @@ export default function ProfilPage(): JSX.Element | null {
     let cancelled = false;
     void (async () => {
       try {
-        const [parrainageRes, donsRes] = await Promise.all([
+        const [parrainageRes, donsRes, cotisationRes] = await Promise.all([
           fetch("/api/feature-flags?nom=parrainage", { cache: "no-store" }),
           fetch("/api/feature-flags?nom=dons-membres", { cache: "no-store" }),
+          fetch("/api/feature-flags?nom=cotisation-membre", { cache: "no-store" }),
         ]);
         const parrainageJson = (await parrainageRes.json()) as { actif?: boolean };
         const donsJson = (await donsRes.json()) as { actif?: boolean };
+        const cotisationJson = (await cotisationRes.json()) as { actif?: boolean };
         if (cancelled) return;
         setParrainageFlagState(parrainageJson.actif ? "enabled" : "disabled");
         setDonsFlagState(donsJson.actif ? "enabled" : "disabled");
+        setCotisationFlagState(cotisationJson.actif ? "enabled" : "disabled");
       } catch {
         if (!cancelled) {
           setParrainageFlagState("disabled");
           setDonsFlagState("disabled");
+          setCotisationFlagState("disabled");
         }
       }
     })();
@@ -411,6 +446,54 @@ export default function ProfilPage(): JSX.Element | null {
       setLoadError("Erreur réseau lors de la mise à jour du profil.");
     } finally {
       setProfilPublicSaving(false);
+    }
+  }
+
+  async function handleSaveCotisation(
+    patch: { cotisation_active?: boolean; cotisation_montant?: CotisationMontant },
+  ): Promise<void> {
+    if (!session) return;
+    setCotisationSaving(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/membres/cotisation", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(patch),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        cotisation_active?: boolean;
+        cotisation_montant?: number;
+        cotisation_points_bonus?: number;
+      };
+      if (!res.ok) {
+        setLoadError(json.error ?? "Impossible de mettre à jour la cotisation.");
+        return;
+      }
+      const montant = parseCotisationMontant(json.cotisation_montant);
+      const active = Boolean(json.cotisation_active);
+      const bonus = Number(json.cotisation_points_bonus ?? pointsBonusForMontant(montant));
+      setCotisationActive(active);
+      setCotisationMontant(montant);
+      setCotisationPointsBonus(bonus);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              cotisation_active: active,
+              cotisation_montant: montant,
+              cotisation_points_bonus: bonus,
+            }
+          : prev,
+      );
+    } catch {
+      setLoadError("Erreur réseau lors de la mise à jour de la cotisation.");
+    } finally {
+      setCotisationSaving(false);
     }
   }
 
@@ -758,6 +841,119 @@ export default function ProfilPage(): JSX.Element | null {
             ) : null}
           </dl>
         </section>
+
+        {isOwnProfile && cotisationFlagState === "enabled" ? (
+          <section
+            style={{
+              borderRadius: "4px",
+              padding: "1.25rem 1.1rem",
+              marginBottom: "1.75rem",
+              background: "#111",
+              border: "1px solid rgba(245, 240, 232, 0.08)",
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "1.35rem",
+                letterSpacing: "0.06em",
+                color: ROUGE,
+                margin: "0 0 1rem",
+              }}
+            >
+              Cotisation
+            </h2>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.65rem",
+                cursor: cotisationSaving ? "wait" : "pointer",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={cotisationActive}
+                disabled={cotisationSaving}
+                onChange={(e) =>
+                  void handleSaveCotisation({
+                    cotisation_active: e.target.checked,
+                    cotisation_montant: cotisationMontant,
+                  })
+                }
+                style={{ width: "1.1rem", height: "1.1rem", accentColor: GOLD }}
+              />
+              Activer ma cotisation mensuelle
+            </label>
+            <label
+              htmlFor="cotisation-montant"
+              style={{
+                display: "block",
+                fontSize: "0.72rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                opacity: 0.55,
+                marginBottom: "0.35rem",
+              }}
+            >
+              Montant mensuel
+            </label>
+            <select
+              id="cotisation-montant"
+              value={cotisationMontant}
+              disabled={cotisationSaving}
+              onChange={(e) => {
+                const next = parseCotisationMontant(e.target.value);
+                setCotisationMontant(next);
+                setCotisationPointsBonus(pointsBonusForMontant(next));
+                void handleSaveCotisation({
+                  cotisation_active: cotisationActive,
+                  cotisation_montant: next,
+                });
+              }}
+              style={{
+                width: "100%",
+                maxWidth: "16rem",
+                padding: "0.55rem 0.75rem",
+                borderRadius: "4px",
+                border: "1px solid rgba(245, 240, 232, 0.15)",
+                background: "#0a0a0a",
+                color: TEXT,
+                fontSize: "0.95rem",
+                fontFamily: "inherit",
+                cursor: cotisationSaving ? "wait" : "pointer",
+              }}
+            >
+              {COTISATION_MONTANTS.map((m) => (
+                <option key={m} value={m}>
+                  ${m}
+                </option>
+              ))}
+            </select>
+            <p
+              style={{
+                margin: "0.85rem 0 0",
+                fontSize: "0.85rem",
+                opacity: 0.7,
+                lineHeight: 1.5,
+              }}
+            >
+              Prélevée automatiquement le 1er du mois · Jamais sur votre argent personnel
+            </p>
+            <p
+              style={{
+                margin: "0.65rem 0 0",
+                fontSize: "0.9rem",
+                color: GOLD,
+                fontWeight: 600,
+              }}
+            >
+              +{cotisationPointsBonus} pts bonus / mois en compensation
+            </p>
+          </section>
+        ) : null}
 
         {isOwnProfile && parrainageFlagState === "enabled" ? (
           <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
