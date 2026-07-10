@@ -614,6 +614,7 @@ const FEATURE_FLAG_ORDER = [
   "videos-mode-youtube",
   "pool-pa",
   "collaborateur",
+  "cotisation-membre",
 ] as const;
 
 function sortFeatureFlags(flags: FeatureFlagRow[]): FeatureFlagRow[] {
