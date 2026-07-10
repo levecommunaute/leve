@@ -63,6 +63,9 @@ type BetaTesterRow = {
   beta_points: number | string | null;
   beta_temps_total_secondes: number | string | null;
   beta_derniere_activite: string | null;
+  /** Présent quand l’email est whitelisté mais sans profil (jamais connecté). */
+  statut?: string | null;
+  a_profil?: boolean;
 };
 
 type BetaEmailRow = {
@@ -7954,7 +7957,10 @@ export default function AdminPage(): JSX.Element {
                         </thead>
                         <tbody>
                           {betaTesteurs.map((t, idx) => {
-                            const statut = betaStatut(t.beta_derniere_activite);
+                            const statut =
+                              t.statut === "Jamais connecté" || t.a_profil === false
+                                ? { emoji: "⚪", label: "Jamais connecté" }
+                                : betaStatut(t.beta_derniere_activite);
                             const medaille = idx < 3 ? BETA_TOP_MEDAILLES[idx] : null;
                             return (
                               <tr key={t.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
@@ -8021,7 +8027,10 @@ export default function AdminPage(): JSX.Element {
                           </p>
                         ) : null}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
-                          {betaTesteurs.slice(0, 3).map((t, idx) => {
+                          {betaTesteurs
+                            .filter((t) => t.a_profil !== false)
+                            .slice(0, 3)
+                            .map((t, idx) => {
                             const bonus = BETA_BONUS_PA[idx] ?? 0;
                             const credite = betaBonusDoneIds.includes(t.id);
                             const busy = betaBonusBusyId === t.id;
