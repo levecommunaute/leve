@@ -969,9 +969,9 @@ export default function PoolPaPage(): JSX.Element | null {
                 borderRadius: "4px",
                 padding: "1.5rem 1.35rem",
                 marginBottom: "1rem",
-                background: `linear-gradient(135deg, ${VERT} 0%, #1e8449 55%, #145a32 100%)`,
-                border: "1px solid rgba(245, 240, 232, 0.2)",
-                color: BG,
+                background: "#141414",
+                borderTop: "2px solid #7B5EA7",
+                border: "1px solid rgba(245, 240, 232, 0.06)",
               }}
             >
               <p
@@ -982,6 +982,7 @@ export default function PoolPaPage(): JSX.Element | null {
                   textTransform: "uppercase",
                   fontWeight: 700,
                   opacity: 0.85,
+                  color: "#F5F0E8",
                 }}
               >
                 Solde PA
@@ -992,11 +993,12 @@ export default function PoolPaPage(): JSX.Element | null {
                   fontSize: "clamp(2.25rem, 7vw, 3rem)",
                   fontWeight: 800,
                   fontFamily: "var(--font-dm), system-ui, sans-serif",
+                  color: "#7B5EA7",
                 }}
               >
                 {ptsFmt.format(soldePa)} pt{soldePa !== 1 ? "s" : ""}
               </p>
-              <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", opacity: 0.8 }}>
+              <p style={{ margin: "0.5rem 0 0", fontSize: "0.78rem", opacity: 0.35 }}>
                 Somme des transactions PA
               </p>
             </section>
