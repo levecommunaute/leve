@@ -743,8 +743,9 @@ export default function TransparencePage(): JSX.Element {
                 style={{
                   borderRadius: "4px",
                   padding: "1.15rem 1rem",
-                  background: "rgba(245, 240, 232, 0.03)",
-                  border: c.border,
+                  background: "#141414",
+                  border: "1px solid rgba(245, 240, 232, 0.06)",
+                  borderTop: `2px solid ${c.color}`,
                 }}
               >
                 <p
@@ -773,7 +774,7 @@ export default function TransparencePage(): JSX.Element {
                     margin: "0.75rem 0 0",
                     fontSize: "1.65rem",
                     fontWeight: 800,
-                    color: TEXT,
+                    color: c.color,
                     letterSpacing: "-0.02em",
                   }}
                 >
