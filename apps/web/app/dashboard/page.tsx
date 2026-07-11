@@ -734,8 +734,24 @@ export default function DashboardPage(): JSX.Element | null {
           <span
             style={{
               display: "inline-block",
-              background: ROUGE,
-              color: TEXT,
+              background:
+                memberLabel === "Fondateur" || memberLabel === "Pionnier"
+                  ? "rgba(212, 160, 23, 0.08)"
+                  : memberLabel === "Collaborateur"
+                    ? "rgba(0, 180, 216, 0.08)"
+                    : "rgba(255, 255, 255, 0.04)",
+              color:
+                memberLabel === "Fondateur" || memberLabel === "Pionnier"
+                  ? "#D4A017"
+                  : memberLabel === "Collaborateur"
+                    ? "#00B4D8"
+                    : "rgba(255, 255, 255, 0.35)",
+              border:
+                memberLabel === "Fondateur" || memberLabel === "Pionnier"
+                  ? "1px solid rgba(212, 160, 23, 0.4)"
+                  : memberLabel === "Collaborateur"
+                    ? "1px solid rgba(0, 180, 216, 0.3)"
+                    : "1px solid rgba(255, 255, 255, 0.12)",
               fontSize: "0.75rem",
               fontWeight: 600,
               letterSpacing: "0.08em",
