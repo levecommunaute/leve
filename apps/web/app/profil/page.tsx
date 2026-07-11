@@ -718,7 +718,7 @@ export default function ProfilPage(): JSX.Element | null {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
             <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>Total points PMQ</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
             <p className="profil-stat-label" style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>Points pondérés (base redistribution)</p>
@@ -727,9 +727,9 @@ export default function ProfilPage(): JSX.Element | null {
               Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} — utilisé pour calculer votre part de redistribution
             </p>
           </article>
-          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.12)" }}>
+          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid #D4A017" }}>
             <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: TEXT }}>{multiplierDisplay}</p>
+            <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{multiplierDisplay}</p>
           </article>
         </div>
 
