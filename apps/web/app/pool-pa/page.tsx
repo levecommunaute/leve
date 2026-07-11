@@ -972,7 +972,6 @@ export default function PoolPaPage(): JSX.Element | null {
                 background: "#141414",
                 borderTop: "2px solid #7B5EA7",
                 border: "1px solid rgba(245, 240, 232, 0.06)",
-                borderTop: "2px solid #7B5EA7",
               }}
             >
               <p
