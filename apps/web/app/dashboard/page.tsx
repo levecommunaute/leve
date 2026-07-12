@@ -285,6 +285,7 @@ export default function DashboardPage(): JSX.Element | null {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [graceMsLeft, setGraceMsLeft] = useState<number | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     const g = new URLSearchParams(window.location.search).get("grace");
@@ -406,6 +407,8 @@ export default function DashboardPage(): JSX.Element | null {
       const row = (rangRes.data ?? [])[0] as RangConfigRow | undefined;
       setRangConfig(parseRangConfigRow(row));
     }
+
+    setDataLoaded(true);
   }, []);
 
   useEffect(() => {
