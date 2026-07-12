@@ -526,8 +526,6 @@ export default function DashboardPage(): JSX.Element | null {
   const redistributionEstimate = redistributionPending
     ? 0
     : pmqBalance * (memberPtsPonderes / totalPtsPonderesAll);
-  const isNewMember =
-    totalPointsPmq === 0 && lastRedistributionCad === null;
   const isBetaTester = profile?.is_beta_tester === true;
   const betaPoints = Number(profile?.beta_points ?? 0);
   const betaTempsSecondes = Number(profile?.beta_temps_total_secondes ?? 0);
@@ -827,20 +825,6 @@ export default function DashboardPage(): JSX.Element | null {
               Ouvrir le dashboard beta →
             </Link>
           </section>
-        ) : null}
-
-        {isNewMember ? (
-          <p
-            style={{
-              fontSize: "0.95rem",
-              opacity: 0.85,
-              marginBottom: "1.25rem",
-              lineHeight: 1.5,
-            }}
-          >
-            Bienvenue sur LEVE. Vos points et redistributions apparaîtront ici
-            dès que vous commencerez à accumuler des PMQ.
-          </p>
         ) : null}
 
         {/* Stats */}
