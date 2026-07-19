@@ -32,6 +32,14 @@ function currentMonthDate(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
+/** Bornes du mois civil local — aligné dashboard / profil PMQ. */
+function currentMonthBounds(): { startIso: string; endIso: string } {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 function formatPmqPtValue(v: number): string {
   return `~$${v.toFixed(4)}/pt · Mois en cours`;
 }
@@ -170,6 +178,7 @@ export default function BanquePage(): JSX.Element | null {
   const loadBanque = useCallback(async (activeSession: Session) => {
     const uid = activeSession.user.id;
     const sb = createAuthedSupabase(activeSession.access_token);
+    const { startIso, endIso } = currentMonthBounds();
 
     const [profileRes, banqueRes, sumRes, pointsListRes, mouvementsRes, redistRes] =
       await Promise.all([
@@ -187,7 +196,9 @@ export default function BanquePage(): JSX.Element | null {
           .from("points_transactions")
           .select("amount")
           .eq("membre_id", uid)
-          .in("type", [...PMQ_POINT_TYPES]),
+          .in("type", [...PMQ_POINT_TYPES])
+          .gte("created_at", startIso)
+          .lt("created_at", endIso),
         sb
           .from("points_transactions")
           .select("id, created_at, amount, type, description")
