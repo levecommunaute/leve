@@ -38,6 +38,7 @@ const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
 const PA_PRICE_CAD = 5;
+const YOUTUBE_URL = "https://www.youtube.com/@levecommunaute";
 
 function createAuthedSupabase(accessToken: string): SupabaseClient {
   return createClient(SB, KEY, {
@@ -774,6 +775,153 @@ export default function PoolPaPage(): JSX.Element | null {
 
   const name = displayNameFrom(profile, session);
 
+  if (featureFlagState === "disabled") {
+    return (
+      <div
+        className={fonts}
+        style={{
+          minHeight: "100vh",
+          background: BG,
+          color: TEXT,
+          fontFamily: "var(--font-dm), system-ui, sans-serif",
+          paddingBottom: "6rem",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "1rem 1.25rem",
+            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            position: "sticky",
+            top: 0,
+            background: "rgba(8, 8, 8, 0.92)",
+            backdropFilter: "blur(8px)",
+            zIndex: 20,
+          }}
+        >
+          <Link
+            href="/"
+            style={{
+              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontSize: "2rem",
+              letterSpacing: "0.12em",
+              color: TEXT,
+              textDecoration: "none",
+            }}
+          >
+            LEVE
+          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <span
+              style={{
+                fontSize: "0.9rem",
+                opacity: 0.85,
+                maxWidth: "42vw",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name}
+            </span>
+            <button
+              type="button"
+              disabled={signingOut}
+              onClick={() => void handleSignOut()}
+              style={{
+                background: "transparent",
+                color: ROUGE,
+                border: `1px solid ${ROUGE}`,
+                borderRadius: "4px",
+                padding: "0.45rem 0.9rem",
+                fontSize: "0.8rem",
+                cursor: signingOut ? "wait" : "pointer",
+              }}
+            >
+              {signingOut ? "…" : "Déconnexion"}
+            </button>
+          </div>
+        </header>
+
+        <main
+          style={{
+            maxWidth: "960px",
+            margin: "0 auto",
+            padding: "2rem 1.25rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "calc(100vh - 10rem)",
+          }}
+        >
+          <section
+            aria-live="polite"
+            style={{
+              width: "100%",
+              maxWidth: "480px",
+              background: CARD_BG,
+              border: `1px solid ${GOLD}`,
+              borderRadius: "4px",
+              padding: "2.5rem 1.75rem",
+              textAlign: "center",
+            }}
+          >
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "clamp(1.75rem, 6vw, 2.5rem)",
+                letterSpacing: "0.12em",
+                color: TEXT,
+              }}
+            >
+              POOL ACTIVITÉS (PA)
+            </h1>
+            <p
+              style={{
+                margin: "1rem auto 0",
+                maxWidth: "26rem",
+                fontSize: "1rem",
+                lineHeight: 1.65,
+                opacity: 0.88,
+                color: TEXT,
+              }}
+            >
+              Le Pool Activités arrive bientôt ! Les points PA vous permettront
+              de voter pour vos artistes favoris, participer aux tirages
+              trimestriels et envoyer des pourboires aux créateurs.
+            </p>
+            <a
+              href={YOUTUBE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                marginTop: "1.5rem",
+                padding: "0.7rem 1.25rem",
+                background: GOLD,
+                color: BG,
+                borderRadius: "4px",
+                fontWeight: 600,
+                fontSize: "0.95rem",
+                textDecoration: "none",
+              }}
+            >
+              Voir la chaîne YouTube
+            </a>
+          </section>
+        </main>
+
+        <AppBottomNav session={session} memberType={profile?.member_type} />
+      </div>
+    );
+  }
+
   function renderPaHistoryEntry(row: PaTxRow): {
     dateLabel: string;
     signed: string;
@@ -933,35 +1081,7 @@ export default function PoolPaPage(): JSX.Element | null {
         </p>
 
         {featureFlagState === "loading" ? (
-          <p style={{ opacity: 0.7 }}>Vérification de la fonctionnalité…</p>
-        ) : featureFlagState === "disabled" ? (
-          <section
-            style={{
-              borderRadius: "4px",
-              padding: "3rem 1.75rem",
-              textAlign: "center",
-              marginBottom: "1.5rem",
-              background:
-                "linear-gradient(180deg, rgba(212, 160, 23, 0.07) 0%, rgba(8, 8, 8, 0.95) 55%)",
-              border: "1px solid rgba(212, 160, 23, 0.22)",
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "clamp(1.75rem, 6vw, 2.5rem)",
-                letterSpacing: "0.14em",
-                color: GOLD,
-              }}
-            >
-              Bientôt disponible
-            </p>
-            <p style={{ margin: "0.75rem 0 0", opacity: 0.82, lineHeight: 1.6 }}>
-              Le Pool Activités PA arrive prochainement. Activez le drapeau{" "}
-              <code style={{ fontSize: "0.85rem" }}>pool-pa</code> dans l&apos;admin pour l&apos;ouvrir.
-            </p>
-          </section>
+          <p style={{ opacity: 0.7 }}>Chargement…</p>
         ) : (
           <>
             <section
