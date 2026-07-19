@@ -23,8 +23,39 @@ export const dynamic = "force-dynamic";
 
 type AuthMode = "rejoindre" | "connecter";
 
+type ProfileUpsertPayload = {
+  id: string;
+  email: string | null;
+  display_name: string;
+  code_parrainage: string;
+  derniere_activite: string;
+  pays?: string;
+  ville?: string;
+  continent?: string;
+  is_beta_tester?: boolean;
+  abonnement_verifie_at: string;
+  abonnement_expire_at: string;
+  abonnement_statut: "actif";
+  grace_debut_at: null;
+  grace_expire_at: null;
+};
+
 function parseMode(raw: string | null): AuthMode {
   return raw === "connecter" ? "connecter" : "rejoindre";
+}
+
+function logProfileError(
+  label: string,
+  error: { message: string; code?: string; details?: string; hint?: string },
+  context?: Record<string, unknown>,
+): void {
+  console.error(`[auth/callback] ${label}`, {
+    message: error.message,
+    code: error.code ?? null,
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+    ...context,
+  });
 }
 
 async function verifyYoutubeFromSession(
@@ -40,6 +71,101 @@ async function verifyYoutubeFromSession(
   } catch (e) {
     console.error("[auth/callback] YouTube:", e);
     return false;
+  }
+}
+
+/**
+ * Crée / met à jour le profil membre après OAuth Google (mode rejoindre).
+ * Utilise le service role pour éviter les échecs silencieux liés au RLS.
+ * Vérifie ensuite que la ligne existe bien ; sinon retente une insertion.
+ */
+async function ensureProfileAfterOAuth(
+  userId: string,
+  payload: ProfileUpsertPayload,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const svc = getServiceSupabase();
+
+  try {
+    const { error: upsertError } = await svc.from("profiles").upsert(payload, {
+      onConflict: "id",
+    });
+
+    if (upsertError) {
+      logProfileError("profiles upsert FAILED", upsertError, {
+        userId,
+        email: payload.email,
+      });
+      return { ok: false, reason: upsertError.message };
+    }
+
+    const { data: verified, error: verifyError } = await svc
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (verifyError) {
+      logProfileError("profiles verify after upsert FAILED", verifyError, {
+        userId,
+      });
+      return { ok: false, reason: verifyError.message };
+    }
+
+    if (verified?.id) {
+      return { ok: true };
+    }
+
+    console.error(
+      "[auth/callback] profiles MISSING after upsert — attempting insert",
+      { userId, email: payload.email },
+    );
+
+    const { error: insertError } = await svc.from("profiles").insert(payload);
+
+    if (insertError) {
+      logProfileError("profiles insert retry FAILED", insertError, {
+        userId,
+        email: payload.email,
+      });
+      return { ok: false, reason: insertError.message };
+    }
+
+    const { data: retryVerified, error: retryVerifyError } = await svc
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (retryVerifyError) {
+      logProfileError("profiles verify after insert FAILED", retryVerifyError, {
+        userId,
+      });
+      return { ok: false, reason: retryVerifyError.message };
+    }
+
+    if (!retryVerified?.id) {
+      console.error(
+        "[auth/callback] profiles STILL MISSING after insert retry",
+        { userId, email: payload.email },
+      );
+      return { ok: false, reason: "profile_missing_after_insert" };
+    }
+
+    console.log("[auth/callback] profiles created via insert retry", {
+      userId,
+    });
+    return { ok: true };
+  } catch (e) {
+    console.error("[auth/callback] profiles ensure EXCEPTION (not swallowed)", {
+      userId,
+      email: payload.email,
+      error: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
+    });
+    return {
+      ok: false,
+      reason: e instanceof Error ? e.message : "profile_ensure_exception",
+    };
   }
 }
 
@@ -75,11 +201,20 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.redirect(`${origin}/dashboard`);
   }
 
-  const { data: existingProfile } = await supabase
-    .from("profiles")
-    .select(ABONNEMENT_SELECT)
-    .eq("id", user.id)
-    .maybeSingle();
+  // Service role : le RLS peut masquer le profil au client utilisateur
+  const { data: existingProfile, error: existingProfileError } =
+    await getServiceSupabase()
+      .from("profiles")
+      .select(ABONNEMENT_SELECT)
+      .eq("id", user.id)
+      .maybeSingle();
+
+  if (existingProfileError) {
+    logProfileError("profiles initial select FAILED", existingProfileError, {
+      userId: user.id,
+      email,
+    });
+  }
 
   const profile = (existingProfile ?? null) as ProfileAbonnement | null;
   const meta = user.user_metadata as Record<string, unknown> | undefined;
@@ -127,26 +262,26 @@ export async function GET(request: Request): Promise<NextResponse> {
       console.log("[auth/callback] geo", { ip: clientIp, ...geo });
     }
 
-    const { error: insertError } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          id: user.id,
-          email: user.email ?? null,
-          display_name: displayName,
-          code_parrainage: referralCode,
-          derniere_activite: now.toISOString(),
-          ...(geo.pays ? { pays: geo.pays } : {}),
-          ...(geo.ville ? { ville: geo.ville } : {}),
-          ...(geo.continent ? { continent: geo.continent } : {}),
-          ...(beta ? { is_beta_tester: true } : {}),
-          ...buildActiveSubscriptionPatch(now),
-        },
-        { onConflict: "id" },
-      );
+    const profilePayload: ProfileUpsertPayload = {
+      id: user.id,
+      email: user.email ?? null,
+      display_name: displayName,
+      code_parrainage: referralCode,
+      derniere_activite: now.toISOString(),
+      ...(geo.pays ? { pays: geo.pays } : {}),
+      ...(geo.ville ? { ville: geo.ville } : {}),
+      ...(geo.continent ? { continent: geo.continent } : {}),
+      ...(beta ? { is_beta_tester: true } : {}),
+      ...buildActiveSubscriptionPatch(now),
+    };
 
-    if (insertError) {
-      console.error("[auth/callback] profiles upsert:", insertError.message);
+    const ensureResult = await ensureProfileAfterOAuth(user.id, profilePayload);
+    if (!ensureResult.ok) {
+      console.error("[auth/callback] profiles creation aborted", {
+        userId: user.id,
+        email: user.email ?? null,
+        reason: ensureResult.reason,
+      });
       return NextResponse.redirect(`${origin}/?error=profile`);
     }
 
@@ -159,7 +294,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     if (user.email) {
-      const { data: profileRow } = await supabase
+      const { data: profileRow } = await svc
         .from("profiles")
         .select("numero_membre, display_name, code_parrainage")
         .eq("id", user.id)
