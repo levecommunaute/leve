@@ -120,22 +120,76 @@ function memberTypeBadgeStyle(label: string): {
 
 const PP_PAGE_SIZE = 1000;
 
-function currentMonthStartIso(): string {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+type MonthBounds = {
+  startIso: string;
+  endIso: string;
+  monthDate: string;
+  label: string;
+};
+
+function capitalizeFr(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-async function sumMonthlyQuizPtsPonderes(
+function monthBoundsFor(year: number, monthIndex0: number): MonthBounds {
+  const start = new Date(year, monthIndex0, 1);
+  const end = new Date(year, monthIndex0 + 1, 1);
+  const monthKey = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
+  const label = capitalizeFr(
+    new Intl.DateTimeFormat("fr-CA", {
+      month: "long",
+      year: "numeric",
+    }).format(start),
+  );
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    monthDate: `${monthKey}-01`,
+    label,
+  };
+}
+
+function currentAndPreviousMonthBounds(): {
+  current: MonthBounds;
+  previous: MonthBounds;
+} {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const current = monthBoundsFor(y, m);
+  const prevM = m === 0 ? 11 : m - 1;
+  const prevY = m === 0 ? y - 1 : y;
+  const previousStart = monthBoundsFor(prevY, prevM);
+  return {
+    current,
+    previous: {
+      startIso: previousStart.startIso,
+      endIso: current.startIso,
+      monthDate: previousStart.monthDate,
+      label: previousStart.label,
+    },
+  };
+}
+
+function createdAtRangeFilter(bounds: MonthBounds): string {
+  return (
+    `&created_at=gte.${encodeURIComponent(bounds.startIso)}` +
+    `&created_at=lt.${encodeURIComponent(bounds.endIso)}`
+  );
+}
+
+async function sumQuizPtsPonderesForMember(
   membreId: string,
   token: string,
+  bounds: MonthBounds,
 ): Promise<number> {
-  const monthStart = currentMonthStartIso();
   let total = 0;
   let offset = 0;
   for (;;) {
     const url =
       `${SB}/rest/v1/points_ponderes?membre_id=eq.${encodeURIComponent(membreId)}` +
-      `&type=eq.quiz&created_at=gte.${encodeURIComponent(monthStart)}` +
+      `&type=eq.quiz${createdAtRangeFilter(bounds)}` +
       `&select=pts_ponderes&offset=${offset}&limit=${PP_PAGE_SIZE}`;
     const data = await fetchRestJson(url, token);
     if (!Array.isArray(data)) break;
@@ -184,6 +238,10 @@ export default function ProfilPage(): JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
+  const [pmqMonthLabel, setPmqMonthLabel] = useState("");
+  const [prevMonthLabel, setPrevMonthLabel] = useState("");
+  const [prevMonthPtsPonderes, setPrevMonthPtsPonderes] = useState(0);
+  const [prevMonthRedistributed, setPrevMonthRedistributed] = useState(false);
   const [quizRows, setQuizRows] = useState<{ video_id: string; title: string; score: number; points: number; at: string | null; }[]>([]);
   const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
   const [donTxHistory, setDonTxHistory] = useState<PointsTxRow[]>([]);
@@ -239,12 +297,23 @@ export default function ProfilPage(): JSX.Element | null {
       );
     }
 
-    const [txRes, monthlyPts] = await Promise.all([
+    const { current: currentMonth, previous: prevMonth } =
+      currentAndPreviousMonthBounds();
+    setPmqMonthLabel(currentMonth.label);
+    setPrevMonthLabel(prevMonth.label);
+
+    const [txRes, monthlyPts, prevMonthPts, prevHistRes] = await Promise.all([
       fetchRestJson(
-        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=in.(quiz,parrainage,don_recu,don_envoye,pa_transfer)&select=amount`,
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=eq.quiz` +
+          `${createdAtRangeFilter(currentMonth)}&select=amount`,
         token,
       ),
-      sumMonthlyQuizPtsPonderes(targetId, token),
+      sumQuizPtsPonderesForMember(targetId, token, currentMonth),
+      sumQuizPtsPonderesForMember(targetId, token, prevMonth),
+      fetchRestJson(
+        `${SB}/rest/v1/redistribution_history?month=eq.${encodeURIComponent(prevMonth.monthDate)}&select=month&limit=1`,
+        token,
+      ),
     ]);
 
     const txData = Array.isArray(txRes) ? txRes : [];
@@ -254,6 +323,8 @@ export default function ProfilPage(): JSX.Element | null {
     );
     setTotalPointsPmq(sum);
     setMonthlyPtsTotal(monthlyPts);
+    setPrevMonthPtsPonderes(prevMonthPts);
+    setPrevMonthRedistributed(Array.isArray(prevHistRes) && prevHistRes.length > 0);
 
     if (!isOwnProfile) {
       setQuizTxHistory([]);
@@ -568,7 +639,7 @@ export default function ProfilPage(): JSX.Element | null {
   const mult = Number(profile?.multiplier ?? 1);
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
-  const weightedPointsPmq = totalPointsPmq * profileMultiplier;
+  const weightedPointsPmq = monthlyPtsTotal;
   const showRankBadge = isCommunauteMemberType(profile?.member_type);
   const monthlyRankBadge = showRankBadge
     ? getMonthlyMemberRankBadge(monthlyPtsTotal)
@@ -731,14 +802,46 @@ export default function ProfilPage(): JSX.Element | null {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
-            <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>Total points PMQ</p>
+          <article style={{ position: "relative", borderRadius: "4px", padding: "1.1rem 1.1rem 2.35rem", background: "#141414", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+            <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>{pmqMonthLabel ? `Points PMQ · ${pmqMonthLabel}` : "Points PMQ"}</p>
             <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
-            <p className="profil-stat-label" style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>Points pondérés (base redistribution)</p>
+            <p className="profil-stat-label" style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>{pmqMonthLabel ? `Points pondérés · ${pmqMonthLabel}` : "Points pondérés (base redistribution)"}</p>
             <p style={{ margin: "0.25rem 0 0", fontSize: "0.95rem", fontWeight: 600, opacity: 0.75 }}>{pointsFmt.format(weightedPointsPmq)}</p>
             <p style={{ margin: "0.3rem 0 0", fontSize: "0.7rem", opacity: 0.45, lineHeight: 1.4 }}>
               Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} — utilisé pour calculer votre part de redistribution
             </p>
+            {prevMonthLabel ? (
+              <p
+                style={{
+                  position: "absolute",
+                  right: "1.1rem",
+                  bottom: "0.65rem",
+                  margin: 0,
+                  maxWidth: "100%",
+                  textAlign: "right",
+                  fontSize: "0.68rem",
+                  opacity: 0.45,
+                  lineHeight: 1.35,
+                }}
+              >
+                PMQ {prevMonthLabel} · {pointsFmt.format(prevMonthPtsPonderes)}{" "}
+                pts →{" "}
+                {prevMonthRedistributed ? (
+                  <Link
+                    href="/banque"
+                    style={{
+                      color: "inherit",
+                      textDecoration: "underline",
+                      textUnderlineOffset: "2px",
+                    }}
+                  >
+                    ✓ Consulter votre banque
+                  </Link>
+                ) : (
+                  "Redistribution en cours"
+                )}
+              </p>
+            ) : null}
           </article>
           <article style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid #D4A017" }}>
             <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
