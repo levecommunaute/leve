@@ -287,6 +287,7 @@ export default function DashboardPage(): JSX.Element | null {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [graceMsLeft, setGraceMsLeft] = useState<number | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     const g = new URLSearchParams(window.location.search).get("grace");
@@ -408,6 +409,8 @@ export default function DashboardPage(): JSX.Element | null {
       const row = (rangRes.data ?? [])[0] as RangConfigRow | undefined;
       setRangConfig(parseRangConfigRow(row));
     }
+
+    setDataLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -512,6 +515,16 @@ export default function DashboardPage(): JSX.Element | null {
     );
   }
 
+  if (session && !dataLoaded) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
+      </div>
+    );
+  }
+
   if (!session) {
     return null;
   }
@@ -529,8 +542,6 @@ export default function DashboardPage(): JSX.Element | null {
   const redistributionEstimate = redistributionPending
     ? 0
     : pmqBalance * (memberPtsPonderes / totalPtsPonderesAll);
-  const isNewMember =
-    totalPointsPmq === 0 && lastRedistributionCad === null;
   const isBetaTester = profile?.is_beta_tester === true;
   const betaPoints = Number(profile?.beta_points ?? 0);
   const betaTempsSecondes = Number(profile?.beta_temps_total_secondes ?? 0);
@@ -778,8 +789,24 @@ export default function DashboardPage(): JSX.Element | null {
           <span
             style={{
               display: "inline-block",
-              background: ROUGE,
-              color: TEXT,
+              background:
+                memberLabel === "Fondateur" || memberLabel === "Pionnier"
+                  ? "rgba(212, 160, 23, 0.08)"
+                  : memberLabel === "Collaborateur"
+                    ? "rgba(0, 180, 216, 0.08)"
+                    : "rgba(255, 255, 255, 0.04)",
+              color:
+                memberLabel === "Fondateur" || memberLabel === "Pionnier"
+                  ? "#D4A017"
+                  : memberLabel === "Collaborateur"
+                    ? "#00B4D8"
+                    : "rgba(255, 255, 255, 0.35)",
+              border:
+                memberLabel === "Fondateur" || memberLabel === "Pionnier"
+                  ? "1px solid rgba(212, 160, 23, 0.4)"
+                  : memberLabel === "Collaborateur"
+                    ? "1px solid rgba(0, 180, 216, 0.3)"
+                    : "1px solid rgba(255, 255, 255, 0.12)",
               fontSize: "0.75rem",
               fontWeight: 600,
               letterSpacing: "0.08em",
@@ -855,20 +882,6 @@ export default function DashboardPage(): JSX.Element | null {
               Ouvrir le dashboard beta →
             </Link>
           </section>
-        ) : null}
-
-        {isNewMember ? (
-          <p
-            style={{
-              fontSize: "0.95rem",
-              opacity: 0.85,
-              marginBottom: "1.25rem",
-              lineHeight: 1.5,
-            }}
-          >
-            Bienvenue sur LEVE. Vos points et redistributions apparaîtront ici
-            dès que vous commencerez à accumuler des PMQ.
-          </p>
         ) : null}
 
         {/* Stats */}
