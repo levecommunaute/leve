@@ -684,16 +684,75 @@ export default function ConcoursPage(): JSX.Element | null {
           background: BG,
           color: TEXT,
           fontFamily: "var(--font-dm), system-ui, sans-serif",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "2rem 1.25rem",
+          paddingBottom: "6rem",
         }}
       >
-        <main style={{ width: "100%", maxWidth: "480px" }}>
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "1rem 1.25rem",
+            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            position: "sticky",
+            top: 0,
+            background: "rgba(8, 8, 8, 0.92)",
+            zIndex: 20,
+          }}
+        >
+          <Link
+            href="/"
+            style={{
+              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontSize: "2rem",
+              letterSpacing: "0.12em",
+              color: TEXT,
+              textDecoration: "none",
+            }}
+          >
+            LEVE
+          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            {name ? (
+              <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>{name}</span>
+            ) : null}
+            {session ? (
+              <button
+                type="button"
+                disabled={signingOut}
+                onClick={() => void handleSignOut()}
+                style={{
+                  background: "transparent",
+                  color: ROUGE,
+                  border: `1px solid ${ROUGE}`,
+                  borderRadius: "4px",
+                  padding: "0.45rem 0.9rem",
+                  fontSize: "0.8rem",
+                  cursor: signingOut ? "wait" : "pointer",
+                }}
+              >
+                {signingOut ? "…" : "Déconnexion"}
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        <main
+          style={{
+            maxWidth: "960px",
+            margin: "0 auto",
+            padding: "2rem 1.25rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "calc(100vh - 10rem)",
+          }}
+        >
           <section
             aria-live="polite"
             style={{
+              width: "100%",
+              maxWidth: "480px",
               background: CARD_BG,
               border: `1px solid ${GOLD}`,
               borderRadius: "4px",
@@ -758,6 +817,8 @@ export default function ConcoursPage(): JSX.Element | null {
             </a>
           </section>
         </main>
+
+        <AppBottomNav session={session} memberType={profile?.member_type} />
       </div>
     );
   }
