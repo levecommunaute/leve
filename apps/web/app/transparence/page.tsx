@@ -290,6 +290,7 @@ export default function TransparencePage(): JSX.Element {
   const [ptcStats, setPtcStats] = useState<PtcStats | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const loadProfile = useCallback(async (activeSession: Session) => {
     const profileRes = await restJson<ProfileRow[]>(
@@ -387,6 +388,7 @@ export default function TransparencePage(): JSX.Element {
     } catch {
       setPtcStats(null);
     }
+    setDataLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -462,6 +464,16 @@ export default function TransparencePage(): JSX.Element {
   }
 
   const fonts = `${bebas.variable} ${dmSans.variable}`;
+
+  if (!dataLoaded) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
+      </div>
+    );
+  }
 
   const name = session ? displayNameFrom(profile, session) : null;
 

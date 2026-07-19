@@ -213,6 +213,7 @@ export default function ProfilPage(): JSX.Element | null {
   const [cotisationSaving, setCotisationSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const loadProfil = useCallback(async (activeSession: Session, targetId: string) => {
     const token = activeSession.access_token;
@@ -261,6 +262,7 @@ export default function ProfilPage(): JSX.Element | null {
       setDonTxHistory([]);
       setQuizRows([]);
       setFilleulsActifs(0);
+      setDataLoaded(true);
       return;
     }
 
@@ -313,6 +315,7 @@ export default function ProfilPage(): JSX.Element | null {
         at: s.completed_at ?? null,
       })),
     );
+    setDataLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -537,6 +540,16 @@ export default function ProfilPage(): JSX.Element | null {
     return (
       <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-dm), system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ opacity: 0.7 }}>Chargement…</p>
+      </div>
+    );
+  }
+
+  if (session && !dataLoaded) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
       </div>
     );
   }

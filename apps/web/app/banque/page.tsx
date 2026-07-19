@@ -167,6 +167,7 @@ export default function BanquePage(): JSX.Element | null {
   const [retraitSubmitting, setRetraitSubmitting] = useState(false);
   const [retraitError, setRetraitError] = useState<string | null>(null);
   const [retraitSuccess, setRetraitSuccess] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const loadBanque = useCallback(async (activeSession: Session) => {
     const uid = activeSession.user.id;
@@ -287,6 +288,7 @@ export default function BanquePage(): JSX.Element | null {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
     setHistory(merged.slice(0, 20));
+    setDataLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -464,6 +466,16 @@ export default function BanquePage(): JSX.Element | null {
         }}
       >
         <p style={{ opacity: 0.7 }}>Chargement…</p>
+      </div>
+    );
+  }
+
+  if (session && !dataLoaded) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
       </div>
     );
   }
