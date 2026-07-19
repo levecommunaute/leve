@@ -313,6 +313,7 @@ export default function VideosPage(): JSX.Element | null {
   const [watchFirstYoutubeId, setWatchFirstYoutubeId] = useState<string | null>(null);
   const [matchedVideoId, setMatchedVideoId] = useState<string | null>(null);
   const [showQuizReadyModal, setShowQuizReadyModal] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const loadVideos = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -395,6 +396,7 @@ export default function VideosPage(): JSX.Element | null {
       setCodeVideoIds(new Set());
     } finally {
       setListLoading(false);
+      setDataLoaded(true);
     }
   }, []);
 
@@ -583,6 +585,16 @@ export default function VideosPage(): JSX.Element | null {
         }}
       >
         <p style={{ opacity: 0.7 }}>Chargement…</p>
+      </div>
+    );
+  }
+
+  if (session && !dataLoaded) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
       </div>
     );
   }
