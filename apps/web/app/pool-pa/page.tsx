@@ -330,6 +330,7 @@ export default function PoolPaPage(): JSX.Element | null {
   const [donSending, setDonSending] = useState(false);
   const [donError, setDonError] = useState<string | null>(null);
   const [donSuccess, setDonSuccess] = useState<string | null>(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const maxPtsAffordable = useMemo(() => {
     if (soldeBanque < PA_PRICE_CAD) return 0;
@@ -491,6 +492,7 @@ export default function PoolPaPage(): JSX.Element | null {
     }
 
     await loadCollaborateurs(token);
+    setDataLoaded(true);
   }, [loadCollaborateurs]);
 
   useEffect(() => {
@@ -765,6 +767,16 @@ export default function PoolPaPage(): JSX.Element | null {
         }}
       >
         <p style={{ opacity: 0.7 }}>Chargement…</p>
+      </div>
+    );
+  }
+
+  if (session && !dataLoaded) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
       </div>
     );
   }
