@@ -126,6 +126,8 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const CARD_BG = "#141414";
+const YOUTUBE_URL = "https://www.youtube.com/@levecommunaute";
 const VOTE_PA_COST = 5;
 const TICKET_PA_COST = 10;
 
@@ -678,10 +680,148 @@ export default function ConcoursPage(): JSX.Element | null {
 
   if (featureFlagsState === "disabled") {
     return (
-      <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT }}>
-        <main style={{ maxWidth: "960px", margin: "0 auto", padding: "2rem 1.25rem" }}>
-          <p style={{ opacity: 0.8 }}>La section concours est désactivée pour le moment.</p>
+      <div
+        className={fonts}
+        style={{
+          minHeight: "100vh",
+          background: BG,
+          color: TEXT,
+          fontFamily: "var(--font-dm), system-ui, sans-serif",
+          paddingBottom: "6rem",
+        }}
+      >
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "1rem 1.25rem",
+            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            position: "sticky",
+            top: 0,
+            background: "rgba(8, 8, 8, 0.92)",
+            zIndex: 20,
+          }}
+        >
+          <Link
+            href="/"
+            style={{
+              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontSize: "2rem",
+              letterSpacing: "0.12em",
+              color: TEXT,
+              textDecoration: "none",
+            }}
+          >
+            LEVE
+          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            {name ? (
+              <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>{name}</span>
+            ) : null}
+            {session ? (
+              <button
+                type="button"
+                disabled={signingOut}
+                onClick={() => void handleSignOut()}
+                style={{
+                  background: "transparent",
+                  color: ROUGE,
+                  border: `1px solid ${ROUGE}`,
+                  borderRadius: "4px",
+                  padding: "0.45rem 0.9rem",
+                  fontSize: "0.8rem",
+                  cursor: signingOut ? "wait" : "pointer",
+                }}
+              >
+                {signingOut ? "…" : "Déconnexion"}
+              </button>
+            ) : null}
+          </div>
+        </header>
+
+        <main
+          style={{
+            maxWidth: "960px",
+            margin: "0 auto",
+            padding: "2rem 1.25rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "calc(100vh - 10rem)",
+          }}
+        >
+          <section
+            aria-live="polite"
+            style={{
+              width: "100%",
+              maxWidth: "480px",
+              background: CARD_BG,
+              border: `1px solid ${GOLD}`,
+              borderRadius: "4px",
+              padding: "2.5rem 1.75rem",
+              textAlign: "center",
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                fontSize: "2.75rem",
+                lineHeight: 1,
+                marginBottom: "1rem",
+              }}
+            >
+              🏆
+            </div>
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "clamp(1.75rem, 6vw, 2.5rem)",
+                letterSpacing: "0.12em",
+                color: TEXT,
+              }}
+            >
+              CONCOURS LEVE
+            </h1>
+            <p
+              style={{
+                margin: "1rem auto 0",
+                maxWidth: "26rem",
+                fontSize: "1rem",
+                lineHeight: 1.65,
+                opacity: 0.88,
+                color: TEXT,
+              }}
+            >
+              Les concours arrivent bientôt ! Restez à l&apos;écoute sur notre chaîne
+              YouTube et nos réseaux sociaux pour ne pas manquer le lancement.
+            </p>
+            <a
+              href={YOUTUBE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                marginTop: "1.5rem",
+                padding: "0.7rem 1.25rem",
+                background: GOLD,
+                color: BG,
+                borderRadius: "4px",
+                fontWeight: 600,
+                fontSize: "0.95rem",
+                textDecoration: "none",
+              }}
+            >
+              Voir la chaîne YouTube
+            </a>
+          </section>
         </main>
+
+        <AppBottomNav session={session} memberType={profile?.member_type} />
       </div>
     );
   }
