@@ -226,22 +226,16 @@ const cadCompact = new Intl.NumberFormat("fr-CA", {
   maximumFractionDigits: 2,
 });
 
-const monthTitleFr = new Intl.DateTimeFormat("fr-CA", {
-  month: "long",
-  year: "numeric",
-});
-
 function formatMonthLabel(ym: string): string {
   const key = /^(\d{4})-(\d{2})/.exec(ym.trim());
-  const y = key ? Number(key[1]) : NaN;
-  const m = key ? Number(key[2]) : NaN;
-  if (!y || !m) return ym;
-  const d = new Date(Date.UTC(y, m - 1, 1));
-  try {
-    return monthTitleFr.format(d);
-  } catch {
-    return ym;
-  }
+  const year = key ? Number(key[1]) : NaN;
+  const month = key ? Number(key[2]) : NaN;
+  if (!year || !month) return ym;
+  // Composantes locales (pas UTC) : "2026-06-01" → juin, pas mai en fuseau EST.
+  return new Date(year, month - 1, 1).toLocaleDateString("fr-CA", {
+    month: "long",
+    year: "numeric",
+  });
 }
 
 const PTC_UNIT_DOLLARS = 5;
