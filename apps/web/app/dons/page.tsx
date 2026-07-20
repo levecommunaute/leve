@@ -253,6 +253,16 @@ export default function DonsPage(): JSX.Element | null {
     );
   }
 
+  if (session && loading) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
+      </div>
+    );
+  }
+
   if (!session) return null;
 
   const visibleMembres = membres.filter((m) => m.id !== session.user.id);
