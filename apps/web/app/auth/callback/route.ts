@@ -33,6 +33,7 @@ type ProfileUpsertPayload = {
   ville?: string;
   continent?: string;
   is_beta_tester?: boolean;
+  numero_membre?: number;
   abonnement_verifie_at: string;
   abonnement_expire_at: string;
   abonnement_statut: "actif";
@@ -86,14 +87,70 @@ async function ensureProfileAfterOAuth(
   const svc = getServiceSupabase();
 
   try {
-    const { error: upsertError } = await svc.from("profiles").upsert(payload, {
-      onConflict: "id",
-    });
+    const { data: existingNumeroRow, error: existingNumeroError } = await svc
+      .from("profiles")
+      .select("numero_membre")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (existingNumeroError) {
+      logProfileError("profiles numero_membre select FAILED", existingNumeroError, {
+        userId,
+      });
+      return { ok: false, reason: existingNumeroError.message };
+    }
+
+    const existingNumero = existingNumeroRow?.numero_membre;
+    const hasNumero =
+      existingNumero != null && String(existingNumero).trim() !== "";
+
+    const profilePayload: ProfileUpsertPayload = { ...payload };
+
+    if (!hasNumero) {
+      const { data: nextNumero, error: numeroError } = await svc.rpc(
+        "get_next_membre_numero",
+      );
+
+      if (numeroError) {
+        logProfileError("get_next_membre_numero FAILED", numeroError, {
+          userId,
+          email: payload.email,
+        });
+        return { ok: false, reason: numeroError.message };
+      }
+
+      const parsed =
+        typeof nextNumero === "number"
+          ? nextNumero
+          : typeof nextNumero === "string"
+            ? Number(nextNumero)
+            : NaN;
+
+      if (!Number.isFinite(parsed)) {
+        console.error("[auth/callback] get_next_membre_numero returned invalid", {
+          userId,
+          nextNumero,
+        });
+        return { ok: false, reason: "numero_membre_invalid" };
+      }
+
+      profilePayload.numero_membre = parsed;
+      console.log("[auth/callback] numero_membre assigned", {
+        userId,
+        numero_membre: parsed,
+      });
+    }
+
+    const { error: upsertError } = await svc
+      .from("profiles")
+      .upsert(profilePayload, {
+        onConflict: "id",
+      });
 
     if (upsertError) {
       logProfileError("profiles upsert FAILED", upsertError, {
         userId,
-        email: payload.email,
+        email: profilePayload.email,
       });
       return { ok: false, reason: upsertError.message };
     }
@@ -117,15 +174,17 @@ async function ensureProfileAfterOAuth(
 
     console.error(
       "[auth/callback] profiles MISSING after upsert — attempting insert",
-      { userId, email: payload.email },
+      { userId, email: profilePayload.email },
     );
 
-    const { error: insertError } = await svc.from("profiles").insert(payload);
+    const { error: insertError } = await svc
+      .from("profiles")
+      .insert(profilePayload);
 
     if (insertError) {
       logProfileError("profiles insert retry FAILED", insertError, {
         userId,
-        email: payload.email,
+        email: profilePayload.email,
       });
       return { ok: false, reason: insertError.message };
     }
@@ -146,7 +205,7 @@ async function ensureProfileAfterOAuth(
     if (!retryVerified?.id) {
       console.error(
         "[auth/callback] profiles STILL MISSING after insert retry",
-        { userId, email: payload.email },
+        { userId, email: profilePayload.email },
       );
       return { ok: false, reason: "profile_missing_after_insert" };
     }
