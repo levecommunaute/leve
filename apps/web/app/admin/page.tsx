@@ -694,6 +694,33 @@ function multiplierToForm(raw: number | string | null): MultiplierValue {
   return 1.0;
 }
 
+/** Multiplicateur suggéré selon le type (helper d’édition, écrasable manuellement). */
+function multiplierForMemberType(type: MemberTypeForm): MultiplierValue {
+  if (type === "pionnier" || type === "fondateur") return 2.0;
+  if (type === "collaborateur") return 1.2;
+  return 1.0;
+}
+
+/**
+ * Type + multiplicateur suggérés selon le N° membre (helper d’édition).
+ * Si déjà collaborateur et N° ≥ 10001, conserve collaborateur · 1.2.
+ */
+function draftFromNumeroMembre(
+  numeroRaw: string,
+  currentType: MemberTypeForm,
+): Pick<MemberDraft, "member_type" | "multiplier"> | null {
+  const trim = numeroRaw.trim();
+  if (trim === "" || !/^\d+$/.test(trim)) return null;
+  const n = parseInt(trim, 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  if (n <= 10) return { member_type: "pionnier", multiplier: 2.0 };
+  if (n <= 10000) return { member_type: "fondateur", multiplier: 2.0 };
+  if (currentType === "collaborateur") {
+    return { member_type: "collaborateur", multiplier: 1.2 };
+  }
+  return { member_type: "communaute", multiplier: 1.0 };
+}
+
 /** Valeur affichée / éditée pour le N° (entier en base ; chaîne possible côté API héritée). */
 function rowNumeroMembreString(m: MemberRow): string {
   const v = m.numero_membre;
@@ -7717,7 +7744,11 @@ export default function AdminPage(): JSX.Element {
                                     const v = e.target.value as MemberTypeForm;
                                     setMemberDrafts((prev) => ({
                                       ...prev,
-                                      [m.id]: { ...d, member_type: v },
+                                      [m.id]: {
+                                        ...d,
+                                        member_type: v,
+                                        multiplier: multiplierForMemberType(v),
+                                      },
                                     }));
                                   }}
                                   aria-label="Type de membre"
@@ -7760,12 +7791,19 @@ export default function AdminPage(): JSX.Element {
                                 <input
                                   type="text"
                                   value={d.numero_membre}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
+                                    const numero_membre = e.target.value;
+                                    const suggested = draftFromNumeroMembre(
+                                      numero_membre,
+                                      d.member_type,
+                                    );
                                     setMemberDrafts((prev) => ({
                                       ...prev,
-                                      [m.id]: { ...d, numero_membre: e.target.value },
-                                    }))
-                                  }
+                                      [m.id]: suggested
+                                        ? { ...d, numero_membre, ...suggested }
+                                        : { ...d, numero_membre },
+                                    }));
+                                  }}
                                   aria-label="Numéro membre"
                                   autoComplete="off"
                                   placeholder="N° membre"
