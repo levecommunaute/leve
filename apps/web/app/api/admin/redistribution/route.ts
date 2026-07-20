@@ -35,10 +35,15 @@ type MemberPonderes = {
   ptc: number;
 };
 
-/** SUM(pts_ponderes) par membre_id, séparé quiz / ptc. */
+/** SUM(pts_ponderes) par membre_id pour un mois, séparé quiz / ptc. */
 async function aggregatePonderesByMember(
   supabase: SupabaseClient,
+  monthKey: string,
 ): Promise<Map<string, MemberPonderes>> {
+  const [year, month] = monthKey.split("-").map(Number);
+  const startDate = new Date(year, month - 1, 1).toISOString();
+  const endDate = new Date(year, month, 1).toISOString();
+
   const totals = new Map<string, MemberPonderes>();
   let offset = 0;
 
@@ -47,6 +52,8 @@ async function aggregatePonderesByMember(
       .from("points_ponderes")
       .select("membre_id, pts_ponderes, type")
       .in("type", ["quiz", "ptc"])
+      .gte("created_at", startDate)
+      .lt("created_at", endDate)
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (error) {
@@ -487,7 +494,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const fondationPool = totalRevenue * FONDATION_RATE;
     const operationsPool = totalRevenue * OPERATIONS_RATE;
 
-    const ponderesByMember = await aggregatePonderesByMember(supabase);
+    const ponderesByMember = await aggregatePonderesByMember(supabase, monthKey);
 
     let totalPoids = 0;
     let totalPtcPonderes = 0;
