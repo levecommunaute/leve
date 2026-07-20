@@ -100,13 +100,26 @@ export function AppBottomNav({
   const scrollRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(true);
   const [scrollEdges, setScrollEdges] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = (): void => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const navLinks = useAppBottomNavLinks(session, memberType);
   const { primary, secondary } = useMemo(
     () => splitAppBottomNavLinks(navLinks),
     [navLinks],
   );
+
+  /** Mobile : primary + menu Plus+ ; desktop : tous les liens à plat. */
+  const barLinks = isMobile ? primary : navLinks;
+  const showMoreMenu = isMobile && secondary.length > 0;
 
   const secondaryActive = useMemo(
     () => secondary.some((link) => isNavActive(pathname, link.href)),
@@ -134,7 +147,7 @@ export function AppBottomNav({
       el.removeEventListener("scroll", updateScrollEdges);
       ro.disconnect();
     };
-  }, [updateScrollEdges, primary.length]);
+  }, [updateScrollEdges, barLinks.length, showMoreMenu]);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -153,6 +166,10 @@ export function AppBottomNav({
   useEffect(() => {
     setMoreOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!isMobile) setMoreOpen(false);
+  }, [isMobile]);
 
   const plusStyle = {
     flex: "0 0 auto",
@@ -217,7 +234,7 @@ export function AppBottomNav({
             aria-hidden
             style={{
               position: "absolute",
-              right: "3.25rem",
+              right: showMoreMenu ? "3.25rem" : 0,
               top: 0,
               bottom: 0,
               width: "1.25rem",
@@ -241,7 +258,7 @@ export function AppBottomNav({
             msOverflowStyle: "none",
           }}
         >
-          {primary.map((link) => (
+          {barLinks.map((link) => (
             <NavItem
               key={link.href}
               link={link}
@@ -251,7 +268,7 @@ export function AppBottomNav({
           ))}
         </div>
 
-        {secondary.length > 0 ? (
+        {showMoreMenu ? (
           <div ref={moreRef} style={{ position: "relative", flexShrink: 0 }}>
             <button
               type="button"

@@ -14,7 +14,8 @@ const SEVERITE_OPTIONS: { value: Severite; label: string }[] = [
 
 const fabStyle = {
   position: "fixed",
-  bottom: "1.5rem",
+  /* Mobile: au-dessus de la nav bas ; desktop via media query → 1.5rem */
+  bottom: "5rem",
   right: "1.5rem",
   zIndex: 9999,
   display: "inline-flex",
@@ -172,8 +173,20 @@ export function BetaBugButton(): JSX.Element | null {
 
   return (
     <>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @media (min-width: 768px) {
+              .beta-bug-fab {
+                bottom: 1.5rem !important;
+              }
+            }
+          `,
+        }}
+      />
       <button
         type="button"
+        className="beta-bug-fab"
         style={fabStyle}
         onClick={openModal}
         aria-label="Signaler un bug"
