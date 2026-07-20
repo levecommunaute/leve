@@ -40,7 +40,9 @@ async function aggregatePonderesByMember(
   supabase: SupabaseClient,
   monthKey: string,
 ): Promise<Map<string, MemberPonderes>> {
-  const [year, month] = monthKey.split("-").map(Number);
+  const parts = monthKey.split("-").map(Number);
+  const year = parts[0] ?? new Date().getFullYear();
+  const month = parts[1] ?? new Date().getMonth() + 1;
   const startDate = new Date(year, month - 1, 1).toISOString();
   const endDate = new Date(year, month, 1).toISOString();
 
