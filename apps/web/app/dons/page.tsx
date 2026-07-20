@@ -313,137 +313,200 @@ export default function DonsPage(): JSX.Element | null {
         </button>
       </header>
 
-      <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
-        <h1
-          style={{
-            fontFamily: "var(--font-bebas), Impact, sans-serif",
-            fontSize: "clamp(2rem, 6vw, 2.75rem)",
-            letterSpacing: "0.06em",
-            color: GOLD,
-            margin: "0 0 0.5rem",
-          }}
-        >
-          Dons communautaires
-        </h1>
-        <p style={{ margin: "0 0 1.5rem", opacity: 0.75, fontSize: "0.92rem", lineHeight: 1.5 }}>
-          Membres qui sollicitent des points PMQ. Envoyez entre {MIN_DON_PTS} et {MAX_DON_PTS} pts par transfert.
-        </p>
-
-        {loadError ? (
-          <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>
-            {loadError}
-          </p>
-        ) : null}
-
-        {donsFlagState === "loading" || loading ? (
-          <p style={{ opacity: 0.7 }}>Chargement…</p>
-        ) : donsFlagState === "disabled" ? (
-          <p style={{ opacity: 0.7, fontSize: "0.95rem" }}>Page indisponible</p>
-        ) : visibleMembres.length === 0 ? (
-          <p style={{ opacity: 0.65, fontSize: "0.95rem" }}>
-            Aucune demande de don pour le moment.
-          </p>
-        ) : (
-          <ul
+      <main
+        style={{
+          maxWidth: "960px",
+          margin: "0 auto",
+          padding: donsFlagState === "disabled" ? "2rem 1.25rem" : "1.25rem",
+          ...(donsFlagState === "disabled"
+            ? {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "calc(100vh - 10rem)",
+              }
+            : {}),
+        }}
+      >
+        {donsFlagState === "disabled" ? (
+          <section
+            aria-live="polite"
             style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "grid",
-              gap: "0.85rem",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              width: "100%",
+              maxWidth: "480px",
+              background: "#141414",
+              border: `1px solid ${GOLD}`,
+              borderRadius: "4px",
+              padding: "2.5rem 1.75rem",
+              textAlign: "center",
             }}
           >
-            {visibleMembres.map((membre) => {
-              const name = displayName(membre);
-              const memberLabel = formatMemberTypeLabel(membre.member_type);
-              const memberBadge = memberTypeBadgeStyle(memberLabel);
-              const rankStyle = rankBadgeStyle(membre.rank.tier as RankTier);
-              const numero =
-                membre.numero_membre != null && String(membre.numero_membre).trim()
-                  ? `#${String(membre.numero_membre).trim()}`
-                  : null;
+            <h1
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "clamp(1.75rem, 6vw, 2.5rem)",
+                letterSpacing: "0.12em",
+                color: TEXT,
+              }}
+            >
+              DONS COMMUNAUTAIRES
+            </h1>
+            <p
+              style={{
+                margin: "1rem auto 0",
+                maxWidth: "26rem",
+                fontSize: "1rem",
+                lineHeight: 1.65,
+                opacity: 0.88,
+                color: TEXT,
+              }}
+            >
+              La fonctionnalité de dons entre membres arrive bientôt ! Vous pourrez
+              envoyer des points PMQ à d&apos;autres membres de la communauté pour les
+              soutenir.
+            </p>
+          </section>
+        ) : (
+          <>
+            <h1
+              style={{
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "clamp(2rem, 6vw, 2.75rem)",
+                letterSpacing: "0.06em",
+                color: GOLD,
+                margin: "0 0 0.5rem",
+              }}
+            >
+              Dons communautaires
+            </h1>
+            <p style={{ margin: "0 0 1.5rem", opacity: 0.75, fontSize: "0.92rem", lineHeight: 1.5 }}>
+              Membres qui sollicitent des points PMQ. Envoyez entre {MIN_DON_PTS} et{" "}
+              {MAX_DON_PTS} pts par transfert.
+            </p>
 
-              return (
-                <li
-                  key={membre.id}
-                  style={{
-                    borderRadius: "4px",
-                    padding: "1.15rem",
-                    background: "#141414",
-                    border: "1px solid rgba(245, 240, 232, 0.1)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.65rem",
-                  }}
-                >
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.45rem" }}>
-                    <span style={{ fontWeight: 700, fontSize: "1.05rem" }}>{name}</span>
-                    {numero ? (
-                      <span style={{ opacity: 0.55, fontSize: "0.82rem" }}>{numero}</span>
-                    ) : null}
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-                    <span
+            {loadError ? (
+              <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>
+                {loadError}
+              </p>
+            ) : null}
+
+            {donsFlagState === "loading" || loading ? (
+              <p style={{ opacity: 0.7 }}>Chargement…</p>
+            ) : visibleMembres.length === 0 ? (
+              <p style={{ opacity: 0.65, fontSize: "0.95rem" }}>
+                Aucune demande de don pour le moment.
+              </p>
+            ) : (
+              <ul
+                style={{
+                  listStyle: "none",
+                  margin: 0,
+                  padding: 0,
+                  display: "grid",
+                  gap: "0.85rem",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                }}
+              >
+                {visibleMembres.map((membre) => {
+                  const name = displayName(membre);
+                  const memberLabel = formatMemberTypeLabel(membre.member_type);
+                  const memberBadge = memberTypeBadgeStyle(memberLabel);
+                  const rankStyle = rankBadgeStyle(membre.rank.tier as RankTier);
+                  const numero =
+                    membre.numero_membre != null && String(membre.numero_membre).trim()
+                      ? `#${String(membre.numero_membre).trim()}`
+                      : null;
+
+                  return (
+                    <li
+                      key={membre.id}
                       style={{
-                        display: "inline-block",
-                        fontSize: "0.68rem",
-                        fontWeight: 600,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        padding: "0.3rem 0.6rem",
                         borderRadius: "4px",
-                        ...memberBadge,
+                        padding: "1.15rem",
+                        background: "#141414",
+                        border: "1px solid rgba(245, 240, 232, 0.1)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.65rem",
                       }}
                     >
-                      {memberLabel}
-                    </span>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        fontSize: "0.68rem",
-                        fontWeight: 600,
-                        letterSpacing: "0.06em",
-                        padding: "0.3rem 0.6rem",
-                        borderRadius: "4px",
-                        ...rankStyle,
-                      }}
-                    >
-                      {membre.rank.emoji} {membre.rank.label}
-                    </span>
-                  </div>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: "0.9rem",
-                      lineHeight: 1.55,
-                      opacity: 0.85,
-                      flex: 1,
-                    }}
-                  >
-                    {membre.message_don}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => openDonModal(membre)}
-                    style={{
-                      alignSelf: "flex-start",
-                      background: "rgba(212, 160, 23, 0.12)",
-                      color: GOLD,
-                      border: `1px solid ${GOLD}`,
-                      borderRadius: "4px",
-                      padding: "0.55rem 1rem",
-                      fontSize: "0.88rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    🎁 Envoyer des points
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: "0.45rem",
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, fontSize: "1.05rem" }}>{name}</span>
+                        {numero ? (
+                          <span style={{ opacity: 0.55, fontSize: "0.82rem" }}>{numero}</span>
+                        ) : null}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: "0.68rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            padding: "0.3rem 0.6rem",
+                            borderRadius: "4px",
+                            ...memberBadge,
+                          }}
+                        >
+                          {memberLabel}
+                        </span>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            fontSize: "0.68rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.06em",
+                            padding: "0.3rem 0.6rem",
+                            borderRadius: "4px",
+                            ...rankStyle,
+                          }}
+                        >
+                          {membre.rank.emoji} {membre.rank.label}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.9rem",
+                          lineHeight: 1.55,
+                          opacity: 0.85,
+                          flex: 1,
+                        }}
+                      >
+                        {membre.message_don}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => openDonModal(membre)}
+                        style={{
+                          alignSelf: "flex-start",
+                          background: "rgba(212, 160, 23, 0.12)",
+                          color: GOLD,
+                          border: `1px solid ${GOLD}`,
+                          borderRadius: "4px",
+                          padding: "0.55rem 1rem",
+                          fontSize: "0.88rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        🎁 Envoyer des points
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
         )}
       </main>
 
