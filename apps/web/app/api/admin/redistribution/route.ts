@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
+import { getFeatureFlag } from "../../../../lib/feature-flags";
 import {
   isCollaborateurMemberType,
   PCOL_COLLAB_PENDING_SHARE,
@@ -35,19 +36,37 @@ type MemberPonderes = {
   ptc: number;
 };
 
-/** SUM(pts_ponderes) par membre_id, séparé quiz / ptc. */
+/**
+ * SUM(pts_ponderes) par membre_id, séparé quiz / ptc.
+ * Flag `redistribution-cumulee` ON → tous les points (pré-monétisation).
+ * Flag OFF → filtre sur le mois (created_at).
+ */
 async function aggregatePonderesByMember(
   supabase: SupabaseClient,
+  monthKey: string,
 ): Promise<Map<string, MemberPonderes>> {
+  const cumulee = await getFeatureFlag("redistribution-cumulee");
+
+  const parts = monthKey.split("-").map(Number);
+  const year = parts[0] ?? new Date().getFullYear();
+  const month = parts[1] ?? new Date().getMonth() + 1;
+  const startDate = new Date(year, month - 1, 1).toISOString();
+  const endDate = new Date(year, month, 1).toISOString();
+
   const totals = new Map<string, MemberPonderes>();
   let offset = 0;
 
   for (;;) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("points_ponderes")
       .select("membre_id, pts_ponderes, type")
-      .in("type", ["quiz", "ptc"])
-      .range(offset, offset + PAGE_SIZE - 1);
+      .in("type", ["quiz", "ptc"]);
+
+    if (!cumulee) {
+      query = query.gte("created_at", startDate).lt("created_at", endDate);
+    }
+
+    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
 
     if (error) {
       throw new Error(error.message);
@@ -487,7 +506,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const fondationPool = totalRevenue * FONDATION_RATE;
     const operationsPool = totalRevenue * OPERATIONS_RATE;
 
-    const ponderesByMember = await aggregatePonderesByMember(supabase);
+    const ponderesByMember = await aggregatePonderesByMember(supabase, monthKey);
 
     let totalPoids = 0;
     let totalPtcPonderes = 0;

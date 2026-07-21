@@ -611,6 +611,7 @@ const FEATURE_FLAG_ORDER = [
   "pool-pa",
   "collaborateur",
   "cotisation-membre",
+  "redistribution-cumulee",
 ] as const;
 
 function sortFeatureFlags(flags: FeatureFlagRow[]): FeatureFlagRow[] {
