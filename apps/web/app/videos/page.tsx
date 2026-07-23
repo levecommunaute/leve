@@ -330,7 +330,7 @@ export default function VideosPage(): JSX.Element | null {
     try {
       const [videosRes, quizRes, codeRes] = await Promise.all([
         fetch(
-          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at&order=created_at.desc`,
+          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at&is_active=eq.true&order=created_at.desc`,
           { headers },
         ),
         fetch(
