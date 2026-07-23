@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase, requireAdminSecret } from "../../../../lib/admin-server";
-import { normalizeAdminVideoCode, spreadTimestamps } from "../../../../lib/admin-video-code";
+import { normalizeAdminVideoCode } from "../../../../lib/admin-video-code";
 
 export const dynamic = "force-dynamic";
 
@@ -144,15 +144,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const maxTs = 1200;
-
-    const timestamps = spreadTimestamps(maxTs);
-    const expiresSeconds = Math.max(...timestamps);
-
     const { error: insErr } = await supabase.from("codes").insert({
       video_id: videoId,
       full_code: fullCode,
-      expires_at: new Date(Date.now() + expiresSeconds * 1000).toISOString(),
     });
     if (insErr) {
       return NextResponse.json({ error: insErr.message }, { status: 500 });
