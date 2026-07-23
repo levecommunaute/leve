@@ -3969,6 +3969,44 @@ export default function AdminPage(): JSX.Element {
             .leve-admin-table {
               font-size: max(12px, 0.85rem);
             }
+            .leve-video-actions {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 0.45rem;
+              align-items: center;
+              margin-top: 0.55rem;
+            }
+            .leve-video-actions button {
+              flex: 0 1 auto;
+            }
+            .leve-admin-videos-table th.leve-col-youtube,
+            .leve-admin-videos-table td.leve-col-youtube {
+              max-width: 7.5rem;
+              width: 7.5rem;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              font-size: 0.72rem;
+              opacity: 0.75;
+            }
+            .leve-admin-videos-table th.leve-col-points,
+            .leve-admin-videos-table td.leve-col-points,
+            .leve-admin-videos-table th.leve-col-statut,
+            .leve-admin-videos-table td.leve-col-statut {
+              width: 1%;
+              white-space: nowrap;
+              padding-left: 0.35rem;
+              padding-right: 0.35rem;
+            }
+            @media (max-width: 767px) {
+              .leve-video-actions {
+                flex-direction: column;
+                align-items: stretch;
+              }
+              .leve-video-actions button {
+                width: 100%;
+              }
+            }
             .admin-global-stats-grid {
               display: grid;
               grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4591,11 +4629,12 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                <table className="leve-admin-table"
+                <table className="leve-admin-table leve-admin-videos-table"
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
                     fontSize: "0.9rem",
+                    tableLayout: "auto",
                   }}
                 >
                   <thead>
@@ -4603,13 +4642,13 @@ export default function AdminPage(): JSX.Element {
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Titre
                       </th>
-                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
-                        YouTube
+                      <th className="leve-col-youtube" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }} title="YouTube ID">
+                        YT
                       </th>
-                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
-                        Points
+                      <th className="leve-col-points" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Pts
                       </th>
-                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                      <th className="leve-col-statut" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Statut
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
@@ -4620,9 +4659,6 @@ export default function AdminPage(): JSX.Element {
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Quiz
-                      </th>
-                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
-                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -4645,12 +4681,72 @@ export default function AdminPage(): JSX.Element {
                           : collaboratorMembers;
                       return (
                         <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
-                          <td style={{ padding: "0.75rem 0.5rem", maxWidth: "280px" }}>{v.title ?? "—"}</td>
-                          <td style={{ padding: "0.75rem 0.5rem", fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "0.82rem" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", minWidth: "140px", maxWidth: "320px", verticalAlign: "top" }}>
+                            <div style={{ fontWeight: 500, lineHeight: 1.35 }}>{v.title ?? "—"}</div>
+                            <div className="leve-video-actions">
+                              <button
+                                type="button"
+                                disabled={actionBusy}
+                                onClick={() => void handleToggleVideoActive(v)}
+                                style={{
+                                  background: isActive
+                                    ? "rgba(230, 126, 34, 0.12)"
+                                    : "rgba(46, 204, 113, 0.12)",
+                                  color: isActive ? ORANGE : VERT,
+                                  border: isActive
+                                    ? "1px solid rgba(230, 126, 34, 0.4)"
+                                    : "1px solid rgba(46, 204, 113, 0.35)",
+                                  padding: "0.45rem 0.65rem",
+                                  cursor: actionBusy ? "wait" : "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.08em",
+                                  textTransform: "uppercase",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {actionBusy ? "…" : isActive ? "Désactiver" : "Activer"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionBusy}
+                                onClick={() => void handleDeleteVideo(v)}
+                                style={{
+                                  background: "rgba(192, 57, 43, 0.15)",
+                                  color: ROUGE,
+                                  border: "1px solid rgba(192, 57, 43, 0.4)",
+                                  padding: "0.45rem 0.65rem",
+                                  cursor: actionBusy ? "wait" : "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.08em",
+                                  textTransform: "uppercase",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {actionBusy ? "…" : "Supprimer"}
+                              </button>
+                            </div>
+                            {videoActionError[v.id] ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontSize: "0.78rem",
+                                  color: ROUGE,
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {videoActionError[v.id]}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td
+                            className="leve-col-youtube"
+                            style={{ padding: "0.75rem 0.5rem", fontFamily: "var(--font-mono), ui-monospace, monospace", verticalAlign: "top" }}
+                            title={v.youtube_id}
+                          >
                             {v.youtube_id}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "middle" }}>
+                          <td className="leve-col-points" style={{ padding: "0.75rem 0.5rem", verticalAlign: "top" }}>{v.points_value ?? "—"}</td>
+                          <td className="leve-col-statut" style={{ padding: "0.75rem 0.5rem", verticalAlign: "middle" }}>
                             <span
                               style={{
                                 display: "inline-block",
@@ -4671,7 +4767,7 @@ export default function AdminPage(): JSX.Element {
                               {isActive ? "Actif" : "Inactif"}
                             </span>
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "140px" }}>
                             <select
                               value={collabValue}
                               disabled={collabBusy || membersLoading}
@@ -4679,7 +4775,7 @@ export default function AdminPage(): JSX.Element {
                               aria-label={`Collaborateur pour ${v.title ?? v.youtube_id}`}
                               style={{
                                 width: "100%",
-                                minWidth: "160px",
+                                minWidth: "120px",
                                 padding: "0.45rem 0.55rem",
                                 fontSize: "0.82rem",
                                 background: "rgba(245, 240, 232, 0.06)",
@@ -4709,7 +4805,7 @@ export default function AdminPage(): JSX.Element {
                               </p>
                             ) : null}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "240px" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
                               <input
                                 type="text"
@@ -4733,8 +4829,8 @@ export default function AdminPage(): JSX.Element {
                                 aria-label={`Code pour ${v.title ?? v.youtube_id}`}
                                 disabled={busy}
                                 style={{
-                                  flex: "1 1 140px",
-                                  minWidth: "120px",
+                                  flex: "1 1 120px",
+                                  minWidth: "100px",
                                   padding: "0.45rem 0.55rem",
                                   fontFamily: "var(--font-mono), ui-monospace, monospace",
                                   fontSize: "0.8rem",
@@ -4804,7 +4900,7 @@ export default function AdminPage(): JSX.Element {
                               </p>
                             ) : null}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px",
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "140px",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                             <button
                               type="button"
@@ -4858,62 +4954,6 @@ export default function AdminPage(): JSX.Element {
                                 }}
                               >
                                 {`Quiz dispo: ${quizInfoByVideo[v.id]!.available ? "Oui" : "Non"} · Questions: ${quizInfoByVideo[v.id]!.count}`}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "160px" }}>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
-                              <button
-                                type="button"
-                                disabled={actionBusy}
-                                onClick={() => void handleToggleVideoActive(v)}
-                                style={{
-                                  background: isActive
-                                    ? "rgba(230, 126, 34, 0.12)"
-                                    : "rgba(46, 204, 113, 0.12)",
-                                  color: isActive ? ORANGE : VERT,
-                                  border: isActive
-                                    ? "1px solid rgba(230, 126, 34, 0.4)"
-                                    : "1px solid rgba(46, 204, 113, 0.35)",
-                                  padding: "0.45rem 0.65rem",
-                                  cursor: actionBusy ? "wait" : "pointer",
-                                  fontSize: "0.68rem",
-                                  letterSpacing: "0.08em",
-                                  textTransform: "uppercase",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {actionBusy ? "…" : isActive ? "Désactiver" : "Activer"}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={actionBusy}
-                                onClick={() => void handleDeleteVideo(v)}
-                                style={{
-                                  background: "rgba(192, 57, 43, 0.15)",
-                                  color: ROUGE,
-                                  border: "1px solid rgba(192, 57, 43, 0.4)",
-                                  padding: "0.45rem 0.65rem",
-                                  cursor: actionBusy ? "wait" : "pointer",
-                                  fontSize: "0.68rem",
-                                  letterSpacing: "0.08em",
-                                  textTransform: "uppercase",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {actionBusy ? "…" : "Supprimer"}
-                              </button>
-                            </div>
-                            {videoActionError[v.id] ? (
-                              <p
-                                style={{
-                                  margin: "0.5rem 0 0",
-                                  fontSize: "0.78rem",
-                                  color: ROUGE,
-                                  opacity: 0.95,
-                                }}
-                              >
-                                {videoActionError[v.id]}
                               </p>
                             ) : null}
                           </td>
