@@ -27,6 +27,7 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const ORANGE = "#E67E22";
 const VERT = "#2ECC71";
 const BLEU = "#5DADE2";
 const VIOLET = "#9B59B6";
@@ -42,6 +43,7 @@ type VideoRow = {
   title: string | null;
   points_value: number | null;
   collaborateur_id: string | null;
+  is_active?: boolean | null;
 };
 
 type MemberRow = {
@@ -1415,6 +1417,8 @@ export default function AdminPage(): JSX.Element {
   >({});
   const [collaborateurSavingId, setCollaborateurSavingId] = useState<string | null>(null);
   const [collaborateurError, setCollaborateurError] = useState<Record<string, string>>({});
+  const [videoActionLoadingId, setVideoActionLoadingId] = useState<string | null>(null);
+  const [videoActionError, setVideoActionError] = useState<Record<string, string>>({});
 
   const [featureFlags, setFeatureFlags] = useState<FeatureFlagRow[]>([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(false);
@@ -2993,6 +2997,8 @@ export default function AdminPage(): JSX.Element {
     setQuizInfoByVideo({});
     setCollaborateurSavingId(null);
     setCollaborateurError({});
+    setVideoActionLoadingId(null);
+    setVideoActionError({});
     setFeatureFlags([]);
     setFeatureFlagsError(null);
     setFraisPaliers([]);
@@ -3735,6 +3741,101 @@ export default function AdminPage(): JSX.Element {
       }));
     } finally {
       setCollaborateurSavingId(null);
+    }
+  }
+
+  async function handleToggleVideoActive(video: VideoRow): Promise<void> {
+    const nextActive = video.is_active === false;
+    setVideoActionLoadingId(video.id);
+    setVideoActionError((prev) => {
+      const next = { ...prev };
+      delete next[video.id];
+      return next;
+    });
+    try {
+      const r = await fetch("/api/admin/videos", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: video.id, is_active: nextActive }),
+      });
+      const j = (await r.json()) as { video?: VideoRow; error?: string };
+      if (!r.ok) {
+        setVideoActionError((prev) => ({
+          ...prev,
+          [video.id]: j.error ?? "Erreur mise à jour du statut",
+        }));
+        return;
+      }
+      const savedActive = j.video?.is_active ?? nextActive;
+      setVideos((prev) =>
+        prev.map((v) => (v.id === video.id ? { ...v, is_active: savedActive } : v)),
+      );
+    } catch {
+      setVideoActionError((prev) => ({
+        ...prev,
+        [video.id]: "Erreur réseau",
+      }));
+    } finally {
+      setVideoActionLoadingId(null);
+    }
+  }
+
+  async function handleDeleteVideo(video: VideoRow): Promise<void> {
+    if (
+      !window.confirm(
+        "Supprimer cette vidéo et tous ses quiz ? Cette action est irréversible.",
+      )
+    ) {
+      return;
+    }
+    setVideoActionLoadingId(video.id);
+    setVideoActionError((prev) => {
+      const next = { ...prev };
+      delete next[video.id];
+      return next;
+    });
+    try {
+      const r = await fetch("/api/admin/videos", {
+        method: "DELETE",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: video.id }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setVideoActionError((prev) => ({
+          ...prev,
+          [video.id]: j.error ?? "Suppression impossible",
+        }));
+        return;
+      }
+      setVideos((prev) => prev.filter((v) => v.id !== video.id));
+      setLinkedVideoCodes((prev) => {
+        const next = { ...prev };
+        delete next[video.id];
+        return next;
+      });
+      setCodeInputByVideo((prev) => {
+        const next = { ...prev };
+        delete next[video.id];
+        return next;
+      });
+      setQuizInfoByVideo((prev) => {
+        const next = { ...prev };
+        delete next[video.id];
+        return next;
+      });
+      if (quizVideoId === video.id) {
+        setQuizVideoId("");
+        setQuizQuestions([]);
+      }
+      void loadProduction();
+    } catch {
+      setVideoActionError((prev) => ({
+        ...prev,
+        [video.id]: "Erreur réseau",
+      }));
+    } finally {
+      setVideoActionLoadingId(null);
     }
   }
 
@@ -4509,6 +4610,9 @@ export default function AdminPage(): JSX.Element {
                         Points
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Statut
+                      </th>
+                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Collaborateur
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
@@ -4516,6 +4620,9 @@ export default function AdminPage(): JSX.Element {
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Quiz
+                      </th>
+                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -4525,6 +4632,8 @@ export default function AdminPage(): JSX.Element {
                       const busy = codeLoadingId === v.id;
                       const quizBusy = generateQuizLoadingId === v.id;
                       const collabBusy = collaborateurSavingId === v.id;
+                      const actionBusy = videoActionLoadingId === v.id;
+                      const isActive = v.is_active !== false;
                       const collabValue = v.collaborateur_id ?? "";
                       const collabOptions =
                         collabValue &&
@@ -4541,6 +4650,27 @@ export default function AdminPage(): JSX.Element {
                             {v.youtube_id}
                           </td>
                           <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "middle" }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "0.28rem 0.55rem",
+                                fontSize: "0.68rem",
+                                letterSpacing: "0.08em",
+                                textTransform: "uppercase",
+                                borderRadius: "3px",
+                                color: isActive ? VERT : "rgba(245,240,232,0.55)",
+                                background: isActive
+                                  ? "rgba(46, 204, 113, 0.12)"
+                                  : "rgba(245, 240, 232, 0.08)",
+                                border: isActive
+                                  ? "1px solid rgba(46, 204, 113, 0.35)"
+                                  : "1px solid rgba(245, 240, 232, 0.14)",
+                              }}
+                            >
+                              {isActive ? "Actif" : "Inactif"}
+                            </span>
+                          </td>
                           <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
                             <select
                               value={collabValue}
@@ -4728,6 +4858,62 @@ export default function AdminPage(): JSX.Element {
                                 }}
                               >
                                 {`Quiz dispo: ${quizInfoByVideo[v.id]!.available ? "Oui" : "Non"} · Questions: ${quizInfoByVideo[v.id]!.count}`}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "160px" }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
+                              <button
+                                type="button"
+                                disabled={actionBusy}
+                                onClick={() => void handleToggleVideoActive(v)}
+                                style={{
+                                  background: isActive
+                                    ? "rgba(230, 126, 34, 0.12)"
+                                    : "rgba(46, 204, 113, 0.12)",
+                                  color: isActive ? ORANGE : VERT,
+                                  border: isActive
+                                    ? "1px solid rgba(230, 126, 34, 0.4)"
+                                    : "1px solid rgba(46, 204, 113, 0.35)",
+                                  padding: "0.45rem 0.65rem",
+                                  cursor: actionBusy ? "wait" : "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.08em",
+                                  textTransform: "uppercase",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {actionBusy ? "…" : isActive ? "Désactiver" : "Activer"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionBusy}
+                                onClick={() => void handleDeleteVideo(v)}
+                                style={{
+                                  background: "rgba(192, 57, 43, 0.15)",
+                                  color: ROUGE,
+                                  border: "1px solid rgba(192, 57, 43, 0.4)",
+                                  padding: "0.45rem 0.65rem",
+                                  cursor: actionBusy ? "wait" : "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.08em",
+                                  textTransform: "uppercase",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {actionBusy ? "…" : "Supprimer"}
+                              </button>
+                            </div>
+                            {videoActionError[v.id] ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontSize: "0.78rem",
+                                  color: ROUGE,
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {videoActionError[v.id]}
                               </p>
                             ) : null}
                           </td>
