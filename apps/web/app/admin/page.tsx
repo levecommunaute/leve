@@ -1419,6 +1419,9 @@ export default function AdminPage(): JSX.Element {
   const [collaborateurError, setCollaborateurError] = useState<Record<string, string>>({});
   const [videoActionLoadingId, setVideoActionLoadingId] = useState<string | null>(null);
   const [videoActionError, setVideoActionError] = useState<Record<string, string>>({});
+  const [videoDeleteConfirmId, setVideoDeleteConfirmId] = useState<string | null>(null);
+  const [videoDeletePassword, setVideoDeletePassword] = useState("");
+  const [videoDeletePasswordError, setVideoDeletePasswordError] = useState<string | null>(null);
 
   const [featureFlags, setFeatureFlags] = useState<FeatureFlagRow[]>([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(false);
@@ -2999,6 +3002,9 @@ export default function AdminPage(): JSX.Element {
     setCollaborateurError({});
     setVideoActionLoadingId(null);
     setVideoActionError({});
+    setVideoDeleteConfirmId(null);
+    setVideoDeletePassword("");
+    setVideoDeletePasswordError(null);
     setFeatureFlags([]);
     setFeatureFlagsError(null);
     setFraisPaliers([]);
@@ -3780,51 +3786,70 @@ export default function AdminPage(): JSX.Element {
     }
   }
 
-  async function handleDeleteVideo(video: VideoRow): Promise<void> {
-    if (
-      !window.confirm(
-        "Supprimer cette vidéo et tous ses quiz ? Cette action est irréversible.",
-      )
-    ) {
+  function openVideoDeleteModal(video: VideoRow): void {
+    setVideoDeleteConfirmId(video.id);
+    setVideoDeletePassword("");
+    setVideoDeletePasswordError(null);
+  }
+
+  function closeVideoDeleteModal(): void {
+    setVideoDeleteConfirmId(null);
+    setVideoDeletePassword("");
+    setVideoDeletePasswordError(null);
+  }
+
+  function handleVideoDeleteConfirm(): void {
+    const vid = videoDeleteConfirmId;
+    if (!vid) return;
+    const stored =
+      typeof window !== "undefined" ? sessionStorage.getItem(STORAGE_KEY) : null;
+    const entered = videoDeletePassword.trim();
+    if (!stored || entered !== stored) {
+      setVideoDeletePasswordError("Mot de passe incorrect");
       return;
     }
-    setVideoActionLoadingId(video.id);
+    closeVideoDeleteModal();
+    void executeDeleteVideo(vid);
+  }
+
+  async function executeDeleteVideo(videoId: string): Promise<void> {
+    setVideoActionLoadingId(videoId);
     setVideoActionError((prev) => {
       const next = { ...prev };
-      delete next[video.id];
+      delete next[videoId];
       return next;
     });
     try {
       const r = await fetch("/api/admin/videos", {
         method: "DELETE",
         headers: adminHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ id: video.id }),
+        body: JSON.stringify({ id: videoId }),
       });
       const j = (await r.json()) as { error?: string };
       if (!r.ok) {
         setVideoActionError((prev) => ({
           ...prev,
-          [video.id]: j.error ?? "Suppression impossible",
+          [videoId]: j.error ?? "Suppression impossible",
         }));
         return;
       }
-      setVideos((prev) => prev.filter((v) => v.id !== video.id));
+      setVideos((prev) => prev.filter((v) => v.id !== videoId));
       setLinkedVideoCodes((prev) => {
         const next = { ...prev };
-        delete next[video.id];
+        delete next[videoId];
         return next;
       });
       setCodeInputByVideo((prev) => {
         const next = { ...prev };
-        delete next[video.id];
+        delete next[videoId];
         return next;
       });
       setQuizInfoByVideo((prev) => {
         const next = { ...prev };
-        delete next[video.id];
+        delete next[videoId];
         return next;
       });
-      if (quizVideoId === video.id) {
+      if (quizVideoId === videoId) {
         setQuizVideoId("");
         setQuizQuestions([]);
       }
@@ -3832,7 +3857,7 @@ export default function AdminPage(): JSX.Element {
     } catch {
       setVideoActionError((prev) => ({
         ...prev,
-        [video.id]: "Erreur réseau",
+        [videoId]: "Erreur réseau",
       }));
     } finally {
       setVideoActionLoadingId(null);
@@ -3971,13 +3996,14 @@ export default function AdminPage(): JSX.Element {
             }
             .leve-video-actions {
               display: flex;
-              flex-wrap: wrap;
-              gap: 0.45rem;
+              flex-direction: row;
+              flex-wrap: nowrap;
+              gap: 0.5rem;
               align-items: center;
               margin-top: 0.55rem;
             }
             .leve-video-actions button {
-              flex: 0 1 auto;
+              flex: 0 0 auto;
             }
             .leve-admin-videos-table th.leve-col-youtube,
             .leve-admin-videos-table td.leve-col-youtube {
@@ -3997,15 +4023,6 @@ export default function AdminPage(): JSX.Element {
               white-space: nowrap;
               padding-left: 0.35rem;
               padding-right: 0.35rem;
-            }
-            @media (max-width: 767px) {
-              .leve-video-actions {
-                flex-direction: column;
-                align-items: stretch;
-              }
-              .leve-video-actions button {
-                width: 100%;
-              }
             }
             .admin-global-stats-grid {
               display: grid;
@@ -4290,6 +4307,145 @@ export default function AdminPage(): JSX.Element {
         </main>
       ) : (
         <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "2rem 1.25rem", position: "relative" }}>
+          {videoDeleteConfirmId ? (
+            <div
+              role="presentation"
+              onClick={() => closeVideoDeleteModal()}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 200,
+                background: "rgba(0, 0, 0, 0.72)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "1.25rem",
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-video-confirm-title"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  maxWidth: "28rem",
+                  width: "100%",
+                  background: "#121212",
+                  border: "1px solid rgba(245, 240, 232, 0.18)",
+                  borderRadius: "4px",
+                  padding: "1.35rem 1.5rem",
+                }}
+              >
+                <h2
+                  id="delete-video-confirm-title"
+                  style={{
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.25rem",
+                    letterSpacing: "0.1em",
+                    margin: "0 0 0.85rem",
+                    color: ROUGE,
+                  }}
+                >
+                  Supprimer la vidéo
+                </h2>
+                <p style={{ margin: "0 0 1.15rem", fontSize: "0.92rem", lineHeight: 1.55, opacity: 0.92 }}>
+                  ⚠️ Cette action est irréversible. La vidéo, ses quiz (15 questions), les codes et toutes
+                  les soumissions seront définitivement supprimés.
+                </p>
+                <div style={{ margin: "0 0 1.15rem" }}>
+                  <label
+                    htmlFor="delete-video-admin-password"
+                    style={{
+                      display: "block",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      opacity: 0.55,
+                      marginBottom: "0.45rem",
+                    }}
+                  >
+                    Mot de passe admin
+                  </label>
+                  <input
+                    id="delete-video-admin-password"
+                    type="password"
+                    autoComplete="off"
+                    value={videoDeletePassword}
+                    onChange={(e) => {
+                      setVideoDeletePassword(e.target.value);
+                      if (videoDeletePasswordError) setVideoDeletePasswordError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && videoDeletePassword.trim()) {
+                        e.preventDefault();
+                        handleVideoDeleteConfirm();
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      padding: "0.75rem 0.85rem",
+                      background: "rgba(245, 240, 232, 0.06)",
+                      border: videoDeletePasswordError
+                        ? `1px solid ${ROUGE}`
+                        : "1px solid rgba(245, 240, 232, 0.14)",
+                      borderRadius: "4px",
+                      color: TEXT,
+                      fontSize: "0.92rem",
+                    }}
+                  />
+                  {videoDeletePasswordError ? (
+                    <p
+                      style={{
+                        margin: "0.5rem 0 0",
+                        fontSize: "0.82rem",
+                        color: ROUGE,
+                      }}
+                    >
+                      {videoDeletePasswordError}
+                    </p>
+                  ) : null}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => closeVideoDeleteModal()}
+                    style={{
+                      background: "transparent",
+                      color: TEXT,
+                      border: "1px solid rgba(245, 240, 232, 0.25)",
+                      padding: "0.5rem 1rem",
+                      cursor: "pointer",
+                      fontSize: "0.78rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!videoDeletePassword.trim()}
+                    onClick={() => handleVideoDeleteConfirm()}
+                    style={{
+                      background: ROUGE,
+                      color: "#ffffff",
+                      border: `1px solid ${ROUGE}`,
+                      padding: "0.5rem 1rem",
+                      cursor: !videoDeletePassword.trim() ? "not-allowed" : "pointer",
+                      fontSize: "0.78rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      fontWeight: 600,
+                      opacity: !videoDeletePassword.trim() ? 0.55 : 1,
+                    }}
+                  >
+                    Supprimer définitivement
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {codeModifyConfirmVideoId ? (
             <div
               role="presentation"
@@ -4709,7 +4865,7 @@ export default function AdminPage(): JSX.Element {
                               <button
                                 type="button"
                                 disabled={actionBusy}
-                                onClick={() => void handleDeleteVideo(v)}
+                                onClick={() => openVideoDeleteModal(v)}
                                 style={{
                                   background: "rgba(192, 57, 43, 0.15)",
                                   color: ROUGE,
