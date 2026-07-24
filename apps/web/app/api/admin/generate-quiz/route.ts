@@ -195,6 +195,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const transcript = await fetchTranscript(youtubeId, youtubeKey);
     const contexte = transcript ?? ytDescription;
 
+    console.log(
+      "[generate-quiz] transcript:",
+      transcript ? "trouvé (" + transcript.length + " chars)" : "absent - utilise description",
+    );
+    console.log("[generate-quiz] contexte (200 premiers chars):", contexte.slice(0, 200));
+
     const prompt =
       `Génère 15 questions QCM en français sur cette vidéo YouTube LEVE intitulée '${ytTitle}'. ` +
       (contexte ? `Contexte de la vidéo : ${contexte}. ` : "") +
