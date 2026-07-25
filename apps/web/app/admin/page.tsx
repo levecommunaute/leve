@@ -27,6 +27,7 @@ const BG = "#080808";
 const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
+const ORANGE = "#E67E22";
 const VERT = "#2ECC71";
 const BLEU = "#5DADE2";
 const VIOLET = "#9B59B6";
@@ -42,6 +43,7 @@ type VideoRow = {
   title: string | null;
   points_value: number | null;
   collaborateur_id: string | null;
+  is_active?: boolean | null;
 };
 
 type MemberRow = {
@@ -1410,11 +1412,20 @@ export default function AdminPage(): JSX.Element {
   const [generateQuizLoadingId, setGenerateQuizLoadingId] = useState<string | null>(null);
   const [generateQuizError, setGenerateQuizError] = useState<Record<string, string>>({});
   const [generateQuizSuccess, setGenerateQuizSuccess] = useState<Record<string, number>>({});
+  const [manualTranscriptByVideo, setManualTranscriptByVideo] = useState<Record<string, string>>({});
+  const [manualTranscriptOpenByVideo, setManualTranscriptOpenByVideo] = useState<
+    Record<string, boolean>
+  >({});
   const [quizInfoByVideo, setQuizInfoByVideo] = useState<
     Record<string, { available: boolean; count: number }>
   >({});
   const [collaborateurSavingId, setCollaborateurSavingId] = useState<string | null>(null);
   const [collaborateurError, setCollaborateurError] = useState<Record<string, string>>({});
+  const [videoActionLoadingId, setVideoActionLoadingId] = useState<string | null>(null);
+  const [videoActionError, setVideoActionError] = useState<Record<string, string>>({});
+  const [videoDeleteConfirmId, setVideoDeleteConfirmId] = useState<string | null>(null);
+  const [videoDeletePassword, setVideoDeletePassword] = useState("");
+  const [videoDeletePasswordError, setVideoDeletePasswordError] = useState<string | null>(null);
 
   const [featureFlags, setFeatureFlags] = useState<FeatureFlagRow[]>([]);
   const [featureFlagsLoading, setFeatureFlagsLoading] = useState(false);
@@ -2993,6 +3004,11 @@ export default function AdminPage(): JSX.Element {
     setQuizInfoByVideo({});
     setCollaborateurSavingId(null);
     setCollaborateurError({});
+    setVideoActionLoadingId(null);
+    setVideoActionError({});
+    setVideoDeleteConfirmId(null);
+    setVideoDeletePassword("");
+    setVideoDeletePasswordError(null);
     setFeatureFlags([]);
     setFeatureFlagsError(null);
     setFraisPaliers([]);
@@ -3658,6 +3674,7 @@ export default function AdminPage(): JSX.Element {
       return next;
     });
     try {
+      const transcriptManuel = (manualTranscriptByVideo[video.id] ?? "").trim();
       const r = await fetch("/api/admin/generate-quiz", {
         method: "POST",
         headers: adminHeaders({ "Content-Type": "application/json" }),
@@ -3665,6 +3682,7 @@ export default function AdminPage(): JSX.Element {
           video_id: video.id,
           youtube_id: video.youtube_id,
           title,
+          ...(transcriptManuel ? { transcript_manuel: transcriptManuel } : {}),
         }),
       });
       const j = (await r.json()) as { error?: string; questions_count?: number };
@@ -3735,6 +3753,120 @@ export default function AdminPage(): JSX.Element {
       }));
     } finally {
       setCollaborateurSavingId(null);
+    }
+  }
+
+  async function handleToggleVideoActive(video: VideoRow): Promise<void> {
+    const nextActive = video.is_active === false;
+    setVideoActionLoadingId(video.id);
+    setVideoActionError((prev) => {
+      const next = { ...prev };
+      delete next[video.id];
+      return next;
+    });
+    try {
+      const r = await fetch("/api/admin/videos", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: video.id, is_active: nextActive }),
+      });
+      const j = (await r.json()) as { video?: VideoRow; error?: string };
+      if (!r.ok) {
+        setVideoActionError((prev) => ({
+          ...prev,
+          [video.id]: j.error ?? "Erreur mise à jour du statut",
+        }));
+        return;
+      }
+      const savedActive = j.video?.is_active ?? nextActive;
+      setVideos((prev) =>
+        prev.map((v) => (v.id === video.id ? { ...v, is_active: savedActive } : v)),
+      );
+    } catch {
+      setVideoActionError((prev) => ({
+        ...prev,
+        [video.id]: "Erreur réseau",
+      }));
+    } finally {
+      setVideoActionLoadingId(null);
+    }
+  }
+
+  function openVideoDeleteModal(video: VideoRow): void {
+    setVideoDeleteConfirmId(video.id);
+    setVideoDeletePassword("");
+    setVideoDeletePasswordError(null);
+  }
+
+  function closeVideoDeleteModal(): void {
+    setVideoDeleteConfirmId(null);
+    setVideoDeletePassword("");
+    setVideoDeletePasswordError(null);
+  }
+
+  function handleVideoDeleteConfirm(): void {
+    const vid = videoDeleteConfirmId;
+    if (!vid) return;
+    const stored =
+      typeof window !== "undefined" ? sessionStorage.getItem(STORAGE_KEY) : null;
+    const entered = videoDeletePassword.trim();
+    if (!stored || entered !== stored) {
+      setVideoDeletePasswordError("Mot de passe incorrect");
+      return;
+    }
+    closeVideoDeleteModal();
+    void executeDeleteVideo(vid);
+  }
+
+  async function executeDeleteVideo(videoId: string): Promise<void> {
+    setVideoActionLoadingId(videoId);
+    setVideoActionError((prev) => {
+      const next = { ...prev };
+      delete next[videoId];
+      return next;
+    });
+    try {
+      const r = await fetch("/api/admin/videos", {
+        method: "DELETE",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: videoId }),
+      });
+      const j = (await r.json()) as { error?: string };
+      if (!r.ok) {
+        setVideoActionError((prev) => ({
+          ...prev,
+          [videoId]: j.error ?? "Suppression impossible",
+        }));
+        return;
+      }
+      setVideos((prev) => prev.filter((v) => v.id !== videoId));
+      setLinkedVideoCodes((prev) => {
+        const next = { ...prev };
+        delete next[videoId];
+        return next;
+      });
+      setCodeInputByVideo((prev) => {
+        const next = { ...prev };
+        delete next[videoId];
+        return next;
+      });
+      setQuizInfoByVideo((prev) => {
+        const next = { ...prev };
+        delete next[videoId];
+        return next;
+      });
+      if (quizVideoId === videoId) {
+        setQuizVideoId("");
+        setQuizQuestions([]);
+      }
+      void loadProduction();
+    } catch {
+      setVideoActionError((prev) => ({
+        ...prev,
+        [videoId]: "Erreur réseau",
+      }));
+    } finally {
+      setVideoActionLoadingId(null);
     }
   }
 
@@ -3867,6 +3999,36 @@ export default function AdminPage(): JSX.Element {
             }
             .leve-admin-table {
               font-size: max(12px, 0.85rem);
+            }
+            .leve-video-actions {
+              display: flex;
+              flex-direction: row;
+              flex-wrap: nowrap;
+              gap: 0.5rem;
+              align-items: center;
+              margin-top: 0.55rem;
+            }
+            .leve-video-actions button {
+              flex: 0 0 auto;
+            }
+            .leve-admin-videos-table th.leve-col-youtube,
+            .leve-admin-videos-table td.leve-col-youtube {
+              max-width: 7.5rem;
+              width: 7.5rem;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+              font-size: 0.72rem;
+              opacity: 0.75;
+            }
+            .leve-admin-videos-table th.leve-col-points,
+            .leve-admin-videos-table td.leve-col-points,
+            .leve-admin-videos-table th.leve-col-statut,
+            .leve-admin-videos-table td.leve-col-statut {
+              width: 1%;
+              white-space: nowrap;
+              padding-left: 0.35rem;
+              padding-right: 0.35rem;
             }
             .admin-global-stats-grid {
               display: grid;
@@ -4151,6 +4313,145 @@ export default function AdminPage(): JSX.Element {
         </main>
       ) : (
         <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "2rem 1.25rem", position: "relative" }}>
+          {videoDeleteConfirmId ? (
+            <div
+              role="presentation"
+              onClick={() => closeVideoDeleteModal()}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 200,
+                background: "rgba(0, 0, 0, 0.72)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "1.25rem",
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-video-confirm-title"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  maxWidth: "28rem",
+                  width: "100%",
+                  background: "#121212",
+                  border: "1px solid rgba(245, 240, 232, 0.18)",
+                  borderRadius: "4px",
+                  padding: "1.35rem 1.5rem",
+                }}
+              >
+                <h2
+                  id="delete-video-confirm-title"
+                  style={{
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.25rem",
+                    letterSpacing: "0.1em",
+                    margin: "0 0 0.85rem",
+                    color: ROUGE,
+                  }}
+                >
+                  Supprimer la vidéo
+                </h2>
+                <p style={{ margin: "0 0 1.15rem", fontSize: "0.92rem", lineHeight: 1.55, opacity: 0.92 }}>
+                  ⚠️ Cette action est irréversible. La vidéo, ses quiz (15 questions), les codes et toutes
+                  les soumissions seront définitivement supprimés.
+                </p>
+                <div style={{ margin: "0 0 1.15rem" }}>
+                  <label
+                    htmlFor="delete-video-admin-password"
+                    style={{
+                      display: "block",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.2em",
+                      textTransform: "uppercase",
+                      opacity: 0.55,
+                      marginBottom: "0.45rem",
+                    }}
+                  >
+                    Mot de passe admin
+                  </label>
+                  <input
+                    id="delete-video-admin-password"
+                    type="password"
+                    autoComplete="off"
+                    value={videoDeletePassword}
+                    onChange={(e) => {
+                      setVideoDeletePassword(e.target.value);
+                      if (videoDeletePasswordError) setVideoDeletePasswordError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && videoDeletePassword.trim()) {
+                        e.preventDefault();
+                        handleVideoDeleteConfirm();
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      padding: "0.75rem 0.85rem",
+                      background: "rgba(245, 240, 232, 0.06)",
+                      border: videoDeletePasswordError
+                        ? `1px solid ${ROUGE}`
+                        : "1px solid rgba(245, 240, 232, 0.14)",
+                      borderRadius: "4px",
+                      color: TEXT,
+                      fontSize: "0.92rem",
+                    }}
+                  />
+                  {videoDeletePasswordError ? (
+                    <p
+                      style={{
+                        margin: "0.5rem 0 0",
+                        fontSize: "0.82rem",
+                        color: ROUGE,
+                      }}
+                    >
+                      {videoDeletePasswordError}
+                    </p>
+                  ) : null}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.65rem", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() => closeVideoDeleteModal()}
+                    style={{
+                      background: "transparent",
+                      color: TEXT,
+                      border: "1px solid rgba(245, 240, 232, 0.25)",
+                      padding: "0.5rem 1rem",
+                      cursor: "pointer",
+                      fontSize: "0.78rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!videoDeletePassword.trim()}
+                    onClick={() => handleVideoDeleteConfirm()}
+                    style={{
+                      background: ROUGE,
+                      color: "#ffffff",
+                      border: `1px solid ${ROUGE}`,
+                      padding: "0.5rem 1rem",
+                      cursor: !videoDeletePassword.trim() ? "not-allowed" : "pointer",
+                      fontSize: "0.78rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      fontWeight: 600,
+                      opacity: !videoDeletePassword.trim() ? 0.55 : 1,
+                    }}
+                  >
+                    Supprimer définitivement
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {codeModifyConfirmVideoId ? (
             <div
               role="presentation"
@@ -4490,11 +4791,12 @@ export default function AdminPage(): JSX.Element {
             ) : (
               <div style={{ overflowX: "auto",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-                <table className="leve-admin-table"
+                <table className="leve-admin-table leve-admin-videos-table"
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
                     fontSize: "0.9rem",
+                    tableLayout: "auto",
                   }}
                 >
                   <thead>
@@ -4502,11 +4804,14 @@ export default function AdminPage(): JSX.Element {
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Titre
                       </th>
-                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
-                        YouTube
+                      <th className="leve-col-youtube" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }} title="YouTube ID">
+                        YT
                       </th>
-                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
-                        Points
+                      <th className="leve-col-points" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Pts
+                      </th>
+                      <th className="leve-col-statut" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Statut
                       </th>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Collaborateur
@@ -4525,6 +4830,8 @@ export default function AdminPage(): JSX.Element {
                       const busy = codeLoadingId === v.id;
                       const quizBusy = generateQuizLoadingId === v.id;
                       const collabBusy = collaborateurSavingId === v.id;
+                      const actionBusy = videoActionLoadingId === v.id;
+                      const isActive = v.is_active !== false;
                       const collabValue = v.collaborateur_id ?? "";
                       const collabOptions =
                         collabValue &&
@@ -4536,12 +4843,93 @@ export default function AdminPage(): JSX.Element {
                           : collaboratorMembers;
                       return (
                         <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
-                          <td style={{ padding: "0.75rem 0.5rem", maxWidth: "280px" }}>{v.title ?? "—"}</td>
-                          <td style={{ padding: "0.75rem 0.5rem", fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "0.82rem" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", minWidth: "140px", maxWidth: "320px", verticalAlign: "top" }}>
+                            <div style={{ fontWeight: 500, lineHeight: 1.35 }}>{v.title ?? "—"}</div>
+                            <div className="leve-video-actions">
+                              <button
+                                type="button"
+                                disabled={actionBusy}
+                                onClick={() => void handleToggleVideoActive(v)}
+                                style={{
+                                  background: isActive
+                                    ? "rgba(230, 126, 34, 0.12)"
+                                    : "rgba(46, 204, 113, 0.12)",
+                                  color: isActive ? ORANGE : VERT,
+                                  border: isActive
+                                    ? "1px solid rgba(230, 126, 34, 0.4)"
+                                    : "1px solid rgba(46, 204, 113, 0.35)",
+                                  padding: "0.45rem 0.65rem",
+                                  cursor: actionBusy ? "wait" : "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.08em",
+                                  textTransform: "uppercase",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {actionBusy ? "…" : isActive ? "Désactiver" : "Activer"}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionBusy}
+                                onClick={() => openVideoDeleteModal(v)}
+                                style={{
+                                  background: "rgba(192, 57, 43, 0.15)",
+                                  color: ROUGE,
+                                  border: "1px solid rgba(192, 57, 43, 0.4)",
+                                  padding: "0.45rem 0.65rem",
+                                  cursor: actionBusy ? "wait" : "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.08em",
+                                  textTransform: "uppercase",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {actionBusy ? "…" : "Supprimer"}
+                              </button>
+                            </div>
+                            {videoActionError[v.id] ? (
+                              <p
+                                style={{
+                                  margin: "0.5rem 0 0",
+                                  fontSize: "0.78rem",
+                                  color: ROUGE,
+                                  opacity: 0.95,
+                                }}
+                              >
+                                {videoActionError[v.id]}
+                              </p>
+                            ) : null}
+                          </td>
+                          <td
+                            className="leve-col-youtube"
+                            style={{ padding: "0.75rem 0.5rem", fontFamily: "var(--font-mono), ui-monospace, monospace", verticalAlign: "top" }}
+                            title={v.youtube_id}
+                          >
                             {v.youtube_id}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem" }}>{v.points_value ?? "—"}</td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
+                          <td className="leve-col-points" style={{ padding: "0.75rem 0.5rem", verticalAlign: "top" }}>{v.points_value ?? "—"}</td>
+                          <td className="leve-col-statut" style={{ padding: "0.75rem 0.5rem", verticalAlign: "middle" }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "0.28rem 0.55rem",
+                                fontSize: "0.68rem",
+                                letterSpacing: "0.08em",
+                                textTransform: "uppercase",
+                                borderRadius: "3px",
+                                color: isActive ? VERT : "rgba(245,240,232,0.55)",
+                                background: isActive
+                                  ? "rgba(46, 204, 113, 0.12)"
+                                  : "rgba(245, 240, 232, 0.08)",
+                                border: isActive
+                                  ? "1px solid rgba(46, 204, 113, 0.35)"
+                                  : "1px solid rgba(245, 240, 232, 0.14)",
+                              }}
+                            >
+                              {isActive ? "Actif" : "Inactif"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "140px" }}>
                             <select
                               value={collabValue}
                               disabled={collabBusy || membersLoading}
@@ -4549,7 +4937,7 @@ export default function AdminPage(): JSX.Element {
                               aria-label={`Collaborateur pour ${v.title ?? v.youtube_id}`}
                               style={{
                                 width: "100%",
-                                minWidth: "160px",
+                                minWidth: "120px",
                                 padding: "0.45rem 0.55rem",
                                 fontSize: "0.82rem",
                                 background: "rgba(245, 240, 232, 0.06)",
@@ -4579,7 +4967,7 @@ export default function AdminPage(): JSX.Element {
                               </p>
                             ) : null}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "240px" }}>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px" }}>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center" }}>
                               <input
                                 type="text"
@@ -4603,8 +4991,8 @@ export default function AdminPage(): JSX.Element {
                                 aria-label={`Code pour ${v.title ?? v.youtube_id}`}
                                 disabled={busy}
                                 style={{
-                                  flex: "1 1 140px",
-                                  minWidth: "120px",
+                                  flex: "1 1 120px",
+                                  minWidth: "100px",
                                   padding: "0.45rem 0.55rem",
                                   fontFamily: "var(--font-mono), ui-monospace, monospace",
                                   fontSize: "0.8rem",
@@ -4674,7 +5062,7 @@ export default function AdminPage(): JSX.Element {
                               </p>
                             ) : null}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "180px",
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "220px",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                             <button
                               type="button"
@@ -4694,6 +5082,55 @@ export default function AdminPage(): JSX.Element {
                             >
                               {quizBusy ? "⏳ Génération en cours..." : "Générer quiz automatique"}
                             </button>
+                            <div style={{ marginTop: "0.55rem" }}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setManualTranscriptOpenByVideo((prev) => ({
+                                    ...prev,
+                                    [v.id]: !prev[v.id],
+                                  }))
+                                }
+                                style={{
+                                  background: "transparent",
+                                  color: TEXT,
+                                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                                  padding: "0.35rem 0.55rem",
+                                  cursor: "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.04em",
+                                  opacity: 0.85,
+                                  textAlign: "left",
+                                  width: "100%",
+                                }}
+                              >
+                                {manualTranscriptOpenByVideo[v.id]
+                                  ? "▾ 📝 Ajouter un transcript manuel (optionnel)"
+                                  : "▸ 📝 Ajouter un transcript manuel (optionnel)"}
+                              </button>
+                              {manualTranscriptOpenByVideo[v.id] ? (
+                                <textarea
+                                  value={manualTranscriptByVideo[v.id] ?? ""}
+                                  onChange={(e) =>
+                                    setManualTranscriptByVideo((prev) => ({
+                                      ...prev,
+                                      [v.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Collez ici le transcript ou résumé détaillé de la vidéo..."
+                                  rows={5}
+                                  disabled={quizBusy}
+                                  style={{
+                                    ...inputBase,
+                                    marginTop: "0.45rem",
+                                    resize: "vertical",
+                                    minHeight: "5.5rem",
+                                    fontSize: "0.82rem",
+                                    lineHeight: 1.4,
+                                  }}
+                                />
+                              ) : null}
+                            </div>
                             {generateQuizSuccess[v.id] !== undefined ? (
                               <p
                                 style={{

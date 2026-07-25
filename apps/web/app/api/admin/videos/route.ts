@@ -8,6 +8,9 @@ const ALLOWED_POINTS = new Set([15, 25, 30]);
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const VIDEO_SELECT =
+  "id, youtube_id, title, points_value, bonus_expire_at, collaborateur_id, is_active";
+
 function parseCollaborateurId(raw: unknown): string | null | "invalid" {
   if (raw === null) return null;
   if (typeof raw !== "string") return "invalid";
@@ -56,8 +59,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         points_value: pointsValue,
         description: "",
         bonus_expire_at: bonusExpireAt,
+        is_active: true,
       })
-      .select("id, youtube_id, title, points_value, bonus_expire_at")
+      .select(VIDEO_SELECT)
       .single();
 
     if (error) {
@@ -75,7 +79,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const denied = requireAdminSecret(request);
   if (denied) return denied;
 
-  let body: { id?: string; collaborateur_id?: unknown };
+  let body: { id?: string; collaborateur_id?: unknown; is_active?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -86,23 +90,44 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   if (!id) {
     return NextResponse.json({ error: "id requis" }, { status: 400 });
   }
-  if (!("collaborateur_id" in body)) {
-    return NextResponse.json({ error: "collaborateur_id requis" }, { status: 400 });
+
+  const hasIsActive = "is_active" in body;
+  const hasCollaborateur = "collaborateur_id" in body;
+  if (!hasIsActive && !hasCollaborateur) {
+    return NextResponse.json(
+      { error: "is_active ou collaborateur_id requis" },
+      { status: 400 },
+    );
   }
 
-  const collaborateurId = parseCollaborateurId(body.collaborateur_id);
-  if (collaborateurId === "invalid") {
-    return NextResponse.json({ error: "collaborateur_id invalide" }, { status: 400 });
+  const updates: {
+    is_active?: boolean;
+    collaborateur_id?: string | null;
+  } = {};
+
+  if (hasIsActive) {
+    if (typeof body.is_active !== "boolean") {
+      return NextResponse.json({ error: "is_active doit être un booléen" }, { status: 400 });
+    }
+    updates.is_active = body.is_active;
+  }
+
+  if (hasCollaborateur) {
+    const collaborateurId = parseCollaborateurId(body.collaborateur_id);
+    if (collaborateurId === "invalid") {
+      return NextResponse.json({ error: "collaborateur_id invalide" }, { status: 400 });
+    }
+    updates.collaborateur_id = collaborateurId;
   }
 
   try {
     const supabase = getServiceSupabase();
 
-    if (collaborateurId) {
+    if (updates.collaborateur_id) {
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
         .select("id, member_type")
-        .eq("id", collaborateurId)
+        .eq("id", updates.collaborateur_id)
         .maybeSingle();
 
       if (profileErr) {
@@ -118,9 +143,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
     const { data, error } = await supabase
       .from("videos")
-      .update({ collaborateur_id: collaborateurId })
+      .update(updates)
       .eq("id", id)
-      .select("id, youtube_id, title, points_value, collaborateur_id")
+      .select(VIDEO_SELECT)
       .single();
 
     if (error) {
@@ -128,6 +153,67 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json({ video: data });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const denied = requireAdminSecret(request);
+  if (denied) return denied;
+
+  let body: { id?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Corps JSON invalide" }, { status: 400 });
+  }
+
+  const id = typeof body.id === "string" ? body.id.trim() : "";
+  if (!id) {
+    return NextResponse.json({ error: "id requis" }, { status: 400 });
+  }
+
+  try {
+    const supabase = getServiceSupabase();
+
+    const { data: video, error: vErr } = await supabase
+      .from("videos")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (vErr) {
+      return NextResponse.json({ error: vErr.message }, { status: 500 });
+    }
+    if (!video) {
+      return NextResponse.json({ error: "Vidéo introuvable" }, { status: 404 });
+    }
+
+    const relatedDeletes: Array<{ table: string; run: () => PromiseLike<{ error: { message: string } | null }> }> = [
+      { table: "quiz_submissions", run: () => supabase.from("quiz_submissions").delete().eq("video_id", id) },
+      { table: "code_submissions", run: () => supabase.from("code_submissions").delete().eq("video_id", id) },
+      { table: "quiz_questions", run: () => supabase.from("quiz_questions").delete().eq("video_id", id) },
+      { table: "codes", run: () => supabase.from("codes").delete().eq("video_id", id) },
+    ];
+
+    for (const step of relatedDeletes) {
+      const { error } = await step.run();
+      if (error) {
+        return NextResponse.json(
+          { error: `${step.table}: ${error.message}` },
+          { status: 500 },
+        );
+      }
+    }
+
+    const { error: videoErr } = await supabase.from("videos").delete().eq("id", id);
+    if (videoErr) {
+      return NextResponse.json({ error: videoErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: message }, { status: 500 });
