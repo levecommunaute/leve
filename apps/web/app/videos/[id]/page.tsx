@@ -133,10 +133,13 @@ export default function VideoPage(): React.JSX.Element {
   const [codeUnlocked, setCodeUnlocked] = useState<boolean>(false);
   const [codeInput, setCodeInput] = useState<string>("");
   const [codeValidated, setCodeValidated] = useState<boolean>(false);
+  const [quizAlreadyCompleted, setQuizAlreadyCompleted] = useState<boolean>(false);
+  const [quizStatusLoaded, setQuizStatusLoaded] = useState<boolean>(false);
   const [showQuizReadyModal, setShowQuizReadyModal] = useState<boolean>(false);
   const [result, setResult] = useState<{
     success: boolean;
     message?: string;
+    already_completed?: boolean;
   } | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -386,6 +389,48 @@ export default function VideoPage(): React.JSX.Element {
   }, [flagLoaded, verification60Enabled, id, userId]);
 
   useEffect(() => {
+    if (!id) {
+      setQuizAlreadyCompleted(false);
+      setQuizStatusLoaded(true);
+      return;
+    }
+
+    if (!userId) {
+      setQuizAlreadyCompleted(false);
+      setQuizStatusLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+    setQuizStatusLoaded(false);
+    void (async () => {
+      const supabase = createBrowserClient();
+      const { data, error } = await supabase
+        .from("quiz_submissions")
+        .select("id")
+        .eq("membre_id", userId)
+        .eq("video_id", id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        if (await checkJwtExpired({ message: error.message })) return;
+        console.error("quiz_submissions load:", error.message);
+        setQuizAlreadyCompleted(false);
+      } else {
+        setQuizAlreadyCompleted(Boolean(data?.id));
+      }
+
+      setQuizStatusLoaded(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, userId]);
+
+  useEffect(() => {
     if (!flagLoaded || !verification60Enabled || !video?.youtube_id || !progressLoaded) return;
 
     let cancelled = false;
@@ -460,6 +505,7 @@ export default function VideoPage(): React.JSX.Element {
 
   const handleSubmit = async (): Promise<void> => {
     setSubmitting(true);
+    setResult(null);
     let token = "";
     try {
       const allCookies = document.cookie.split(";");
@@ -477,18 +523,44 @@ export default function VideoPage(): React.JSX.Element {
     } catch (e) {
       console.error("token error:", e);
     }
-    const res = await fetch("/api/verify-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ video_id: id, code: codeInput, token }),
-    });
-    const data = await res.json();
-    setResult(data);
-    if (data.success) {
-      setCodeValidated(true);
-      setShowQuizReadyModal(true);
+
+    try {
+      const res = await fetch("/api/code/valider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video_id: id, code: codeInput, token }),
+      });
+      const data = (await res.json()) as {
+        success?: boolean;
+        message?: string;
+        already_completed?: boolean;
+      };
+
+      if (data.already_completed) {
+        setQuizAlreadyCompleted(true);
+        setResult({
+          success: false,
+          already_completed: true,
+          message: "✅ Tu as déjà complété le quiz de cette vidéo. Essaie une autre vidéo !",
+        });
+        setShowQuizReadyModal(false);
+        return;
+      }
+
+      setResult({
+        success: Boolean(data.success),
+        message: data.message,
+      });
+
+      if (data.success) {
+        setCodeValidated(true);
+        setShowQuizReadyModal(true);
+      }
+    } catch {
+      setResult({ success: false, message: "Erreur réseau lors de la validation du code." });
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const startQuiz = (): void => {
@@ -499,7 +571,7 @@ export default function VideoPage(): React.JSX.Element {
     setCodeInput(formatCodeInput(e.target.value));
   };
 
-  if (loading || !flagLoaded || (verification60Enabled && !progressLoaded)) {
+  if (loading || !flagLoaded || !quizStatusLoaded || (verification60Enabled && !progressLoaded)) {
     return (
       <div style={{ ...pageShell, display: "flex", alignItems: "center", justifyContent: "center" }}>
         Chargement...
@@ -515,7 +587,8 @@ export default function VideoPage(): React.JSX.Element {
     );
   }
 
-  const formLocked = verification60Enabled && !codeUnlocked;
+  const formLocked = !quizAlreadyCompleted && verification60Enabled && !codeUnlocked;
+  const codeFieldDisabled = formLocked || codeValidated || quizAlreadyCompleted;
 
   return (
     <main style={pageShell}>
@@ -740,7 +813,20 @@ export default function VideoPage(): React.JSX.Element {
           >
             SOUMETS TON CODE
           </h2>
-          {formLocked ? (
+          {quizAlreadyCompleted && !result?.already_completed ? (
+            <p
+              style={{
+                margin: "0 0 1.5rem",
+                padding: "1rem 1.25rem",
+                background: "rgba(46, 125, 50, 0.15)",
+                border: "1px solid rgba(46, 125, 50, 0.4)",
+                fontSize: "0.95rem",
+                lineHeight: 1.5,
+              }}
+            >
+              ✅ Quiz complété — Essaie une autre vidéo pour gagner plus de points
+            </p>
+          ) : formLocked ? (
             <p
               style={{
                 margin: "0 0 1.5rem",
@@ -760,52 +846,58 @@ export default function VideoPage(): React.JSX.Element {
               inputMode="text"
               autoComplete="off"
               spellCheck={false}
-              value={codeInput}
+              value={quizAlreadyCompleted ? "" : codeInput}
               onChange={handleCodeChange}
-              placeholder="XXXX-YYYY-ZZZZ"
-              disabled={formLocked || codeValidated}
-              style={codeInputStyle(formLocked || codeValidated)}
+              placeholder={quizAlreadyCompleted ? "Quiz déjà complété ✅" : "XXXX-YYYY-ZZZZ"}
+              disabled={codeFieldDisabled}
+              style={codeInputStyle(codeFieldDisabled)}
             />
-            {!codeValidated ? (
-              <button
-                onClick={() => void handleSubmit()}
-                disabled={formLocked || submitting || !isCodeComplete(codeInput)}
-                style={{
-                  background: formLocked ? "#555" : "#C0392B",
-                  color: "#fff",
-                  border: "none",
-                  padding: ".75rem 2rem",
-                  cursor: formLocked ? "not-allowed" : "pointer",
-                  opacity: formLocked ? 0.6 : 1,
-                }}
-              >
-                VALIDER
-              </button>
-            ) : (
-              <button
-                onClick={startQuiz}
-                style={{
-                  background: "#C0392B",
-                  color: "#fff",
-                  border: "none",
-                  padding: ".75rem 2rem",
-                  cursor: "pointer",
-                }}
-              >
-                Commencer le quiz
-              </button>
-            )}
+            {!quizAlreadyCompleted ? (
+              !codeValidated ? (
+                <button
+                  onClick={() => void handleSubmit()}
+                  disabled={formLocked || submitting || !isCodeComplete(codeInput)}
+                  style={{
+                    background: formLocked ? "#555" : "#C0392B",
+                    color: "#fff",
+                    border: "none",
+                    padding: ".75rem 2rem",
+                    cursor: formLocked ? "not-allowed" : "pointer",
+                    opacity: formLocked ? 0.6 : 1,
+                  }}
+                >
+                  VALIDER
+                </button>
+              ) : (
+                <button
+                  onClick={startQuiz}
+                  style={{
+                    background: "#C0392B",
+                    color: "#fff",
+                    border: "none",
+                    padding: ".75rem 2rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Commencer le quiz
+                </button>
+              )
+            ) : null}
           </div>
           {result && !result.success ? (
             <div
               style={{
                 marginTop: "1.5rem",
                 padding: "1rem",
-                background: "rgba(192,57,43,.1)",
+                background: result.already_completed
+                  ? "rgba(46, 125, 50, 0.15)"
+                  : "rgba(192,57,43,.1)",
                 fontFamily: "var(--font-mono), ui-monospace, monospace",
               }}
             >
-              {`❌ ${result.message || "Code incorrect"}`}
+              {result.already_completed
+                ? result.message
+                : `❌ ${result.message || "Code incorrect"}`}
             </div>
           ) : null}
         </div>
