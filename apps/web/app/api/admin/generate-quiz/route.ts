@@ -129,7 +129,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY manquante" }, { status: 503 });
   }
 
-  let body: { video_id?: string; youtube_id?: string; title?: string };
+  let body: {
+    video_id?: string;
+    youtube_id?: string;
+    title?: string;
+    transcript_manuel?: string;
+  };
   try {
     body = await request.json();
   } catch {
@@ -139,6 +144,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const videoId = typeof body.video_id === "string" ? body.video_id.trim() : "";
   const youtubeId = typeof body.youtube_id === "string" ? body.youtube_id.trim() : "";
   const title = typeof body.title === "string" ? body.title.trim() : "";
+  const transcriptManuel =
+    typeof body.transcript_manuel === "string" ? body.transcript_manuel.trim() : "";
 
   if (!videoId || !youtubeId || !title) {
     return NextResponse.json(
@@ -192,13 +199,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const ytTitle = String(snippet.title ?? "").trim() || title;
     const ytDescription = String(snippet.description ?? "").trim();
 
-    const transcript = await fetchTranscript(youtubeId, youtubeKey);
-    const contexte = transcript ?? ytDescription;
+    // Priorité : transcript manuel → transcript YouTube auto → description YouTube
+    let contexte = "";
+    let sourceLabel: "utilise transcript manuel" | "utilise transcript auto" | "utilise description";
 
-    console.log(
-      "[generate-quiz] transcript:",
-      transcript ? "trouvé (" + transcript.length + " chars)" : "absent - utilise description",
-    );
+    if (transcriptManuel) {
+      contexte =
+        transcriptManuel.length > 12000
+          ? `${transcriptManuel.slice(0, 12000)}…`
+          : transcriptManuel;
+      sourceLabel = "utilise transcript manuel";
+    } else {
+      const transcript = await fetchTranscript(youtubeId, youtubeKey);
+      if (transcript) {
+        contexte = transcript;
+        sourceLabel = "utilise transcript auto";
+      } else {
+        contexte = ytDescription;
+        sourceLabel = "utilise description";
+      }
+    }
+
+    console.log(`[generate-quiz] ${sourceLabel}`);
     console.log("[generate-quiz] contexte (200 premiers chars):", contexte.slice(0, 200));
 
     const prompt =

@@ -1412,6 +1412,10 @@ export default function AdminPage(): JSX.Element {
   const [generateQuizLoadingId, setGenerateQuizLoadingId] = useState<string | null>(null);
   const [generateQuizError, setGenerateQuizError] = useState<Record<string, string>>({});
   const [generateQuizSuccess, setGenerateQuizSuccess] = useState<Record<string, number>>({});
+  const [manualTranscriptByVideo, setManualTranscriptByVideo] = useState<Record<string, string>>({});
+  const [manualTranscriptOpenByVideo, setManualTranscriptOpenByVideo] = useState<
+    Record<string, boolean>
+  >({});
   const [quizInfoByVideo, setQuizInfoByVideo] = useState<
     Record<string, { available: boolean; count: number }>
   >({});
@@ -3670,6 +3674,7 @@ export default function AdminPage(): JSX.Element {
       return next;
     });
     try {
+      const transcriptManuel = (manualTranscriptByVideo[video.id] ?? "").trim();
       const r = await fetch("/api/admin/generate-quiz", {
         method: "POST",
         headers: adminHeaders({ "Content-Type": "application/json" }),
@@ -3677,6 +3682,7 @@ export default function AdminPage(): JSX.Element {
           video_id: video.id,
           youtube_id: video.youtube_id,
           title,
+          ...(transcriptManuel ? { transcript_manuel: transcriptManuel } : {}),
         }),
       });
       const j = (await r.json()) as { error?: string; questions_count?: number };
@@ -5056,7 +5062,7 @@ export default function AdminPage(): JSX.Element {
                               </p>
                             ) : null}
                           </td>
-                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "140px",
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", minWidth: "220px",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                             <button
                               type="button"
@@ -5076,6 +5082,55 @@ export default function AdminPage(): JSX.Element {
                             >
                               {quizBusy ? "⏳ Génération en cours..." : "Générer quiz automatique"}
                             </button>
+                            <div style={{ marginTop: "0.55rem" }}>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setManualTranscriptOpenByVideo((prev) => ({
+                                    ...prev,
+                                    [v.id]: !prev[v.id],
+                                  }))
+                                }
+                                style={{
+                                  background: "transparent",
+                                  color: TEXT,
+                                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                                  padding: "0.35rem 0.55rem",
+                                  cursor: "pointer",
+                                  fontSize: "0.68rem",
+                                  letterSpacing: "0.04em",
+                                  opacity: 0.85,
+                                  textAlign: "left",
+                                  width: "100%",
+                                }}
+                              >
+                                {manualTranscriptOpenByVideo[v.id]
+                                  ? "▾ 📝 Ajouter un transcript manuel (optionnel)"
+                                  : "▸ 📝 Ajouter un transcript manuel (optionnel)"}
+                              </button>
+                              {manualTranscriptOpenByVideo[v.id] ? (
+                                <textarea
+                                  value={manualTranscriptByVideo[v.id] ?? ""}
+                                  onChange={(e) =>
+                                    setManualTranscriptByVideo((prev) => ({
+                                      ...prev,
+                                      [v.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Collez ici le transcript ou résumé détaillé de la vidéo..."
+                                  rows={5}
+                                  disabled={quizBusy}
+                                  style={{
+                                    ...inputBase,
+                                    marginTop: "0.45rem",
+                                    resize: "vertical",
+                                    minHeight: "5.5rem",
+                                    fontSize: "0.82rem",
+                                    lineHeight: 1.4,
+                                  }}
+                                />
+                              ) : null}
+                            </div>
                             {generateQuizSuccess[v.id] !== undefined ? (
                               <p
                                 style={{
