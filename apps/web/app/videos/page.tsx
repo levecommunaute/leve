@@ -310,6 +310,7 @@ export default function VideosPage(): JSX.Element | null {
   const [codeSubmitting, setCodeSubmitting] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [alreadyCompletedMessage, setAlreadyCompletedMessage] = useState<string | null>(null);
+  const [alreadyCompletedVideoId, setAlreadyCompletedVideoId] = useState<string | null>(null);
   const [watchFirstVideoId, setWatchFirstVideoId] = useState<string | null>(null);
   const [matchedVideoId, setMatchedVideoId] = useState<string | null>(null);
   const [showQuizReadyModal, setShowQuizReadyModal] = useState(false);
@@ -527,6 +528,7 @@ export default function VideosPage(): JSX.Element | null {
     setCodeSubmitting(true);
     setCodeError(null);
     setAlreadyCompletedMessage(null);
+    setAlreadyCompletedVideoId(null);
     setWatchFirstVideoId(null);
 
     const token = getAccessTokenFromCookies();
@@ -548,6 +550,11 @@ export default function VideosPage(): JSX.Element | null {
       if (data.already_completed) {
         const title = data.video_title?.trim() || "cette vidéo";
         setAlreadyCompletedMessage(`✅ Tu as déjà complété le quiz de '${title}'`);
+        setAlreadyCompletedVideoId(
+          typeof data.video_id === "string" && data.video_id.length > 0
+            ? data.video_id
+            : null
+        );
       } else if (
         data.message?.includes("Regarde d'abord la vidéo") &&
         typeof data.video_id === "string" &&
@@ -699,7 +706,7 @@ export default function VideosPage(): JSX.Element | null {
           {/* Bouton droite */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0.55rem 0.85rem 0.55rem 0', flexShrink: 0 }}>
             {variant === 'quiz' ? (
-              <a href={`/videos/${v.id}/quiz`}
+              <a href={`/videos/${v.id}`}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid #D4A017', color: '#D4A017', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 FAIRE LE QUIZ →
               </a>
@@ -933,7 +940,7 @@ export default function VideosPage(): JSX.Element | null {
             </span>
             {variant === "quiz" ? (
               <a
-                href={`/videos/${v.id}/quiz`}
+                href={`/videos/${v.id}`}
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.48rem",
@@ -1345,6 +1352,7 @@ export default function VideosPage(): JSX.Element | null {
                 setCodeInput(formatCodeInput(e.target.value));
                 if (codeError) setCodeError(null);
                 if (alreadyCompletedMessage) setAlreadyCompletedMessage(null);
+                if (alreadyCompletedVideoId) setAlreadyCompletedVideoId(null);
                 if (watchFirstVideoId) setWatchFirstVideoId(null);
               }}
               placeholder="XXXX-YYYY-ZZZZ"
@@ -1396,6 +1404,29 @@ export default function VideosPage(): JSX.Element | null {
           ) : alreadyCompletedMessage ? (
             <p style={{ margin: "0.85rem 0 0", color: "#2ECC71", fontSize: "0.9rem", lineHeight: 1.5 }}>
               {alreadyCompletedMessage}
+              {alreadyCompletedVideoId && (
+                <>
+                  <br />
+                  <a
+                    href={`/videos/${alreadyCompletedVideoId}`}
+                    style={{
+                      display: "inline-block",
+                      marginTop: "0.4rem",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.52rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      padding: "0.28rem 0.65rem",
+                      background: "transparent",
+                      border: "1px solid rgba(46,204,113,0.3)",
+                      color: "#2ECC71",
+                      textDecoration: "none",
+                    }}
+                  >
+                    Revoir la vidéo pour bonus →
+                  </a>
+                </>
+              )}
             </p>
           ) : codeError ? (
             <p style={{ margin: "0.85rem 0 0", color: ROUGE, fontSize: "0.9rem" }}>❌ {codeError}</p>
