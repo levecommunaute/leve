@@ -186,6 +186,7 @@ export default function ConcoursPage(): JSX.Element | null {
   const [ticketsTirage, setTicketsTirage] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const [featureFlagsState, setFeatureFlagsState] = useState<FeatureFlagsState>("loading");
   const [flagConcoursArtistes, setFlagConcoursArtistes] = useState(false);
@@ -394,6 +395,7 @@ export default function ConcoursPage(): JSX.Element | null {
         }, 0);
         setTicketsTirage(total);
       }
+      setDataLoaded(true);
     },
     [flagConcoursArtistes, flagTirage],
   );
@@ -592,8 +594,9 @@ export default function ConcoursPage(): JSX.Element | null {
           borderRadius: "4px",
           padding: "1rem",
           marginBottom: "0.75rem",
-          background: "#111",
-          border: "1px solid rgba(245, 240, 232, 0.1)",
+          background: "#141414",
+          borderTop: "2px solid #D4A017",
+          border: "1px solid rgba(245,240,232,0.06)",
           fontFamily: "var(--font-mono), ui-monospace, monospace",
         }}
       >
@@ -612,14 +615,15 @@ export default function ConcoursPage(): JSX.Element | null {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                justifyContent: "center",
-                background: GOLD,
-                color: BG,
-                border: "none",
+                padding: "0.5rem 1rem",
                 borderRadius: "4px",
-                padding: "0.6rem 1rem",
-                cursor: "pointer",
-                fontWeight: 600,
+                background: "transparent",
+                border: "1px solid rgba(212,160,23,0.4)",
+                color: "#D4A017",
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.75rem",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
                 textDecoration: "none",
               }}
             >
@@ -674,6 +678,16 @@ export default function ConcoursPage(): JSX.Element | null {
         }}
       >
         <p style={{ opacity: 0.75 }}>Chargement…</p>
+      </div>
+    );
+  }
+
+  if (session && !dataLoaded) {
+    return (
+      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
+          Chargement...
+        </p>
       </div>
     );
   }
@@ -1031,14 +1045,17 @@ export default function ConcoursPage(): JSX.Element | null {
                     <Link
                       href="/pool-pa"
                       style={{
-                        display: "inline-block",
-                        background: GOLD,
-                        color: BG,
-                        border: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: "0.5rem 1rem",
                         borderRadius: "4px",
-                        padding: "0.6rem 1rem",
-                        cursor: "pointer",
-                        fontWeight: 600,
+                        background: "transparent",
+                        border: "1px solid rgba(212,160,23,0.4)",
+                        color: "#D4A017",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.75rem",
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
                         textDecoration: "none",
                       }}
                     >
