@@ -316,6 +316,12 @@ export default function VideosPage(): JSX.Element | null {
   const [matchedVideoId, setMatchedVideoId] = useState<string | null>(null);
   const [showQuizReadyModal, setShowQuizReadyModal] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("leve-videos-view") as "grid" | "list") ?? "grid";
+    }
+    return "grid";
+  });
 
   const loadVideos = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -570,6 +576,13 @@ export default function VideosPage(): JSX.Element | null {
     }
   }
 
+  function toggleViewMode(mode: "grid" | "list"): void {
+    setViewMode(mode);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("leve-videos-view", mode);
+    }
+  }
+
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
   if (session === undefined || !youtubeModeLoaded) {
@@ -703,6 +716,242 @@ export default function VideosPage(): JSX.Element | null {
             </article>
           );
         })}
+      </div>
+    );
+  }
+
+  function renderListView(): JSX.Element {
+    const bonusActif = videos.filter((v) => {
+      const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+      const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
+      return status === "not_completed" && bonus;
+    });
+    const disponibles = videos.filter((v) => {
+      const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+      const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
+      return status === "not_completed" && !bonus;
+    });
+    const completes = videos.filter((v) => {
+      const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+      return status === "completed" || status === "code_submitted";
+    });
+
+    const sectionHdr = (dot: string, label: string, count: number) => (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          padding: "0.5rem 0",
+          marginTop: "0.75rem",
+        }}
+      >
+        <div
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: dot,
+            flexShrink: 0,
+          }}
+        />
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.5rem",
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            opacity: 0.5,
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "0.46rem",
+            opacity: 0.25,
+            marginLeft: "auto",
+          }}
+        >
+          {count} vidéo{count > 1 ? "s" : ""}
+        </span>
+      </div>
+    );
+
+    const renderItem = (v: VideoRow, variant: "bonus" | "urgent" | "normal" | "done") => {
+      const borderColor =
+        variant === "bonus"
+          ? "#2ECC71"
+          : variant === "urgent"
+            ? "#C0392B"
+            : variant === "done"
+              ? "rgba(255,255,255,0.06)"
+              : "rgba(255,255,255,0.08)";
+      const pts = v.points_value ?? 0;
+      const expiresSoon = v.bonus_expire_at
+        ? new Date(v.bonus_expire_at).getTime() - Date.now() < 1000 * 60 * 60 * 6
+        : false;
+      return (
+        <div
+          key={v.id}
+          style={{
+            background: "#141414",
+            borderLeft: `3px solid ${borderColor}`,
+            padding: "0.75rem 1rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            marginBottom: "1px",
+            opacity: variant === "done" ? 0.5 : 1,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: "0.78rem",
+                fontWeight: 500,
+                marginBottom: "0.2rem",
+                lineHeight: 1.35,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {v.title}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.5rem",
+                opacity: 0.3,
+                letterSpacing: "0.06em",
+              }}
+            >
+              {formatPublishedAgo(v.created_at)}
+            </div>
+            {variant === "bonus" && (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.48rem",
+                  color: "#2ECC71",
+                  marginTop: "0.15rem",
+                }}
+              >
+                ⚡ +{pts * 2} pts avec ×2 {profile?.member_type ?? ""}
+              </div>
+            )}
+            {(variant === "urgent" || expiresSoon) && (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.48rem",
+                  color: "#C0392B",
+                  marginTop: "0.15rem",
+                }}
+              >
+                ⚡ Bonus expire bientôt !
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: "0.3rem",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.6rem",
+                color: variant === "done" ? "rgba(255,255,255,0.25)" : "#D4A017",
+                fontWeight: 600,
+              }}
+            >
+              {variant === "done"
+                ? `✓ +${pts} pts`
+                : `+${variant === "bonus" ? pts * 2 : pts} PTS`}
+            </span>
+            {variant !== "done" ? (
+              <a
+                href={`https://youtube.com/watch?v=${v.youtube_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.48rem",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  padding: "0.28rem 0.65rem",
+                  background:
+                    variant === "bonus" || variant === "urgent" ? "#C0392B" : "transparent",
+                  border:
+                    variant === "normal" ? "1px solid rgba(255,255,255,0.15)" : "none",
+                  color: "#F5F0E8",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {variant === "urgent" ? "URGENT →" : "VOIR LA VIDÉO →"}
+              </a>
+            ) : (
+              <a
+                href={`https://youtube.com/watch?v=${v.youtube_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.48rem",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  padding: "0.28rem 0.65rem",
+                  background: "transparent",
+                  border: "1px solid rgba(46,204,113,0.2)",
+                  color: "rgba(46,204,113,0.5)",
+                  textDecoration: "none",
+                }}
+              >
+                REVOIR ✓
+              </a>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div>
+        {bonusActif.length > 0 && (
+          <>
+            {sectionHdr("#2ECC71", "Points +2 — Moins de 72h", bonusActif.length)}
+            {bonusActif.map((v) => {
+              const expiresSoon = v.bonus_expire_at
+                ? new Date(v.bonus_expire_at).getTime() - Date.now() < 1000 * 60 * 60 * 6
+                : false;
+              return renderItem(v, expiresSoon ? "urgent" : "bonus");
+            })}
+          </>
+        )}
+        {disponibles.length > 0 && (
+          <>
+            {sectionHdr(
+              "rgba(255,255,255,0.2)",
+              "Points disponibles — Bonus expiré",
+              disponibles.length,
+            )}
+            {disponibles.map((v) => renderItem(v, "normal"))}
+          </>
+        )}
+        {completes.length > 0 && (
+          <>
+            {sectionHdr("#2ECC71", "✅ Vidéos complétées", completes.length)}
+            {completes.map((v) => renderItem(v, "done"))}
+          </>
+        )}
       </div>
     );
   }
@@ -1081,10 +1330,72 @@ export default function VideosPage(): JSX.Element | null {
           <p style={{ opacity: 0.75, fontSize: "1.05rem" }}>
             Aucune vidéo disponible pour le moment.
           </p>
-        ) : youtubeMode ? (
-          renderYoutubeFeed()
         ) : (
-          renderPlatformGrid()
+          <>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "2px",
+                marginBottom: "0.75rem",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => toggleViewMode("grid")}
+                aria-label="Vue grille"
+                aria-pressed={viewMode === "grid"}
+                style={{
+                  background: viewMode === "grid" ? "rgba(245,240,232,0.12)" : "transparent",
+                  border: "1px solid rgba(245,240,232,0.15)",
+                  color: viewMode === "grid" ? TEXT : "rgba(245,240,232,0.4)",
+                  padding: "0.4rem 0.55rem",
+                  cursor: "pointer",
+                  borderRadius: "2px 0 0 2px",
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
+                  <rect x="0" y="0" width="6" height="6" rx="0.5" />
+                  <rect x="8" y="0" width="6" height="6" rx="0.5" />
+                  <rect x="0" y="8" width="6" height="6" rx="0.5" />
+                  <rect x="8" y="8" width="6" height="6" rx="0.5" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleViewMode("list")}
+                aria-label="Vue liste"
+                aria-pressed={viewMode === "list"}
+                style={{
+                  background: viewMode === "list" ? "rgba(245,240,232,0.12)" : "transparent",
+                  border: "1px solid rgba(245,240,232,0.15)",
+                  color: viewMode === "list" ? TEXT : "rgba(245,240,232,0.4)",
+                  padding: "0.4rem 0.55rem",
+                  cursor: "pointer",
+                  borderRadius: "0 2px 2px 0",
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
+                  <rect x="0" y="1" width="14" height="2" rx="0.5" />
+                  <rect x="0" y="6" width="14" height="2" rx="0.5" />
+                  <rect x="0" y="11" width="14" height="2" rx="0.5" />
+                </svg>
+              </button>
+            </div>
+            {viewMode === "list"
+              ? renderListView()
+              : youtubeMode
+                ? renderYoutubeFeed()
+                : renderPlatformGrid()}
+          </>
         )}
       </main>
 
