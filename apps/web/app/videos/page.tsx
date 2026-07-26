@@ -706,7 +706,7 @@ export default function VideosPage(): JSX.Element | null {
           {/* Bouton droite */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0.55rem 0.85rem 0.55rem 0', flexShrink: 0 }}>
             {variant === 'quiz' ? (
-              <a href={`/videos/${v.id}`}
+              <a href={`/videos/${v.id}/quiz`}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid #D4A017', color: '#D4A017', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 FAIRE LE QUIZ →
               </a>
@@ -940,7 +940,7 @@ export default function VideosPage(): JSX.Element | null {
             </span>
             {variant === "quiz" ? (
               <a
-                href={`/videos/${v.id}`}
+                href={`/videos/${v.id}/quiz`}
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.48rem",
