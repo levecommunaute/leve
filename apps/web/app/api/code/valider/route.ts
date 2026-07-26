@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       already_completed: true,
       message: "Tu as déjà complété le quiz de cette vidéo",
       video_title: completedVideo?.title ?? "",
+      video_id: video_id,
     });
   }
 
