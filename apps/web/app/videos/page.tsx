@@ -310,7 +310,7 @@ export default function VideosPage(): JSX.Element | null {
   const [codeSubmitting, setCodeSubmitting] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [alreadyCompletedMessage, setAlreadyCompletedMessage] = useState<string | null>(null);
-  const [watchFirstYoutubeId, setWatchFirstYoutubeId] = useState<string | null>(null);
+  const [watchFirstVideoId, setWatchFirstVideoId] = useState<string | null>(null);
   const [matchedVideoId, setMatchedVideoId] = useState<string | null>(null);
   const [showQuizReadyModal, setShowQuizReadyModal] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -527,7 +527,7 @@ export default function VideosPage(): JSX.Element | null {
     setCodeSubmitting(true);
     setCodeError(null);
     setAlreadyCompletedMessage(null);
-    setWatchFirstYoutubeId(null);
+    setWatchFirstVideoId(null);
 
     const token = getAccessTokenFromCookies();
     try {
@@ -550,10 +550,10 @@ export default function VideosPage(): JSX.Element | null {
         setAlreadyCompletedMessage(`✅ Tu as déjà complété le quiz de '${title}'`);
       } else if (
         data.message?.includes("Regarde d'abord la vidéo") &&
-        typeof data.youtube_id === "string" &&
-        data.youtube_id.length > 0
+        typeof data.video_id === "string" &&
+        data.video_id.length > 0
       ) {
-        setWatchFirstYoutubeId(data.youtube_id);
+        setWatchFirstVideoId(data.video_id);
       } else if (data.success && typeof data.video_id === "string") {
         setMatchedVideoId(data.video_id);
         setCodeVideoIds((prev) => new Set([...prev, data.video_id!]));
@@ -630,9 +630,13 @@ export default function VideosPage(): JSX.Element | null {
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === 'not_completed' && !bonus;
     });
+    const codeSubmis = videos.filter(v => {
+      const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+      return status === 'code_submitted';
+    });
     const completes = videos.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
-      return status === 'completed' || status === 'code_submitted';
+      return status === 'completed';
     });
 
     const sectionHdr = (dot: string, label: string, count: number) => (
@@ -647,8 +651,8 @@ export default function VideosPage(): JSX.Element | null {
       </div>
     );
 
-    const renderGridItem = (v: VideoRow, variant: 'bonus' | 'urgent' | 'normal' | 'done') => {
-      const borderColor = variant === 'bonus' ? '#2ECC71' : variant === 'urgent' ? '#C0392B' : variant === 'done' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.08)';
+    const renderGridItem = (v: VideoRow, variant: 'bonus' | 'urgent' | 'normal' | 'done' | 'quiz') => {
+      const borderColor = variant === 'bonus' ? '#2ECC71' : variant === 'urgent' ? '#C0392B' : variant === 'quiz' ? '#D4A017' : variant === 'done' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.08)';
       const pts = v.points_value ?? 0;
       const thumbUrl = `https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`;
       const expiresSoon = v.bonus_expire_at ? (new Date(v.bonus_expire_at).getTime() - Date.now()) < 1000 * 60 * 60 * 6 : false;
@@ -686,19 +690,34 @@ export default function VideosPage(): JSX.Element | null {
                 ⚡ Bonus expire bientôt !
               </div>
             )}
+            {variant === 'quiz' && (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: '#D4A017' }}>
+                ⚡ Code trouvé · Lance le quiz pour gagner tes points
+              </div>
+            )}
           </div>
           {/* Bouton droite */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0.55rem 0.85rem 0.55rem 0', flexShrink: 0 }}>
-            {variant !== 'done' ? (
+            {variant === 'quiz' ? (
+              <a href={`/videos/${v.id}/quiz`}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid #D4A017', color: '#D4A017', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                FAIRE LE QUIZ →
+              </a>
+            ) : variant !== 'done' ? (
               <a href={`/videos/${v.id}`}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: variant === 'bonus' || variant === 'urgent' ? '#C0392B' : 'transparent', border: variant === 'normal' ? '1px solid rgba(255,255,255,0.15)' : 'none', color: '#F5F0E8', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 {variant === 'urgent' ? 'URGENT →' : 'VOIR →'}
               </a>
             ) : (
-              <a href={`/videos/${v.id}`}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid rgba(46,204,113,0.2)', color: 'rgba(46,204,113,0.5)', textDecoration: 'none' }}>
-                REVOIR ✓
-              </a>
+              <>
+                <a href={`/videos/${v.id}`}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid rgba(46,204,113,0.2)', color: 'rgba(46,204,113,0.5)', textDecoration: 'none' }}>
+                  REVOIR ✓
+                </a>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'rgba(46,204,113,0.4)', marginTop: '0.2rem', textAlign: 'right' }}>
+                  Revoir pour bonus
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -722,6 +741,12 @@ export default function VideosPage(): JSX.Element | null {
             {disponibles.map(v => renderGridItem(v, 'normal'))}
           </>
         )}
+        {codeSubmis.length > 0 && (
+          <>
+            {sectionHdr('#D4A017', '🔒 Code soumis — Quiz en attente', codeSubmis.length)}
+            {codeSubmis.map(v => renderGridItem(v, 'quiz'))}
+          </>
+        )}
         {completes.length > 0 && (
           <>
             {sectionHdr('#2ECC71', '✅ Vidéos complétées', completes.length)}
@@ -743,9 +768,13 @@ export default function VideosPage(): JSX.Element | null {
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === "not_completed" && !bonus;
     });
+    const codeSubmis = videos.filter((v) => {
+      const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+      return status === "code_submitted";
+    });
     const completes = videos.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
-      return status === "completed" || status === "code_submitted";
+      return status === "completed";
     });
 
     const sectionHdr = (dot: string, label: string, count: number) => (
@@ -791,15 +820,17 @@ export default function VideosPage(): JSX.Element | null {
       </div>
     );
 
-    const renderItem = (v: VideoRow, variant: "bonus" | "urgent" | "normal" | "done") => {
+    const renderItem = (v: VideoRow, variant: "bonus" | "urgent" | "normal" | "done" | "quiz") => {
       const borderColor =
         variant === "bonus"
           ? "#2ECC71"
           : variant === "urgent"
             ? "#C0392B"
-            : variant === "done"
-              ? "rgba(255,255,255,0.06)"
-              : "rgba(255,255,255,0.08)";
+            : variant === "quiz"
+              ? "#D4A017"
+              : variant === "done"
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(255,255,255,0.08)";
       const pts = v.points_value ?? 0;
       const expiresSoon = v.bonus_expire_at
         ? new Date(v.bonus_expire_at).getTime() - Date.now() < 1000 * 60 * 60 * 6
@@ -866,6 +897,18 @@ export default function VideosPage(): JSX.Element | null {
                 ⚡ Bonus expire bientôt !
               </div>
             )}
+            {variant === "quiz" && (
+              <div
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.48rem",
+                  color: "#D4A017",
+                  marginTop: "0.15rem",
+                }}
+              >
+                ⚡ Code trouvé · Lance le quiz pour gagner tes points
+              </div>
+            )}
           </div>
           <div
             style={{
@@ -888,7 +931,25 @@ export default function VideosPage(): JSX.Element | null {
                 ? `✓ +${pts} pts`
                 : `+${variant === "bonus" ? pts * 2 : pts} PTS`}
             </span>
-            {variant !== "done" ? (
+            {variant === "quiz" ? (
+              <a
+                href={`/videos/${v.id}/quiz`}
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.48rem",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  padding: "0.28rem 0.65rem",
+                  background: "transparent",
+                  border: "1px solid #D4A017",
+                  color: "#D4A017",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                FAIRE LE QUIZ →
+              </a>
+            ) : variant !== "done" ? (
               <a
                 href={`/videos/${v.id}`}
                 style={{
@@ -909,22 +970,35 @@ export default function VideosPage(): JSX.Element | null {
                 {variant === "urgent" ? "URGENT →" : "VOIR LA VIDÉO →"}
               </a>
             ) : (
-              <a
-                href={`/videos/${v.id}`}
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.48rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  padding: "0.28rem 0.65rem",
-                  background: "transparent",
-                  border: "1px solid rgba(46,204,113,0.2)",
-                  color: "rgba(46,204,113,0.5)",
-                  textDecoration: "none",
-                }}
-              >
-                REVOIR ✓
-              </a>
+              <>
+                <a
+                  href={`/videos/${v.id}`}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.48rem",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    padding: "0.28rem 0.65rem",
+                    background: "transparent",
+                    border: "1px solid rgba(46,204,113,0.2)",
+                    color: "rgba(46,204,113,0.5)",
+                    textDecoration: "none",
+                  }}
+                >
+                  REVOIR ✓
+                </a>
+                <div
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.44rem",
+                    color: "rgba(46,204,113,0.4)",
+                    marginTop: "0.2rem",
+                    textAlign: "right",
+                  }}
+                >
+                  Revoir pour bonus
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -952,6 +1026,12 @@ export default function VideosPage(): JSX.Element | null {
               disponibles.length,
             )}
             {disponibles.map((v) => renderItem(v, "normal"))}
+          </>
+        )}
+        {codeSubmis.length > 0 && (
+          <>
+            {sectionHdr("#D4A017", "🔒 Code soumis — Quiz en attente", codeSubmis.length)}
+            {codeSubmis.map((v) => renderItem(v, "quiz"))}
           </>
         )}
         {completes.length > 0 && (
@@ -1265,7 +1345,7 @@ export default function VideosPage(): JSX.Element | null {
                 setCodeInput(formatCodeInput(e.target.value));
                 if (codeError) setCodeError(null);
                 if (alreadyCompletedMessage) setAlreadyCompletedMessage(null);
-                if (watchFirstYoutubeId) setWatchFirstYoutubeId(null);
+                if (watchFirstVideoId) setWatchFirstVideoId(null);
               }}
               placeholder="XXXX-YYYY-ZZZZ"
               disabled={codeSubmitting || showQuizReadyModal}
@@ -1303,16 +1383,14 @@ export default function VideosPage(): JSX.Element | null {
               {codeSubmitting ? "Validation…" : "VALIDER"}
             </button>
           </div>
-          {watchFirstYoutubeId ? (
+          {watchFirstVideoId ? (
             <p style={{ margin: "0.85rem 0 0", color: GOLD, fontSize: "0.9rem", lineHeight: 1.5 }}>
               Regarde d&apos;abord la vidéo pour débloquer le code —{" "}
               <a
-                href={`https://www.youtube.com/watch?v=${watchFirstYoutubeId}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/videos/${watchFirstVideoId}`}
                 style={{ color: GOLD, fontWeight: 600 }}
               >
-                ▶ Regarder sur YouTube
+                Regarder la vidéo →
               </a>
             </p>
           ) : alreadyCompletedMessage ? (
