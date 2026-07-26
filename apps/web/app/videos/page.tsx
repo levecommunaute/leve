@@ -840,7 +840,7 @@ export default function VideosPage(): JSX.Element | null {
                 ⚡ +{pts * 2} pts avec ×2 {profile?.member_type ?? ""}
               </div>
             )}
-            {(variant === "urgent" || expiresSoon) && (
+            {(variant === "urgent") && (
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
