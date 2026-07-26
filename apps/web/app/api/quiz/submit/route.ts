@@ -337,6 +337,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const ppRows: {
       membre_id: string;
+      video_id: string;
       pts_bruts: number;
       multiplicateur: number;
       pts_ponderes: number;
@@ -344,6 +345,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }[] = [
       {
         membre_id: user.id,
+        video_id: videoId,
         pts_bruts: pointsEarned,
         multiplicateur,
         pts_ponderes: pointsEarnedPonderes,
@@ -354,6 +356,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (pointsPerdus > 0) {
       ppRows.push({
         membre_id: user.id,
+        video_id: videoId,
         pts_bruts: pointsPerdus,
         multiplicateur,
         pts_ponderes: pointsPerdusPonderes,
