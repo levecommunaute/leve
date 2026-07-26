@@ -659,7 +659,7 @@ export default function VideosPage(): JSX.Element | null {
           <div style={{ width: '120px', minWidth: '120px', height: '68px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
             <img
               src={thumbUrl}
-              alt={v.title}
+              alt={v.title ?? ''}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: variant === 'done' ? 'grayscale(0.5)' : 'none' }}
             />
             {variant === 'bonus' || variant === 'urgent' ? (
