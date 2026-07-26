@@ -690,12 +690,12 @@ export default function VideosPage(): JSX.Element | null {
           {/* Bouton droite */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0.55rem 0.85rem 0.55rem 0', flexShrink: 0 }}>
             {variant !== 'done' ? (
-              <a href={`https://youtube.com/watch?v=${v.youtube_id}`} target="_blank" rel="noopener noreferrer"
+              <a href={`/videos/${v.id}`}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: variant === 'bonus' || variant === 'urgent' ? '#C0392B' : 'transparent', border: variant === 'normal' ? '1px solid rgba(255,255,255,0.15)' : 'none', color: '#F5F0E8', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 {variant === 'urgent' ? 'URGENT →' : 'VOIR →'}
               </a>
             ) : (
-              <a href={`https://youtube.com/watch?v=${v.youtube_id}`} target="_blank" rel="noopener noreferrer"
+              <a href={`/videos/${v.id}`}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid rgba(46,204,113,0.2)', color: 'rgba(46,204,113,0.5)', textDecoration: 'none' }}>
                 REVOIR ✓
               </a>
@@ -890,9 +890,7 @@ export default function VideosPage(): JSX.Element | null {
             </span>
             {variant !== "done" ? (
               <a
-                href={`https://youtube.com/watch?v=${v.youtube_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/videos/${v.id}`}
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.48rem",
@@ -912,9 +910,7 @@ export default function VideosPage(): JSX.Element | null {
               </a>
             ) : (
               <a
-                href={`https://youtube.com/watch?v=${v.youtube_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/videos/${v.id}`}
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.48rem",
