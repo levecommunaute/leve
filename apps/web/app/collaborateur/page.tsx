@@ -74,20 +74,29 @@ type PendingRow = {
   video_id: string;
   video_title: string;
   points_pending_cumul: number;
-  valeur_dollars_cumul: number;
   date_expiration: string;
   statut: string;
   pourcentage_fixe: number | null;
   recupere_le: string | null;
 };
 
+/** Ventilation PCOL d'une vidéo pour un mois (AAAA-MM). */
+type VideoMonthBreakdown = {
+  mois: string;
+  label: string;
+  ptsDirect: number;
+  ptsPendingAttente: number;
+  ptsRecuperes: number;
+  ptsPtc: number;
+  statut: string | null;
+  pourcentageFixe: number | null;
+};
+
 type VideoStats = {
   videoId: string;
   title: string;
   quizCount: number;
-  ptsPcolGeneres: number;
-  pendingPoints: number;
-  pendingDollars: number;
+  months: VideoMonthBreakdown[];
   dateExpiration: string | null;
   statut: string | null;
   pourcentageFixe: number | null;
@@ -98,7 +107,9 @@ type PcolTxRow = {
   video_id: string | null;
   pts_collab_ponderes: number | string | null;
   pts_membres_gagnes_ponderes: number | string | null;
+  mois?: string | null;
   created_at?: string | null;
+  paye?: boolean | null;
 };
 
 type MonthBounds = {
@@ -121,11 +132,31 @@ type PendingDbRow = {
   id: string;
   video_id: string;
   points_pending_cumul: number | string | null;
-  valeur_dollars_cumul: number | string | null;
   date_expiration: string | null;
   statut: string | null;
   pourcentage_fixe: number | string | null;
   recupere_le: string | null;
+};
+
+type PendingTrancheDbRow = {
+  id: string;
+  video_id: string;
+  mois: string;
+  pts: number | string | null;
+  pending_pcol:
+    | {
+        statut?: string | null;
+        pourcentage_fixe?: number | string | null;
+        date_expiration?: string | null;
+        recupere_le?: string | null;
+      }
+    | {
+        statut?: string | null;
+        pourcentage_fixe?: number | string | null;
+        date_expiration?: string | null;
+        recupere_le?: string | null;
+      }[]
+    | null;
 };
 
 type RedistRow = {
@@ -259,6 +290,54 @@ function createdAtRangeFilter(bounds: MonthBounds): string {
   );
 }
 
+/** Label FR depuis clé AAAA-MM (ex. "2026-07" → "Juillet 2026"). */
+function monthLabelFromKey(mois: string): string {
+  const parts = mois.split("-").map(Number);
+  const y = parts[0];
+  const m = parts[1];
+  if (!y || !m || m < 1 || m > 12) return mois;
+  return monthBoundsFor(y, m - 1).label;
+}
+
+/**
+ * Ratio de récupération du pending 8 % à partir de pourcentage_fixe (12–20).
+ * pts_recuperes = pts × ratio ; pts_ptc = pts × (1 - ratio).
+ */
+function pendingRecoveryRatio(pourcentageFixe: number): number {
+  const recoveredPending = pourcentageFixe - 12;
+  if (!Number.isFinite(recoveredPending)) return 0;
+  return Math.min(1, Math.max(0, recoveredPending / 8));
+}
+
+function unwrapPendingEmbed(
+  raw: PendingTrancheDbRow["pending_pcol"],
+): {
+  statut: string | null;
+  pourcentageFixe: number | null;
+  dateExpiration: string | null;
+  recupereLe: string | null;
+} {
+  const row = Array.isArray(raw) ? raw[0] : raw;
+  if (!row) {
+    return {
+      statut: null,
+      pourcentageFixe: null,
+      dateExpiration: null,
+      recupereLe: null,
+    };
+  }
+  const pct =
+    row.pourcentage_fixe != null && row.pourcentage_fixe !== ""
+      ? Number(row.pourcentage_fixe)
+      : null;
+  return {
+    statut: row.statut != null ? String(row.statut) : null,
+    pourcentageFixe: pct != null && Number.isFinite(pct) ? pct : null,
+    dateExpiration: row.date_expiration ? String(row.date_expiration) : null,
+    recupereLe: row.recupere_le ? String(row.recupere_le) : null,
+  };
+}
+
 export default function CollaborateurPage(): JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -314,10 +393,10 @@ export default function CollaborateurPage(): JSX.Element | null {
     setPcolMonthLabel(currentMonth.label);
     setPrevMonthLabel(prevMonth.label);
 
-    const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, redistRes, prevHistRes, ptcRes] =
+    const [pcolRes, pcolCurrentRes, pcolPrevRes, videosRes, pendingRes, tranchesRes, redistRes, prevHistRes, ptcRes] =
       await Promise.all([
         restJson<PcolTxRow[]>(
-          `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,pts_collab_ponderes,pts_membres_gagnes_ponderes,created_at&order=created_at.desc`,
+          `pcol_transactions?collaborateur_id=eq.${uidEnc}&select=video_id,pts_collab_ponderes,pts_membres_gagnes_ponderes,mois,created_at,paye&order=created_at.desc`,
           token,
         ),
         restJson<PcolTxRow[]>(
@@ -333,7 +412,11 @@ export default function CollaborateurPage(): JSX.Element | null {
           token,
         ),
         restJson<PendingDbRow[]>(
-          `pending_pcol?collaborateur_id=eq.${uidEnc}&select=id,video_id,points_pending_cumul,valeur_dollars_cumul,date_expiration,statut,pourcentage_fixe,recupere_le&order=date_expiration.desc`,
+          `pending_pcol?collaborateur_id=eq.${uidEnc}&select=id,video_id,points_pending_cumul,date_expiration,statut,pourcentage_fixe,recupere_le&order=date_expiration.desc`,
+          token,
+        ),
+        restJson<PendingTrancheDbRow[]>(
+          `pending_pcol_tranches?collaborateur_id=eq.${uidEnc}&paye=eq.false&select=id,video_id,mois,pts,pending_pcol(statut,pourcentage_fixe,date_expiration,recupere_le)&order=mois.desc`,
           token,
         ),
         restJson<RedistRow[]>(
@@ -353,6 +436,7 @@ export default function CollaborateurPage(): JSX.Element | null {
       pcolPrevRes.error ??
       videosRes.error ??
       pendingRes.error ??
+      tranchesRes.error ??
       redistRes.error ??
       prevHistRes.error ??
       ptcRes.error ??
@@ -366,6 +450,7 @@ export default function CollaborateurPage(): JSX.Element | null {
     const pcolRows = pcolRes.data ?? [];
     const videos = videosRes.data ?? [];
     const pendingRows = pendingRes.data ?? [];
+    const trancheRows = tranchesRes.data ?? [];
 
     const valeurParPtRaw = redistRes.data?.[0]?.value_per_point;
     const valeurParPtNum =
@@ -394,22 +479,11 @@ export default function CollaborateurPage(): JSX.Element | null {
       videos.map((v) => [String(v.id), String(v.title ?? "Vidéo")]),
     );
 
-    const ptsCollabByVideo = new Map<string, number>();
-    for (const row of pcolRows) {
-      const vid = String(row.video_id ?? "");
-      if (!vid) continue;
-      ptsCollabByVideo.set(
-        vid,
-        (ptsCollabByVideo.get(vid) ?? 0) + Number(row.pts_collab_ponderes ?? 0),
-      );
-    }
-
     const pendingListMapped: PendingRow[] = pendingRows.map((p) => ({
       id: String(p.id),
       video_id: String(p.video_id),
       video_title: videoTitleById.get(String(p.video_id)) ?? "Vidéo",
       points_pending_cumul: Number(p.points_pending_cumul ?? 0),
-      valeur_dollars_cumul: Number(p.valeur_dollars_cumul ?? 0),
       date_expiration: String(p.date_expiration ?? ""),
       statut: String(p.statut ?? "pending"),
       pourcentage_fixe:
@@ -431,16 +505,114 @@ export default function CollaborateurPage(): JSX.Element | null {
       quizCountByVideo.set(vid, (quizCountByVideo.get(vid) ?? 0) + 1);
     }
 
+    // PCOL direct (12 %) impayé, groupé vidéo+mois
+    const directByVideoMonth = new Map<string, number>();
+    for (const row of pcolRows) {
+      if (row.paye === true) continue;
+      const vid = String(row.video_id ?? "");
+      const mois = String(row.mois ?? "").trim();
+      if (!vid || !mois) continue;
+      const key = `${vid}:${mois}`;
+      directByVideoMonth.set(
+        key,
+        (directByVideoMonth.get(key) ?? 0) + Number(row.pts_collab_ponderes ?? 0),
+      );
+    }
+
+    // Tranches pending impayées, groupées vidéo+mois
+    type TrancheAgg = {
+      pts: number;
+      statut: string | null;
+      pourcentageFixe: number | null;
+      dateExpiration: string | null;
+      recupereLe: string | null;
+    };
+    const trancheByVideoMonth = new Map<string, TrancheAgg>();
+    for (const row of trancheRows) {
+      const vid = String(row.video_id ?? "");
+      const mois = String(row.mois ?? "").trim();
+      if (!vid || !mois) continue;
+      const pts = Number(row.pts ?? 0);
+      if (!(pts > 0)) continue;
+      const embed = unwrapPendingEmbed(row.pending_pcol);
+      const key = `${vid}:${mois}`;
+      const prev = trancheByVideoMonth.get(key);
+      if (prev) {
+        prev.pts += pts;
+      } else {
+        trancheByVideoMonth.set(key, {
+          pts,
+          statut: embed.statut,
+          pourcentageFixe: embed.pourcentageFixe,
+          dateExpiration: embed.dateExpiration,
+          recupereLe: embed.recupereLe,
+        });
+      }
+    }
+
+    const monthKeysByVideo = new Map<string, Set<string>>();
+    for (const key of directByVideoMonth.keys()) {
+      const [vid, mois] = key.split(":");
+      if (!vid || !mois) continue;
+      const set = monthKeysByVideo.get(vid) ?? new Set<string>();
+      set.add(mois);
+      monthKeysByVideo.set(vid, set);
+    }
+    for (const key of trancheByVideoMonth.keys()) {
+      const [vid, mois] = key.split(":");
+      if (!vid || !mois) continue;
+      const set = monthKeysByVideo.get(vid) ?? new Set<string>();
+      set.add(mois);
+      monthKeysByVideo.set(vid, set);
+    }
+
     const videoStatsMapped: VideoStats[] = videos.map((v) => {
       const vid = String(v.id);
       const pending = pendingByVideo.get(vid);
+      const moisSet = monthKeysByVideo.get(vid) ?? new Set<string>();
+      const monthsSorted = [...moisSet].sort((a, b) => b.localeCompare(a));
+
+      const months: VideoMonthBreakdown[] = monthsSorted.map((mois) => {
+        const key = `${vid}:${mois}`;
+        const ptsDirect = round2(directByVideoMonth.get(key) ?? 0);
+        const tranche = trancheByVideoMonth.get(key);
+        const statut = tranche?.statut ?? pending?.statut ?? null;
+        const pourcentageFixe =
+          tranche?.pourcentageFixe ?? pending?.pourcentage_fixe ?? null;
+        const ptsTranche = tranche?.pts ?? 0;
+
+        let ptsPendingAttente = 0;
+        let ptsRecuperes = 0;
+        let ptsPtc = 0;
+
+        if (statut === "transferred" || statut === "recupere") {
+          const ratio =
+            pourcentageFixe != null ? pendingRecoveryRatio(pourcentageFixe) : 0;
+          ptsRecuperes = round2(ptsTranche * ratio);
+          ptsPtc = round2(ptsTranche * (1 - ratio));
+        } else if (statut === "expired") {
+          ptsPtc = round2(ptsTranche);
+        } else if (statut === "pending" || ptsTranche > 0) {
+          ptsPendingAttente = round2(ptsTranche);
+        }
+
+        return {
+          mois,
+          label: monthLabelFromKey(mois),
+          ptsDirect,
+          ptsPendingAttente,
+          ptsRecuperes,
+          ptsPtc,
+          statut,
+          pourcentageFixe,
+        };
+      });
+
       return {
         videoId: vid,
         title: String(v.title ?? "Vidéo"),
         quizCount: quizCountByVideo.get(vid) ?? 0,
-        ptsPcolGeneres: ptsCollabByVideo.get(vid) ?? 0,
-        pendingPoints: pending?.points_pending_cumul ?? 0,
-        pendingDollars: pending?.valeur_dollars_cumul ?? 0,
+        months,
         dateExpiration: pending?.date_expiration ?? null,
         statut: pending?.statut ?? null,
         pourcentageFixe: pending?.pourcentage_fixe ?? null,
@@ -872,7 +1044,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                               <strong style={{ color: GOLD }}>
                                 {pointsFmt.format(p.points_pending_cumul)} pts
                               </strong>{" "}
-                              · {cadFmt.format(p.valeur_dollars_cumul)}
+                              en attente de récupération
                             </p>
                             <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65, textDecoration: "none" }}>
                               Expire le{" "}
@@ -947,13 +1119,13 @@ export default function CollaborateurPage(): JSX.Element | null {
                   }}
                 >
                   {videoStats.map((v) => {
-                    const inactive = v.statut != null && isInactiveStatut(v.statut);
-                    const hasPending = v.statut != null;
                     const expired =
                       v.statut === "expired" ||
                       (v.statut === "pending" &&
                         v.dateExpiration != null &&
                         msUntil(v.dateExpiration) <= 0);
+                    const showRecoverCta =
+                      v.statut === "pending" && !expired && v.dateExpiration != null;
 
                     return (
                       <li
@@ -963,7 +1135,7 @@ export default function CollaborateurPage(): JSX.Element | null {
                           padding: "1.1rem",
                           background: "rgba(245, 240, 232, 0.04)",
                           border: "1px solid rgba(245, 240, 232, 0.1)",
-                          opacity: inactive ? 0.55 : 1,
+                          opacity: v.statut === "expired" ? 0.55 : 1,
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
                         <div
@@ -980,7 +1152,6 @@ export default function CollaborateurPage(): JSX.Element | null {
                               margin: 0,
                               fontWeight: 600,
                               fontSize: "1rem",
-                              textDecoration: inactive ? "line-through" : "none",
                             }}
                           >
                             {v.title}
@@ -989,36 +1160,141 @@ export default function CollaborateurPage(): JSX.Element | null {
                             {v.quizCount} membre{v.quizCount !== 1 ? "s" : ""} · quiz
                           </span>
                         </div>
-                        <p style={{ margin: "0 0 0.5rem", fontSize: "0.88rem", opacity: 0.75 }}>
-                          Points PCOL générés :{" "}
-                          <strong style={{ color: GOLD }}>
-                            {pointsFmt.format(v.ptsPcolGeneres)}
-                          </strong>{" "}
-                          pts pondérés
-                        </p>
-                        {hasPending ? (
+
+                        {v.months.length === 0 ? (
+                          <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.5 }}>
+                            Aucun PCOL en attente de redistribution
+                          </p>
+                        ) : (
                           <div
                             style={{
-                              marginTop: "0.5rem",
-                              padding: "0.75rem",
-                              borderRadius: "4px",
-                              background: expired
-                                ? "rgba(192, 57, 43, 0.12)"
-                                : inactive
-                                  ? "rgba(245, 240, 232, 0.04)"
-                                  : "rgba(212, 160, 23, 0.1)",
-                              border: `1px solid ${expired ? ROUGE : inactive ? "rgba(245, 240, 232, 0.15)" : "rgba(212, 160, 23, 0.35)"}`,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.75rem",
                             }}
                           >
-                            {v.statut === "pending" && !expired ? (
+                            {v.months.map((m) => {
+                              const totalPcol = round2(m.ptsDirect + m.ptsRecuperes);
+                              const isTransferred =
+                                m.statut != null && isTransferredStatut(m.statut);
+                              const isPendingMonth =
+                                m.statut === "pending" ||
+                                (m.ptsPendingAttente > 0 && !isTransferred && m.statut !== "expired");
+
+                              return (
+                                <div
+                                  key={m.mois}
+                                  style={{
+                                    padding: "0.75rem",
+                                    borderRadius: "4px",
+                                    background:
+                                      m.statut === "expired"
+                                        ? "rgba(192, 57, 43, 0.12)"
+                                        : isTransferred
+                                          ? "rgba(245, 240, 232, 0.04)"
+                                          : "rgba(212, 160, 23, 0.1)",
+                                    border: `1px solid ${
+                                      m.statut === "expired"
+                                        ? ROUGE
+                                        : isTransferred
+                                          ? "rgba(245, 240, 232, 0.15)"
+                                          : "rgba(212, 160, 23, 0.35)"
+                                    }`,
+                                  }}
+                                >
+                                  <p style={{ margin: 0, fontSize: "0.85rem", lineHeight: 1.5 }}>
+                                    PCOL direct (12%) :{" "}
+                                    <strong style={{ color: GOLD }}>
+                                      {pointsFmt.format(m.ptsDirect)} pts
+                                    </strong>{" "}
+                                    · {m.label}
+                                  </p>
+
+                                  {isTransferred ? (
+                                    <>
+                                      <p
+                                        style={{
+                                          margin: "0.35rem 0 0",
+                                          fontSize: "0.85rem",
+                                          lineHeight: 1.5,
+                                          color: VERT,
+                                        }}
+                                      >
+                                        Pending récupéré :{" "}
+                                        <strong>{pointsFmt.format(m.ptsRecuperes)} pts</strong> ·{" "}
+                                        {m.label} · (
+                                        {m.pourcentageFixe != null
+                                          ? `${m.pourcentageFixe}%`
+                                          : "—"}{" "}
+                                        fixé)
+                                      </p>
+                                      <p
+                                        style={{
+                                          margin: "0.35rem 0 0",
+                                          fontSize: "0.85rem",
+                                          lineHeight: 1.5,
+                                          opacity: 0.85,
+                                        }}
+                                      >
+                                        → PTC : {pointsFmt.format(m.ptsPtc)} pts
+                                      </p>
+                                    </>
+                                  ) : isPendingMonth ? (
+                                    <p
+                                      style={{
+                                        margin: "0.35rem 0 0",
+                                        fontSize: "0.85rem",
+                                        lineHeight: 1.5,
+                                      }}
+                                    >
+                                      Pending :{" "}
+                                      <strong style={{ color: GOLD }}>
+                                        {pointsFmt.format(m.ptsPendingAttente)} pts
+                                      </strong>{" "}
+                                      · {m.label} · en attente de récupération
+                                    </p>
+                                  ) : m.statut === "expired" ? (
+                                    <p
+                                      style={{
+                                        margin: "0.35rem 0 0",
+                                        fontSize: "0.85rem",
+                                        color: ROUGE,
+                                        lineHeight: 1.5,
+                                      }}
+                                    >
+                                      → PTC : {pointsFmt.format(m.ptsPtc)} pts (expiré)
+                                    </p>
+                                  ) : null}
+
+                                  <p
+                                    style={{
+                                      margin: "0.45rem 0 0",
+                                      fontSize: "0.85rem",
+                                      fontWeight: 600,
+                                      lineHeight: 1.5,
+                                    }}
+                                  >
+                                    Total PCOL : {pointsFmt.format(totalPcol)} pts
+                                  </p>
+                                </div>
+                              );
+                            })}
+
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: "0.78rem",
+                                opacity: 0.55,
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              La valeur en dollars sera calculée lors de la redistribution de{" "}
+                              {(pcolMonthLabel || "ce mois").toLowerCase()}
+                            </p>
+
+                            {showRecoverCta ? (
                               <>
-                                <p style={{ margin: 0, fontSize: "0.85rem" }}>
-                                  Pending :{" "}
-                                  <strong>{pointsFmt.format(v.pendingPoints)} pts</strong>
-                                  {" · "}
-                                  {cadFmt.format(v.pendingDollars)}
-                                </p>
-                                <p style={{ margin: "0.35rem 0 0", fontSize: "0.8rem", opacity: 0.65 }}>
+                                <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.65 }}>
                                   {v.dateExpiration
                                     ? `${daysRemaining(v.dateExpiration)} jour${daysRemaining(v.dateExpiration) !== 1 ? "s" : ""} restant${daysRemaining(v.dateExpiration) !== 1 ? "s" : ""} · ${formatCountdown(new Date(v.dateExpiration).getTime() - nowTick)}`
                                     : "—"}
@@ -1026,7 +1302,6 @@ export default function CollaborateurPage(): JSX.Element | null {
                                 <Link
                                   href={`/videos/${v.videoId}`}
                                   style={{
-                                    marginTop: "0.5rem",
                                     display: "inline-block",
                                     fontSize: "0.8rem",
                                     color: VERT,
@@ -1037,20 +1312,8 @@ export default function CollaborateurPage(): JSX.Element | null {
                                   Regarder la vidéo et faire le quiz pour récupérer
                                 </Link>
                               </>
-                            ) : v.statut != null && isTransferredStatut(v.statut) ? (
-                              <p style={{ margin: 0, fontSize: "0.85rem", color: VERT }}>
-                                {transferredLabel(v.pourcentageFixe, v.recupereLe)}
-                              </p>
-                            ) : (
-                              <p style={{ margin: 0, fontSize: "0.85rem", color: ROUGE }}>
-                                ❌ Expiré — points transférés en PTC
-                              </p>
-                            )}
+                            ) : null}
                           </div>
-                        ) : (
-                          <p style={{ margin: 0, fontSize: "0.8rem", opacity: 0.5 }}>
-                            Aucun pending
-                          </p>
                         )}
                       </li>
                     );
