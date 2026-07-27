@@ -148,6 +148,7 @@ export default function VideoPage(): React.JSX.Element {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [playerControls, setPlayerControls] = useState<0 | 1>(1);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -470,6 +471,7 @@ export default function VideoPage(): React.JSX.Element {
       container.appendChild(mount);
 
       playerControlsRef.current = controls;
+      setPlayerControls(controls);
 
       const modeB = controlsSwitchEnabledRef.current;
       const playerVars: Record<string, number | string> = {
@@ -714,8 +716,11 @@ export default function VideoPage(): React.JSX.Element {
               position: absolute;
               inset: 0;
               z-index: 2;
-              pointer-events: all;
+              pointer-events: none;
               background: transparent;
+            }
+            .video-player-block-overlay--active {
+              pointer-events: all;
             }
             .video-player-progress-blocker {
               position: absolute;
@@ -869,7 +874,7 @@ export default function VideoPage(): React.JSX.Element {
               ) : null}
               {controlsSwitchEnabled ? (
                 <div
-                  className="video-player-block-overlay"
+                  className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
                   onClick={showControls}
                   onMouseEnter={showControls}
