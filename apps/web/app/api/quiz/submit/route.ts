@@ -337,6 +337,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const ppRows: {
       membre_id: string;
+      video_id: string;
       pts_bruts: number;
       multiplicateur: number;
       pts_ponderes: number;
@@ -344,6 +345,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }[] = [
       {
         membre_id: user.id,
+        video_id: videoId,
         pts_bruts: pointsEarned,
         multiplicateur,
         pts_ponderes: pointsEarnedPonderes,
@@ -354,6 +356,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (pointsPerdus > 0) {
       ppRows.push({
         membre_id: user.id,
+        video_id: videoId,
         pts_bruts: pointsPerdus,
         multiplicateur,
         pts_ponderes: pointsPerdusPonderes,
@@ -482,6 +485,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
       }
     } else if (isCollaborateurVideo && collaborateurId && pointsEarned > 0) {
+      // PCOL se génère dès le 1er quiz membre : ne pas attendre qu'un pending_pcol existe.
       const mois = currentMonthKey();
       const ptsPonderes = pcolNum(pointsEarnedPonderes);
 
@@ -492,7 +496,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .eq("video_id", videoId)
         .maybeSingle();
 
-      const pendingStatut = String(existingPending?.statut ?? "pending");
+      const hasPendingRow = Boolean(existingPending?.id);
+      const pendingStatut = hasPendingRow
+        ? String(existingPending?.statut ?? "pending")
+        : "pending";
       const isTransferred = pendingStatut === "transferred";
       const isExpired = pendingStatut === "expired";
       const isTransferredOrExpired = isTransferred || isExpired;
@@ -522,9 +529,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
         }
       } else {
+        // Pending absent ou encore "pending" : 12 % directs + 8 % pending.
         ptsCollab = pcolNum(ptsPonderes * PCOL_COLLAB_IMMEDIATE_SHARE);
         ptsPending = pcolNum(ptsPonderes * PCOL_COLLAB_PENDING_SHARE);
         ptsMembresNets = pcolNum(ptsPonderes * PCOL_MEMBER_SHARE);
+      }
+
+      // Premier quiz membre (pas encore de pending_pcol) : créer le pending 8 % d'abord.
+      if (!hasPendingRow && ptsPending > 0) {
+        const valeurParPt = await latestValeurParPt(svc);
+        const valeurDollarsNouveaux = ptsPending * valeurParPt;
+
+        const videoPublishedAt = videoRow?.created_at
+          ? new Date(String(videoRow.created_at))
+          : new Date();
+        const dateExpiration = new Date(videoPublishedAt);
+        dateExpiration.setUTCFullYear(dateExpiration.getUTCFullYear() + 1);
+
+        const { error: pendingErr } = await svc.from("pending_pcol").insert({
+          collaborateur_id: collaborateurId,
+          video_id: videoId,
+          points_pending_cumul: ptsPending,
+          valeur_dollars_cumul: valeurDollarsNouveaux,
+          earned_date: new Date().toISOString(),
+          date_expiration: dateExpiration.toISOString(),
+          statut: "pending",
+        });
+
+        if (pendingErr) {
+          return NextResponse.json({ error: pendingErr.message }, { status: 500 });
+        }
       }
 
       const { error: pcolErr } = await svc.from("pcol_transactions").insert({
@@ -558,47 +592,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
 
-      const canAccumulatePending = pendingStatut === "pending";
-
-      if (ptsPending > 0 && canAccumulatePending) {
+      // Pending déjà existant et encore ouvert : cumuler les 8 % suivants.
+      const pendingId = existingPending?.id;
+      if (pendingId && ptsPending > 0 && pendingStatut === "pending") {
         const valeurParPt = await latestValeurParPt(svc);
         const valeurDollarsNouveaux = ptsPending * valeurParPt;
+        const prevPts = Number(existingPending?.points_pending_cumul ?? 0);
+        const prevDollars = Number(existingPending?.valeur_dollars_cumul ?? 0);
 
-        const videoPublishedAt = videoRow?.created_at
-          ? new Date(String(videoRow.created_at))
-          : new Date();
-        const dateExpiration = new Date(videoPublishedAt);
-        dateExpiration.setUTCFullYear(dateExpiration.getUTCFullYear() + 1);
+        const { error: pendingErr } = await svc
+          .from("pending_pcol")
+          .update({
+            points_pending_cumul: prevPts + ptsPending,
+            valeur_dollars_cumul: prevDollars + valeurDollarsNouveaux,
+          })
+          .eq("id", pendingId);
 
-        if (existingPending?.id) {
-          const prevPts = Number(existingPending.points_pending_cumul ?? 0);
-          const prevDollars = Number(existingPending.valeur_dollars_cumul ?? 0);
-
-          const { error: pendingErr } = await svc
-            .from("pending_pcol")
-            .update({
-              points_pending_cumul: prevPts + ptsPending,
-              valeur_dollars_cumul: prevDollars + valeurDollarsNouveaux,
-            })
-            .eq("id", existingPending.id);
-
-          if (pendingErr) {
-            return NextResponse.json({ error: pendingErr.message }, { status: 500 });
-          }
-        } else {
-          const { error: pendingErr } = await svc.from("pending_pcol").insert({
-            collaborateur_id: collaborateurId,
-            video_id: videoId,
-            points_pending_cumul: ptsPending,
-            valeur_dollars_cumul: valeurDollarsNouveaux,
-            earned_date: new Date().toISOString(),
-            date_expiration: dateExpiration.toISOString(),
-            statut: "pending",
-          });
-
-          if (pendingErr) {
-            return NextResponse.json({ error: pendingErr.message }, { status: 500 });
-          }
+        if (pendingErr) {
+          return NextResponse.json({ error: pendingErr.message }, { status: 500 });
         }
       }
     }
