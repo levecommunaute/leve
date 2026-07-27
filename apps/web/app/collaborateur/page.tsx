@@ -620,10 +620,18 @@ export default function CollaborateurPage(): JSX.Element | null {
       };
     });
 
-    const currentMonthPcol = (pcolCurrentRes.data ?? []).reduce(
+    const currentMonthKey = currentMonth.monthDate.slice(0, 7); // AAAA-MM
+    const currentMonthPtsCollab = (pcolCurrentRes.data ?? []).reduce(
       (acc, r) => acc + Number(r.pts_collab_ponderes ?? 0),
       0,
     );
+    // Portion récupérée du pending 8 % (tranches transferred) pour le mois courant
+    const currentMonthPtsRecuperes = videoStatsMapped.reduce((acc, v) => {
+      const m = v.months.find((x) => x.mois === currentMonthKey);
+      return acc + (m?.ptsRecuperes ?? 0);
+    }, 0);
+    const currentMonthPcol = round2(currentMonthPtsCollab + currentMonthPtsRecuperes);
+
     const prevMonthPcol = (pcolPrevRes.data ?? []).reduce(
       (acc, r) => acc + Number(r.pts_collab_ponderes ?? 0),
       0,
