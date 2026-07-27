@@ -764,9 +764,9 @@ export default function VideoPage(): React.JSX.Element {
               position: absolute;
               bottom: 0;
               left: 0;
-              height: 40px;
+              height: 60px;
               width: 100%;
-              z-index: 2;
+              z-index: 10;
               pointer-events: all;
               background: transparent;
             }
