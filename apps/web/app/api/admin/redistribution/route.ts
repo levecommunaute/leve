@@ -159,23 +159,59 @@ async function fetchActiveCollaborateurIds(
   return ids;
 }
 
+type VideoCreditKey = `${string}:${string}`;
+
+function videoCreditKey(collaborateurId: string, videoId: string): VideoCreditKey {
+  return `${collaborateurId}:${videoId}`;
+}
+
+async function fetchVideoTitles(
+  supabase: SupabaseClient,
+  videoIds: string[],
+): Promise<Map<string, string>> {
+  const titles = new Map<string, string>();
+  const unique = [...new Set(videoIds.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += MOUVEMENT_BATCH_SIZE) {
+    const batch = unique.slice(i, i + MOUVEMENT_BATCH_SIZE);
+    const { data, error } = await supabase
+      .from("videos")
+      .select("id, title")
+      .in("id", batch);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const id = String(row.id ?? "").trim();
+      if (!id) continue;
+      titles.set(id, String(row.title ?? "Vidéo").trim() || "Vidéo");
+    }
+  }
+  return titles;
+}
+
 type UnpaidPcolAggregate = {
-  ptsByCollaborateur: Map<string, number>;
-  transactionIdsByCollaborateur: Map<string, string[]>;
+  ptsByVideo: Map<VideoCreditKey, { collaborateurId: string; videoId: string; pts: number }>;
+  transactionIdsByVideo: Map<VideoCreditKey, string[]>;
 };
 
-/** SUM(pts_collab_ponderes) par collaborateur pour les transactions PCOL non encore payées. */
-async function aggregateUnpaidPtsCollabByCollaborateur(
+/**
+ * SUM(pts_collab_ponderes) par collaborateur+vidéo pour les pcol_transactions
+ * du mois non encore payées.
+ */
+async function aggregateUnpaidPtsCollabForMonth(
   supabase: SupabaseClient,
+  monthKey: string,
 ): Promise<UnpaidPcolAggregate> {
-  const ptsByCollaborateur = new Map<string, number>();
-  const transactionIdsByCollaborateur = new Map<string, string[]>();
+  const ptsByVideo = new Map<
+    VideoCreditKey,
+    { collaborateurId: string; videoId: string; pts: number }
+  >();
+  const transactionIdsByVideo = new Map<VideoCreditKey, string[]>();
   let offset = 0;
 
   for (;;) {
     const { data, error } = await supabase
       .from("pcol_transactions")
-      .select("id, collaborateur_id, pts_collab_ponderes")
+      .select("id, collaborateur_id, video_id, pts_collab_ponderes")
+      .eq("mois", monthKey)
       .eq("paye", false)
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -187,25 +223,29 @@ async function aggregateUnpaidPtsCollabByCollaborateur(
     for (const row of rows) {
       const id = String(row.id ?? "").trim();
       const collaborateurId = String(row.collaborateur_id ?? "").trim();
+      const videoId = String(row.video_id ?? "").trim();
       if (!collaborateurId) continue;
       const pts = Number(row.pts_collab_ponderes ?? 0);
       if (!Number.isFinite(pts) || pts <= 0) continue;
+      const key = videoCreditKey(collaborateurId, videoId || "_");
       if (id) {
-        const ids = transactionIdsByCollaborateur.get(collaborateurId) ?? [];
+        const ids = transactionIdsByVideo.get(key) ?? [];
         ids.push(id);
-        transactionIdsByCollaborateur.set(collaborateurId, ids);
+        transactionIdsByVideo.set(key, ids);
       }
-      ptsByCollaborateur.set(
+      const prev = ptsByVideo.get(key);
+      ptsByVideo.set(key, {
         collaborateurId,
-        (ptsByCollaborateur.get(collaborateurId) ?? 0) + pts,
-      );
+        videoId,
+        pts: (prev?.pts ?? 0) + pts,
+      });
     }
 
     if (rows.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
 
-  return { ptsByCollaborateur, transactionIdsByCollaborateur };
+  return { ptsByVideo, transactionIdsByVideo };
 }
 
 /** Marque les transactions PCOL comme payées après crédit banque_membres. */
@@ -230,10 +270,10 @@ async function markPcolTransactionsPaid(
 type BankCredit = { membre_id: string; gain: number; description: string };
 
 /**
- * Scénario B — 12 % garanti : crédite banque_membres pour chaque collaborateur actif
- * (SUM des pts_collab_ponderes non payés × valeur_par_pt).
+ * 12 % directs : crédite banque_membres pour chaque collaborateur actif
+ * (pts_collab_ponderes du mois non payés × value_per_point), par vidéo.
  */
-async function crediterPcol12Garanti(
+async function crediterPcol12Direct(
   supabase: SupabaseClient,
   monthKey: string,
   valuePerPoint: number,
@@ -247,24 +287,30 @@ async function crediterPcol12Garanti(
   }
 
   const actifs = await fetchActiveCollaborateurIds(supabase);
-  const { ptsByCollaborateur, transactionIdsByCollaborateur } =
-    await aggregateUnpaidPtsCollabByCollaborateur(supabase);
+  const { ptsByVideo, transactionIdsByVideo } = await aggregateUnpaidPtsCollabForMonth(
+    supabase,
+    monthKey,
+  );
+
+  const videoIds = [...ptsByVideo.values()].map((v) => v.videoId).filter(Boolean);
+  const titles = await fetchVideoTitles(supabase, videoIds);
 
   const credits: BankCredit[] = [];
   const transactionIdsToMarkPaid: string[] = [];
   let totalDollars = 0;
 
-  for (const [collaborateurId, ptsCollab] of ptsByCollaborateur) {
-    if (!actifs.has(collaborateurId) || ptsCollab <= 0) continue;
-    const gain = ptsCollab * valuePerPoint;
+  for (const [key, { collaborateurId, videoId, pts }] of ptsByVideo) {
+    if (!actifs.has(collaborateurId) || pts <= 0) continue;
+    const gain = pts * valuePerPoint;
     if (!Number.isFinite(gain) || gain <= 0) continue;
     totalDollars += gain;
+    const titre = videoId ? (titles.get(videoId) ?? videoId.slice(0, 8)) : "—";
     credits.push({
       membre_id: collaborateurId,
       gain,
-      description: `PCOL 12% garanti — redistribution ${monthKey}`,
+      description: `PCOL redistribution ${monthKey} — vidéo ${titre}`,
     });
-    const ids = transactionIdsByCollaborateur.get(collaborateurId);
+    const ids = transactionIdsByVideo.get(key);
     if (ids?.length) transactionIdsToMarkPaid.push(...ids);
   }
 
@@ -275,29 +321,44 @@ async function crediterPcol12Garanti(
   };
 }
 
-type PendingVideoKey = `${string}:${string}`;
-
-function pendingVideoKey(collaborateurId: string, videoId: string): PendingVideoKey {
-  return `${collaborateurId}:${videoId}`;
+/**
+ * Ratio de récupération du pending 8 % à partir de pourcentage_fixe (12–20).
+ * Ex. fixe=20 → 1.0 ; fixe=18 → 0.75 ; fixe=12 → 0.
+ */
+function pendingRecoveryRatio(pourcentageFixe: number): number {
+  const pendingPctPoints = PCOL_COLLAB_PENDING_SHARE * 100; // 8
+  const immediatePctPoints = 12;
+  const recoveredPending = pourcentageFixe - immediatePctPoints;
+  if (!Number.isFinite(recoveredPending) || pendingPctPoints <= 0) return 0;
+  return Math.min(1, Math.max(0, recoveredPending / pendingPctPoints));
 }
 
-/** Points pending (8 % pondérés) par vidéo / collaborateur pour le mois PCOL. */
-async function aggregatePendingPtsByVideo(
+type TransferredTrancheRow = {
+  id: string;
+  collaborateurId: string;
+  videoId: string;
+  mois: string;
+  pts: number;
+  pourcentageFixe: number;
+};
+
+/** Tranches pending non payées, pending_pcol transferred, mois <= monthKey. */
+async function fetchUnpaidTransferredTranches(
   supabase: SupabaseClient,
   monthKey: string,
-): Promise<Map<PendingVideoKey, { collaborateurId: string; videoId: string; pts: number }>> {
-  const totals = new Map<
-    PendingVideoKey,
-    { collaborateurId: string; videoId: string; pts: number }
-  >();
+): Promise<TransferredTrancheRow[]> {
+  const results: TransferredTrancheRow[] = [];
   let offset = 0;
 
   for (;;) {
     const { data, error } = await supabase
-      .from("pcol_transactions")
-      .select("collaborateur_id, video_id, pts_membres_gagnes_ponderes")
-      .eq("mois", monthKey)
-      .eq("type", "quiz")
+      .from("pending_pcol_tranches")
+      .select(
+        "id, collaborateur_id, video_id, mois, pts, pending_pcol!inner(statut, pourcentage_fixe)",
+      )
+      .lte("mois", monthKey)
+      .eq("paye", false)
+      .eq("pending_pcol.statut", "transferred")
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (error) {
@@ -306,18 +367,25 @@ async function aggregatePendingPtsByVideo(
 
     const rows = data ?? [];
     for (const row of rows) {
+      const id = String(row.id ?? "").trim();
       const collaborateurId = String(row.collaborateur_id ?? "").trim();
       const videoId = String(row.video_id ?? "").trim();
-      if (!collaborateurId || !videoId) continue;
-      const ptsPonderes = Number(row.pts_membres_gagnes_ponderes ?? 0);
-      if (!Number.isFinite(ptsPonderes) || ptsPonderes <= 0) continue;
-      const pendingPts = ptsPonderes * PCOL_COLLAB_PENDING_SHARE;
-      const key = pendingVideoKey(collaborateurId, videoId);
-      const prev = totals.get(key);
-      totals.set(key, {
+      const mois = String(row.mois ?? "").trim();
+      const pts = Number(row.pts ?? 0);
+      const pending = row.pending_pcol as
+        | { statut?: string; pourcentage_fixe?: number | null }
+        | { statut?: string; pourcentage_fixe?: number | null }[]
+        | null;
+      const pendingRow = Array.isArray(pending) ? pending[0] : pending;
+      const pourcentageFixe = Number(pendingRow?.pourcentage_fixe ?? 12);
+      if (!id || !collaborateurId || !mois || !(pts > 0)) continue;
+      results.push({
+        id,
         collaborateurId,
         videoId,
-        pts: (prev?.pts ?? 0) + pendingPts,
+        mois,
+        pts,
+        pourcentageFixe: Number.isFinite(pourcentageFixe) ? pourcentageFixe : 12,
       });
     }
 
@@ -325,54 +393,134 @@ async function aggregatePendingPtsByVideo(
     offset += PAGE_SIZE;
   }
 
-  return totals;
+  return results;
+}
+
+async function markPendingTranchesPaid(
+  supabase: SupabaseClient,
+  trancheIds: string[],
+): Promise<void> {
+  if (trancheIds.length === 0) return;
+
+  for (let i = 0; i < trancheIds.length; i += MOUVEMENT_BATCH_SIZE) {
+    const batch = trancheIds.slice(i, i + MOUVEMENT_BATCH_SIZE);
+    const { error } = await supabase
+      .from("pending_pcol_tranches")
+      .update({ paye: true })
+      .in("id", batch);
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
 }
 
 /**
- * Pending 8 % : pour chaque pending_pcol (statut pending), cumule
- * pts_pending du mois × valeur_par_pt dans valeur_dollars_cumul.
+ * Pending 8 % recovered : crédite banque pour les tranches transferred (mois <= monthKey).
+ * valeur = pts × (pourcentage_fixe - 12) / 8 × value_per_point du mois de la tranche.
  */
-async function crediterPendingMensuel(
+async function crediterPendingTranchesTransferred(
   supabase: SupabaseClient,
   monthKey: string,
   valuePerPoint: number,
-): Promise<number> {
-  if (!Number.isFinite(valuePerPoint) || valuePerPoint <= 0) return 0;
-
-  const pendingPtsByVideo = await aggregatePendingPtsByVideo(supabase, monthKey);
-  if (pendingPtsByVideo.size === 0) return 0;
-
-  let totalDollarsCredites = 0;
-
-  for (const { collaborateurId, videoId, pts: nouveauxPtsPending } of pendingPtsByVideo.values()) {
-    if (nouveauxPtsPending <= 0) continue;
-
-    const { data: pendingRow, error: fetchErr } = await supabase
-      .from("pending_pcol")
-      .select("id, valeur_dollars_cumul")
-      .eq("collaborateur_id", collaborateurId)
-      .eq("video_id", videoId)
-      .eq("statut", "pending")
-      .maybeSingle();
-
-    if (fetchErr) throw new Error(fetchErr.message);
-    if (!pendingRow?.id) continue;
-
-    const dollarAdd = nouveauxPtsPending * valuePerPoint;
-    totalDollarsCredites += dollarAdd;
-    const prevDollars = Number(pendingRow.valeur_dollars_cumul ?? 0);
-
-    const { error: updErr } = await supabase
-      .from("pending_pcol")
-      .update({
-        valeur_dollars_cumul: prevDollars + dollarAdd,
-      })
-      .eq("id", pendingRow.id);
-
-    if (updErr) throw new Error(updErr.message);
+): Promise<{
+  credits: BankCredit[];
+  totalDollars: number;
+  trancheIdsToMarkPaid: string[];
+  ptcDollars: number;
+}> {
+  if (!Number.isFinite(valuePerPoint) || valuePerPoint <= 0) {
+    return { credits: [], totalDollars: 0, trancheIdsToMarkPaid: [], ptcDollars: 0 };
   }
 
-  return totalDollarsCredites;
+  const actifs = await fetchActiveCollaborateurIds(supabase);
+  const tranches = await fetchUnpaidTransferredTranches(supabase, monthKey);
+  if (tranches.length === 0) {
+    return { credits: [], totalDollars: 0, trancheIdsToMarkPaid: [], ptcDollars: 0 };
+  }
+
+  const titles = await fetchVideoTitles(
+    supabase,
+    tranches.map((t) => t.videoId),
+  );
+
+  // VPP historique pour les tranches de mois antérieurs déjà redistribués.
+  const priorMonths = [
+    ...new Set(tranches.map((t) => t.mois).filter((m) => m !== monthKey)),
+  ];
+  const vppByMonth = new Map<string, number>([[monthKey, valuePerPoint]]);
+  if (priorMonths.length > 0) {
+    const monthDates = priorMonths.map((m) => `${m}-01`);
+    const { data: histRows, error: histErr } = await supabase
+      .from("redistribution_history")
+      .select("month, value_per_point")
+      .in("month", monthDates);
+    if (histErr) throw new Error(histErr.message);
+    for (const row of histRows ?? []) {
+      const monthRaw = String(row.month ?? "");
+      const key = monthRaw.slice(0, 7);
+      const vpp = Number(row.value_per_point ?? 0);
+      if (key && Number.isFinite(vpp) && vpp > 0) {
+        vppByMonth.set(key, vpp);
+      }
+    }
+  }
+
+  // Agrège par collaborateur+vidéo+mois pour un mouvement lisible.
+  const byVideo = new Map<
+    string,
+    {
+      collaborateurId: string;
+      videoId: string;
+      mois: string;
+      gain: number;
+      trancheIds: string[];
+    }
+  >();
+  let ptcDollars = 0;
+
+  for (const t of tranches) {
+    if (!actifs.has(t.collaborateurId)) continue;
+    const vpp = vppByMonth.get(t.mois) ?? valuePerPoint;
+    if (!(vpp > 0)) continue;
+    const ratio = pendingRecoveryRatio(t.pourcentageFixe);
+    const recoveredPts = t.pts * ratio;
+    const lostPts = t.pts - recoveredPts;
+    const gain = recoveredPts * vpp;
+    ptcDollars += lostPts * vpp;
+
+    const key = `${t.collaborateurId}:${t.videoId}:${t.mois}`;
+    const prev = byVideo.get(key);
+    if (prev) {
+      prev.gain += gain;
+      prev.trancheIds.push(t.id);
+    } else {
+      byVideo.set(key, {
+        collaborateurId: t.collaborateurId,
+        videoId: t.videoId,
+        mois: t.mois,
+        gain,
+        trancheIds: [t.id],
+      });
+    }
+  }
+
+  const credits: BankCredit[] = [];
+  const trancheIdsToMarkPaid: string[] = [];
+  let totalDollars = 0;
+
+  for (const { collaborateurId, videoId, mois, gain, trancheIds } of byVideo.values()) {
+    trancheIdsToMarkPaid.push(...trancheIds);
+    if (!(gain > 0)) continue;
+    totalDollars += gain;
+    const titre = titles.get(videoId) ?? videoId.slice(0, 8);
+    credits.push({
+      membre_id: collaborateurId,
+      gain,
+      description: `PCOL redistribution ${mois} — vidéo ${titre}`,
+    });
+  }
+
+  return { credits, totalDollars, trancheIdsToMarkPaid, ptcDollars };
 }
 
 /** Crédite le solde $ et journalise le mouvement pour chaque membre. */
@@ -572,22 +720,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     let pcol12DollarsCredites = 0;
     let pendingDollarsCredites = 0;
+    let pendingPtcDollars = 0;
     let pcolTransactionIdsToMarkPaid: string[] = [];
+    let pendingTrancheIdsToMarkPaid: string[] = [];
     try {
       const {
         credits: pcol12Credits,
         totalDollars: pcol12Total,
         transactionIdsToMarkPaid,
-      } = await crediterPcol12Garanti(supabase, monthKey, valuePerPoint);
+      } = await crediterPcol12Direct(supabase, monthKey, valuePerPoint);
       pcol12DollarsCredites = pcol12Total;
       pcolTransactionIdsToMarkPaid = transactionIdsToMarkPaid;
       bankCredits.push(...pcol12Credits);
 
-      pendingDollarsCredites = await crediterPendingMensuel(
+      const {
+        credits: pendingCredits,
+        totalDollars: pendingTotal,
+        trancheIdsToMarkPaid,
+        ptcDollars,
+      } = await crediterPendingTranchesTransferred(
         supabase,
         monthKey,
         valuePerPoint,
       );
+      pendingDollarsCredites = pendingTotal;
+      pendingTrancheIdsToMarkPaid = trancheIdsToMarkPaid;
+      pendingPtcDollars = ptcDollars;
+      bankCredits.push(...pendingCredits);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: message }, { status: 500 });
@@ -605,6 +764,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     try {
       await markPcolTransactionsPaid(supabase, pcolTransactionIdsToMarkPaid);
+      await markPendingTranchesPaid(supabase, pendingTrancheIdsToMarkPaid);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: message }, { status: 500 });
@@ -615,6 +775,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         montant: ptcTotal,
         source: "quiz_perdu",
         description: `Redistribution mensuelle — quiz perdus (${monthKey})`,
+        mois: monthKey,
+      });
+    }
+
+    if (pendingPtcDollars > 0) {
+      await crediterPtc({
+        montant: pendingPtcDollars,
+        source: "collab_perdu",
+        description: `PCOL pending non récupéré — redistribution ${monthKey}`,
         mois: monthKey,
       });
     }
@@ -677,6 +846,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       pcol_pts_ponderes: totalPcolPtsPonderes,
       pcol_12_dollars_credites: pcol12DollarsCredites,
       pending_dollars_credites: pendingDollarsCredites,
+      pending_ptc_dollars: pendingPtcDollars,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
