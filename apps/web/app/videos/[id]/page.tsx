@@ -34,8 +34,11 @@ interface YTPlayer {
   destroy(): void;
 }
 
+const YT_STATE_ENDED = 0;
 const YT_STATE_PLAYING = 1;
+const YT_STATE_PAUSED = 2;
 const CONTROLS_HIDE_MS = 3000;
+const CONTROLS_SWITCH_MS = 45000;
 
 declare global {
   interface Window {
@@ -127,6 +130,7 @@ export default function VideoPage(): React.JSX.Element {
   const [video, setVideo] = useState<Video | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [verification60Enabled, setVerification60Enabled] = useState<boolean>(false);
+  const [controlsSwitchEnabled, setControlsSwitchEnabled] = useState<boolean>(false);
   const [flagLoaded, setFlagLoaded] = useState<boolean>(false);
   const [userId, setUserId] = useState<string>("");
   const [progressLoaded, setProgressLoaded] = useState<boolean>(false);
@@ -157,6 +161,14 @@ export default function VideoPage(): React.JSX.Element {
   const unlockedRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
   const videoIdRef = useRef<string>("");
+  const controlsSwitchEnabledRef = useRef<boolean>(false);
+  const switchElapsedMsRef = useRef<number>(0);
+  const switchStartedAtRef = useRef<number | null>(null);
+  const switchDoneRef = useRef<boolean>(false);
+  const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recreatePlayerRef = useRef<
+    ((controls: 0 | 1, opts?: { seekTo?: number; autoplay?: boolean }) => void) | null
+  >(null);
 
   const saveProgress = useCallback(async (): Promise<void> => {
     const membreId = userIdRef.current;
@@ -322,12 +334,20 @@ export default function VideoPage(): React.JSX.Element {
     let cancelled = false;
     void (async () => {
       try {
-        const r = await fetch("/api/feature-flags?nom=verification-60-pct", { cache: "no-store" });
-        const j = (await r.json()) as { actif?: boolean };
+        const [r60, rSwitch] = await Promise.all([
+          fetch("/api/feature-flags?nom=verification-60-pct", { cache: "no-store" }),
+          fetch("/api/feature-flags?nom=video-controls-switch", { cache: "no-store" }),
+        ]);
+        const j60 = (await r60.json()) as { actif?: boolean };
+        const jSwitch = (await rSwitch.json()) as { actif?: boolean };
         if (cancelled) return;
-        setVerification60Enabled(Boolean(j.actif));
+        setVerification60Enabled(Boolean(j60.actif));
+        setControlsSwitchEnabled(Boolean(jSwitch.actif));
       } catch {
-        if (!cancelled) setVerification60Enabled(false);
+        if (!cancelled) {
+          setVerification60Enabled(false);
+          setControlsSwitchEnabled(false);
+        }
       } finally {
         if (!cancelled) setFlagLoaded(true);
       }
@@ -336,6 +356,10 @@ export default function VideoPage(): React.JSX.Element {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    controlsSwitchEnabledRef.current = controlsSwitchEnabled;
+  }, [controlsSwitchEnabled]);
 
   useEffect(() => {
     if (!flagLoaded) return;
@@ -434,37 +458,141 @@ export default function VideoPage(): React.JSX.Element {
     if (!flagLoaded || !verification60Enabled || !video?.youtube_id || !progressLoaded) return;
 
     let cancelled = false;
+    const youtubeId = video.youtube_id;
 
-    void (async () => {
-      await loadYouTubeIframeApi();
+    const clearSwitchTimeout = (): void => {
+      if (switchTimeoutRef.current) {
+        clearTimeout(switchTimeoutRef.current);
+        switchTimeoutRef.current = null;
+      }
+    };
+
+    const pauseSwitchTimer = (): void => {
+      if (switchStartedAtRef.current === null) return;
+      switchElapsedMsRef.current += Date.now() - switchStartedAtRef.current;
+      switchStartedAtRef.current = null;
+      clearSwitchTimeout();
+    };
+
+    const startSwitchTimer = (): void => {
+      if (!controlsSwitchEnabledRef.current || switchDoneRef.current) return;
+      if (switchStartedAtRef.current !== null) return;
+
+      const remaining = Math.max(0, CONTROLS_SWITCH_MS - switchElapsedMsRef.current);
+      switchStartedAtRef.current = Date.now();
+      clearSwitchTimeout();
+      switchTimeoutRef.current = setTimeout(() => {
+        switchTimeoutRef.current = null;
+        switchStartedAtRef.current = null;
+        switchElapsedMsRef.current = CONTROLS_SWITCH_MS;
+        switchDoneRef.current = true;
+        const player = playerRef.current;
+        const seekTo = player ? player.getCurrentTime() : 0;
+        recreatePlayerRef.current?.(0, { seekTo, autoplay: true });
+      }, remaining);
+    };
+
+    const resetSwitchTimer = (): void => {
+      clearSwitchTimeout();
+      switchElapsedMsRef.current = 0;
+      switchStartedAtRef.current = null;
+      switchDoneRef.current = false;
+    };
+
+    const createPlayer = (
+      controls: 0 | 1,
+      opts?: { seekTo?: number; autoplay?: boolean },
+    ): void => {
       if (cancelled || !playerContainerRef.current || !window.YT?.Player) return;
 
-      const player = new window.YT.Player(playerContainerRef.current, {
-        videoId: video.youtube_id,
-        playerVars: {
-          rel: 0,
-          modestbranding: 1,
-          disablekb: 1,
-          controls: 0,
-          loop: 1,
-          playlist: video.youtube_id,
-        },
+      const container = playerContainerRef.current;
+      container.innerHTML = "";
+      const mount = document.createElement("div");
+      mount.style.width = "100%";
+      mount.style.height = "100%";
+      container.appendChild(mount);
+
+      const modeB = controlsSwitchEnabledRef.current;
+      const playerVars: Record<string, number | string> = {
+        rel: 0,
+        modestbranding: 1,
+        disablekb: 1,
+        controls,
+      };
+
+      // Mode A: loop. Mode B: no loop so ENDED can fire and restore controls: 1.
+      if (!modeB) {
+        playerVars.loop = 1;
+        playerVars.playlist = youtubeId;
+      }
+
+      const player = new window.YT.Player(mount, {
+        videoId: youtubeId,
+        playerVars,
         events: {
           onReady: (event) => {
-            const duration = event.target.getDuration();
-            if (duration && duration > 0) {
-              lastKnownPositionRef.current = event.target.getCurrentTime();
+            if (cancelled) return;
+            const seekTo = opts?.seekTo;
+            if (typeof seekTo === "number" && seekTo > 0) {
+              event.target.seekTo(seekTo, true);
+              lastKnownPositionRef.current = seekTo;
+            } else {
+              const duration = event.target.getDuration();
+              if (duration && duration > 0) {
+                lastKnownPositionRef.current = event.target.getCurrentTime();
+              }
+            }
+            if (opts?.autoplay) {
+              event.target.playVideo();
             }
             setIsPlaying(event.target.getPlayerState() === YT_STATE_PLAYING);
             showControls();
           },
           onStateChange: (event) => {
+            if (cancelled) return;
             setIsPlaying(event.data === YT_STATE_PLAYING);
+
+            if (!controlsSwitchEnabledRef.current) return;
+
+            if (event.data === YT_STATE_PLAYING) {
+              startSwitchTimer();
+              return;
+            }
+
+            if (event.data === YT_STATE_PAUSED) {
+              pauseSwitchTimer();
+              return;
+            }
+
+            if (event.data === YT_STATE_ENDED) {
+              pauseSwitchTimer();
+              resetSwitchTimer();
+              recreatePlayerRef.current?.(1, { seekTo: 0, autoplay: false });
+            }
           },
         },
       });
 
       playerRef.current = player;
+    };
+
+    recreatePlayerRef.current = (controls, opts) => {
+      if (cancelled) return;
+      try {
+        playerRef.current?.destroy();
+      } catch {
+        // ignore destroy errors on already-torn-down iframes
+      }
+      playerRef.current = null;
+      createPlayer(controls, opts);
+    };
+
+    void (async () => {
+      await loadYouTubeIframeApi();
+      if (cancelled || !playerContainerRef.current || !window.YT?.Player) return;
+
+      resetSwitchTimer();
+      createPlayer(1);
 
       progressIntervalRef.current = setInterval(() => {
         trackLinearProgress();
@@ -478,6 +606,9 @@ export default function VideoPage(): React.JSX.Element {
     return () => {
       cancelled = true;
       void saveProgress();
+      clearSwitchTimeout();
+      switchStartedAtRef.current = null;
+      recreatePlayerRef.current = null;
       if (controlsHideTimeoutRef.current) {
         clearTimeout(controlsHideTimeoutRef.current);
         controlsHideTimeoutRef.current = null;
@@ -490,12 +621,17 @@ export default function VideoPage(): React.JSX.Element {
         clearInterval(saveIntervalRef.current);
         saveIntervalRef.current = null;
       }
-      playerRef.current?.destroy();
+      try {
+        playerRef.current?.destroy();
+      } catch {
+        // ignore
+      }
       playerRef.current = null;
     };
   }, [
     flagLoaded,
     verification60Enabled,
+    controlsSwitchEnabled,
     video?.youtube_id,
     progressLoaded,
     trackLinearProgress,
@@ -620,6 +756,16 @@ export default function VideoPage(): React.JSX.Element {
             .video-player-block-overlay {
               position: absolute;
               inset: 0;
+              z-index: 2;
+              pointer-events: all;
+              background: transparent;
+            }
+            .video-player-progress-blocker {
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              height: 40px;
+              width: 100%;
               z-index: 2;
               pointer-events: all;
               background: transparent;
@@ -755,13 +901,24 @@ export default function VideoPage(): React.JSX.Element {
           {verification60Enabled ? (
             <div ref={videoShellRef} className="video-player-shell">
               <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
-              <div
-                className="video-player-block-overlay"
-                aria-hidden="true"
-                onClick={showControls}
-                onMouseEnter={showControls}
-                onMouseMove={showControls}
-              />
+              {!controlsSwitchEnabled ? (
+                <div
+                  className="video-player-progress-blocker"
+                  aria-hidden="true"
+                  onClick={showControls}
+                  onMouseEnter={showControls}
+                  onMouseMove={showControls}
+                />
+              ) : null}
+              {controlsSwitchEnabled ? (
+                <div
+                  className="video-player-block-overlay"
+                  aria-hidden="true"
+                  onClick={showControls}
+                  onMouseEnter={showControls}
+                  onMouseMove={showControls}
+                />
+              ) : null}
               <div
                 className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                 onMouseEnter={showControls}
