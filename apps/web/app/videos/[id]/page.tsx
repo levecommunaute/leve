@@ -38,7 +38,6 @@ const YT_STATE_ENDED = 0;
 const YT_STATE_PLAYING = 1;
 const YT_STATE_PAUSED = 2;
 const CONTROLS_HIDE_MS = 3000;
-const CONTROLS_SWITCH_MS = 45000;
 
 declare global {
   interface Window {
@@ -162,10 +161,7 @@ export default function VideoPage(): React.JSX.Element {
   const userIdRef = useRef<string>("");
   const videoIdRef = useRef<string>("");
   const controlsSwitchEnabledRef = useRef<boolean>(false);
-  const switchElapsedMsRef = useRef<number>(0);
-  const switchStartedAtRef = useRef<number | null>(null);
-  const switchDoneRef = useRef<boolean>(false);
-  const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playerControlsRef = useRef<0 | 1>(1);
   const recreatePlayerRef = useRef<
     ((controls: 0 | 1, opts?: { seekTo?: number; autoplay?: boolean }) => void) | null
   >(null);
@@ -460,45 +456,6 @@ export default function VideoPage(): React.JSX.Element {
     let cancelled = false;
     const youtubeId = video.youtube_id;
 
-    const clearSwitchTimeout = (): void => {
-      if (switchTimeoutRef.current) {
-        clearTimeout(switchTimeoutRef.current);
-        switchTimeoutRef.current = null;
-      }
-    };
-
-    const pauseSwitchTimer = (): void => {
-      if (switchStartedAtRef.current === null) return;
-      switchElapsedMsRef.current += Date.now() - switchStartedAtRef.current;
-      switchStartedAtRef.current = null;
-      clearSwitchTimeout();
-    };
-
-    const startSwitchTimer = (): void => {
-      if (!controlsSwitchEnabledRef.current || switchDoneRef.current) return;
-      if (switchStartedAtRef.current !== null) return;
-
-      const remaining = Math.max(0, CONTROLS_SWITCH_MS - switchElapsedMsRef.current);
-      switchStartedAtRef.current = Date.now();
-      clearSwitchTimeout();
-      switchTimeoutRef.current = setTimeout(() => {
-        switchTimeoutRef.current = null;
-        switchStartedAtRef.current = null;
-        switchElapsedMsRef.current = CONTROLS_SWITCH_MS;
-        switchDoneRef.current = true;
-        const player = playerRef.current;
-        const seekTo = player ? player.getCurrentTime() : 0;
-        recreatePlayerRef.current?.(0, { seekTo, autoplay: true });
-      }, remaining);
-    };
-
-    const resetSwitchTimer = (): void => {
-      clearSwitchTimeout();
-      switchElapsedMsRef.current = 0;
-      switchStartedAtRef.current = null;
-      switchDoneRef.current = false;
-    };
-
     const createPlayer = (
       controls: 0 | 1,
       opts?: { seekTo?: number; autoplay?: boolean },
@@ -511,6 +468,8 @@ export default function VideoPage(): React.JSX.Element {
       mount.style.width = "100%";
       mount.style.height = "100%";
       container.appendChild(mount);
+
+      playerControlsRef.current = controls;
 
       const modeB = controlsSwitchEnabledRef.current;
       const playerVars: Record<string, number | string> = {
@@ -552,21 +511,22 @@ export default function VideoPage(): React.JSX.Element {
             if (cancelled) return;
             setIsPlaying(event.data === YT_STATE_PLAYING);
 
+            // Mode A: controls: 1 permanent — no switch.
             if (!controlsSwitchEnabledRef.current) return;
 
+            // Mode B: PLAYING → controls: 0 immediately; ENDED → controls: 1; PAUSED → keep controls: 0.
             if (event.data === YT_STATE_PLAYING) {
-              startSwitchTimer();
+              if (playerControlsRef.current === 0) return;
+              const seekTo = event.target.getCurrentTime();
+              recreatePlayerRef.current?.(0, { seekTo, autoplay: true });
               return;
             }
 
             if (event.data === YT_STATE_PAUSED) {
-              pauseSwitchTimer();
               return;
             }
 
             if (event.data === YT_STATE_ENDED) {
-              pauseSwitchTimer();
-              resetSwitchTimer();
               recreatePlayerRef.current?.(1, { seekTo: 0, autoplay: false });
             }
           },
@@ -591,7 +551,6 @@ export default function VideoPage(): React.JSX.Element {
       await loadYouTubeIframeApi();
       if (cancelled || !playerContainerRef.current || !window.YT?.Player) return;
 
-      resetSwitchTimer();
       createPlayer(1);
 
       progressIntervalRef.current = setInterval(() => {
@@ -606,8 +565,6 @@ export default function VideoPage(): React.JSX.Element {
     return () => {
       cancelled = true;
       void saveProgress();
-      clearSwitchTimeout();
-      switchStartedAtRef.current = null;
       recreatePlayerRef.current = null;
       if (controlsHideTimeoutRef.current) {
         clearTimeout(controlsHideTimeoutRef.current);
