@@ -341,12 +341,6 @@ export async function GET(request: Request): Promise<NextResponse> {
         email: user.email ?? null,
         reason: ensureResult.reason,
       });
-      // Supprimer le compte auth orphelin pour permettre une réinscription propre
-      try {
-        await getServiceSupabase().auth.admin.deleteUser(user.id);
-      } catch (deleteErr) {
-        console.error("[auth/callback] failed to delete orphan auth user:", deleteErr);
-      }
       return NextResponse.redirect(`${origin}/?error=profile`);
     }
 
@@ -413,8 +407,23 @@ export async function GET(request: Request): Promise<NextResponse> {
   const connecterProfile = (connecterProfileRow ?? null) as ProfileAbonnement | null;
 
   if (!connecterProfile || connecterProfile.abonnement_verifie_at == null) {
-    // Ne pas supprimer — juste rediriger avec message clair
-    return NextResponse.redirect(`${origin}/?error=no-profile`);
+    const { error: banqueError } = await svc
+      .from("banque_membres")
+      .delete()
+      .eq("membre_id", user.id);
+    if (banqueError) {
+      console.error("[auth/callback] banque_membres delete:", banqueError.message);
+    }
+
+    const { error: profileDeleteError } = await svc
+      .from("profiles")
+      .delete()
+      .eq("id", user.id);
+    if (profileDeleteError) {
+      console.error("[auth/callback] profiles delete:", profileDeleteError.message);
+    }
+
+    return NextResponse.redirect(`${origin}/auth/pas-de-compte`);
   }
 
   const expireAt = connecterProfile.abonnement_expire_at ?? null;
