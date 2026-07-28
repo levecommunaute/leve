@@ -609,6 +609,7 @@ const FEATURE_FLAG_ORDER = [
   "classement",
   "parrainage",
   "verification-60-pct",
+  "video-controls-switch",
   "videos-mode-youtube",
   "pool-pa",
   "collaborateur",
