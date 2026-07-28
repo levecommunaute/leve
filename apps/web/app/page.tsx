@@ -19,6 +19,11 @@ function isBadOAuthStateUrl(): boolean {
   );
 }
 
+function getErrorParam(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("error");
+}
+
 function clearOAuthErrorParams(): void {
   const url = new URL(window.location.href);
   url.searchParams.delete("error");
@@ -232,6 +237,7 @@ export default function Home(): JSX.Element {
   const [oauthRecovery, setOauthRecovery] = useState<
     "idle" | "checking" | "error" | "redirecting"
   >("idle");
+  const [errorParam, setErrorParam] = useState<string | null>(null);
   const [reseauxActifs, setReseauxActifs] = useState<ReseauSocialRow[]>([]);
   const [fondateurConfig, setFondateurConfig] = useState<FondateurConfigRow | null>(null);
   const [membresInscrits, setMembresInscrits] = useState<number | null>(null);
@@ -241,6 +247,10 @@ export default function Home(): JSX.Element {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     storeReferralRef(params.get("ref"));
+  }, []);
+
+  useEffect(() => {
+    setErrorParam(getErrorParam());
   }, []);
 
   function joinWithReferral(): void {
@@ -534,7 +544,63 @@ export default function Home(): JSX.Element {
                 🔒 Phase beta privée — accès par invitation uniquement
               </p>
             </div>
-          ) : betaExclusif === "loading" ? null : showOAuthError ? (
+          ) : betaExclusif === "loading" ? null : errorParam === "no-profile" ? (
+            <div
+              style={{
+                borderColor: "#3a2020",
+                background: "#120a0a",
+                borderWidth: "1px",
+                borderStyle: "solid",
+                borderRadius: "4px",
+                padding: "2rem",
+                textAlign: "center",
+                maxWidth: "420px",
+              }}
+              role="alert"
+            >
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  lineHeight: 1.7,
+                  opacity: 0.85,
+                  marginBottom: "1rem",
+                }}
+              >
+                Tu n&apos;as pas encore de compte LEVE.
+                <br />
+                Clique sur{" "}
+                <strong style={{ color: "#D4A017" }}>Rejoindre</strong> pour
+                créer ton compte.
+              </p>
+            </div>
+          ) : errorParam === "profile" ? (
+            <div
+              style={{
+                borderColor: "#3a2020",
+                background: "#120a0a",
+                borderWidth: "1px",
+                borderStyle: "solid",
+                borderRadius: "4px",
+                padding: "2rem",
+                textAlign: "center",
+                maxWidth: "420px",
+              }}
+              role="alert"
+            >
+              <p
+                style={{
+                  fontSize: "0.85rem",
+                  lineHeight: 1.7,
+                  opacity: 0.85,
+                  marginBottom: "1rem",
+                }}
+              >
+                Une erreur est survenue lors de la création de ton profil.
+                <br />
+                Réessaie ou contacte le support.
+              </p>
+            </div>
+          ) : showOAuthError ? (
             <div
               className="flex max-w-md flex-col items-center gap-5 rounded-md border px-8 py-8 text-center"
               style={{ borderColor: "#3a2020", background: "#120a0a" }}
