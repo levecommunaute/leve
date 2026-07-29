@@ -423,6 +423,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       console.error("[auth/callback] profiles delete:", profileDeleteError.message);
     }
 
+    await supabase.auth.signOut();
     return NextResponse.redirect(`${origin}/auth/pas-de-compte`);
   }
 
