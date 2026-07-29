@@ -246,6 +246,11 @@ export default function ProfilPage(): JSX.Element | null {
   const [quizTxHistory, setQuizTxHistory] = useState<PointsTxRow[]>([]);
   const [donTxHistory, setDonTxHistory] = useState<PointsTxRow[]>([]);
   const [monthlyPtsTotal, setMonthlyPtsTotal] = useState(0);
+  const [pmqShare, setPmqShare] = useState<{
+    mes_pts: number;
+    total_pts: number;
+    pourcentage: number;
+  } | null>(null);
   const [filleulsActifs, setFilleulsActifs] = useState(0);
   const [referralCopied, setReferralCopied] = useState<"code" | "link" | null>(null);
   const [parrainageFlagState, setParrainageFlagState] = useState<
@@ -302,7 +307,8 @@ export default function ProfilPage(): JSX.Element | null {
     setPmqMonthLabel(currentMonth.label);
     setPrevMonthLabel(prevMonth.label);
 
-    const [txRes, monthlyPts, prevMonthPts, prevHistRes] = await Promise.all([
+    const [txRes, monthlyPts, prevMonthPts, prevHistRes, pmqShareRes] =
+      await Promise.all([
       fetchRestJson(
         `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=eq.quiz` +
           `${createdAtRangeFilter(currentMonth)}&select=amount`,
@@ -314,6 +320,31 @@ export default function ProfilPage(): JSX.Element | null {
         `${SB}/rest/v1/redistribution_history?month=eq.${encodeURIComponent(prevMonth.monthDate)}&select=month&limit=1`,
         token,
       ),
+      isOwnProfile
+        ? fetch("/api/membres/pmq-share", {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+            .then(async (res) => {
+              const json = (await res.json().catch(() => null)) as {
+                mes_pts?: unknown;
+                total_pts?: unknown;
+                pourcentage?: unknown;
+              } | null;
+              if (!res.ok || !json) return null;
+              const mes_pts = Number(json.mes_pts ?? 0);
+              const total_pts = Number(json.total_pts ?? 0);
+              const pourcentage = Number(json.pourcentage ?? 0);
+              if (
+                !Number.isFinite(mes_pts) ||
+                !Number.isFinite(total_pts) ||
+                !Number.isFinite(pourcentage)
+              ) {
+                return null;
+              }
+              return { mes_pts, total_pts, pourcentage };
+            })
+            .catch(() => null)
+        : Promise.resolve(null),
     ]);
 
     const txData = Array.isArray(txRes) ? txRes : [];
@@ -325,6 +356,7 @@ export default function ProfilPage(): JSX.Element | null {
     setMonthlyPtsTotal(monthlyPts);
     setPrevMonthPtsPonderes(prevMonthPts);
     setPrevMonthRedistributed(Array.isArray(prevHistRes) && prevHistRes.length > 0);
+    setPmqShare(pmqShareRes);
 
     if (!isOwnProfile) {
       setQuizTxHistory([]);
@@ -845,7 +877,45 @@ export default function ProfilPage(): JSX.Element | null {
           </article>
           <article style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid #D4A017" }}>
             <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{multiplierDisplay}</p>
+            {isOwnProfile && pmqShare ? (
+              <div style={{ marginTop: "0.5rem" }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.95rem",
+                    fontWeight: 600,
+                    color: GOLD,
+                    fontFamily: "var(--font-mono), ui-monospace, monospace",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {pmqShare.total_pts <= 0
+                    ? `×${profileMultiplier.toFixed(1)} · Aucun quiz complété ce mois`
+                    : `×${profileMultiplier.toFixed(1)} · ${pointsFmt.format(pmqShare.mes_pts)} pts · ${pmqShare.pourcentage.toFixed(1)}% du pool`}
+                </p>
+                <div
+                  style={{
+                    marginTop: "0.55rem",
+                    height: 3,
+                    borderRadius: 2,
+                    background: "rgba(212, 160, 23, 0.18)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${Math.min(100, Math.max(0, pmqShare.total_pts > 0 ? pmqShare.pourcentage : 0))}%`,
+                      background: GOLD,
+                      borderRadius: 2,
+                      transition: "width 0.35s ease",
+                    }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{multiplierDisplay}</p>
+            )}
           </article>
         </div>
 

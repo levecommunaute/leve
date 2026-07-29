@@ -283,6 +283,11 @@ export default function DashboardPage(): JSX.Element | null {
     number | null
   >(null);
   const [rangConfig, setRangConfig] = useState<MonthlyRankConfig | null>(null);
+  const [pmqShare, setPmqShare] = useState<{
+    mes_pts: number;
+    total_pts: number;
+    pourcentage: number;
+  } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [graceMsLeft, setGraceMsLeft] = useState<number | null>(null);
@@ -320,8 +325,18 @@ export default function DashboardPage(): JSX.Element | null {
     setPmqMonthLabel(currentMonth.label);
     setPrevMonthLabel(prevMonth.label);
 
-    const [profileRes, txRes, histRes, prevHistRes, bankRes, rangRes, memberPpRes, prevPpRes, totalPp] =
-      await Promise.all([
+    const [
+      profileRes,
+      txRes,
+      histRes,
+      prevHistRes,
+      bankRes,
+      rangRes,
+      memberPpRes,
+      prevPpRes,
+      totalPp,
+      pmqShareRes,
+    ] = await Promise.all([
         restJson<ProfileRow[]>(
           `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at,is_beta_tester,beta_points,beta_temps_total_secondes,abonnement_verifie_at`,
           token,
@@ -350,6 +365,30 @@ export default function DashboardPage(): JSX.Element | null {
         sumQuizPtsPonderesForMember(token, uid, currentMonth),
         sumQuizPtsPonderesForMember(token, uid, prevMonth),
         sumAllQuizPtsPonderes(token, currentMonth),
+        fetch("/api/membres/pmq-share", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then(async (res) => {
+            const json = (await res.json().catch(() => null)) as {
+              mes_pts?: unknown;
+              total_pts?: unknown;
+              pourcentage?: unknown;
+              error?: string;
+            } | null;
+            if (!res.ok || !json) return null;
+            const mes_pts = Number(json.mes_pts ?? 0);
+            const total_pts = Number(json.total_pts ?? 0);
+            const pourcentage = Number(json.pourcentage ?? 0);
+            if (
+              !Number.isFinite(mes_pts) ||
+              !Number.isFinite(total_pts) ||
+              !Number.isFinite(pourcentage)
+            ) {
+              return null;
+            }
+            return { mes_pts, total_pts, pourcentage };
+          })
+          .catch(() => null),
       ]);
 
     const errMsg =
@@ -406,6 +445,7 @@ export default function DashboardPage(): JSX.Element | null {
     setPrevMonthPtsPonderes(prevPpRes);
     setPrevMonthRedistributed(!prevHistRes.error && (prevHistRes.data ?? []).length > 0);
     setTotalPtsPonderesAll(totalPp);
+    setPmqShare(pmqShareRes);
 
     if (rangRes.error) {
       setRangConfig(null);
@@ -1007,6 +1047,41 @@ export default function DashboardPage(): JSX.Element | null {
             >
               {multiplierDisplay}
             </p>
+            {pmqShare ? (
+              <div style={{ marginTop: "0.65rem" }}>
+                <div
+                  style={{
+                    height: 3,
+                    borderRadius: 2,
+                    background: "rgba(212, 160, 23, 0.18)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${Math.min(100, Math.max(0, pmqShare.total_pts > 0 ? pmqShare.pourcentage : 0))}%`,
+                      background: GOLD,
+                      borderRadius: 2,
+                      transition: "width 0.35s ease",
+                    }}
+                  />
+                </div>
+                <p
+                  style={{
+                    margin: "0.45rem 0 0",
+                    fontSize: "0.72rem",
+                    lineHeight: 1.4,
+                    opacity: 0.7,
+                    fontFamily: "var(--font-mono), ui-monospace, monospace",
+                  }}
+                >
+                  {pmqShare.total_pts <= 0
+                    ? "Aucun quiz complété ce mois"
+                    : `${pointsFmt.format(pmqShare.mes_pts)} pts · ${pmqShare.pourcentage.toFixed(1)}% du pool PMQ · ${pmqMonthLabel}`}
+                </p>
+              </div>
+            ) : null}
             {monthlyRankBadge ? (
               <span
                 style={{
