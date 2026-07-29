@@ -75,6 +75,7 @@ type ProfileRow = {
   is_beta_tester: boolean | null;
   beta_points: number | string | null;
   beta_temps_total_secondes: number | string | null;
+  abonnement_verifie_at?: string | null;
 };
 
 type RangConfigRow = {
@@ -322,7 +323,7 @@ export default function DashboardPage(): JSX.Element | null {
     const [profileRes, txRes, histRes, prevHistRes, bankRes, rangRes, memberPpRes, prevPpRes, totalPp] =
       await Promise.all([
         restJson<ProfileRow[]>(
-          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at,is_beta_tester,beta_points,beta_temps_total_secondes`,
+          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at,is_beta_tester,beta_points,beta_temps_total_secondes,abonnement_verifie_at`,
           token,
         ),
         restJson<{ amount?: unknown }[]>(
@@ -364,6 +365,11 @@ export default function DashboardPage(): JSX.Element | null {
     if (!profileRes.error) {
       const rows = profileRes.data ?? [];
       setProfile((rows[0] ?? null) as ProfileRow | null);
+      const profileRow = rows[0] ?? null;
+      if (!profileRow || (!profileRow.abonnement_verifie_at && !profileRow.is_beta_tester)) {
+        handleSignOut();
+        return;
+      }
     }
 
     if (txRes.error) {
