@@ -337,6 +337,8 @@ export default function ProfilPage(): JSX.Element | null {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarMode, setAvatarMode] = useState<AvatarMode>("initiales");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [draftAvatarMode, setDraftAvatarMode] = useState<AvatarMode>("initiales");
   const [nomLegal, setNomLegal] = useState("");
   const [dateNaissance, setDateNaissance] = useState("");
   const [paysResidenceFiscale, setPaysResidenceFiscale] = useState("");
@@ -720,27 +722,38 @@ export default function ProfilPage(): JSX.Element | null {
     }
   }
 
-  async function handleSelectAvatarMode(mode: AvatarMode): Promise<void> {
+  function openAvatarModal(): void {
+    const mode = resolveAvatarMode(avatarUrl);
     setAvatarMode(mode);
+    setDraftAvatarMode(mode);
+    setAvatarModalOpen(true);
+  }
+
+  function closeAvatarModal(): void {
+    if (avatarUploading || profilPublicSaving) return;
+    setAvatarModalOpen(false);
+    setDraftAvatarMode(resolveAvatarMode(avatarUrl));
+    setAvatarMode(resolveAvatarMode(avatarUrl));
+  }
+
+  async function handleSelectAvatarMode(mode: AvatarMode): Promise<void> {
+    setDraftAvatarMode(mode);
     if (mode === "initiales") {
-      await handleSaveProfil({ avatar_url: null });
+      const ok = await handleSaveProfil({ avatar_url: null });
+      if (ok) setAvatarModalOpen(false);
       return;
     }
-    if (mode === "avatar") {
-      const current =
-        avatarUrl && resolveAvatarMode(avatarUrl) === "avatar"
-          ? avatarUrl
-          : PRESET_AVATARS[0];
-      setAvatarUrl(current);
-      await handleSaveProfil({ avatar_url: current });
-    }
-    // mode photo : attendre l'upload fichier
+    // Avatar / Photo : attendre le choix emoji ou l'upload
   }
 
   async function handleSelectPresetEmoji(emoji: string): Promise<void> {
+    setDraftAvatarMode("avatar");
     setAvatarMode("avatar");
-    setAvatarUrl(emoji);
-    await handleSaveProfil({ avatar_url: emoji });
+    const ok = await handleSaveProfil({ avatar_url: emoji });
+    if (ok) {
+      setAvatarUrl(emoji);
+      setAvatarModalOpen(false);
+    }
   }
 
   async function handleUploadAvatarPhoto(file: File): Promise<void> {
@@ -766,7 +779,9 @@ export default function ProfilPage(): JSX.Element | null {
       const next = json.avatar_url ?? null;
       setAvatarUrl(next);
       setAvatarMode("photo");
+      setDraftAvatarMode("photo");
       setProfile((prev) => (prev ? { ...prev, avatar_url: next } : prev));
+      setAvatarModalOpen(false);
     } catch {
       setLoadError("Erreur réseau lors de l'upload de la photo.");
     } finally {
@@ -1261,157 +1276,289 @@ export default function ProfilPage(): JSX.Element | null {
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    marginBottom: "0.85rem",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: "0.55rem",
+                    marginBottom: "1.15rem",
                   }}
                 >
-                  <MemberAvatar
-                    displayName={displayNameEdit.trim() || name}
-                    avatarUrl={
-                      avatarMode === "initiales"
-                        ? null
-                        : avatarMode === "avatar"
-                          ? avatarUrl && resolveAvatarMode(avatarUrl) === "avatar"
-                            ? avatarUrl
-                            : PRESET_AVATARS[0]
-                          : avatarUrl
-                    }
-                    size={64}
-                  />
-                  <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.65, lineHeight: 1.4 }}>
-                    {avatarMode === "initiales"
-                      ? "Initiales du pseudo"
-                      : avatarMode === "avatar"
-                        ? "Avatar prédéfini"
-                        : "Photo de profil"}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={openAvatarModal}
+                    aria-label="Modifier l'avatar"
+                    style={{
+                      padding: 0,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      lineHeight: 0,
+                    }}
+                  >
+                    <MemberAvatar
+                      displayName={displayNameEdit.trim() || name}
+                      avatarUrl={avatarUrl}
+                      size={72}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openAvatarModal}
+                    style={{
+                      background: "transparent",
+                      color: "rgba(245, 240, 232, 0.7)",
+                      border: "1px solid rgba(245, 240, 232, 0.2)",
+                      borderRadius: "4px",
+                      padding: "0.3rem 0.7rem",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      letterSpacing: "0.04em",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Modifier
+                  </button>
                 </div>
-                <div
-                  role="group"
-                  aria-label="Type d'avatar"
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "0.4rem",
-                    marginBottom: "0.85rem",
-                  }}
-                >
-                  {(
-                    [
-                      { id: "initiales" as const, label: "Initiales" },
-                      { id: "avatar" as const, label: "Avatar" },
-                      { id: "photo" as const, label: "Photo" },
-                    ] as const
-                  ).map((opt) => {
-                    const active = avatarMode === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        disabled={profilPublicSaving || avatarUploading}
-                        onClick={() => void handleSelectAvatarMode(opt.id)}
+
+                {avatarModalOpen ? (
+                  <div
+                    role="presentation"
+                    onClick={closeAvatarModal}
+                    style={{
+                      position: "fixed",
+                      inset: 0,
+                      zIndex: 100,
+                      background: "rgba(0, 0, 0, 0.72)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "1.25rem",
+                    }}
+                  >
+                    <div
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="avatar-modal-title"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        maxWidth: "22rem",
+                        background: "#121212",
+                        border: "1px solid rgba(245, 240, 232, 0.18)",
+                        borderRadius: "4px",
+                        padding: "1.25rem 1.35rem",
+                      }}
+                    >
+                      <h3
+                        id="avatar-modal-title"
                         style={{
-                          background: active
-                            ? "rgba(212, 160, 23, 0.14)"
-                            : "transparent",
-                          color: active ? GOLD : "rgba(245, 240, 232, 0.7)",
-                          border: active
-                            ? `1px solid ${GOLD}`
-                            : "1px solid rgba(245, 240, 232, 0.15)",
+                          margin: "0 0 1rem",
+                          fontFamily: "var(--font-bebas), Impact, sans-serif",
+                          fontSize: "1.25rem",
+                          letterSpacing: "0.08em",
+                          color: GOLD,
+                        }}
+                      >
+                        Modifier l&apos;avatar
+                      </h3>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        <MemberAvatar
+                          displayName={displayNameEdit.trim() || name}
+                          avatarUrl={
+                            draftAvatarMode === "initiales"
+                              ? null
+                              : draftAvatarMode === "avatar"
+                                ? avatarUrl &&
+                                  resolveAvatarMode(avatarUrl) === "avatar"
+                                  ? avatarUrl
+                                  : PRESET_AVATARS[0]
+                                : avatarUrl &&
+                                    resolveAvatarMode(avatarUrl) === "photo"
+                                  ? avatarUrl
+                                  : null
+                          }
+                          size={72}
+                        />
+                      </div>
+
+                      <div
+                        role="group"
+                        aria-label="Type d'avatar"
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "0.4rem",
+                          marginBottom: "0.85rem",
+                        }}
+                      >
+                        {(
+                          [
+                            { id: "initiales" as const, label: "Initiales" },
+                            { id: "avatar" as const, label: "Avatar" },
+                            { id: "photo" as const, label: "Photo" },
+                          ] as const
+                        ).map((opt) => {
+                          const active = draftAvatarMode === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              disabled={profilPublicSaving || avatarUploading}
+                              onClick={() => void handleSelectAvatarMode(opt.id)}
+                              style={{
+                                background: active
+                                  ? "rgba(212, 160, 23, 0.14)"
+                                  : "transparent",
+                                color: active
+                                  ? GOLD
+                                  : "rgba(245, 240, 232, 0.7)",
+                                border: active
+                                  ? `1px solid ${GOLD}`
+                                  : "1px solid rgba(245, 240, 232, 0.15)",
+                                borderRadius: "4px",
+                                padding: "0.4rem 0.75rem",
+                                fontSize: "0.78rem",
+                                fontWeight: 600,
+                                cursor:
+                                  profilPublicSaving || avatarUploading
+                                    ? "wait"
+                                    : "pointer",
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {draftAvatarMode === "avatar" ? (
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                            gap: "0.45rem",
+                            marginBottom: "1rem",
+                          }}
+                        >
+                          {PRESET_AVATARS.map((emoji) => {
+                            const selected = avatarUrl === emoji;
+                            return (
+                              <button
+                                key={emoji}
+                                type="button"
+                                disabled={profilPublicSaving}
+                                onClick={() =>
+                                  void handleSelectPresetEmoji(emoji)
+                                }
+                                aria-label={`Choisir ${emoji}`}
+                                style={{
+                                  aspectRatio: "1",
+                                  borderRadius: "4px",
+                                  border: selected
+                                    ? `1px solid ${GOLD}`
+                                    : "1px solid rgba(245, 240, 232, 0.15)",
+                                  background: selected
+                                    ? "rgba(212, 160, 23, 0.14)"
+                                    : "rgba(245, 240, 232, 0.04)",
+                                  fontSize: "1.35rem",
+                                  cursor: profilPublicSaving
+                                    ? "wait"
+                                    : "pointer",
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
+                      {draftAvatarMode === "photo" ? (
+                        <div style={{ marginBottom: "1rem" }}>
+                          <label
+                            htmlFor="avatar-photo"
+                            style={{
+                              display: "inline-block",
+                              padding: "0.5rem 0.9rem",
+                              borderRadius: "4px",
+                              border: "1px solid rgba(245, 240, 232, 0.25)",
+                              background: "rgba(245, 240, 232, 0.04)",
+                              fontSize: "0.85rem",
+                              cursor: avatarUploading ? "wait" : "pointer",
+                              opacity: avatarUploading ? 0.6 : 1,
+                            }}
+                          >
+                            {avatarUploading ? "Upload…" : "Choisir une photo"}
+                          </label>
+                          <input
+                            id="avatar-photo"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            disabled={avatarUploading || profilPublicSaving}
+                            style={{ display: "none" }}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) void handleUploadAvatarPhoto(file);
+                            }}
+                          />
+                          <p
+                            style={{
+                              margin: "0.5rem 0 0",
+                              fontSize: "0.75rem",
+                              opacity: 0.5,
+                            }}
+                          >
+                            JPEG, PNG, WebP ou GIF · max 2 Mo
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {draftAvatarMode === "initiales" ? (
+                        <p
+                          style={{
+                            margin: "0 0 1rem",
+                            fontSize: "0.82rem",
+                            opacity: 0.65,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          Cliquez sur « Initiales » pour enregistrer le cercle
+                          avec vos initiales.
+                        </p>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        disabled={avatarUploading || profilPublicSaving}
+                        onClick={closeAvatarModal}
+                        style={{
+                          width: "100%",
+                          padding: "0.65rem 1rem",
                           borderRadius: "4px",
-                          padding: "0.4rem 0.75rem",
-                          fontSize: "0.78rem",
                           fontWeight: 600,
+                          fontSize: "0.88rem",
+                          border: "1px solid rgba(245, 240, 232, 0.25)",
+                          background: "transparent",
+                          color: TEXT,
                           cursor:
-                            profilPublicSaving || avatarUploading
+                            avatarUploading || profilPublicSaving
                               ? "wait"
                               : "pointer",
                         }}
                       >
-                        {opt.label}
+                        Fermer
                       </button>
-                    );
-                  })}
-                </div>
-                {avatarMode === "avatar" ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-                      gap: "0.45rem",
-                      marginBottom: "1rem",
-                      maxWidth: "20rem",
-                    }}
-                  >
-                    {PRESET_AVATARS.map((emoji) => {
-                      const selected = avatarUrl === emoji;
-                      return (
-                        <button
-                          key={emoji}
-                          type="button"
-                          disabled={profilPublicSaving}
-                          onClick={() => void handleSelectPresetEmoji(emoji)}
-                          aria-label={`Choisir ${emoji}`}
-                          style={{
-                            aspectRatio: "1",
-                            borderRadius: "4px",
-                            border: selected
-                              ? `1px solid ${GOLD}`
-                              : "1px solid rgba(245, 240, 232, 0.15)",
-                            background: selected
-                              ? "rgba(212, 160, 23, 0.14)"
-                              : "rgba(245, 240, 232, 0.04)",
-                            fontSize: "1.35rem",
-                            cursor: profilPublicSaving ? "wait" : "pointer",
-                          }}
-                        >
-                          {emoji}
-                        </button>
-                      );
-                    })}
+                    </div>
                   </div>
                 ) : null}
-                {avatarMode === "photo" ? (
-                  <div style={{ marginBottom: "1rem" }}>
-                    <label
-                      htmlFor="avatar-photo"
-                      style={{
-                        display: "inline-block",
-                        padding: "0.5rem 0.9rem",
-                        borderRadius: "4px",
-                        border: "1px solid rgba(245, 240, 232, 0.25)",
-                        background: "rgba(245, 240, 232, 0.04)",
-                        fontSize: "0.85rem",
-                        cursor: avatarUploading ? "wait" : "pointer",
-                        opacity: avatarUploading ? 0.6 : 1,
-                      }}
-                    >
-                      {avatarUploading ? "Upload…" : "Choisir une photo"}
-                    </label>
-                    <input
-                      id="avatar-photo"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      disabled={avatarUploading || profilPublicSaving}
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (file) void handleUploadAvatarPhoto(file);
-                      }}
-                    />
-                    <p
-                      style={{
-                        margin: "0.5rem 0 0",
-                        fontSize: "0.75rem",
-                        opacity: 0.5,
-                      }}
-                    >
-                      JPEG, PNG, WebP ou GIF · max 2 Mo
-                    </p>
-                  </div>
-                ) : null}
+
                 <label htmlFor="profil-pseudo" style={fieldLabelStyle}>
                   Pseudo
                 </label>
