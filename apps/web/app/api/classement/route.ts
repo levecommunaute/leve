@@ -11,6 +11,7 @@ export type ClassementMember = {
   rank: number;
   user_id: string;
   display_name: string;
+  avatar_url: string | null;
   member_type: string;
   total_points: number;
 };
@@ -98,7 +99,7 @@ export async function GET(): Promise<NextResponse> {
 
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, display_name, member_type, email")
+      .select("id, display_name, avatar_url, member_type, email")
       .in("id", sortedIds);
 
     if (profilesError) {
@@ -114,6 +115,7 @@ export async function GET(): Promise<NextResponse> {
         p as {
           id: string;
           display_name: string | null;
+          avatar_url: string | null;
           member_type: string | null;
           email: string | null;
         },
@@ -131,6 +133,10 @@ export async function GET(): Promise<NextResponse> {
         rank: index + 1,
         user_id: userId,
         display_name: display,
+        avatar_url:
+          typeof p?.avatar_url === "string" && p.avatar_url.trim()
+            ? p.avatar_url.trim()
+            : null,
         member_type: label,
         total_points: totals.get(userId) ?? 0,
       };

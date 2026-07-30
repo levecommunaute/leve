@@ -572,3 +572,208 @@ export async function sendGraceEmail(
     console.error("[emails] sendGraceEmail:", message);
   }
 }
+
+function formatDateFr(iso: string): string {
+  return new Date(iso).toLocaleString("fr-CA", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "America/Toronto",
+  });
+}
+
+/** Code 6 chiffres pour confirmer une demande de retrait. */
+export async function sendRetraitCodeEmail(
+  email: string,
+  displayName: string,
+  code: string,
+  montant: number,
+  expireAt: string,
+): Promise<void> {
+  const to = email.trim();
+  if (!to) return;
+
+  const resend = getResend();
+  if (!resend) return;
+
+  const name = escapeHtml(displayName.trim() || "membre");
+  const codeLabel = escapeHtml(code.trim());
+  const montantLabel = escapeHtml(formatMontantDollars(montant));
+  const expireLabel = escapeHtml(formatDateFr(expireAt));
+  const appUrl = escapeHtml(getAppUrl());
+  const banqueUrl = `${appUrl}/banque`;
+
+  const html = emailLayout(`
+    <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Banque · Sécurité</p>
+    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">Code de confirmation de retrait</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bonjour ${name},</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Vous avez demandé un retrait de <strong>${montantLabel}&nbsp;$</strong>.
+      Entrez ce code sur la page banque pour continuer :
+    </p>
+    <p style="margin:0 0 20px;font-size:32px;font-weight:700;letter-spacing:0.35em;text-align:center;font-family:ui-monospace,monospace;">
+      ${codeLabel}
+    </p>
+    <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#52525b;">
+      Ce code expire le <strong>${expireLabel}</strong> (valide 10 minutes).
+      Si vous n&apos;êtes pas à l&apos;origine de cette demande, ignorez cet email et contactez le support.
+    </p>
+    <p style="margin:0 0 12px;">
+      <a href="${banqueUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;">Ouvrir ma banque</a>
+    </p>
+  `);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: `Code retrait LEVE — ${code.trim()}`,
+      html,
+    });
+    if (error) {
+      console.error("[emails] sendRetraitCodeEmail:", error.message);
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[emails] sendRetraitCodeEmail:", message);
+  }
+}
+
+const RETRAIT_STATUT_COPY: Record<
+  string,
+  { subject: string; title: string; body: string }
+> = {
+  delai_securite: {
+    subject: "Retrait en délai de sécurité — LEVE",
+    title: "Délai de sécurité activé",
+    body: "Votre code a été confirmé. Un délai de sécurité de 24 h s'applique avant l'exécution du retrait. Vous pouvez l'annuler depuis votre page banque pendant ce délai.",
+  },
+  execute: {
+    subject: "Retrait exécuté — LEVE",
+    title: "Retrait exécuté",
+    body: "Votre retrait a été exécuté après le délai de sécurité. Les fonds quittent votre banque LEVE selon la méthode enregistrée.",
+  },
+  annule: {
+    subject: "Retrait annulé — LEVE",
+    title: "Retrait annulé",
+    body: "Votre demande de retrait a été annulée. Le montant a été rétabli sur votre solde banque LEVE.",
+  },
+  code_confirme: {
+    subject: "Code retrait confirmé — LEVE",
+    title: "Code confirmé",
+    body: "Votre code de confirmation a été accepté. Le délai de sécurité de 24 h va démarrer.",
+  },
+};
+
+/** Notification à chaque changement de statut d'un retrait. */
+export async function sendRetraitStatutEmail(
+  email: string,
+  displayName: string,
+  statut: string,
+  montant: number,
+  executableAPartirDe?: string | null,
+): Promise<void> {
+  const to = email.trim();
+  if (!to) return;
+
+  const copy = RETRAIT_STATUT_COPY[statut];
+  if (!copy) return;
+
+  const resend = getResend();
+  if (!resend) return;
+
+  const name = escapeHtml(displayName.trim() || "membre");
+  const montantLabel = escapeHtml(formatMontantDollars(montant));
+  const appUrl = escapeHtml(getAppUrl());
+  const banqueUrl = `${appUrl}/banque`;
+  const executableBlock =
+    statut === "delai_securite" && executableAPartirDe
+      ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+          Exécution possible à partir du <strong>${escapeHtml(formatDateFr(executableAPartirDe))}</strong>.
+        </p>`
+      : "";
+
+  const html = emailLayout(`
+    <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Banque · Sécurité</p>
+    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">${escapeHtml(copy.title)}</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bonjour ${name},</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Montant concerné : <strong>${montantLabel}&nbsp;$</strong>.
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(copy.body)}</p>
+    ${executableBlock}
+    <p style="margin:0 0 12px;">
+      <a href="${banqueUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;">Voir ma banque</a>
+    </p>
+  `);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: copy.subject,
+      html,
+    });
+    if (error) {
+      console.error("[emails] sendRetraitStatutEmail:", error.message);
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[emails] sendRetraitStatutEmail:", message);
+  }
+}
+
+/** Alerte gel 72h après changement de méthode / identifiant de retrait. */
+export async function sendMethodeRetraitChangeeEmail(
+  email: string,
+  displayName: string,
+  geleJusqua: string,
+  methode: string | null,
+): Promise<void> {
+  const to = email.trim();
+  if (!to) return;
+
+  const resend = getResend();
+  if (!resend) return;
+
+  const name = escapeHtml(displayName.trim() || "membre");
+  const geleLabel = escapeHtml(formatDateFr(geleJusqua));
+  const methodeLabel = escapeHtml(methode?.trim() || "non définie");
+  const appUrl = escapeHtml(getAppUrl());
+  const banqueUrl = `${appUrl}/banque`;
+  const profilUrl = `${appUrl}/profil?onglet=retrait`;
+
+  const html = emailLayout(`
+    <p style="margin:0 0 8px;font-size:13px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">LEVE Banque · Sécurité</p>
+    <h1 style="margin:0 0 20px;font-size:22px;font-weight:600;line-height:1.3;">Méthode de retrait modifiée</h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Bonjour ${name},</p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
+      Votre méthode ou identifiant de retrait a été modifié
+      (méthode actuelle : <strong>${methodeLabel}</strong>).
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#b91c1c;background:#fef2f2;border-radius:8px;padding:12px 14px;">
+      Pour votre sécurité, les retraits sont <strong>gelés jusqu&apos;au ${geleLabel}</strong> (72 heures).
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
+      Si vous n&apos;êtes pas à l&apos;origine de ce changement, contactez immédiatement le support LEVE.
+    </p>
+    <p style="margin:0 0 12px;">
+      <a href="${profilUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;margin-right:8px;">Voir mon profil</a>
+      <a href="${banqueUrl}" style="display:inline-block;background:#ffffff;color:#18181b;text-decoration:none;font-weight:600;font-size:15px;padding:12px 24px;border-radius:8px;border:1px solid #e4e4e7;">Ma banque</a>
+    </p>
+  `);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: "⚠️ Méthode de retrait modifiée — retraits gelés 72 h",
+      html,
+    });
+    if (error) {
+      console.error("[emails] sendMethodeRetraitChangeeEmail:", error.message);
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error("[emails] sendMethodeRetraitChangeeEmail:", message);
+  }
+}

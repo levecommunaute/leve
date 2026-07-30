@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { RankBadge } from "../../components/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { EnDirectBanner } from "../../components/en-direct-banner";
+import { MemberAvatar } from "../../components/member-avatar";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
@@ -75,6 +76,7 @@ type ClassementRow = {
   rank: number;
   membre_id: string;
   display_name: string;
+  avatar_url: string | null;
   member_type: string;
   member_type_raw: string | null;
   multiplier: number;
@@ -249,6 +251,7 @@ async function fetchClassementRows(
     {
       id: string;
       display_name: string | null;
+      avatar_url: string | null;
       member_type: string | null;
       multiplier: number | string | null;
       numero_membre: string | null;
@@ -256,7 +259,7 @@ async function fetchClassementRows(
       is_beta_tester: boolean | null;
     }[]
   >(
-    `profiles?id=in.(${inList})&select=id,display_name,member_type,multiplier,numero_membre,email,is_beta_tester`,
+    `profiles?id=in.(${inList})&select=id,display_name,avatar_url,member_type,multiplier,numero_membre,email,is_beta_tester`,
     accessToken,
   );
 
@@ -280,6 +283,10 @@ async function fetchClassementRows(
       rank: index + 1,
       membre_id: membreId,
       display_name: display,
+      avatar_url:
+        typeof p?.avatar_url === "string" && p.avatar_url.trim()
+          ? p.avatar_url.trim()
+          : null,
       member_type: label,
       member_type_raw: p?.member_type ?? null,
       multiplier: Number.isFinite(multiplier) ? multiplier : 1,
@@ -359,6 +366,11 @@ function PodiumCard({
           gap: "0.35rem",
         }}
       >
+        <MemberAvatar
+          displayName={row.display_name}
+          avatarUrl={row.avatar_url}
+          size={place === 1 ? 44 : 36}
+        />
         <span>{row.display_name}</span>
         {row.is_beta_tester ? (
           <span title="Testeur Beta" aria-label="Testeur Beta">🧪</span>
@@ -1064,6 +1076,11 @@ export default function ClassementPage(): JSX.Element | null {
                                 gap: "0.35rem",
                               }}
                             >
+                              <MemberAvatar
+                                displayName={row.display_name}
+                                avatarUrl={row.avatar_url}
+                                size={28}
+                              />
                               <span>{row.display_name}</span>
                               {row.is_beta_tester ? (
                                 <span title="Testeur Beta" aria-label="Testeur Beta">🧪</span>
@@ -1182,6 +1199,11 @@ export default function ClassementPage(): JSX.Element | null {
                           lineHeight: 1.35,
                         }}
                       >
+                        <MemberAvatar
+                          displayName={row.display_name}
+                          avatarUrl={row.avatar_url}
+                          size={28}
+                        />
                         <span>{row.display_name}</span>
                         {row.is_beta_tester ? (
                           <span title="Testeur Beta" aria-label="Testeur Beta">🧪</span>

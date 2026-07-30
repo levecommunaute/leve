@@ -4,7 +4,7 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
@@ -64,6 +64,11 @@ type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
   multiplier: number | string | null;
+  nom_legal: string | null;
+  telephone: string | null;
+  pays_residence_fiscale: string | null;
+  retrait_methode: string | null;
+  retrait_gele_jusqua: string | null;
 };
 
 type PointsTxRow = {
@@ -96,6 +101,30 @@ type HistoryRow =
       description: string | null;
     }
   | { id: string; created_at: string; kind: "dollars"; amount: number; description: string };
+
+type RetraitPending = {
+  id: string;
+  montant: number;
+  methode: string;
+  statut: string;
+  executable_a_partir_de: string | null;
+  code_expire_at: string | null;
+  created_at: string;
+};
+
+type RetraitStep = "confirm" | "code" | "delai";
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "0:00";
+  const totalSec = Math.ceil(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+  }
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 function displayNameFrom(
   profile: ProfileRow | null,
@@ -164,6 +193,16 @@ export default function BanquePage(): JSX.Element | null {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [retraitOpen, setRetraitOpen] = useState(false);
+  const [retraitStep, setRetraitStep] = useState<RetraitStep>("confirm");
+  const [retraitId, setRetraitId] = useState<string | null>(null);
+  const [retraitCode, setRetraitCode] = useState("");
+  const [codeExpireAt, setCodeExpireAt] = useState<string | null>(null);
+  const [executableAPartirDe, setExecutableAPartirDe] = useState<string | null>(
+    null,
+  );
+  const [pendingRetraits, setPendingRetraits] = useState<RetraitPending[]>([]);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const [annulerId, setAnnulerId] = useState<string | null>(null);
   const [retraitPreview, setRetraitPreview] = useState<{
     montant: number;
     pourcentage: number;
@@ -186,7 +225,9 @@ export default function BanquePage(): JSX.Element | null {
       await Promise.all([
         sb
           .from("profiles")
-          .select("display_name, member_type, multiplier")
+          .select(
+            "display_name, member_type, multiplier, nom_legal, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
+          )
           .eq("id", uid)
           .maybeSingle(),
         sb
@@ -299,8 +340,78 @@ export default function BanquePage(): JSX.Element | null {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
     setHistory(merged.slice(0, 20));
+
+    try {
+      const res = await fetch("/api/banque/retrait", {
+        headers: { Authorization: `Bearer ${activeSession.access_token}` },
+      });
+      if (res.ok) {
+        const json = (await res.json()) as {
+          retraits?: Array<{
+            id: string;
+            montant: number | string;
+            methode: string;
+            statut: string;
+            executable_a_partir_de: string | null;
+            code_expire_at: string | null;
+            created_at: string;
+          }>;
+          executed?: string[];
+        };
+        setPendingRetraits(
+          (json.retraits ?? []).map((r) => ({
+            id: r.id,
+            montant: Number(r.montant),
+            methode: r.methode,
+            statut: r.statut,
+            executable_a_partir_de: r.executable_a_partir_de,
+            code_expire_at: r.code_expire_at,
+            created_at: r.created_at,
+          })),
+        );
+        if ((json.executed?.length ?? 0) > 0) {
+          // Recharger solde après exécution automatique
+          const banqueRefresh = await sb
+            .from("banque_membres")
+            .select("solde_dollars")
+            .eq("membre_id", uid)
+            .maybeSingle();
+          if (!banqueRefresh.error) {
+            setSoldeDollars(
+              Number(
+                (banqueRefresh.data as BanqueMembreRow | null)?.solde_dollars ??
+                  0,
+              ),
+            );
+          }
+        }
+      }
+    } catch {
+      // ignore — historique principal déjà chargé
+    }
+
     setDataLoaded(true);
   }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const lastExecAttemptRef = useRef(0);
+  useEffect(() => {
+    if (!session) return;
+    const ready = pendingRetraits.some(
+      (r) =>
+        r.statut === "delai_securite" &&
+        r.executable_a_partir_de &&
+        new Date(r.executable_a_partir_de).getTime() <= Date.now(),
+    );
+    if (!ready) return;
+    if (Date.now() - lastExecAttemptRef.current < 15000) return;
+    lastExecAttemptRef.current = Date.now();
+    void loadBanque(session);
+  }, [nowTick, pendingRetraits, session, loadBanque]);
 
   useEffect(() => {
     let cancelled = false;
@@ -372,7 +483,39 @@ export default function BanquePage(): JSX.Element | null {
 
   async function openRetraitConfirm(): Promise<void> {
     if (!session || soldeDollars < MIN_TRANSFER_CAD) return;
+
+    const geleUntil = profile?.retrait_gele_jusqua;
+    if (
+      typeof geleUntil === "string" &&
+      geleUntil.trim() !== "" &&
+      new Date(geleUntil).getTime() > Date.now()
+    ) {
+      setRetraitError(
+        `Retraits gelés jusqu'au ${dateFmt.format(new Date(geleUntil))}`,
+      );
+      return;
+    }
+
+    const nomLegal = profile?.nom_legal?.trim() ?? "";
+    const telephone = profile?.telephone?.trim() ?? "";
+    const paysFiscal = profile?.pays_residence_fiscale?.trim() ?? "";
+    if (!nomLegal || !telephone || !paysFiscal) {
+      router.push("/profil?onglet=identite&msg=complet_profil");
+      return;
+    }
+
+    const methode = profile?.retrait_methode?.trim() ?? "";
+    if (!methode) {
+      router.push("/profil?onglet=retrait&msg=complet_profil");
+      return;
+    }
+
     setRetraitOpen(true);
+    setRetraitStep("confirm");
+    setRetraitId(null);
+    setRetraitCode("");
+    setCodeExpireAt(null);
+    setExecutableAPartirDe(null);
     setRetraitError(null);
     setRetraitSuccess(null);
     setRetraitPreview(null);
@@ -409,17 +552,43 @@ export default function BanquePage(): JSX.Element | null {
 
   function cancelRetrait(): void {
     setRetraitOpen(false);
+    setRetraitStep("confirm");
     setRetraitPreview(null);
     setRetraitError(null);
+    setRetraitId(null);
+    setRetraitCode("");
+    setCodeExpireAt(null);
+    setExecutableAPartirDe(null);
   }
 
+  /** Étape 1 → envoi du code email. */
   async function confirmRetrait(): Promise<void> {
     if (!session || !retraitPreview) return;
+
+    const geleUntil = profile?.retrait_gele_jusqua;
+    if (
+      typeof geleUntil === "string" &&
+      geleUntil.trim() !== "" &&
+      new Date(geleUntil).getTime() > Date.now()
+    ) {
+      setRetraitError(
+        `Retraits gelés jusqu'au ${dateFmt.format(new Date(geleUntil))}`,
+      );
+      return;
+    }
+
+    const methode = profile?.retrait_methode?.trim() ?? "";
+    if (!methode) {
+      setRetraitOpen(false);
+      router.push("/profil?onglet=retrait&msg=complet_profil");
+      return;
+    }
+
     setRetraitSubmitting(true);
     setRetraitError(null);
 
     try {
-      const res = await fetch("/api/banque/retrait", {
+      const res = await fetch("/api/banque/code-retrait", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -427,21 +596,157 @@ export default function BanquePage(): JSX.Element | null {
         },
         body: JSON.stringify({ membre_id: session.user.id }),
       });
-      const json = (await res.json()) as { error?: string; net?: number };
+      const json = (await res.json()) as {
+        error?: string;
+        sent?: boolean;
+        retrait_id?: string;
+        code_expire_at?: string;
+      };
       if (!res.ok) {
-        setRetraitError(json.error ?? "Retrait impossible");
+        setRetraitError(json.error ?? "Impossible d'envoyer le code");
         return;
       }
+      setRetraitId(json.retrait_id ?? null);
+      setCodeExpireAt(json.code_expire_at ?? null);
+      setRetraitCode("");
+      setRetraitStep("code");
+    } catch {
+      setRetraitError("Erreur réseau");
+    } finally {
+      setRetraitSubmitting(false);
+    }
+  }
+
+  /** Étape 2 → vérification code, puis activer délai 24h. */
+  async function submitRetraitCode(): Promise<void> {
+    if (!session || !retraitId) return;
+    const code = retraitCode.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setRetraitError("Entrez le code à 6 chiffres reçu par email");
+      return;
+    }
+
+    setRetraitSubmitting(true);
+    setRetraitError(null);
+
+    try {
+      const putRes = await fetch("/api/banque/code-retrait", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          membre_id: session.user.id,
+          retrait_id: retraitId,
+          code,
+        }),
+      });
+      const putJson = (await putRes.json()) as {
+        error?: string;
+        executable_a_partir_de?: string;
+        blocked?: boolean;
+        delai_actif?: boolean;
+        net?: number;
+        code_confirme?: boolean;
+      };
+      if (!putRes.ok && !putJson.code_confirme) {
+        setRetraitError(putJson.error ?? "Code invalide");
+        if (putJson.blocked) {
+          setRetraitStep("confirm");
+          setRetraitId(null);
+        }
+        return;
+      }
+
+      // Fallback si le PUT a confirmé le code mais pas encore activé le délai
+      if (putJson.code_confirme && putJson.delai_actif === false) {
+        const delaiRes = await fetch("/api/banque/retrait", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            membre_id: session.user.id,
+            retrait_id: retraitId,
+          }),
+        });
+        const delaiJson = (await delaiRes.json()) as {
+          error?: string;
+          executable_a_partir_de?: string;
+          net?: number;
+        };
+        if (!delaiRes.ok) {
+          setRetraitError(
+            delaiJson.error ??
+              putJson.error ??
+              "Impossible d'activer le délai de sécurité",
+          );
+          return;
+        }
+        setExecutableAPartirDe(
+          delaiJson.executable_a_partir_de ??
+            putJson.executable_a_partir_de ??
+            null,
+        );
+        setRetraitStep("delai");
+        setRetraitSuccess(
+          `Code confirmé — délai de sécurité 24 h avant exécution${
+            delaiJson.net != null
+              ? ` (net prévu ${cad.format(Number(delaiJson.net))})`
+              : ""
+          }.`,
+        );
+        await loadBanque(session);
+        return;
+      }
+
+      setExecutableAPartirDe(putJson.executable_a_partir_de ?? null);
+      setRetraitStep("delai");
       setRetraitSuccess(
-        `Retrait confirmé — vous recevrez ${cad.format(Number(json.net ?? retraitPreview.montant_net))}.`,
+        `Code confirmé — délai de sécurité 24 h avant exécution${
+          putJson.net != null
+            ? ` (net prévu ${cad.format(Number(putJson.net))})`
+            : ""
+        }.`,
       );
-      setRetraitOpen(false);
-      setRetraitPreview(null);
       await loadBanque(session);
     } catch {
       setRetraitError("Erreur réseau");
     } finally {
       setRetraitSubmitting(false);
+    }
+  }
+
+  async function annulerRetraitPending(id: string): Promise<void> {
+    if (!session) return;
+    setAnnulerId(id);
+    setRetraitError(null);
+    try {
+      const res = await fetch("/api/banque/retrait", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          membre_id: session.user.id,
+          retrait_id: id,
+        }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setRetraitError(json.error ?? "Annulation impossible");
+        return;
+      }
+      setRetraitSuccess("Retrait annulé — montant rétabli sur votre solde.");
+      if (retraitId === id) cancelRetrait();
+      await loadBanque(session);
+    } catch {
+      setRetraitError("Erreur réseau");
+    } finally {
+      setAnnulerId(null);
     }
   }
 
@@ -496,6 +801,21 @@ export default function BanquePage(): JSX.Element | null {
   }
 
   const name = displayNameFrom(profile, session);
+  const retraitGeleJusqua =
+    typeof profile?.retrait_gele_jusqua === "string"
+      ? profile.retrait_gele_jusqua
+      : null;
+  const retraitGeleActif =
+    Boolean(retraitGeleJusqua) &&
+    new Date(retraitGeleJusqua as string).getTime() > Date.now();
+  let retraitGeleLabel = "";
+  if (retraitGeleActif && retraitGeleJusqua) {
+    try {
+      retraitGeleLabel = dateFmt.format(new Date(retraitGeleJusqua));
+    } catch {
+      retraitGeleLabel = retraitGeleJusqua;
+    }
+  }
 
   function renderHistoryEntry(row: HistoryRow): {
     dateLabel: string;
@@ -640,6 +960,26 @@ export default function BanquePage(): JSX.Element | null {
             }}
           >
             {loadError}
+          </p>
+        ) : null}
+
+        {retraitGeleActif ? (
+          <p
+            role="alert"
+            style={{
+              margin: "0 0 1.25rem",
+              padding: "0.85rem 1rem",
+              borderRadius: "4px",
+              background: "rgba(192, 57, 43, 0.16)",
+              border: `1px solid ${ROUGE}`,
+              color: ROUGE,
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              lineHeight: 1.45,
+            }}
+          >
+            Retraits gelés jusqu&apos;au {retraitGeleLabel} suite à un changement
+            de méthode
           </p>
         ) : null}
 
@@ -923,7 +1263,7 @@ export default function BanquePage(): JSX.Element | null {
           <button
             type="button"
             className="banque-transfer-btn"
-            disabled={!canTransfer}
+            disabled={!canTransfer || retraitGeleActif}
             onClick={() => void openRetraitConfirm()}
             style={{
               width: "100%",
@@ -934,21 +1274,33 @@ export default function BanquePage(): JSX.Element | null {
               fontSize: "0.82rem",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
-              border: canTransfer
-                ? "1px solid rgba(212, 160, 23, 0.4)"
-                : "2px solid rgba(245, 240, 232, 0.2)",
-              background: canTransfer ? "transparent" : "rgba(245, 240, 232, 0.06)",
-              color: canTransfer ? GOLD : "rgba(245, 240, 232, 0.45)",
-              cursor: canTransfer ? "pointer" : "not-allowed",
+              border:
+                canTransfer && !retraitGeleActif
+                  ? "1px solid rgba(212, 160, 23, 0.4)"
+                  : "2px solid rgba(245, 240, 232, 0.2)",
+              background:
+                canTransfer && !retraitGeleActif
+                  ? "transparent"
+                  : "rgba(245, 240, 232, 0.06)",
+              color:
+                canTransfer && !retraitGeleActif
+                  ? GOLD
+                  : "rgba(245, 240, 232, 0.45)",
+              cursor:
+                canTransfer && !retraitGeleActif ? "pointer" : "not-allowed",
             }}
           >
-            Transférer vers mon compte
+            {retraitGeleActif
+              ? "Retraits gelés"
+              : "Transférer vers mon compte"}
           </button>
 
           {retraitOpen ? (
             <div
               role="presentation"
-              onClick={cancelRetrait}
+              onClick={() => {
+                if (retraitStep !== "delai") cancelRetrait();
+              }}
               style={{
                 position: "fixed",
                 inset: 0,
@@ -984,78 +1336,218 @@ export default function BanquePage(): JSX.Element | null {
                     color: GOLD,
                   }}
                 >
-                  Confirmer le transfert
+                  {retraitStep === "confirm"
+                    ? "Confirmer le transfert"
+                    : retraitStep === "code"
+                      ? "Entrez le code reçu par email"
+                      : "Délai de sécurité"}
                 </h3>
 
-                {retraitLoading ? (
-                  <p style={{ opacity: 0.7, margin: 0 }}>Calcul des frais…</p>
-                ) : retraitPreview ? (
-                  <div style={{ fontSize: "0.92rem", lineHeight: 1.7 }}>
-                    <div
+                {retraitGeleActif ? (
+                  <p
+                    role="alert"
+                    style={{
+                      margin: "0 0 1rem",
+                      padding: "0.7rem 0.85rem",
+                      borderRadius: "4px",
+                      background: "rgba(192, 57, 43, 0.14)",
+                      border: `1px solid ${ROUGE}`,
+                      color: ROUGE,
+                      fontSize: "0.88rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Retraits gelés jusqu&apos;au {retraitGeleLabel}
+                  </p>
+                ) : null}
+
+                {retraitStep === "confirm" ? (
+                  <>
+                    {retraitLoading ? (
+                      <p style={{ opacity: 0.7, margin: 0 }}>Calcul des frais…</p>
+                    ) : retraitPreview ? (
+                      <div style={{ fontSize: "0.92rem", lineHeight: 1.7 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                          }}
+                        >
+                          <span style={{ opacity: 0.85 }}>Montant demandé</span>
+                          <span style={{ fontWeight: 700 }}>
+                            {cad.format(retraitPreview.montant)}
+                          </span>
+                        </div>
+                        {retraitPreview.actif && retraitPreview.frais > 0 ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "1rem",
+                              color: ROUGE,
+                              fontFamily:
+                                "var(--font-mono), ui-monospace, monospace",
+                            }}
+                          >
+                            <span>
+                              Frais plateforme{" "}
+                              {retraitPreview.pourcentage % 1 === 0
+                                ? retraitPreview.pourcentage.toFixed(0)
+                                : retraitPreview.pourcentage}
+                              %
+                            </span>
+                            <span style={{ fontWeight: 700 }}>
+                              -{cad.format(retraitPreview.frais)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "1rem",
+                              fontFamily:
+                                "var(--font-mono), ui-monospace, monospace",
+                            }}
+                          >
+                            <span style={{ opacity: 0.85 }}>Frais plateforme</span>
+                            <span style={{ fontWeight: 700 }}>{cad.format(0)}</span>
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                            marginTop: "0.5rem",
+                            paddingTop: "0.65rem",
+                            borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+                            fontFamily:
+                              "var(--font-mono), ui-monospace, monospace",
+                          }}
+                        >
+                          <span style={{ fontWeight: 700 }}>Vous recevrez</span>
+                          <span
+                            style={{
+                              fontWeight: 800,
+                              color: GOLD,
+                              fontSize: "1.05rem",
+                            }}
+                          >
+                            {cad.format(retraitPreview.montant_net)}
+                          </span>
+                        </div>
+                        <p
+                          style={{
+                            margin: "0.85rem 0 0",
+                            fontSize: "0.78rem",
+                            opacity: 0.65,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          Un code à 6 chiffres sera envoyé par email. Ensuite un
+                          délai de sécurité de 24 h s&apos;applique (annulable).
+                        </p>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {retraitStep === "code" ? (
+                  <div>
+                    <p
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: "1rem",
+                        margin: "0 0 0.85rem",
+                        fontSize: "0.9rem",
+                        opacity: 0.8,
+                        lineHeight: 1.5,
                       }}
                     >
-                      <span style={{ opacity: 0.85 }}>Montant demandé</span>
-                      <span style={{ fontWeight: 700 }}>
-                        {cad.format(retraitPreview.montant)}
-                      </span>
-                    </div>
-                    {retraitPreview.actif && retraitPreview.frais > 0 ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: "1rem",
-                          color: ROUGE,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
-                      >
-                        <span>
-                          Frais plateforme{" "}
-                          {retraitPreview.pourcentage % 1 === 0
-                            ? retraitPreview.pourcentage.toFixed(0)
-                            : retraitPreview.pourcentage}
-                          %
-                        </span>
-                        <span style={{ fontWeight: 700 }}>
-                          -{cad.format(retraitPreview.frais)}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: "1rem",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
-                      >
-                        <span style={{ opacity: 0.85 }}>Frais plateforme</span>
-                        <span style={{ fontWeight: 700 }}>{cad.format(0)}</span>
-                      </div>
-                    )}
-                    <div
+                      Saisissez le code à 6 chiffres envoyé à votre adresse email.
+                      Expire dans{" "}
+                      <strong style={{ color: GOLD }}>
+                        {formatCountdown(
+                          Math.max(
+                            0,
+                            (codeExpireAt
+                              ? new Date(codeExpireAt).getTime()
+                              : 0) - nowTick,
+                          ),
+                        )}
+                      </strong>
+                      .
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={retraitCode}
+                      onChange={(e) =>
+                        setRetraitCode(
+                          e.target.value.replace(/\D/g, "").slice(0, 6),
+                        )
+                      }
+                      placeholder="000000"
+                      aria-label="Code de confirmation"
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: "1rem",
-                        marginTop: "0.5rem",
-                        paddingTop: "0.65rem",
-                        borderTop: "1px solid rgba(245, 240, 232, 0.12)",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+                        width: "100%",
+                        padding: "0.85rem 1rem",
+                        borderRadius: "4px",
+                        border: "1px solid rgba(245, 240, 232, 0.2)",
+                        background: "#0a0a0a",
+                        color: TEXT,
+                        fontSize: "1.5rem",
+                        letterSpacing: "0.35em",
+                        textAlign: "center",
+                        fontFamily: "var(--font-mono), ui-monospace, monospace",
+                      }}
+                    />
+                  </div>
+                ) : null}
+
+                {retraitStep === "delai" ? (
+                  <div>
+                    <p
+                      style={{
+                        margin: "0 0 0.75rem",
+                        fontSize: "0.92rem",
+                        lineHeight: 1.55,
+                      }}
                     >
-                      <span style={{ fontWeight: 700 }}>Vous recevrez</span>
-                      <span
-                        style={{
-                          fontWeight: 800,
-                          color: GOLD,
-                          fontSize: "1.05rem",
-                        }}
-                      >
-                        {cad.format(retraitPreview.montant_net)}
-                      </span>
-                    </div>
+                      Votre retrait est en délai de sécurité. Il sera exécuté
+                      automatiquement dans :
+                    </p>
+                    <p
+                      style={{
+                        margin: "0 0 0.85rem",
+                        fontSize: "1.6rem",
+                        fontWeight: 800,
+                        color: GOLD,
+                        fontFamily: "var(--font-mono), ui-monospace, monospace",
+                      }}
+                    >
+                      {formatCountdown(
+                        Math.max(
+                          0,
+                          (executableAPartirDe
+                            ? new Date(executableAPartirDe).getTime()
+                            : 0) - nowTick,
+                        ),
+                      )}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.78rem",
+                        opacity: 0.65,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      Vous pouvez l&apos;annuler depuis la section « Retraits en
+                      cours » tant que le délai n&apos;est pas écoulé.
+                    </p>
                   </div>
                 ) : null}
 
@@ -1080,49 +1572,115 @@ export default function BanquePage(): JSX.Element | null {
                     flexWrap: "wrap",
                   }}
                 >
-                  <button
-                    type="button"
-                    disabled={retraitSubmitting || retraitLoading || !retraitPreview}
-                    onClick={() => void confirmRetrait()}
-                    style={{
-                      flex: "1 1 140px",
-                      padding: "0.75rem 1rem",
-                      borderRadius: "4px",
-                      fontWeight: 700,
-                      fontSize: "0.9rem",
-                      border: "none",
-                      background: ROUGE,
-                      color: TEXT,
-                      cursor:
-                        retraitSubmitting || retraitLoading || !retraitPreview
-                          ? "wait"
-                          : "pointer",
-                      opacity:
-                        retraitSubmitting || retraitLoading || !retraitPreview
-                          ? 0.6
-                          : 1,
-                    }}
-                  >
-                    {retraitSubmitting ? "En cours…" : "Confirmer le transfert"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={retraitSubmitting}
-                    onClick={cancelRetrait}
-                    style={{
-                      flex: "1 1 100px",
-                      padding: "0.75rem 1rem",
-                      borderRadius: "4px",
-                      fontWeight: 600,
-                      fontSize: "0.9rem",
-                      border: "1px solid rgba(245, 240, 232, 0.25)",
-                      background: "transparent",
-                      color: TEXT,
-                      cursor: retraitSubmitting ? "wait" : "pointer",
-                    }}
-                  >
-                    Annuler
-                  </button>
+                  {retraitStep === "confirm" ? (
+                    <button
+                      type="button"
+                      disabled={
+                        retraitSubmitting ||
+                        retraitLoading ||
+                        !retraitPreview ||
+                        retraitGeleActif
+                      }
+                      onClick={() => void confirmRetrait()}
+                      style={{
+                        flex: "1 1 140px",
+                        padding: "0.75rem 1rem",
+                        borderRadius: "4px",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        border: "none",
+                        background: ROUGE,
+                        color: TEXT,
+                        cursor:
+                          retraitSubmitting ||
+                          retraitLoading ||
+                          !retraitPreview ||
+                          retraitGeleActif
+                            ? "wait"
+                            : "pointer",
+                        opacity:
+                          retraitSubmitting ||
+                          retraitLoading ||
+                          !retraitPreview ||
+                          retraitGeleActif
+                            ? 0.6
+                            : 1,
+                      }}
+                    >
+                      {retraitSubmitting
+                        ? "Envoi du code…"
+                        : "Confirmer et recevoir le code"}
+                    </button>
+                  ) : null}
+
+                  {retraitStep === "code" ? (
+                    <button
+                      type="button"
+                      disabled={
+                        retraitSubmitting || retraitCode.trim().length !== 6
+                      }
+                      onClick={() => void submitRetraitCode()}
+                      style={{
+                        flex: "1 1 140px",
+                        padding: "0.75rem 1rem",
+                        borderRadius: "4px",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        border: "none",
+                        background: ROUGE,
+                        color: TEXT,
+                        cursor:
+                          retraitSubmitting || retraitCode.trim().length !== 6
+                            ? "wait"
+                            : "pointer",
+                        opacity:
+                          retraitSubmitting || retraitCode.trim().length !== 6
+                            ? 0.6
+                            : 1,
+                      }}
+                    >
+                      {retraitSubmitting ? "Vérification…" : "Valider le code"}
+                    </button>
+                  ) : null}
+
+                  {retraitStep === "delai" ? (
+                    <button
+                      type="button"
+                      onClick={cancelRetrait}
+                      style={{
+                        flex: "1 1 140px",
+                        padding: "0.75rem 1rem",
+                        borderRadius: "4px",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        border: "none",
+                        background: GOLD,
+                        color: BG,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Compris
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={retraitSubmitting}
+                      onClick={cancelRetrait}
+                      style={{
+                        flex: "1 1 100px",
+                        padding: "0.75rem 1rem",
+                        borderRadius: "4px",
+                        fontWeight: 600,
+                        fontSize: "0.9rem",
+                        border: "1px solid rgba(245, 240, 232, 0.25)",
+                        background: "transparent",
+                        color: TEXT,
+                        cursor: retraitSubmitting ? "wait" : "pointer",
+                      }}
+                    >
+                      Fermer
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1142,6 +1700,121 @@ export default function BanquePage(): JSX.Element | null {
             </p>
           ) : null}
         </div>
+
+        {pendingRetraits.filter((r) => r.statut === "delai_securite").length >
+        0 ? (
+          <section style={{ marginBottom: "1.75rem" }}>
+            <h2
+              style={{
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "1.35rem",
+                letterSpacing: "0.1em",
+                margin: "0 0 0.85rem",
+                color: TEXT,
+              }}
+            >
+              Retraits en cours
+            </h2>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+              }}
+            >
+              {pendingRetraits
+                .filter((r) => r.statut === "delai_securite")
+                .map((r) => {
+                  const remaining = Math.max(
+                    0,
+                    (r.executable_a_partir_de
+                      ? new Date(r.executable_a_partir_de).getTime()
+                      : 0) - nowTick,
+                  );
+                  return (
+                    <article
+                      key={r.id}
+                      style={{
+                        borderRadius: "4px",
+                        padding: "1rem 1.1rem",
+                        background: G2,
+                        border: "1px solid rgba(212, 160, 23, 0.25)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                          flexWrap: "wrap",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <div>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: "0.72rem",
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              opacity: 0.55,
+                            }}
+                          >
+                            Délai de sécurité · {r.methode}
+                          </p>
+                          <p
+                            style={{
+                              margin: "0.35rem 0 0",
+                              fontSize: "1.15rem",
+                              fontWeight: 700,
+                              color: GOLD,
+                            }}
+                          >
+                            {cad.format(r.montant)}
+                          </p>
+                          <p
+                            style={{
+                              margin: "0.4rem 0 0",
+                              fontSize: "0.88rem",
+                              fontFamily:
+                                "var(--font-mono), ui-monospace, monospace",
+                            }}
+                          >
+                            Exécution dans{" "}
+                            <strong>{formatCountdown(remaining)}</strong>
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={annulerId === r.id || remaining <= 0}
+                          onClick={() => void annulerRetraitPending(r.id)}
+                          style={{
+                            padding: "0.55rem 0.9rem",
+                            borderRadius: "4px",
+                            fontWeight: 700,
+                            fontSize: "0.8rem",
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            border: `1px solid ${ROUGE}`,
+                            background: "transparent",
+                            color: ROUGE,
+                            cursor:
+                              annulerId === r.id || remaining <= 0
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity:
+                              annulerId === r.id || remaining <= 0 ? 0.5 : 1,
+                          }}
+                        >
+                          {annulerId === r.id ? "…" : "Annuler"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+            </div>
+          </section>
+        ) : null}
 
         <section>
           <h2
