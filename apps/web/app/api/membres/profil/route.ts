@@ -2,6 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
+import {
+  isPhotoAvatar,
+  isPresetAvatar,
+  PRESET_AVATARS,
+} from "../../../../lib/avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +18,7 @@ const MAX_TEXT = 500;
 const MAX_TELEPHONE = 40;
 const MAX_ADRESSE = 500;
 const MAX_IDENTIFIANT = 200;
+const MAX_AVATAR_URL = 500;
 
 const RETRAIT_METHODES = [
   "MonCash",
@@ -25,7 +31,7 @@ const RETRAIT_METHODES = [
 type RetraitMethode = (typeof RETRAIT_METHODES)[number];
 
 const SELECT_FIELDS =
-  "display_name, profil_public, message_don, nom_legal, date_naissance, pays_residence_fiscale, telephone, adresse, palier_verification, profil_verifie_at, retrait_methode, retrait_identifiant, retrait_gele_jusqua, notif_quiz, notif_redistribution, notif_concours";
+  "display_name, profil_public, message_don, avatar_url, nom_legal, date_naissance, pays_residence_fiscale, telephone, adresse, palier_verification, profil_verifie_at, retrait_methode, retrait_identifiant, retrait_gele_jusqua, notif_quiz, notif_redistribution, notif_concours";
 
 async function resolveAuthUser(
   request: NextRequest,
@@ -170,6 +176,62 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     update.message_don = v;
     logAction = "profil_public";
     logDetails.message_don = true;
+  }
+
+  if (body.avatar_url !== undefined) {
+    if (body.avatar_url === null || body.avatar_url === "") {
+      update.avatar_url = null;
+      logAction = "profil_avatar";
+      logDetails.avatar_mode = "initiales";
+    } else if (typeof body.avatar_url === "string") {
+      const trimmed = body.avatar_url.trim();
+      if (trimmed.length > MAX_AVATAR_URL) {
+        return NextResponse.json(
+          { error: `avatar_url ne peut pas dépasser ${MAX_AVATAR_URL} caractères` },
+          { status: 400 },
+        );
+      }
+      if (isPresetAvatar(trimmed)) {
+        update.avatar_url = trimmed;
+        logAction = "profil_avatar";
+        logDetails.avatar_mode = "avatar";
+        logDetails.avatar_url = trimmed;
+      } else if (isPhotoAvatar(trimmed)) {
+        // Les photos doivent passer par /api/membres/avatar (upload Storage).
+        // On autorise quand même une URL déjà hébergée sur notre bucket.
+        const allowedHost = SB_URL.replace(/^https?:\/\//, "");
+        let ok = false;
+        try {
+          const u = new URL(trimmed);
+          ok =
+            u.hostname === allowedHost ||
+            u.pathname.includes("/storage/v1/object/public/avatars/");
+        } catch {
+          ok = false;
+        }
+        if (!ok) {
+          return NextResponse.json(
+            { error: "URL photo invalide — utilisez l'upload photo" },
+            { status: 400 },
+          );
+        }
+        update.avatar_url = trimmed;
+        logAction = "profil_avatar";
+        logDetails.avatar_mode = "photo";
+      } else {
+        return NextResponse.json(
+          {
+            error: `avatar_url doit être null, un emoji parmi ${PRESET_AVATARS.join(" ")} ou une URL photo`,
+          },
+          { status: 400 },
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: "avatar_url doit être une chaîne ou null" },
+        { status: 400 },
+      );
+    }
   }
 
   if (body.nom_legal !== undefined) {

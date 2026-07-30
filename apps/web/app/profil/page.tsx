@@ -13,7 +13,13 @@ import React, {
 import { RankBadge } from "../../components/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { EnDirectBanner } from "../../components/en-direct-banner";
+import { MemberAvatar } from "../../components/member-avatar";
 import { signOut } from "../../lib/auth";
+import {
+  PRESET_AVATARS,
+  resolveAvatarMode,
+  type AvatarMode,
+} from "../../lib/avatar";
 import {
   formatPaTransferDonLines,
   formatQuizTransactionLines,
@@ -46,6 +52,7 @@ type ProfileRow = {
   code_parrainage: string | null;
   profil_public: boolean | null;
   message_don: string | null;
+  avatar_url: string | null;
   cotisation_active: boolean | null;
   cotisation_montant: number | string | null;
   cotisation_points_bonus: number | string | null;
@@ -86,7 +93,7 @@ const PROFIL_ONGLETS: { id: ProfilOnglet; label: string }[] = [
 ];
 
 const PROFIL_SELECT =
-  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,cotisation_active,cotisation_montant,cotisation_points_bonus,nom_legal,date_naissance,pays_residence_fiscale,telephone,adresse,palier_verification,profil_verifie_at,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours";
+  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,cotisation_active,cotisation_montant,cotisation_points_bonus,nom_legal,date_naissance,pays_residence_fiscale,telephone,adresse,palier_verification,profil_verifie_at,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours";
 
 function parseProfilOnglet(raw: string | null): ProfilOnglet {
   if (
@@ -153,11 +160,6 @@ function displayNameFrom(profile: ProfileRow | null, session: Session): string {
   const fullName = typeof meta?.full_name === "string" ? meta.full_name : undefined;
   const displayName = typeof profile?.display_name === "string" ? profile.display_name.trim() : "";
   return displayName || fullName || session.user.email?.split("@")[0] || "Membre";
-}
-
-function avatarInitials(displayName: string): string {
-  const cleaned = displayName.trim().replace(/\s+/g, "");
-  return (cleaned.slice(0, 2) || "ME").toUpperCase();
 }
 
 function memberTypeBadgeStyle(label: string): {
@@ -332,6 +334,9 @@ export default function ProfilPage(): JSX.Element | null {
   const [profilPublicSaving, setProfilPublicSaving] = useState(false);
   const [messageDon, setMessageDon] = useState("");
   const [displayNameEdit, setDisplayNameEdit] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarMode, setAvatarMode] = useState<AvatarMode>("initiales");
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [nomLegal, setNomLegal] = useState("");
   const [dateNaissance, setDateNaissance] = useState("");
   const [paysResidenceFiscale, setPaysResidenceFiscale] = useState("");
@@ -360,7 +365,7 @@ export default function ProfilPage(): JSX.Element | null {
       `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(targetId)}&select=${
         isOwnProfile
           ? PROFIL_SELECT
-          : "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don"
+          : "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url"
       }`,
       token,
     );
@@ -374,6 +379,12 @@ export default function ProfilPage(): JSX.Element | null {
       setDisplayNameEdit(
         typeof row?.display_name === "string" ? row.display_name : "",
       );
+      {
+        const nextAvatar =
+          typeof row?.avatar_url === "string" ? row.avatar_url : null;
+        setAvatarUrl(nextAvatar);
+        setAvatarMode(resolveAvatarMode(nextAvatar));
+      }
       setNomLegal(typeof row?.nom_legal === "string" ? row.nom_legal : "");
       setDateNaissance(
         typeof row?.date_naissance === "string"
@@ -669,6 +680,11 @@ export default function ProfilPage(): JSX.Element | null {
       if (json.display_name !== undefined) {
         setDisplayNameEdit(json.display_name ?? "");
       }
+      if (json.avatar_url !== undefined) {
+        const next = json.avatar_url ?? null;
+        setAvatarUrl(next);
+        setAvatarMode(resolveAvatarMode(next));
+      }
       if (json.nom_legal !== undefined) setNomLegal(json.nom_legal ?? "");
       if (json.date_naissance !== undefined) {
         setDateNaissance(
@@ -701,6 +717,60 @@ export default function ProfilPage(): JSX.Element | null {
       return false;
     } finally {
       setProfilPublicSaving(false);
+    }
+  }
+
+  async function handleSelectAvatarMode(mode: AvatarMode): Promise<void> {
+    setAvatarMode(mode);
+    if (mode === "initiales") {
+      await handleSaveProfil({ avatar_url: null });
+      return;
+    }
+    if (mode === "avatar") {
+      const current =
+        avatarUrl && resolveAvatarMode(avatarUrl) === "avatar"
+          ? avatarUrl
+          : PRESET_AVATARS[0];
+      setAvatarUrl(current);
+      await handleSaveProfil({ avatar_url: current });
+    }
+    // mode photo : attendre l'upload fichier
+  }
+
+  async function handleSelectPresetEmoji(emoji: string): Promise<void> {
+    setAvatarMode("avatar");
+    setAvatarUrl(emoji);
+    await handleSaveProfil({ avatar_url: emoji });
+  }
+
+  async function handleUploadAvatarPhoto(file: File): Promise<void> {
+    if (!session) return;
+    setAvatarUploading(true);
+    setLoadError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/membres/avatar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body,
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        avatar_url?: string;
+      };
+      if (!res.ok) {
+        setLoadError(json.error ?? "Échec de l'upload de la photo.");
+        return;
+      }
+      const next = json.avatar_url ?? null;
+      setAvatarUrl(next);
+      setAvatarMode("photo");
+      setProfile((prev) => (prev ? { ...prev, avatar_url: next } : prev));
+    } catch {
+      setLoadError("Erreur réseau lors de l'upload de la photo.");
+    } finally {
+      setAvatarUploading(false);
     }
   }
 
@@ -816,7 +886,9 @@ export default function ProfilPage(): JSX.Element | null {
       "Membre";
   const memberLabel = formatMemberTypeLabel(profile?.member_type ?? null);
   const memberBadge = memberTypeBadgeStyle(memberLabel);
-  const initials = avatarInitials(name);
+  const effectiveAvatarUrl = isOwnProfile
+    ? avatarUrl
+    : (profile?.avatar_url ?? null);
   const mult = Number(profile?.multiplier ?? 1);
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
   const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
@@ -927,7 +999,12 @@ export default function ProfilPage(): JSX.Element | null {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid rgba(245, 240, 232, 0.08)", position: "sticky", top: 0, background: "rgba(8, 8, 8, 0.92)", backdropFilter: "blur(8px)", zIndex: 20 }}>
         <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>LEVE</Link>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <span style={{ fontSize: "0.9rem", opacity: 0.85, maxWidth: "42vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+          <MemberAvatar
+            displayName={name}
+            avatarUrl={effectiveAvatarUrl}
+            size={28}
+          />
+          <span style={{ fontSize: "0.9rem", opacity: 0.85, maxWidth: "36vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
           <button type="button" disabled={signingOut} onClick={() => void handleSignOut()} style={{ background: "transparent", color: ROUGE, border: `1px solid ${ROUGE}`, borderRadius: "4px", padding: "0.45rem 0.9rem", fontSize: "0.8rem", cursor: signingOut ? "wait" : "pointer" }}>
             {signingOut ? "…" : "Déconnexion"}
           </button>
@@ -943,27 +1020,11 @@ export default function ProfilPage(): JSX.Element | null {
         <>
         <section style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "#141414", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
-            <div
-              aria-hidden
-              style={{
-                flexShrink: 0,
-                width: "3.25rem",
-                height: "3.25rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#141414",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                borderRadius: "4px",
-                color: GOLD,
-                fontFamily: "var(--font-mono), ui-monospace, monospace",
-                fontSize: "1rem",
-                fontWeight: 700,
-                letterSpacing: "0.04em",
-              }}
-            >
-              {initials}
-            </div>
+            <MemberAvatar
+              displayName={name}
+              avatarUrl={effectiveAvatarUrl}
+              size={52}
+            />
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>Profil membre{profile?.numero_membre ? ` · #${profile.numero_membre}` : ""}</p>
               <h1 style={{ fontFamily: "var(--font-mono), ui-monospace, monospace", fontSize: "clamp(2rem, 7vw, 3rem)", letterSpacing: "0.04em", margin: "0.35rem 0 0", lineHeight: 1.05, color: TEXT, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
@@ -1196,36 +1257,161 @@ export default function ProfilPage(): JSX.Element | null {
 
             {profilOnglet === "public" ? (
               <div role="tabpanel">
+                <p style={fieldLabelStyle}>Avatar</p>
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "1rem",
-                    marginBottom: "1rem",
+                    marginBottom: "0.85rem",
                   }}
                 >
-                  <div
-                    aria-hidden
-                    style={{
-                      width: "3.25rem",
-                      height: "3.25rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "#141414",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
-                      borderRadius: "4px",
-                      color: GOLD,
-                      fontSize: "1rem",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {initials}
-                  </div>
-                  <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.65 }}>
-                    Avatar (initiales)
+                  <MemberAvatar
+                    displayName={displayNameEdit.trim() || name}
+                    avatarUrl={
+                      avatarMode === "initiales"
+                        ? null
+                        : avatarMode === "avatar"
+                          ? avatarUrl && resolveAvatarMode(avatarUrl) === "avatar"
+                            ? avatarUrl
+                            : PRESET_AVATARS[0]
+                          : avatarUrl
+                    }
+                    size={64}
+                  />
+                  <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.65, lineHeight: 1.4 }}>
+                    {avatarMode === "initiales"
+                      ? "Initiales du pseudo"
+                      : avatarMode === "avatar"
+                        ? "Avatar prédéfini"
+                        : "Photo de profil"}
                   </p>
                 </div>
+                <div
+                  role="group"
+                  aria-label="Type d'avatar"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "0.4rem",
+                    marginBottom: "0.85rem",
+                  }}
+                >
+                  {(
+                    [
+                      { id: "initiales" as const, label: "Initiales" },
+                      { id: "avatar" as const, label: "Avatar" },
+                      { id: "photo" as const, label: "Photo" },
+                    ] as const
+                  ).map((opt) => {
+                    const active = avatarMode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        disabled={profilPublicSaving || avatarUploading}
+                        onClick={() => void handleSelectAvatarMode(opt.id)}
+                        style={{
+                          background: active
+                            ? "rgba(212, 160, 23, 0.14)"
+                            : "transparent",
+                          color: active ? GOLD : "rgba(245, 240, 232, 0.7)",
+                          border: active
+                            ? `1px solid ${GOLD}`
+                            : "1px solid rgba(245, 240, 232, 0.15)",
+                          borderRadius: "4px",
+                          padding: "0.4rem 0.75rem",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor:
+                            profilPublicSaving || avatarUploading
+                              ? "wait"
+                              : "pointer",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {avatarMode === "avatar" ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                      gap: "0.45rem",
+                      marginBottom: "1rem",
+                      maxWidth: "20rem",
+                    }}
+                  >
+                    {PRESET_AVATARS.map((emoji) => {
+                      const selected = avatarUrl === emoji;
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          disabled={profilPublicSaving}
+                          onClick={() => void handleSelectPresetEmoji(emoji)}
+                          aria-label={`Choisir ${emoji}`}
+                          style={{
+                            aspectRatio: "1",
+                            borderRadius: "4px",
+                            border: selected
+                              ? `1px solid ${GOLD}`
+                              : "1px solid rgba(245, 240, 232, 0.15)",
+                            background: selected
+                              ? "rgba(212, 160, 23, 0.14)"
+                              : "rgba(245, 240, 232, 0.04)",
+                            fontSize: "1.35rem",
+                            cursor: profilPublicSaving ? "wait" : "pointer",
+                          }}
+                        >
+                          {emoji}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {avatarMode === "photo" ? (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <label
+                      htmlFor="avatar-photo"
+                      style={{
+                        display: "inline-block",
+                        padding: "0.5rem 0.9rem",
+                        borderRadius: "4px",
+                        border: "1px solid rgba(245, 240, 232, 0.25)",
+                        background: "rgba(245, 240, 232, 0.04)",
+                        fontSize: "0.85rem",
+                        cursor: avatarUploading ? "wait" : "pointer",
+                        opacity: avatarUploading ? 0.6 : 1,
+                      }}
+                    >
+                      {avatarUploading ? "Upload…" : "Choisir une photo"}
+                    </label>
+                    <input
+                      id="avatar-photo"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      disabled={avatarUploading || profilPublicSaving}
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) void handleUploadAvatarPhoto(file);
+                      }}
+                    />
+                    <p
+                      style={{
+                        margin: "0.5rem 0 0",
+                        fontSize: "0.75rem",
+                        opacity: 0.5,
+                      }}
+                    >
+                      JPEG, PNG, WebP ou GIF · max 2 Mo
+                    </p>
+                  </div>
+                ) : null}
                 <label htmlFor="profil-pseudo" style={fieldLabelStyle}>
                   Pseudo
                 </label>
