@@ -63,6 +63,65 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const supabase = getServiceSupabase();
 
+  const { data: profilSecu, error: profilSecuError } = await supabase
+    .from("profiles")
+    .select(
+      "nom_legal, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
+    )
+    .eq("id", membreId)
+    .maybeSingle();
+
+  if (profilSecuError) {
+    return NextResponse.json({ error: profilSecuError.message }, { status: 500 });
+  }
+
+  const nomLegal =
+    typeof profilSecu?.nom_legal === "string" ? profilSecu.nom_legal.trim() : "";
+  const telephone =
+    typeof profilSecu?.telephone === "string" ? profilSecu.telephone.trim() : "";
+  const paysFiscal =
+    typeof profilSecu?.pays_residence_fiscale === "string"
+      ? profilSecu.pays_residence_fiscale.trim()
+      : "";
+  if (!nomLegal || !telephone || !paysFiscal) {
+    return NextResponse.json(
+      {
+        error:
+          "Complétez votre profil (nom légal, téléphone, pays de résidence fiscale) pour effectuer un retrait",
+        redirect: "/profil?onglet=identite",
+      },
+      { status: 400 },
+    );
+  }
+
+  const geleUntil =
+    typeof profilSecu?.retrait_gele_jusqua === "string"
+      ? profilSecu.retrait_gele_jusqua
+      : null;
+  if (geleUntil && new Date(geleUntil).getTime() > Date.now()) {
+    return NextResponse.json(
+      {
+        error: `Retraits gelés jusqu'au ${geleUntil}`,
+        retrait_gele_jusqua: geleUntil,
+      },
+      { status: 403 },
+    );
+  }
+
+  const methode =
+    typeof profilSecu?.retrait_methode === "string"
+      ? profilSecu.retrait_methode.trim()
+      : "";
+  if (!methode) {
+    return NextResponse.json(
+      {
+        error: "Définissez une méthode de retrait dans votre profil",
+        redirect: "/profil?onglet=retrait",
+      },
+      { status: 400 },
+    );
+  }
+
   const { data: banque, error: banqueError } = await supabase
     .from("banque_membres")
     .select("solde_dollars")

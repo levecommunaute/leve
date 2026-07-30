@@ -63,6 +63,11 @@ type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
   multiplier: number | string | null;
+  nom_legal: string | null;
+  telephone: string | null;
+  pays_residence_fiscale: string | null;
+  retrait_methode: string | null;
+  retrait_gele_jusqua: string | null;
 };
 
 type PointsTxRow = {
@@ -184,7 +189,9 @@ export default function BanquePage(): JSX.Element | null {
       await Promise.all([
         sb
           .from("profiles")
-          .select("display_name, member_type, multiplier")
+          .select(
+            "display_name, member_type, multiplier, nom_legal, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
+          )
           .eq("id", uid)
           .maybeSingle(),
         sb
@@ -370,6 +377,21 @@ export default function BanquePage(): JSX.Element | null {
 
   async function openRetraitConfirm(): Promise<void> {
     if (!session || soldeDollars < MIN_TRANSFER_CAD) return;
+
+    const nomLegal = profile?.nom_legal?.trim() ?? "";
+    const telephone = profile?.telephone?.trim() ?? "";
+    const paysFiscal = profile?.pays_residence_fiscale?.trim() ?? "";
+    if (!nomLegal || !telephone || !paysFiscal) {
+      router.push("/profil?onglet=identite&msg=complet_profil");
+      return;
+    }
+
+    const methode = profile?.retrait_methode?.trim() ?? "";
+    if (!methode) {
+      router.push("/profil?onglet=retrait&msg=complet_profil");
+      return;
+    }
+
     setRetraitOpen(true);
     setRetraitError(null);
     setRetraitSuccess(null);
@@ -413,6 +435,26 @@ export default function BanquePage(): JSX.Element | null {
 
   async function confirmRetrait(): Promise<void> {
     if (!session || !retraitPreview) return;
+
+    const geleUntil = profile?.retrait_gele_jusqua;
+    if (
+      typeof geleUntil === "string" &&
+      geleUntil.trim() !== "" &&
+      new Date(geleUntil).getTime() > Date.now()
+    ) {
+      setRetraitError(
+        `Retraits gelés jusqu'au ${dateFmt.format(new Date(geleUntil))}`,
+      );
+      return;
+    }
+
+    const methode = profile?.retrait_methode?.trim() ?? "";
+    if (!methode) {
+      setRetraitOpen(false);
+      router.push("/profil?onglet=retrait&msg=complet_profil");
+      return;
+    }
+
     setRetraitSubmitting(true);
     setRetraitError(null);
 
@@ -494,6 +536,21 @@ export default function BanquePage(): JSX.Element | null {
   }
 
   const name = displayNameFrom(profile, session);
+  const retraitGeleJusqua =
+    typeof profile?.retrait_gele_jusqua === "string"
+      ? profile.retrait_gele_jusqua
+      : null;
+  const retraitGeleActif =
+    Boolean(retraitGeleJusqua) &&
+    new Date(retraitGeleJusqua as string).getTime() > Date.now();
+  let retraitGeleLabel = "";
+  if (retraitGeleActif && retraitGeleJusqua) {
+    try {
+      retraitGeleLabel = dateFmt.format(new Date(retraitGeleJusqua));
+    } catch {
+      retraitGeleLabel = retraitGeleJusqua;
+    }
+  }
 
   function renderHistoryEntry(row: HistoryRow): {
     dateLabel: string;
@@ -985,6 +1042,24 @@ export default function BanquePage(): JSX.Element | null {
                   Confirmer le transfert
                 </h3>
 
+                {retraitGeleActif ? (
+                  <p
+                    role="alert"
+                    style={{
+                      margin: "0 0 1rem",
+                      padding: "0.7rem 0.85rem",
+                      borderRadius: "4px",
+                      background: "rgba(192, 57, 43, 0.14)",
+                      border: `1px solid ${ROUGE}`,
+                      color: ROUGE,
+                      fontSize: "0.88rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Retraits gelés jusqu&apos;au {retraitGeleLabel}
+                  </p>
+                ) : null}
+
                 {retraitLoading ? (
                   <p style={{ opacity: 0.7, margin: 0 }}>Calcul des frais…</p>
                 ) : retraitPreview ? (
@@ -1080,7 +1155,12 @@ export default function BanquePage(): JSX.Element | null {
                 >
                   <button
                     type="button"
-                    disabled={retraitSubmitting || retraitLoading || !retraitPreview}
+                    disabled={
+                      retraitSubmitting ||
+                      retraitLoading ||
+                      !retraitPreview ||
+                      retraitGeleActif
+                    }
                     onClick={() => void confirmRetrait()}
                     style={{
                       flex: "1 1 140px",
@@ -1092,11 +1172,17 @@ export default function BanquePage(): JSX.Element | null {
                       background: ROUGE,
                       color: TEXT,
                       cursor:
-                        retraitSubmitting || retraitLoading || !retraitPreview
+                        retraitSubmitting ||
+                        retraitLoading ||
+                        !retraitPreview ||
+                        retraitGeleActif
                           ? "wait"
                           : "pointer",
                       opacity:
-                        retraitSubmitting || retraitLoading || !retraitPreview
+                        retraitSubmitting ||
+                        retraitLoading ||
+                        !retraitPreview ||
+                        retraitGeleActif
                           ? 0.6
                           : 1,
                     }}
