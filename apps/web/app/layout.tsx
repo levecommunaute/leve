@@ -3,6 +3,7 @@ import { DM_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionGuard } from "../components/AuthSessionGuard";
 import { BetaBugButton } from "../components/beta-bug-button";
+import { ThemeProvider } from "../components/theme-provider";
 
 const dmMono = DM_Mono({
   weight: "400",
@@ -24,7 +25,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={dmMono.variable}>
         <AuthSessionGuard />
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <BetaBugButton />
       </body>
     </html>
