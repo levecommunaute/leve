@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, JSX } from "react";
+import React, { type JSX } from "react";
 import {
   avatarInitials,
   colorFromName,
@@ -13,7 +13,7 @@ type MemberAvatarProps = {
   displayName: string;
   avatarUrl?: string | null;
   size?: number;
-  style?: CSSProperties;
+  style?: React.CSSProperties;
   title?: string;
 };
 
@@ -27,7 +27,7 @@ export function MemberAvatar({
   const mode = resolveAvatarMode(avatarUrl);
   const initials = avatarInitials(displayName);
   const bg = colorFromName(displayName);
-  const base: CSSProperties = {
+  const base: React.CSSProperties = {
     flexShrink: 0,
     width: size,
     height: size,
@@ -54,7 +54,7 @@ export function MemberAvatar({
         height={size}
         style={{
           ...base,
-          objectFit: "cover",
+          objectFit: "cover" as const,
           background: "#141414",
         }}
       />
