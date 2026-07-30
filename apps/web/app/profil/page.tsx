@@ -4,11 +4,10 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import {
+import React, {
   useCallback,
   useEffect,
   useState,
-  type CSSProperties,
   type JSX,
 } from "react";
 import { RankBadge } from "../../components/rank-badge";
@@ -862,7 +861,7 @@ export default function ProfilPage(): JSX.Element | null {
     }
   }
 
-  const fieldLabelStyle: CSSProperties = {
+  const fieldLabelStyle: React.CSSProperties = {
     display: "block",
     fontSize: "0.72rem",
     textTransform: "uppercase",
@@ -870,7 +869,7 @@ export default function ProfilPage(): JSX.Element | null {
     opacity: 0.55,
     marginBottom: "0.35rem",
   };
-  const fieldInputStyle: CSSProperties = {
+  const fieldInputStyle: React.CSSProperties = {
     width: "100%",
     padding: "0.55rem 0.75rem",
     borderRadius: "4px",
@@ -880,7 +879,7 @@ export default function ProfilPage(): JSX.Element | null {
     fontSize: "0.95rem",
     fontFamily: "inherit",
   };
-  const saveBtnStyle: CSSProperties = {
+  const saveBtnStyle: React.CSSProperties = {
     marginTop: "1rem",
     background: GOLD,
     color: BG,
