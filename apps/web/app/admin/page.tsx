@@ -1433,6 +1433,11 @@ export default function AdminPage(): JSX.Element {
   const [featureFlagsError, setFeatureFlagsError] = useState<string | null>(null);
   const [togglingFlagNom, setTogglingFlagNom] = useState<string | null>(null);
 
+  const [themes, setThemes] = useState<{theme_id: string, name: string, enabled: boolean}[]>([]);
+  const [themesLoading, setThemesLoading] = useState(false);
+  const [themesError, setThemesError] = useState<string | null>(null);
+  const [togglingThemeId, setTogglingThemeId] = useState<string | null>(null);
+
   const [fraisPaliers, setFraisPaliers] = useState<FraisPlateformePalierRow[]>([]);
   const [fraisPalierDrafts, setFraisPalierDrafts] = useState<Record<string, FraisPalierDraft>>({});
   const [fraisPlateformeLoading, setFraisPlateformeLoading] = useState(false);
@@ -1864,6 +1869,22 @@ export default function AdminPage(): JSX.Element {
       setFeatureFlags([]);
     } finally {
       setFeatureFlagsLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadThemes = useCallback(async (): Promise<void> => {
+    setThemesLoading(true);
+    setThemesError(null);
+    try {
+      const res = await fetch("/api/admin/themes", { headers: adminHeaders() });
+      if (!res.ok) throw new Error("Erreur chargement thèmes");
+      const data = (await res.json()) as { theme_id: string; name: string; enabled: boolean }[];
+      setThemes(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setThemesError(e instanceof Error ? e.message : "Erreur");
+      setThemes([]);
+    } finally {
+      setThemesLoading(false);
     }
   }, [adminHeaders]);
 
@@ -2846,6 +2867,7 @@ export default function AdminPage(): JSX.Element {
     void loadConcoursArtistes();
     void loadTirageAdmin();
     void loadFeatureFlags();
+    void loadThemes();
     void loadFraisPlateforme();
     void loadMemberMap();
     void loadGlobalStats();
@@ -2872,6 +2894,7 @@ export default function AdminPage(): JSX.Element {
     loadConcoursArtistes,
     loadTirageAdmin,
     loadFeatureFlags,
+    loadThemes,
     loadFraisPlateforme,
     loadMemberMap,
     loadGlobalStats,
@@ -3377,6 +3400,35 @@ export default function AdminPage(): JSX.Element {
       setFeatureFlagsError(e instanceof Error ? e.message : "Erreur réseau");
     } finally {
       setTogglingFlagNom(null);
+    }
+  }
+
+  async function handleToggleTheme(theme: {
+    theme_id: string;
+    name: string;
+    enabled: boolean;
+  }): Promise<void> {
+    setTogglingThemeId(theme.theme_id);
+    setThemesError(null);
+    try {
+      const res = await fetch("/api/admin/themes", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ theme_id: theme.theme_id, enabled: !theme.enabled }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(j?.error ?? "Erreur mise à jour thème");
+      }
+      setThemes((prev) =>
+        prev.map((t) =>
+          t.theme_id === theme.theme_id ? { ...t, enabled: !t.enabled } : t,
+        ),
+      );
+    } catch (e) {
+      setThemesError(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setTogglingThemeId(null);
     }
   }
 
@@ -7369,6 +7421,68 @@ export default function AdminPage(): JSX.Element {
                 <code style={{ fontSize: "0.82rem" }}>feature_flags</code>.
               </p>
             ) : null}
+          </section>
+
+          <section id="section-themes" style={cardStyle()}>
+            {sectionTitle("THÈMES DISPONIBLES")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Activez ou désactivez les thèmes disponibles pour les membres. Le thème A (Dark Classique) est toujours disponible.
+            </p>
+            {themesError ? (
+              <p style={{ color: ROUGE, fontSize: "0.85rem" }}>{themesError}</p>
+            ) : null}
+            {themesLoading ? (
+              <p style={{ opacity: 0.65 }}>Chargement des thèmes…</p>
+            ) : (
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                {themes.map((theme) => {
+                  const busy = togglingThemeId === theme.theme_id;
+                  const isDefault = theme.theme_id === "A";
+                  return (
+                    <li key={theme.theme_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", background: "rgba(245,240,232,0.03)", borderRadius: "4px" }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "0.88rem" }}>
+                          {theme.name}
+                          {isDefault ? <span style={{ marginLeft: "0.5rem", fontSize: "0.65rem", color: GOLD, opacity: 0.6 }}>(défaut)</span> : null}
+                        </p>
+                        <p style={{ margin: "0.2rem 0 0", fontSize: "0.72rem", opacity: 0.45, fontFamily: "var(--font-mono)" }}>
+                          Thème {theme.theme_id}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={theme.enabled}
+                        disabled={busy || isDefault}
+                        onClick={() => void handleToggleTheme(theme)}
+                        style={{
+                          width: "3rem",
+                          height: "1.6rem",
+                          borderRadius: "999px",
+                          border: "none",
+                          background: theme.enabled ? "#2ECC71" : "rgba(245,240,232,0.15)",
+                          position: "relative",
+                          cursor: isDefault ? "not-allowed" : busy ? "wait" : "pointer",
+                          transition: "background 0.2s",
+                          opacity: isDefault ? 0.5 : 1,
+                        }}
+                      >
+                        <span style={{
+                          position: "absolute",
+                          top: "50%",
+                          transform: `translateY(-50%) translateX(${theme.enabled ? "1.4rem" : "0.2rem"})`,
+                          width: "1.2rem",
+                          height: "1.2rem",
+                          borderRadius: "50%",
+                          background: "#fff",
+                          transition: "transform 0.2s",
+                        }} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
 
           {/* SECTION SYSTÈME ACTIONS & DIVIDENDES */}
