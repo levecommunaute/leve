@@ -4,3 +4,107 @@
 body {
   @apply bg-no text-neutral-100 antialiased;
 }
+
+/* ═══════════════════════════════
+   LEVE — Système de thèmes
+═══════════════════════════════ */
+
+/* Thème A — Dark Classique (défaut) */
+[data-theme="A"], :root {
+  --bg: #080808;
+  --bg-card: #141414;
+  --bg-card-inner: #1A1A1A;
+  --bg-nav: rgba(8,8,8,0.97);
+  --border: rgba(245,240,232,0.06);
+  --border-accent: rgba(245,240,232,0.12);
+  --text: #F5F0E8;
+  --text-muted: rgba(245,240,232,0.35);
+  --accent: #D4A017;
+  --accent-red: #C0392B;
+  --accent-green: #2ECC71;
+  --accent-blue: #4A90D9;
+  --accent-violet: #7B5EA7;
+  --accent-teal: #00B4D8;
+  --shadow: none;
+}
+
+/* Thème B — Charcoal Premium */
+[data-theme="B"] {
+  --bg: #0D0D0D;
+  --bg-card: #161616;
+  --bg-card-inner: #1C1C1C;
+  --bg-nav: rgba(13,13,13,0.98);
+  --border: rgba(245,240,232,0.07);
+  --border-accent: rgba(245,240,232,0.14);
+  --text: #F5F0E8;
+  --text-muted: rgba(245,240,232,0.38);
+  --accent: #F0C040;
+  --accent-red: #C0392B;
+  --accent-green: #2ECC71;
+  --accent-blue: #4A90D9;
+  --accent-violet: #7B5EA7;
+  --accent-teal: #00B4D8;
+  --shadow: none;
+}
+
+/* Thème C — Navy Électrique */
+[data-theme="C"] {
+  --bg: #080C12;
+  --bg-card: #0E1420;
+  --bg-card-inner: #131B28;
+  --bg-nav: rgba(8,12,18,0.98);
+  --border: rgba(74,144,217,0.1);
+  --border-accent: rgba(74,144,217,0.2);
+  --text: #F5F0E8;
+  --text-muted: rgba(245,240,232,0.35);
+  --accent: #D4A017;
+  --accent-red: #C0392B;
+  --accent-green: #2ECC71;
+  --accent-blue: #4A90D9;
+  --accent-violet: #7B5EA7;
+  --accent-teal: #00B4D8;
+  --shadow: none;
+}
+
+/* Thème D — Crème Luxe */
+[data-theme="D"] {
+  --bg: #F5F1EB;
+  --bg-card: #FFFFFF;
+  --bg-card-inner: #EDE3C8;
+  --bg-nav: #1A1A1A;
+  --border: rgba(26,26,26,0.1);
+  --border-accent: rgba(26,26,26,0.18);
+  --text: #1A1A1A;
+  --text-muted: rgba(26,26,26,0.45);
+  --accent: #8B6914;
+  --accent-red: #C0392B;
+  --accent-green: #27AE60;
+  --accent-blue: #2980B9;
+  --accent-violet: #7B5EA7;
+  --accent-teal: #00B4D8;
+  --shadow: none;
+}
+
+/* Thème E — Blanc Moderne */
+[data-theme="E"] {
+  --bg: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-inner: #F8F8F8;
+  --bg-nav: #0A0A0A;
+  --border: rgba(26,26,26,0.08);
+  --border-accent: rgba(26,26,26,0.15);
+  --text: #1A1A1A;
+  --text-muted: rgba(26,26,26,0.45);
+  --accent: #D4A017;
+  --accent-red: #C0392B;
+  --accent-green: #27AE60;
+  --accent-blue: #2980B9;
+  --accent-violet: #7B5EA7;
+  --accent-teal: #00B4D8;
+  --shadow: none;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}

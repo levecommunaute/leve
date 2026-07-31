@@ -855,8 +855,8 @@ export default function ConcoursPage(): JSX.Element | null {
       className={fonts}
       style={{
         minHeight: "100vh",
-        background: BG,
-        color: TEXT,
+        background: "var(--bg)",
+        color: "var(--text)",
         fontFamily: "var(--font-mono), ui-monospace, monospace",
         paddingBottom: "6rem",
       }}
