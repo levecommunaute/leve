@@ -416,8 +416,8 @@ export default function Home(): JSX.Element {
             flexWrap: "wrap",
             gap: "0.65rem 1.25rem",
             padding: "0.45rem 1rem",
-            background: "#111111",
-            borderBottom: "1px solid #1f1f1f",
+            background: "var(--bg-card)",
+            borderBottom: "1px solid var(--border)",
             fontSize: "0.72rem",
             letterSpacing: "0.06em",
             textTransform: "uppercase",
@@ -429,7 +429,7 @@ export default function Home(): JSX.Element {
               alignItems: "center",
               gap: "0.4rem",
               fontWeight: 600,
-              color: TEXT,
+              color: "var(--text)",
             }}
           >
             <span

@@ -124,13 +124,13 @@ export function EnDirectBanner(): JSX.Element | null {
               flex-wrap: wrap;
               gap: 0.65rem 1.25rem;
               padding: 0.45rem 1rem;
-              background: #111111;
-              border-bottom: 1px solid #1f1f1f;
+              background: var(--bg-card);
+              border-bottom: 1px solid var(--border);
               font-size: max(11px, 0.72rem);
               letter-spacing: 0.06em;
               text-transform: uppercase;
               font-family: var(--font-mono), ui-monospace, monospace;
-              color: ${TEXT};
+              color: var(--text);
             }
             .leve-reseau-item {
               display: inline-flex;
@@ -160,7 +160,7 @@ export function EnDirectBanner(): JSX.Element | null {
             alignItems: "center",
             gap: "0.4rem",
             fontWeight: 600,
-            color: TEXT,
+            color: "var(--text)",
           }}
         >
           <span
