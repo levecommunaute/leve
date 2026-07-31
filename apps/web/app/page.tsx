@@ -379,8 +379,8 @@ export default function Home(): JSX.Element {
     <main
       className={fonts}
       style={{
-        background: BG,
-        color: TEXT,
+        background: "var(--bg)",
+        color: "var(--text)",
         fontFamily: "var(--font-dm), system-ui, sans-serif",
       }}
     >
