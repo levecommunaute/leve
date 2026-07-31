@@ -30,7 +30,7 @@ import {
 } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { buildReferralLink } from "../../lib/parrainage";
-import { checkJwtExpired } from "../../lib/supabase";
+import { checkJwtExpired, getSupabaseClient } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
@@ -69,6 +69,7 @@ type ProfileRow = {
   notif_quiz: boolean | null;
   notif_redistribution: boolean | null;
   notif_concours: boolean | null;
+  theme: string | null;
 };
 
 const MAX_MESSAGE_DON = 200;
@@ -93,7 +94,7 @@ const PROFIL_ONGLETS: { id: ProfilOnglet; label: string }[] = [
 ];
 
 const PROFIL_SELECT =
-  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,cotisation_active,cotisation_montant,cotisation_points_bonus,nom_legal,date_naissance,pays_residence_fiscale,telephone,adresse,palier_verification,profil_verifie_at,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours";
+  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,cotisation_active,cotisation_montant,cotisation_points_bonus,nom_legal,date_naissance,pays_residence_fiscale,telephone,adresse,palier_verification,profil_verifie_at,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme";
 
 function parseProfilOnglet(raw: string | null): ProfilOnglet {
   if (
@@ -358,6 +359,9 @@ export default function ProfilPage(): JSX.Element | null {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState<string>("A");
+  const [themeLoading, setThemeLoading] = useState(false);
+  const [availableThemes, setAvailableThemes] = useState<{theme_id: string, name: string}[]>([]);
 
   const loadProfil = useCallback(async (activeSession: Session, targetId: string) => {
     const token = activeSession.access_token;
@@ -419,6 +423,11 @@ export default function ProfilPage(): JSX.Element | null {
         Number.isFinite(bonus) && bonus > 0
           ? bonus
           : pointsBonusForMontant(montant),
+      );
+      setCurrentTheme(
+        typeof row?.theme === "string" && row.theme.trim()
+          ? row.theme
+          : "A",
       );
     }
 
@@ -487,7 +496,7 @@ export default function ProfilPage(): JSX.Element | null {
       return;
     }
 
-    const [txHistoryRes, donHistoryRes, quizRes, parrainagesRes] = await Promise.all([
+    const [txHistoryRes, donHistoryRes, quizRes, parrainagesRes, themesRes] = await Promise.all([
       fetchRestJson(
         `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(targetId)}&type=eq.quiz&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
         token,
@@ -504,11 +513,20 @@ export default function ProfilPage(): JSX.Element | null {
         `${SB}/rest/v1/parrainages?parrain_id=eq.${encodeURIComponent(targetId)}&statut=eq.actif&select=id`,
         token,
       ),
+      fetchRestJson(
+        `${SB}/rest/v1/theme_config?enabled=eq.true&select=theme_id,name`,
+        token,
+      ),
     ]);
 
     setQuizTxHistory(Array.isArray(txHistoryRes) ? (txHistoryRes as PointsTxRow[]) : []);
     setDonTxHistory(Array.isArray(donHistoryRes) ? (donHistoryRes as PointsTxRow[]) : []);
     setFilleulsActifs(Array.isArray(parrainagesRes) ? parrainagesRes.length : 0);
+    setAvailableThemes(
+      Array.isArray(themesRes)
+        ? (themesRes as { theme_id: string; name: string }[])
+        : [],
+    );
 
     const quizSubs = Array.isArray(quizRes) ? (quizRes as QuizSubmissionRow[]) : [];
     const ids = [...new Set(quizSubs.map((s) => s.video_id).filter(Boolean))];
@@ -653,6 +671,25 @@ export default function ProfilPage(): JSX.Element | null {
       "",
       qs ? `${window.location.pathname}?${qs}` : window.location.pathname,
     );
+  }
+
+  async function changeTheme(themeId: string): Promise<void> {
+    if (!session) return;
+    setThemeLoading(true);
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ theme: themeId })
+        .eq("id", session.user.id);
+
+      if (!error) {
+        setCurrentTheme(themeId);
+        document.documentElement.setAttribute("data-theme", themeId);
+      }
+    } finally {
+      setThemeLoading(false);
+    }
   }
 
   async function handleSaveProfil(
@@ -1983,6 +2020,37 @@ export default function ProfilPage(): JSX.Element | null {
             </dl>
           </section>
         )}
+
+        {isOwnProfile ? (
+          <section style={{ background: "#141414", borderTop: "2px solid #D4A017", padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>
+            <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "1.1rem", letterSpacing: "0.08em", color: "#D4A017", marginBottom: "0.85rem" }}>
+              MON THÈME
+            </h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "2px" }}>
+              {availableThemes.map((t) => (
+                <button
+                  key={t.theme_id}
+                  type="button"
+                  onClick={() => void changeTheme(t.theme_id)}
+                  disabled={themeLoading}
+                  style={{
+                    padding: "0.65rem 0.85rem",
+                    background: currentTheme === t.theme_id ? "rgba(212,160,23,0.12)" : "transparent",
+                    border: currentTheme === t.theme_id ? "1px solid #D4A017" : "1px solid rgba(245,240,232,0.1)",
+                    color: currentTheme === t.theme_id ? "#D4A017" : "rgba(245,240,232,0.45)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.58rem",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    cursor: themeLoading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {isOwnProfile && cotisationFlagState === "enabled" ? (
           <section
