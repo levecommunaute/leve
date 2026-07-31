@@ -103,3 +103,8 @@ body {
   --accent-teal: #00B4D8;
   --shadow: none;
 }
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}

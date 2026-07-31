@@ -1017,7 +1017,7 @@ export default function ProfilPage(): JSX.Element | null {
   };
 
   return (
-    <div className={fonts} style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
+    <div className={fonts} style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
       <style
         dangerouslySetInnerHTML={{
           __html: `
