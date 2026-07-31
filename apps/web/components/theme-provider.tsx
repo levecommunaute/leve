@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children }: { children: React.ReactNode }): JSX.Element {
   useEffect(() => {
     async function applyTheme() {
       try {
