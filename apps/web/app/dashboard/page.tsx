@@ -171,15 +171,16 @@ function capitalizeFr(s: string): string {
 }
 
 function monthBoundsFor(year: number, monthIndex0: number): MonthBounds {
-  const start = new Date(year, monthIndex0, 1);
-  const end = new Date(year, monthIndex0 + 1, 1);
+  const start = new Date(Date.UTC(year, monthIndex0, 1));
+  const end = new Date(Date.UTC(year, monthIndex0 + 1, 1));
   const monthKey = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
   const label = capitalizeFr(
     new Intl.DateTimeFormat("fr-CA", {
       month: "long",
       year: "numeric",
+      timeZone: "UTC",
     }).format(start),
-  );
+  ) + " · UTC";
   return {
     startIso: start.toISOString(),
     endIso: end.toISOString(),
@@ -193,8 +194,8 @@ function currentAndPreviousMonthBounds(): {
   previous: MonthBounds;
 } {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
   const current = monthBoundsFor(y, m);
   const prevM = m === 0 ? 11 : m - 1;
   const prevY = m === 0 ? y - 1 : y;
