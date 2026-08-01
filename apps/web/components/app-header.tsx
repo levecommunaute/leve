@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 
 interface AppHeaderProps {
@@ -9,7 +10,7 @@ interface AppHeaderProps {
   rightExtra?: React.ReactNode;
 }
 
-export function AppHeader({ displayName, onSignOut, signingOut = false, rightExtra }: AppHeaderProps): JSX.Element {
+export function AppHeader({ displayName, onSignOut, signingOut = false, rightExtra }: AppHeaderProps): React.JSX.Element {
   return (
     <header
       className="leve-nav"
