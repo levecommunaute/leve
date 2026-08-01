@@ -492,8 +492,8 @@ export default function BanquePage(): JSX.Element | null {
     Math.max(0, (soldeDollars / MIN_TRANSFER_CAD) * 100),
   );
   const moisCourantLabel = new Date()
-    .toLocaleDateString("fr-CA", { month: "long", year: "numeric" })
-    .toUpperCase();
+    .toLocaleDateString("fr-CA", { month: "long", year: "numeric", timeZone: "UTC" })
+    .toUpperCase() + " · UTC";
   const classementRang: number | null = null; // pas de fetch — badge masqué
   const estimation =
     pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
