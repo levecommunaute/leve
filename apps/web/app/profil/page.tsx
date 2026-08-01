@@ -12,6 +12,7 @@ import React, {
 } from "react";
 import { RankBadge } from "../../components/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
+import { AppHeader } from "../../components/app-header";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { MemberAvatar } from "../../components/member-avatar";
 import { signOut } from "../../lib/auth";
@@ -200,15 +201,16 @@ function capitalizeFr(s: string): string {
 }
 
 function monthBoundsFor(year: number, monthIndex0: number): MonthBounds {
-  const start = new Date(year, monthIndex0, 1);
-  const end = new Date(year, monthIndex0 + 1, 1);
+  const start = new Date(Date.UTC(year, monthIndex0, 1));
+  const end = new Date(Date.UTC(year, monthIndex0 + 1, 1));
   const monthKey = `${year}-${String(monthIndex0 + 1).padStart(2, "0")}`;
   const label = capitalizeFr(
     new Intl.DateTimeFormat("fr-CA", {
       month: "long",
       year: "numeric",
+      timeZone: "UTC",
     }).format(start),
-  );
+  ) + " · UTC";
   return {
     startIso: start.toISOString(),
     endIso: end.toISOString(),
@@ -222,8 +224,8 @@ function currentAndPreviousMonthBounds(): {
   previous: MonthBounds;
 } {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
   const current = monthBoundsFor(y, m);
   const prevM = m === 0 ? 11 : m - 1;
   const prevY = m === 0 ? y - 1 : y;
@@ -1050,20 +1052,18 @@ export default function ProfilPage(): JSX.Element | null {
         }}
       />
       <EnDirectBanner />
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid rgba(245, 240, 232, 0.08)", position: "sticky", top: 0, background: "rgba(8, 8, 8, 0.92)", backdropFilter: "blur(8px)", zIndex: 20 }}>
-        <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>LEVE</Link>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+      <AppHeader
+        displayName={name}
+        onSignOut={() => void handleSignOut()}
+        signingOut={signingOut}
+        rightExtra={
           <MemberAvatar
             displayName={name}
             avatarUrl={effectiveAvatarUrl}
             size={28}
           />
-          <span style={{ fontSize: "0.9rem", opacity: 0.85, maxWidth: "36vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-          <button type="button" disabled={signingOut} onClick={() => void handleSignOut()} style={{ background: "transparent", color: ROUGE, border: `1px solid ${ROUGE}`, borderRadius: "4px", padding: "0.45rem 0.9rem", fontSize: "0.8rem", cursor: signingOut ? "wait" : "pointer" }}>
-            {signingOut ? "…" : "Déconnexion"}
-          </button>
-        </div>
-      </header>
+        }
+      />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE, fontSize: "0.9rem", marginBottom: "1rem" }}>{loadError}</p> : null}

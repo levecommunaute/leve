@@ -5,11 +5,11 @@ body {
   @apply bg-no text-neutral-100 antialiased;
 }
 
-/* ═══════════════════════════════
-   LEVE — Système de thèmes
-═══════════════════════════════ */
+/* ???????????????????????????????????????????
+   LEVE ? Syst�me de th�mes
+??????????????????????????????????????????? */
 
-/* Thème A — Dark Classique (défaut) */
+/* Th�me A ? Dark Classique (d�faut) */
 [data-theme="A"], :root {
   --bg: #080808;
   --bg-card: #141414;
@@ -28,7 +28,7 @@ body {
   --shadow: none;
 }
 
-/* Thème B — Charcoal Premium */
+/* Th�me B ? Charcoal Premium */
 [data-theme="B"] {
   --bg: #0D0D0D;
   --bg-card: #161616;
@@ -47,7 +47,7 @@ body {
   --shadow: none;
 }
 
-/* Thème C — Navy Électrique */
+/* Th�me C ? Navy �lectrique */
 [data-theme="C"] {
   --bg: #080C12;
   --bg-card: #0E1420;
@@ -66,7 +66,7 @@ body {
   --shadow: none;
 }
 
-/* Thème D — Crème Luxe */
+/* Th�me D ? Cr�me Luxe */
 [data-theme="D"] {
   --bg: #F5F1EB;
   --bg-card: #FFFFFF;
@@ -85,7 +85,7 @@ body {
   --shadow: none;
 }
 
-/* Thème E — Blanc Moderne */
+/* Th�me E ? Blanc Moderne */
 [data-theme="E"] {
   --bg: #FFFFFF;
   --bg-card: #FFFFFF;
@@ -107,4 +107,197 @@ body {
 body {
   background-color: var(--bg);
   color: var(--text);
+}
+
+/* ???????????????????????????????????????????
+   TH�ME B ? Charcoal Premium
+??????????????????????????????????????????? */
+
+[data-theme="B"] body { background: #0D0D0D; color: #F5F0E8; }
+
+[data-theme="B"] .leve-nav {
+  background: #111111 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+}
+[data-theme="B"] .leve-nav-logo { color: #F0C040 !important; }
+[data-theme="B"] .leve-social-bar {
+  background: #111111 !important;
+  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+}
+[data-theme="B"] .leve-hero {
+  background: linear-gradient(135deg,#161616 0%,#131313 100%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-top: 3px solid #F0C040 !important;
+}
+[data-theme="B"] .leve-hero-sub { color: rgba(245,240,232,0.3) !important; }
+[data-theme="B"] .leve-card {
+  background: #161616 !important;
+  border: 1px solid rgba(255,255,255,0.05) !important;
+}
+[data-theme="B"] .leve-card-label { color: rgba(245,240,232,0.3) !important; }
+[data-theme="B"] .leve-card-value { color: #F0C040 !important; }
+[data-theme="B"] .leve-shortcut {
+  background: #161616 !important;
+  border: 1px solid rgba(240,192,64,0.25) !important;
+  color: #F0C040 !important;
+}
+[data-theme="B"] .leve-badge-accent {
+  background: rgba(240,192,64,0.09) !important;
+  border: 1px solid rgba(240,192,64,0.45) !important;
+  color: #F0C040 !important;
+}
+[data-theme="B"] .leve-bottom-nav { background: #111111 !important; }
+
+/* ???????????????????????????????????????????
+   TH�ME C ? Navy �lectrique
+??????????????????????????????????????????? */
+
+[data-theme="C"] body { background: #080C12; color: #F5F0E8; }
+
+[data-theme="C"] .leve-nav {
+  background: rgba(8,12,18,0.98) !important;
+  border-bottom: 1px solid rgba(74,144,217,0.08) !important;
+  border-top: 2px solid transparent !important;
+  background-image: linear-gradient(rgba(8,12,18,0.98),rgba(8,12,18,0.98)), linear-gradient(90deg,#D4A017,#4A90D9,#2ECC71) !important;
+}
+[data-theme="C"] .leve-nav::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,#D4A017,#4A90D9,#2ECC71);
+  pointer-events: none;
+}
+[data-theme="C"] .leve-nav { position: relative !important; overflow: hidden !important; }
+[data-theme="C"] .leve-nav-logo { color: #D4A017 !important; }
+[data-theme="C"] .leve-social-bar {
+  background: rgba(8,12,18,0.95) !important;
+  border-bottom: 1px solid rgba(74,144,217,0.08) !important;
+}
+[data-theme="C"] .leve-hero {
+  background: linear-gradient(135deg,rgba(74,144,217,0.06) 0%,rgba(8,12,18,1) 60%) !important;
+  border: 1px solid rgba(74,144,217,0.12) !important;
+}
+[data-theme="C"] .leve-hero-sub { color: rgba(74,144,217,0.6) !important; }
+[data-theme="C"] .leve-card {
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px solid rgba(74,144,217,0.1) !important;
+}
+[data-theme="C"] .leve-card-label { color: rgba(74,144,217,0.5) !important; }
+[data-theme="C"] .leve-card-value { color: #D4A017 !important; }
+[data-theme="C"] .leve-shortcut {
+  background: rgba(74,144,217,0.04) !important;
+  border: 1px solid rgba(74,144,217,0.15) !important;
+  color: #4A90D9 !important;
+}
+[data-theme="C"] .leve-badge-accent {
+  background: rgba(212,160,23,0.09) !important;
+  border: 1px solid rgba(212,160,23,0.45) !important;
+  color: #D4A017 !important;
+}
+[data-theme="C"] .leve-bottom-nav {
+  background: rgba(8,12,18,0.98) !important;
+  border-top: 1px solid rgba(74,144,217,0.08) !important;
+}
+
+/* ???????????????????????????????????????????
+   TH�ME D ? Cr�me Luxe
+??????????????????????????????????????????? */
+
+[data-theme="D"] body { background: #F5F1EB; color: #1A1A1A; }
+
+[data-theme="D"] .leve-nav {
+  background: #1A1A1A !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+[data-theme="D"] .leve-nav-logo { color: #D4A017 !important; }
+[data-theme="D"] .leve-social-bar {
+  background: #F0EAD8 !important;
+  border-bottom: 1px solid rgba(212,160,23,0.2) !important;
+  color: rgba(26,26,26,0.6) !important;
+}
+[data-theme="D"] .leve-hero {
+  background: linear-gradient(135deg,#EDE3C8 0%,#F5F1EB 60%) !important;
+  border: none !important;
+  border-bottom: 3px solid #D4A017 !important;
+}
+[data-theme="D"] .leve-hero-sub { color: rgba(26,26,26,0.35) !important; }
+[data-theme="D"] .leve-hero-name { color: #1A1A1A !important; }
+[data-theme="D"] .leve-card {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(26,26,26,0.08) !important;
+  border-top: 3px solid #D4A017 !important;
+}
+[data-theme="D"] .leve-card-label { color: rgba(26,26,26,0.35) !important; }
+[data-theme="D"] .leve-card-value { color: #8B6914 !important; }
+[data-theme="D"] .leve-shortcut {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(26,26,26,0.12) !important;
+  color: #1A1A1A !important;
+  border-bottom: 2px solid #D4A017 !important;
+}
+[data-theme="D"] .leve-badge-accent {
+  background: rgba(212,160,23,0.15) !important;
+  border: 1px solid rgba(212,160,23,0.6) !important;
+  color: #8B6914 !important;
+}
+[data-theme="D"] .leve-bottom-nav {
+  background: #1A1A1A !important;
+  border-top: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+/* ???????????????????????????????????????????
+   TH�ME E ? Blanc Moderne
+??????????????????????????????????????????? */
+
+[data-theme="E"] body { background: #FFFFFF; color: #1A1A1A; }
+
+[data-theme="E"] .leve-nav {
+  background: #0A0A0A !important;
+  border-bottom: none !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+[data-theme="E"] .leve-nav::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,#D4A017 0%,#C0392B 33%,#2ECC71 66%,#4A90D9 100%);
+  pointer-events: none;
+}
+[data-theme="E"] .leve-nav-logo { color: #FFFFFF !important; }
+[data-theme="E"] .leve-social-bar {
+  background: #F8F8F8 !important;
+  border-bottom: 1px solid #EBEBEB !important;
+  color: rgba(26,26,26,0.6) !important;
+}
+[data-theme="E"] .leve-hero {
+  background: #1A1A1A !important;
+  border: none !important;
+}
+[data-theme="E"] .leve-hero-sub { color: rgba(245,240,232,0.3) !important; }
+[data-theme="E"] .leve-hero-name { color: #FFFFFF !important; }
+[data-theme="E"] .leve-card {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(26,26,26,0.08) !important;
+  border-top: 3px solid #D4A017 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+}
+[data-theme="E"] .leve-card-label { color: rgba(26,26,26,0.35) !important; }
+[data-theme="E"] .leve-card-value { color: #D4A017 !important; }
+[data-theme="E"] .leve-shortcut {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(26,26,26,0.1) !important;
+  color: #D4A017 !important;
+  border-left: 3px solid #D4A017 !important;
+}
+[data-theme="E"] .leve-badge-accent {
+  background: rgba(212,160,23,0.1) !important;
+  border: 1px solid rgba(212,160,23,0.5) !important;
+  color: #D4A017 !important;
+}
+[data-theme="E"] .leve-bottom-nav {
+  background: #0A0A0A !important;
+  border-top: 1px solid rgba(255,255,255,0.06) !important;
 }

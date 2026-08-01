@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
+import { AppHeader } from "../../components/app-header";
 import { signOut } from "../../lib/auth";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { useBetaTracking } from "../../lib/beta-tracking";
@@ -881,42 +882,7 @@ export default function ConcoursPage(): JSX.Element | null {
           `,
         }}
       />
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "1rem 1.25rem",
-          borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
-          position: "sticky",
-          top: 0,
-          background: "rgba(8, 8, 8, 0.92)",
-          zIndex: 20,
-        }}
-      >
-        <Link href="/" style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "2rem", letterSpacing: "0.12em", color: TEXT, textDecoration: "none" }}>
-          LEVE
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <span style={{ fontSize: "0.9rem", opacity: 0.85 }}>{name}</span>
-          <button
-            type="button"
-            disabled={signingOut}
-            onClick={() => void handleSignOut()}
-            style={{
-              background: "transparent",
-              color: ROUGE,
-              border: `1px solid ${ROUGE}`,
-              borderRadius: "4px",
-              padding: "0.45rem 0.9rem",
-              fontSize: "0.8rem",
-              cursor: signingOut ? "wait" : "pointer",
-            }}
-          >
-            {signingOut ? "…" : "Déconnexion"}
-          </button>
-        </div>
-      </header>
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE }}>{loadError}</p> : null}
