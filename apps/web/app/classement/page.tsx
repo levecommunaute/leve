@@ -139,16 +139,17 @@ function capitalizeFr(s: string): string {
 
 function currentMonthBounds(): MonthBounds {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const start = new Date(y, m, 1);
-  const end = new Date(y, m + 1, 1);
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const start = new Date(Date.UTC(y, m, 1));
+  const end = new Date(Date.UTC(y, m + 1, 1));
   const label = capitalizeFr(
     new Intl.DateTimeFormat("fr-CA", {
       month: "long",
       year: "numeric",
+      timeZone: "UTC",
     }).format(start),
-  );
+  ) + " · UTC";
   return {
     startIso: start.toISOString(),
     endIso: end.toISOString(),

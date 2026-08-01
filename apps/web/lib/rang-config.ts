@@ -44,9 +44,9 @@ function rowToRangConfig(data: Record<string, unknown>): RangConfigRow {
   };
 }
 
-/** Début du mois courant (fuseau local), aligné sur le dashboard PMQ. */
+/** Début du mois courant (UTC), aligné sur le dashboard PMQ. */
 export function currentMonthStartIso(d = new Date()): string {
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
 }
 
 export async function getRangConfig(): Promise<RangConfigRow | null> {

@@ -32,11 +32,11 @@ function currentMonthDate(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
-/** Bornes du mois civil local — aligné dashboard / profil PMQ. */
+/** Bornes du mois civil UTC — aligné dashboard / profil PMQ. */
 function currentMonthBounds(): { startIso: string; endIso: string } {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 }
 
