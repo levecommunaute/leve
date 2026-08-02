@@ -125,6 +125,7 @@ export default function VideoQuizPage(): React.JSX.Element {
     score_correct: number;
     score_total: number;
     points_earned: number;
+    own_video_recovery?: boolean;
     error?: string;
   } | null>(null);
 
@@ -275,6 +276,7 @@ export default function VideoQuizPage(): React.JSX.Element {
           score_correct: Number(data.score_correct ?? 0),
           score_total: Number(data.score_total ?? quiz_questions.length),
           points_earned: Number(data.points_earned ?? 0),
+          own_video_recovery: Boolean(data.own_video_recovery),
         });
       } catch {
         setResult({
@@ -594,9 +596,16 @@ export default function VideoQuizPage(): React.JSX.Element {
                 <p style={{ fontFamily: "Bebas Neue, sans-serif", fontSize: "1.5rem" }}>
                   Score : {result.score_correct} / {result.score_total}
                 </p>
-                <p style={{ marginTop: "0.5rem" }}>
-                  +{result.points_earned.toFixed(2)} points
-                </p>
+                {result.own_video_recovery ? (
+                  <p style={{ marginTop: "0.5rem" }}>
+                    ✅ Quiz de récupération complété ! Vos points pending seront
+                    crédités lors de la prochaine redistribution.
+                  </p>
+                ) : (
+                  <p style={{ marginTop: "0.5rem" }}>
+                    +{result.points_earned.toFixed(2)} points
+                  </p>
+                )}
               </>
             ) : null}
             {!submitting && result ? (
