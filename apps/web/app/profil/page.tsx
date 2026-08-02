@@ -36,10 +36,10 @@ import { checkJwtExpired, getSupabaseClient } from "../../lib/supabase";
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
 
@@ -920,7 +920,7 @@ export default function ProfilPage(): React.JSX.Element | null {
 
   if (session && !dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -1000,7 +1000,7 @@ export default function ProfilPage(): React.JSX.Element | null {
     padding: "0.55rem 0.75rem",
     borderRadius: "4px",
     border: "1px solid rgba(245, 240, 232, 0.15)",
-    background: "#0a0a0a",
+    background: "var(--bg)",
     color: TEXT,
     fontSize: "0.95rem",
     fontFamily: "inherit",
@@ -1070,7 +1070,7 @@ export default function ProfilPage(): React.JSX.Element | null {
         ) : null}
         {profile ? (
         <>
-        <section className="leve-hero" style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "#141414", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
+        <section className="leve-hero" style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "var(--bg-card)", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
             <MemberAvatar
               displayName={name}
@@ -1143,7 +1143,7 @@ export default function ProfilPage(): React.JSX.Element | null {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-          <article className="leve-card" style={{ position: "relative", borderRadius: "4px", padding: "1.1rem 1.1rem 2.35rem", background: "#141414", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+          <article className="leve-card" style={{ position: "relative", borderRadius: "4px", padding: "1.1rem 1.1rem 2.35rem", background: "var(--bg-card)", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
             <p className="profil-stat-label leve-card-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>{pmqMonthLabel ? `Points PMQ · ${pmqMonthLabel}` : "Points PMQ"}</p>
             <p className="leve-card-value" style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
             <p className="profil-stat-label" style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>{pmqMonthLabel ? `Points pondérés · ${pmqMonthLabel}` : "Points pondérés (base redistribution)"}</p>
@@ -1184,7 +1184,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               </p>
             ) : null}
           </article>
-          <article className="leve-card" style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid #D4A017" }}>
+          <article className="leve-card" style={{ borderRadius: "4px", padding: "1.1rem", background: "var(--bg-card)", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid var(--accent)" }}>
             <p className="profil-stat-label leve-card-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
             {isOwnProfile && pmqShare ? (
               <div style={{ marginTop: "0.5rem" }}>
@@ -1252,7 +1252,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               borderRadius: "4px",
               padding: "1.25rem 1.1rem",
               marginBottom: "1.75rem",
-              background: "#111",
+              background: "var(--bg-card)",
               border: "1px solid rgba(245, 240, 232, 0.08)",
             }}
           >
@@ -1380,7 +1380,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                       style={{
                         width: "100%",
                         maxWidth: "22rem",
-                        background: "#121212",
+                        background: "var(--bg-card)",
                         border: "1px solid rgba(245, 240, 232, 0.18)",
                         borderRadius: "4px",
                         padding: "1.25rem 1.35rem",
@@ -1958,7 +1958,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               borderRadius: "4px",
               padding: "1.25rem 1.1rem",
               marginBottom: "1.75rem",
-              background: "#111",
+              background: "var(--bg-card)",
               border: "1px solid rgba(245, 240, 232, 0.08)",
             }}
           >
@@ -2023,8 +2023,8 @@ export default function ProfilPage(): React.JSX.Element | null {
         )}
 
         {isOwnProfile ? (
-          <section style={{ background: "#141414", borderTop: "2px solid #D4A017", padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>
-            <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "1.1rem", letterSpacing: "0.08em", color: "#D4A017", marginBottom: "0.85rem" }}>
+          <section style={{ background: "var(--bg-card)", borderTop: "2px solid var(--accent)", padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>
+            <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "1.1rem", letterSpacing: "0.08em", color: "var(--accent)", marginBottom: "0.85rem" }}>
               MON THÈME
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "2px" }}>
@@ -2037,8 +2037,8 @@ export default function ProfilPage(): React.JSX.Element | null {
                   style={{
                     padding: "0.65rem 0.85rem",
                     background: currentTheme === t.theme_id ? "rgba(212,160,23,0.12)" : "transparent",
-                    border: currentTheme === t.theme_id ? "1px solid #D4A017" : "1px solid rgba(245,240,232,0.1)",
-                    color: currentTheme === t.theme_id ? "#D4A017" : "rgba(245,240,232,0.45)",
+                    border: currentTheme === t.theme_id ? "1px solid var(--accent)" : "1px solid rgba(245,240,232,0.1)",
+                    color: currentTheme === t.theme_id ? "var(--accent)" : "rgba(245,240,232,0.45)",
                     fontFamily: "var(--font-mono)",
                     fontSize: "0.58rem",
                     letterSpacing: "0.1em",
@@ -2059,7 +2059,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               borderRadius: "4px",
               padding: "1.25rem 1.1rem",
               marginBottom: "1.75rem",
-              background: "#111",
+              background: "var(--bg-card)",
               border: "1px solid rgba(245, 240, 232, 0.08)",
             }}
           >
@@ -2130,7 +2130,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                 padding: "0.55rem 0.75rem",
                 borderRadius: "4px",
                 border: "1px solid rgba(245, 240, 232, 0.15)",
-                background: "#0a0a0a",
+                background: "var(--bg)",
                 color: TEXT,
                 fontSize: "0.95rem",
                 fontFamily: "inherit",
@@ -2167,7 +2167,7 @@ export default function ProfilPage(): React.JSX.Element | null {
         ) : null}
 
         {isOwnProfile && parrainageFlagState === "enabled" ? (
-          <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "#111", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+          <section style={{ borderRadius: "4px", padding: "1.25rem 1.1rem", marginBottom: "1.75rem", background: "var(--bg-card)", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
             <h2 style={{ fontFamily: "var(--font-bebas), Impact, sans-serif", fontSize: "1.35rem", letterSpacing: "0.06em", color: GOLD, margin: "0 0 0.75rem" }}>Inviter un ami</h2>
             <p style={{ margin: "0 0 1rem", opacity: 0.75, fontSize: "0.9rem", lineHeight: 1.5 }}>
               Partagez votre code : votre ami reçoit +20 pts PMQ à l&apos;inscription, et vous recevez +50 pts
@@ -2340,7 +2340,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               width: "min(100%, 22rem)",
               borderRadius: "4px",
               padding: "1.35rem",
-              background: "#141414",
+              background: "var(--bg-card)",
               border: `1px solid rgba(212, 160, 23, 0.45)`,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -2393,7 +2393,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                   padding: "0.35rem 0.45rem",
                   borderRadius: "4px",
                   border: "1px solid rgba(245, 240, 232, 0.2)",
-                  background: "#111",
+                  background: "var(--bg-card)",
                   color: GOLD,
                   fontWeight: 700,
                   textAlign: "center",
@@ -2401,7 +2401,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               />
             </div>
             {donSuccess ? (
-              <p style={{ margin: "0 0 1rem", color: "#2ECC71", fontSize: "0.9rem" }}>
+              <p style={{ margin: "0 0 1rem", color: "var(--accent-green)", fontSize: "0.9rem" }}>
                 Points envoyés avec succès ✓
               </p>
             ) : null}
