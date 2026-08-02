@@ -25,6 +25,7 @@ export function AppHeader({ displayName, onSignOut, signingOut = false, rightExt
         background: "rgba(8,8,8,0.92)",
         backdropFilter: "blur(8px)",
         zIndex: 20,
+        overflow: "hidden",
       }}
     >
       <Link
