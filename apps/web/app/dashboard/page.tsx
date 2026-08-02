@@ -30,10 +30,10 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
@@ -562,7 +562,7 @@ export default function DashboardPage(): React.JSX.Element | null {
 
   if (session && !dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -707,7 +707,7 @@ export default function DashboardPage(): React.JSX.Element | null {
             marginBottom: "1.25rem",
             background:
               "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)",
-            border: "1px solid rgba(245, 240, 232, 0.1)",
+            border: "1px solid var(--border-soft)",
           }}
         >
           <p style={{ margin: 0, opacity: 0.65, fontSize: "0.85rem",
@@ -745,9 +745,9 @@ export default function DashboardPage(): React.JSX.Element | null {
                     : "rgba(255, 255, 255, 0.04)",
               color:
                 memberLabel === "Fondateur" || memberLabel === "Pionnier"
-                  ? "#D4A017"
+                  ? "var(--accent)"
                   : memberLabel === "Collaborateur"
-                    ? "#00B4D8"
+                    ? "var(--accent-teal)"
                     : "rgba(255, 255, 255, 0.35)",
               border:
                 memberLabel === "Fondateur" || memberLabel === "Pionnier"
@@ -973,7 +973,7 @@ export default function DashboardPage(): React.JSX.Element | null {
               borderRadius: "4px",
               padding: "1.1rem",
               background: "rgba(245, 240, 232, 0.04)",
-              border: "1px solid rgba(245, 240, 232, 0.12)",
+              border: "1px solid var(--border-soft)",
             }}
           >
             <p
@@ -1062,7 +1062,7 @@ export default function DashboardPage(): React.JSX.Element | null {
               borderRadius: "4px",
               padding: "1.1rem",
               background: "rgba(245, 240, 232, 0.04)",
-              border: "1px solid rgba(245, 240, 232, 0.12)",
+              border: "1px solid var(--border-soft)",
             }}
           >
             <p
@@ -1126,7 +1126,7 @@ export default function DashboardPage(): React.JSX.Element | null {
                 borderRadius: "4px",
                 background: blocked ? "rgba(80, 80, 80, 0.1)" : "transparent",
                 border: blocked ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(212,160,23,0.4)",
-                color: blocked ? "rgba(245,240,232,0.25)" : "#D4A017",
+                color: blocked ? "var(--text-40)" : "var(--accent)",
                 textDecoration: "none",
                 fontWeight: 600,
                 fontSize: "0.9rem",
