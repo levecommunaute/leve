@@ -41,6 +41,7 @@ type VideoRow = {
   points_value: number | null;
   bonus_expire_at: string | null;
   created_at: string | null;
+  collaborateur_id: string | null;
 };
 
 type SubmissionRow = {
@@ -340,7 +341,7 @@ export default function VideosPage(): React.JSX.Element | null {
     try {
       const [videosRes, quizRes, codeRes] = await Promise.all([
         fetch(
-          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at&is_active=eq.true&order=created_at.desc`,
+          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at,collaborateur_id&is_active=eq.true&order=created_at.desc`,
           { headers },
         ),
         fetch(
@@ -373,7 +374,9 @@ export default function VideosPage(): React.JSX.Element | null {
         setListError(msg);
         setVideos([]);
       } else {
-        setVideos(Array.isArray(videosJson) ? (videosJson as VideoRow[]) : []);
+        const allVideos = Array.isArray(videosJson) ? (videosJson as VideoRow[]) : [];
+        // Le collaborateur ne voit pas sa propre vidéo dans la liste.
+        setVideos(allVideos.filter((v) => v.collaborateur_id !== uid));
       }
 
       if (quizRes.ok && Array.isArray(quizJson)) {
