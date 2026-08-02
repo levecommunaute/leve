@@ -999,7 +999,7 @@ export default function ProfilPage(): React.JSX.Element | null {
     width: "100%",
     padding: "0.55rem 0.75rem",
     borderRadius: "4px",
-    border: "1px solid rgba(245, 240, 232, 0.15)",
+    border: "1px solid var(--border-strong)",
     background: "var(--bg)",
     color: TEXT,
     fontSize: "0.95rem",
@@ -1030,7 +1030,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               border-radius: 4px;
               padding: 1rem;
               background: rgba(245, 240, 232, 0.04);
-              border: 1px solid rgba(245, 240, 232, 0.1);
+              border: 1px solid var(--border-soft);
               display: flex;
               flex-wrap: wrap;
               align-items: flex-start;
@@ -1070,7 +1070,7 @@ export default function ProfilPage(): React.JSX.Element | null {
         ) : null}
         {profile ? (
         <>
-        <section className="leve-hero" style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "var(--bg-card)", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
+        <section className="leve-hero" style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "var(--bg-card)", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid var(--border-soft)", borderRight: "1px solid var(--border-soft)", borderBottom: "1px solid var(--border-soft)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
             <MemberAvatar
               displayName={name}
@@ -1184,7 +1184,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               </p>
             ) : null}
           </article>
-          <article className="leve-card" style={{ borderRadius: "4px", padding: "1.1rem", background: "var(--bg-card)", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid var(--accent)" }}>
+          <article className="leve-card" style={{ borderRadius: "4px", padding: "1.1rem", background: "var(--bg-card)", border: "1px solid var(--border-soft)", borderTop: "2px solid var(--accent)" }}>
             <p className="profil-stat-label leve-card-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
             {isOwnProfile && pmqShare ? (
               <div style={{ marginTop: "0.5rem" }}>
@@ -1253,7 +1253,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               padding: "1.25rem 1.1rem",
               marginBottom: "1.75rem",
               background: "var(--bg-card)",
-              border: "1px solid rgba(245, 240, 232, 0.08)",
+              border: "1px solid var(--border-soft)",
             }}
           >
             <h2
@@ -1275,7 +1275,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                 flexWrap: "wrap",
                 gap: "0.4rem",
                 marginBottom: "1.15rem",
-                borderBottom: "1px solid rgba(245, 240, 232, 0.1)",
+                borderBottom: "1px solid var(--border-soft)",
                 paddingBottom: "0.75rem",
               }}
             >
@@ -1290,10 +1290,10 @@ export default function ProfilPage(): React.JSX.Element | null {
                     onClick={() => selectProfilOnglet(tab.id)}
                     style={{
                       background: active ? "rgba(212, 160, 23, 0.14)" : "transparent",
-                      color: active ? GOLD : "rgba(245, 240, 232, 0.7)",
+                      color: active ? GOLD : "var(--text-70)",
                       border: active
                         ? `1px solid ${GOLD}`
-                        : "1px solid rgba(245, 240, 232, 0.15)",
+                        : "1px solid var(--border-strong)",
                       borderRadius: "4px",
                       padding: "0.4rem 0.75rem",
                       fontSize: "0.78rem",
@@ -1343,8 +1343,8 @@ export default function ProfilPage(): React.JSX.Element | null {
                     onClick={openAvatarModal}
                     style={{
                       background: "transparent",
-                      color: "rgba(245, 240, 232, 0.7)",
-                      border: "1px solid rgba(245, 240, 232, 0.2)",
+                      color: "var(--text-70)",
+                      border: "1px solid var(--border-strong)",
                       borderRadius: "4px",
                       padding: "0.3rem 0.7rem",
                       fontSize: "0.75rem",
@@ -1381,7 +1381,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                         width: "100%",
                         maxWidth: "22rem",
                         background: "var(--bg-card)",
-                        border: "1px solid rgba(245, 240, 232, 0.18)",
+                        border: "1px solid var(--border-strong)",
                         borderRadius: "4px",
                         padding: "1.25rem 1.35rem",
                       }}
@@ -1455,10 +1455,10 @@ export default function ProfilPage(): React.JSX.Element | null {
                                   : "transparent",
                                 color: active
                                   ? GOLD
-                                  : "rgba(245, 240, 232, 0.7)",
+                                  : "var(--text-70)",
                                 border: active
                                   ? `1px solid ${GOLD}`
-                                  : "1px solid rgba(245, 240, 232, 0.15)",
+                                  : "1px solid var(--border-strong)",
                                 borderRadius: "4px",
                                 padding: "0.4rem 0.75rem",
                                 fontSize: "0.78rem",
@@ -1500,7 +1500,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                                   borderRadius: "4px",
                                   border: selected
                                     ? `1px solid ${GOLD}`
-                                    : "1px solid rgba(245, 240, 232, 0.15)",
+                                    : "1px solid var(--border-strong)",
                                   background: selected
                                     ? "rgba(212, 160, 23, 0.14)"
                                     : "rgba(245, 240, 232, 0.04)",
@@ -1525,7 +1525,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                               display: "inline-block",
                               padding: "0.5rem 0.9rem",
                               borderRadius: "4px",
-                              border: "1px solid rgba(245, 240, 232, 0.25)",
+                              border: "1px solid var(--border-strong)",
                               background: "rgba(245, 240, 232, 0.04)",
                               fontSize: "0.85rem",
                               cursor: avatarUploading ? "wait" : "pointer",
@@ -1582,7 +1582,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                           borderRadius: "4px",
                           fontWeight: 600,
                           fontSize: "0.88rem",
-                          border: "1px solid rgba(245, 240, 232, 0.25)",
+                          border: "1px solid var(--border-strong)",
                           background: "transparent",
                           color: TEXT,
                           cursor:
@@ -1830,7 +1830,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                   style={{
                     margin: "0 0 1rem",
                     fontSize: "0.92rem",
-                    color: palierVerification > 0 ? GOLD : "rgba(245,240,232,0.7)",
+                    color: palierVerification > 0 ? GOLD : "var(--text-70)",
                   }}
                 >
                   {palierLabel(
@@ -1959,7 +1959,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               padding: "1.25rem 1.1rem",
               marginBottom: "1.75rem",
               background: "var(--bg-card)",
-              border: "1px solid rgba(245, 240, 232, 0.08)",
+              border: "1px solid var(--border-soft)",
             }}
           >
             <h2
@@ -2037,8 +2037,8 @@ export default function ProfilPage(): React.JSX.Element | null {
                   style={{
                     padding: "0.65rem 0.85rem",
                     background: currentTheme === t.theme_id ? "rgba(212,160,23,0.12)" : "transparent",
-                    border: currentTheme === t.theme_id ? "1px solid var(--accent)" : "1px solid rgba(245,240,232,0.1)",
-                    color: currentTheme === t.theme_id ? "var(--accent)" : "rgba(245,240,232,0.45)",
+                    border: currentTheme === t.theme_id ? "1px solid var(--accent)" : "1px solid var(--border-soft)",
+                    color: currentTheme === t.theme_id ? "var(--accent)" : "var(--text-40)",
                     fontFamily: "var(--font-mono)",
                     fontSize: "0.58rem",
                     letterSpacing: "0.1em",
@@ -2060,7 +2060,7 @@ export default function ProfilPage(): React.JSX.Element | null {
               padding: "1.25rem 1.1rem",
               marginBottom: "1.75rem",
               background: "var(--bg-card)",
-              border: "1px solid rgba(245, 240, 232, 0.08)",
+              border: "1px solid var(--border-soft)",
             }}
           >
             <h2
@@ -2129,7 +2129,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                 maxWidth: "16rem",
                 padding: "0.55rem 0.75rem",
                 borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.15)",
+                border: "1px solid var(--border-strong)",
                 background: "var(--bg)",
                 color: TEXT,
                 fontSize: "0.95rem",
@@ -2182,7 +2182,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                   <button
                     type="button"
                     onClick={() => void copyReferral(referralCode, "code")}
-                    style={{ background: "transparent", color: TEXT, border: `1px solid rgba(245, 240, 232, 0.25)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
+                    style={{ background: "transparent", color: TEXT, border: `1px solid var(--border-strong)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
                   >
                     {referralCopied === "code" ? "Copié ✓" : "Copier le code"}
                   </button>
@@ -2193,7 +2193,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                     <button
                       type="button"
                       onClick={() => void copyReferral(referralLink, "link")}
-                      style={{ background: "transparent", color: TEXT, border: `1px solid rgba(245, 240, 232, 0.25)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
+                      style={{ background: "transparent", color: TEXT, border: `1px solid var(--border-strong)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
                     >
                       {referralCopied === "link" ? "Copié ✓" : "Copier le lien"}
                     </button>
@@ -2296,7 +2296,7 @@ export default function ProfilPage(): React.JSX.Element | null {
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
               {quizRows.map((row, i) => (
-                <li key={`${row.video_id}-${row.at ?? i}`} style={{ borderRadius: "4px", padding: "1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid rgba(245, 240, 232, 0.1)", display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem",
+                <li key={`${row.video_id}-${row.at ?? i}`} style={{ borderRadius: "4px", padding: "1rem", background: "rgba(245, 240, 232, 0.04)", border: "1px solid var(--border-soft)", display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   <div>
                     <p style={{ margin: 0, fontWeight: 600 }}>{row.title}</p>
@@ -2392,7 +2392,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                   width: "4.5rem",
                   padding: "0.35rem 0.45rem",
                   borderRadius: "4px",
-                  border: "1px solid rgba(245, 240, 232, 0.2)",
+                  border: "1px solid var(--border-strong)",
                   background: "var(--bg-card)",
                   color: GOLD,
                   fontWeight: 700,
@@ -2413,7 +2413,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                 style={{
                   background: "transparent",
                   color: TEXT,
-                  border: "1px solid rgba(245, 240, 232, 0.25)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: "4px",
                   padding: "0.45rem 0.85rem",
                   fontSize: "0.82rem",
