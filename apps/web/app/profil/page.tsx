@@ -301,7 +301,7 @@ function readViewedMemberFromUrl(): string | null {
   return new URLSearchParams(window.location.search).get("membre")?.trim() ?? null;
 }
 
-export default function ProfilPage(): JSX.Element | null {
+export default function ProfilPage(): React.JSX.Element | null {
   const router = useRouter();
   const [viewedMemberParam, setViewedMemberParam] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null | undefined>(undefined);

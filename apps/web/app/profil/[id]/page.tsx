@@ -66,7 +66,7 @@ function memberTypeBadgeStyle(label: string): {
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
 
-export default function ProfilPublicPage(): JSX.Element | null {
+export default function ProfilPublicPage(): React.JSX.Element | null {
   const router = useRouter();
   const params = useParams();
   const numeroParam =

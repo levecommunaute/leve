@@ -65,7 +65,7 @@ function displayName(membre: DonMembre): string {
   return membre.display_name?.trim() || "Membre";
 }
 
-export default function DonsPage(): JSX.Element | null {
+export default function DonsPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [memberType, setMemberType] = useState<string | null>(null);

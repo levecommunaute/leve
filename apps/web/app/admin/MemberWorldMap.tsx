@@ -102,7 +102,7 @@ type Props = {
   total: number;
 };
 
-export function MemberWorldMap({ members, total }: Props): JSX.Element {
+export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
   const [filter, setFilter] = useState<MapFilter>("tous");
   const [selectedContinent, setSelectedContinent] = useState<string | null>(null);
 

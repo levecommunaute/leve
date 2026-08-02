@@ -71,7 +71,7 @@ const fieldStyle = {
   marginBottom: "1rem",
 } as const;
 
-export function BetaBugButton(): JSX.Element | null {
+export function BetaBugButton(): React.JSX.Element | null {
   const pathname = usePathname();
   const [isBetaTester, setIsBetaTester] = useState(false);
   const [membreId, setMembreId] = useState<string | null>(null);

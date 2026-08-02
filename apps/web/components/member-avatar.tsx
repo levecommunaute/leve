@@ -23,7 +23,7 @@ export function MemberAvatar({
   size = 40,
   style,
   title,
-}: MemberAvatarProps): JSX.Element {
+}: MemberAvatarProps): React.JSX.Element {
   const mode = resolveAvatarMode(avatarUrl);
   const initials = avatarInitials(displayName);
   const bg = colorFromName(displayName);

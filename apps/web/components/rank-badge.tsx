@@ -11,7 +11,7 @@ export function RankBadge({
   ptsPonderes,
   memberType,
   size = "sm",
-}: RankBadgeProps): JSX.Element {
+}: RankBadgeProps): React.JSX.Element {
   const info = getRankBadge(ptsPonderes, memberType);
   const colors = rankBadgeStyle(info.tier);
   const isSmall = size === "sm";

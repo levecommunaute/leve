@@ -133,7 +133,7 @@ const steps = [
   },
 ] as const;
 
-function YouTubeIcon({ size = 20 }: { size?: number }): JSX.Element {
+function YouTubeIcon({ size = 20 }: { size?: number }): React.JSX.Element {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -150,7 +150,7 @@ function YouTubeIcon({ size = 20 }: { size?: number }): JSX.Element {
   );
 }
 
-function FacebookIcon({ size = 16 }: { size?: number }): JSX.Element {
+function FacebookIcon({ size = 16 }: { size?: number }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden style={{ flexShrink: 0 }}>
       <path
@@ -161,7 +161,7 @@ function FacebookIcon({ size = 16 }: { size?: number }): JSX.Element {
   );
 }
 
-function TikTokIcon({ size = 16 }: { size?: number }): JSX.Element {
+function TikTokIcon({ size = 16 }: { size?: number }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden style={{ flexShrink: 0 }}>
       <path
@@ -172,7 +172,7 @@ function TikTokIcon({ size = 16 }: { size?: number }): JSX.Element {
   );
 }
 
-function InstagramIcon({ size = 16 }: { size?: number }): JSX.Element {
+function InstagramIcon({ size = 16 }: { size?: number }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden style={{ flexShrink: 0 }}>
       <path
@@ -183,7 +183,7 @@ function InstagramIcon({ size = 16 }: { size?: number }): JSX.Element {
   );
 }
 
-function ReseauSocialIcon({ reseau, size = 16 }: { reseau: ReseauSocialKey; size?: number }): JSX.Element {
+function ReseauSocialIcon({ reseau, size = 16 }: { reseau: ReseauSocialKey; size?: number }): React.JSX.Element {
   switch (reseau) {
     case "youtube":
       return <YouTubeIcon size={size} />;
@@ -206,7 +206,7 @@ function RougeButton({
   onClick?: () => void;
   className?: string;
   style?: React.CSSProperties;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <button
       type="button"
@@ -226,7 +226,7 @@ function RougeButton({
   );
 }
 
-export default function Home(): JSX.Element {
+export default function Home(): React.JSX.Element {
   const router = useRouter();
   const fonts = `${bebas.variable} ${dmSans.variable}`;
   const [oauthRecovery, setOauthRecovery] = useState<

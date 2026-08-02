@@ -310,7 +310,7 @@ function PodiumCard({
   accent: string;
   height: string;
   isCurrentUser: boolean;
-}): JSX.Element {
+}): React.JSX.Element {
   const badge = memberTypeBadgeStyle(row.member_type);
   return (
     <div
@@ -424,7 +424,7 @@ function PodiumCard({
   );
 }
 
-function comingSoonSection(title: string): JSX.Element {
+function comingSoonSection(title: string): React.JSX.Element {
   return (
     <section
       aria-live="polite"
@@ -465,7 +465,7 @@ function comingSoonSection(title: string): JSX.Element {
   );
 }
 
-export default function ClassementPage(): JSX.Element | null {
+export default function ClassementPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   useBetaTracking(session, "classement");

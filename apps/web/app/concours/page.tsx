@@ -169,7 +169,7 @@ function isPaInsufficientError(message: string): boolean {
   return message.trim().toLowerCase() === "solde pa insuffisant";
 }
 
-export default function ConcoursPage(): JSX.Element | null {
+export default function ConcoursPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   useBetaTracking(session, "concours");
@@ -582,7 +582,7 @@ export default function ConcoursPage(): JSX.Element | null {
   const fonts = `${bebas.variable} ${dmSans.variable}`;
   const name = session && profile ? displayNameFrom(profile, session) : "";
 
-  function renderArtisteCard(artiste: ConcoursArtisteRow): JSX.Element {
+  function renderArtisteCard(artiste: ConcoursArtisteRow): React.JSX.Element {
     const alreadyVoted = votedArtisteIds.has(artiste.id);
     const votesMaxed = votesArtistesUsed >= 3;
     const canVote = !alreadyVoted && !votesMaxed;

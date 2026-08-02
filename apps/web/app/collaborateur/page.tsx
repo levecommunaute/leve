@@ -346,7 +346,7 @@ function unwrapPendingEmbed(
   };
 }
 
-export default function CollaborateurPage(): JSX.Element | null {
+export default function CollaborateurPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);

@@ -787,7 +787,7 @@ function formatMonthLabel(ym: string): string {
   }
 }
 
-function yesNoBadge(value: boolean): JSX.Element {
+function yesNoBadge(value: boolean): React.JSX.Element {
   return (
     <span
       style={{
@@ -813,7 +813,7 @@ function onOffSwitch(props: {
   busy?: boolean;
   label: string;
   onToggle: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const { checked, disabled, busy, label, onToggle } = props;
   return (
     <button
@@ -902,7 +902,7 @@ const POOL_SERIES = [
   },
 ];
 
-function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): JSX.Element {
+function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): React.JSX.Element {
   if (series.length === 0) {
     return <p style={{ opacity: 0.65, margin: 0 }}>Aucune redistribution enregistrée.</p>;
   }
@@ -1013,7 +1013,7 @@ function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): JSX.El
 }
 
 
-function ValorisationChart({ series }: { series: ValorisationRow[] }): JSX.Element {
+function ValorisationChart({ series }: { series: ValorisationRow[] }): React.JSX.Element {
   if (series.length === 0) {
     return <p style={{ opacity: 0.65, margin: 0 }}>Aucune valorisation enregistrée.</p>;
   }
@@ -1254,7 +1254,7 @@ function scrollToAdminSection(sectionId: string, ev: MouseEvent<HTMLAnchorElemen
   el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function sectionTitle(text: string): JSX.Element {
+function sectionTitle(text: string): React.JSX.Element {
   return (
     <h2
       style={{
@@ -1272,7 +1272,7 @@ function sectionTitle(text: string): JSX.Element {
   );
 }
 
-function subSectionTitle(text: string): JSX.Element {
+function subSectionTitle(text: string): React.JSX.Element {
   return (
     <h3
       style={{
@@ -1299,7 +1299,7 @@ function GlobalStatCard({
   value: string;
   accent: string;
   loading: boolean;
-}): JSX.Element {
+}): React.JSX.Element {
   return (
     <div
       style={{
@@ -1347,7 +1347,7 @@ const actionsSubCard = {
   marginBottom: "1.25rem",
 } as const;
 
-export default function AdminPage(): JSX.Element {
+export default function AdminPage(): React.JSX.Element {
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
   const [hydrated, setHydrated] = useState(false);

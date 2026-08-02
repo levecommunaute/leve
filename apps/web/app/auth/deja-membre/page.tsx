@@ -21,7 +21,7 @@ const TEXT = "#F5F0E8";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 
-export default function DejaMembrePage(): JSX.Element {
+export default function DejaMembrePage(): React.JSX.Element {
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
   return (

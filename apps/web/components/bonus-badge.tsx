@@ -34,7 +34,7 @@ type BonusBadgeProps = {
   bonusExpireAt: string | null | undefined;
 };
 
-export function BonusBadge({ bonusExpireAt }: BonusBadgeProps): JSX.Element | null {
+export function BonusBadge({ bonusExpireAt }: BonusBadgeProps): React.JSX.Element | null {
   const [visible, setVisible] = useState(() => isBonusActive(bonusExpireAt));
   const [remaining, setRemaining] = useState(() => {
     if (!bonusExpireAt) return "";

@@ -269,7 +269,7 @@ async function sumAllQuizPtsPonderes(
   return total;
 }
 
-export default function DashboardPage(): JSX.Element | null {
+export default function DashboardPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   useBetaTracking(session, "dashboard");
@@ -601,7 +601,7 @@ export default function DashboardPage(): JSX.Element | null {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-page-dashboard`}
       style={{
         minHeight: "100vh",
         background: "var(--bg)",
@@ -744,6 +744,7 @@ export default function DashboardPage(): JSX.Element | null {
 
         {/* Hero */}
         <section
+          className="leve-hero"
           style={{
             borderRadius: "4px",
             padding: "1.75rem 1.5rem",
@@ -777,6 +778,7 @@ export default function DashboardPage(): JSX.Element | null {
             ) : null}
           </h1>
           <span
+            className="leve-badge-accent"
             style={{
               display: "inline-block",
               background:
@@ -883,6 +885,7 @@ export default function DashboardPage(): JSX.Element | null {
           }}
         >
           <article
+            className="leve-card"
             style={{
               position: "relative",
               borderRadius: "4px",
@@ -892,6 +895,7 @@ export default function DashboardPage(): JSX.Element | null {
             }}
           >
             <p
+              className="leve-card-label"
               style={{
                 margin: 0,
                 fontSize: "0.72rem",
@@ -906,6 +910,7 @@ export default function DashboardPage(): JSX.Element | null {
                 : "Points PMQ"}
             </p>
             <p
+              className="leve-card-value"
               style={{
                 margin: "0.5rem 0 0",
                 fontSize: "1.65rem",
@@ -1007,6 +1012,7 @@ export default function DashboardPage(): JSX.Element | null {
           </article>
 
           <article
+            className="leve-card"
             style={{
               borderRadius: "4px",
               padding: "1.1rem",
@@ -1015,6 +1021,7 @@ export default function DashboardPage(): JSX.Element | null {
             }}
           >
             <p
+              className="leve-card-label"
               style={{
                 margin: 0,
                 fontSize: "0.72rem",
@@ -1026,6 +1033,7 @@ export default function DashboardPage(): JSX.Element | null {
               Multiplicateur
             </p>
             <p
+              className="leve-card-value"
               style={{
                 margin: "0.5rem 0 0",
                 fontSize: "1.65rem",
@@ -1093,6 +1101,7 @@ export default function DashboardPage(): JSX.Element | null {
           </article>
 
           <article
+            className="leve-card"
             style={{
               borderRadius: "4px",
               padding: "1.1rem",
@@ -1101,6 +1110,7 @@ export default function DashboardPage(): JSX.Element | null {
             }}
           >
             <p
+              className="leve-card-label"
               style={{
                 margin: 0,
                 fontSize: "0.72rem",
@@ -1112,6 +1122,7 @@ export default function DashboardPage(): JSX.Element | null {
               Dernière redistribution
             </p>
             <p
+              className="leve-card-value"
               style={{
                 margin: "0.5rem 0 0",
                 fontSize: "1.35rem",
@@ -1170,13 +1181,13 @@ export default function DashboardPage(): JSX.Element | null {
               };
               if (blocked) {
                 return (
-                  <span key={item.href} style={cellStyle} title="Accès suspendu (période de grâce)">
+                  <span key={item.href} className="leve-shortcut" style={cellStyle} title="Accès suspendu (période de grâce)">
                     {item.label}
                   </span>
                 );
               }
               return (
-                <Link key={item.href} href={item.href} style={cellStyle}>
+                <Link key={item.href} href={item.href} className="leve-shortcut" style={cellStyle}>
                   {item.label}
                 </Link>
               );
