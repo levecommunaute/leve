@@ -353,7 +353,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    const skipMemberCredits = allowRecoveryResubmit;
+    // Le collaborateur ne reçoit jamais de points PMQ/PTC sur sa propre vidéo,
+    // même sans pending_pcol (quiz avant le 1er membre, transferred, expired).
+    const skipMemberCredits = isOwnVideoQuiz;
 
     if (!skipMemberCredits) {
       const { error: ptError } = await svc.from("points_transactions").insert(ptRows);
