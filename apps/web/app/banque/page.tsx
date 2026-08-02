@@ -586,7 +586,7 @@ export default function BanquePage(): React.JSX.Element | null {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-page-banque`}
       style={{
         minHeight: "100vh",
         background: "var(--bg)",
@@ -669,6 +669,7 @@ export default function BanquePage(): React.JSX.Element | null {
         </h1>
 
         <section
+          className="leve-card"
           style={{
             borderRadius: "4px",
             padding: "1.5rem 1.35rem",
@@ -679,6 +680,7 @@ export default function BanquePage(): React.JSX.Element | null {
           }}
         >
           <p
+            className="leve-card-label"
             style={{
               margin: 0,
               fontSize: "0.72rem",
@@ -691,7 +693,7 @@ export default function BanquePage(): React.JSX.Element | null {
             SOLDE BANQUE · {moisCourantLabel}
           </p>
           <p
-            className="banque-solde-amount"
+            className="banque-solde-amount leve-card-value"
             style={{
               margin: "0.35rem 0 0.15rem",
               fontSize: "clamp(2.25rem, 7vw, 3rem)",
@@ -754,6 +756,7 @@ export default function BanquePage(): React.JSX.Element | null {
         </section>
 
         <section
+          className="leve-card"
           style={{
             borderRadius: "4px",
             padding: "1.5rem 1.35rem",
@@ -774,6 +777,7 @@ export default function BanquePage(): React.JSX.Element | null {
             }}
           >
             <p
+              className="leve-card-label"
               style={{
                 margin: 0,
                 fontSize: "0.72rem",
@@ -801,6 +805,7 @@ export default function BanquePage(): React.JSX.Element | null {
             ) : null}
           </div>
           <p
+            className="leve-card-value"
             style={{
               margin: "0.35rem 0 0.15rem",
               fontSize: "clamp(2.25rem, 7vw, 3rem)",
