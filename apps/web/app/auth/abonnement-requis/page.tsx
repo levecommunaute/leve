@@ -21,7 +21,7 @@ const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 const YOUTUBE_URL = "https://www.youtube.com/@levecommunaute";
 
-export default function AbonnementRequisPage(): JSX.Element {
+export default function AbonnementRequisPage(): React.JSX.Element {
   const fonts = `${bebas.variable} ${dmSans.variable}`;
 
   return (

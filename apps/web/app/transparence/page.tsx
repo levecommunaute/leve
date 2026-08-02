@@ -271,7 +271,7 @@ const poolCards = [
   },
 ] as const;
 
-export default function TransparencePage(): JSX.Element {
+export default function TransparencePage(): React.JSX.Element {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [authChecked, setAuthChecked] = useState(false);

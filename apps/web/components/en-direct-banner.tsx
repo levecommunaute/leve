@@ -19,7 +19,7 @@ function formatAbonnes(n: number): string {
   return new Intl.NumberFormat("fr-FR").format(Math.max(0, Math.floor(n)));
 }
 
-function YouTubeIcon({ size = 20 }: { size?: number }): JSX.Element {
+function YouTubeIcon({ size = 20 }: { size?: number }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden style={{ flexShrink: 0 }}>
       <path
@@ -30,7 +30,7 @@ function YouTubeIcon({ size = 20 }: { size?: number }): JSX.Element {
   );
 }
 
-function FacebookIcon({ size = 16 }: { size?: number }): JSX.Element {
+function FacebookIcon({ size = 16 }: { size?: number }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden style={{ flexShrink: 0 }}>
       <path
@@ -41,7 +41,7 @@ function FacebookIcon({ size = 16 }: { size?: number }): JSX.Element {
   );
 }
 
-function TikTokIcon({ size = 16 }: { size?: number }): JSX.Element {
+function TikTokIcon({ size = 16 }: { size?: number }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden style={{ flexShrink: 0 }}>
       <path
@@ -52,7 +52,7 @@ function TikTokIcon({ size = 16 }: { size?: number }): JSX.Element {
   );
 }
 
-function InstagramIcon({ size = 16 }: { size?: number }): JSX.Element {
+function InstagramIcon({ size = 16 }: { size?: number }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden style={{ flexShrink: 0 }}>
       <path
@@ -63,7 +63,7 @@ function InstagramIcon({ size = 16 }: { size?: number }): JSX.Element {
   );
 }
 
-function ReseauSocialIcon({ reseau, size = 16 }: { reseau: ReseauSocialKey; size?: number }): JSX.Element {
+function ReseauSocialIcon({ reseau, size = 16 }: { reseau: ReseauSocialKey; size?: number }): React.JSX.Element {
   switch (reseau) {
     case "youtube":
       return <YouTubeIcon size={size} />;
@@ -76,7 +76,7 @@ function ReseauSocialIcon({ reseau, size = 16 }: { reseau: ReseauSocialKey; size
   }
 }
 
-export function EnDirectBanner(): JSX.Element | null {
+export function EnDirectBanner(): React.JSX.Element | null {
   const [reseauxActifs, setReseauxActifs] = useState<ReseauSocialRow[]>([]);
   const youtubeSubscriberCount = useYoutubeSubscriberCount();
 

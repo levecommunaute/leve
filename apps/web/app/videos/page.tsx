@@ -181,7 +181,7 @@ function VideoThumb({
   youtubeId: string;
   title: string;
   borderRadius?: string;
-}): JSX.Element {
+}): React.JSX.Element {
   const urls = [
     `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
     `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
@@ -216,7 +216,7 @@ function VideoThumb({
   );
 }
 
-function StatusBadge({ status }: { status: VideoMemberStatus }): JSX.Element {
+function StatusBadge({ status }: { status: VideoMemberStatus }): React.JSX.Element {
   const statusStyle = STATUS_STYLES[status];
   return (
     <span
@@ -242,7 +242,7 @@ function StatusBadge({ status }: { status: VideoMemberStatus }): JSX.Element {
   );
 }
 
-function HeroBonusBadge({ bonusExpireAt }: { bonusExpireAt: string | null }): JSX.Element | null {
+function HeroBonusBadge({ bonusExpireAt }: { bonusExpireAt: string | null }): React.JSX.Element | null {
   const [visible, setVisible] = useState(() => isBonusActive(bonusExpireAt));
   const [remaining, setRemaining] = useState(() => formatBonusRemaining(bonusExpireAt));
 
@@ -295,7 +295,7 @@ function HeroBonusBadge({ bonusExpireAt }: { bonusExpireAt: string | null }): JS
   );
 }
 
-export default function VideosPage(): JSX.Element | null {
+export default function VideosPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -627,7 +627,7 @@ export default function VideosPage(): JSX.Element | null {
   const name = displayNameFrom(profile, session);
   const { hero, rest } = pickHeroVideo(videos);
 
-  function renderPlatformGrid(): JSX.Element {
+  function renderPlatformGrid(): React.JSX.Element {
     const bonusActif = videos.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
@@ -765,7 +765,7 @@ export default function VideosPage(): JSX.Element | null {
     );
   }
 
-  function renderListView(): JSX.Element {
+  function renderListView(): React.JSX.Element {
     const bonusActif = videos.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
@@ -1052,7 +1052,7 @@ export default function VideosPage(): JSX.Element | null {
     );
   }
 
-  function renderYoutubeListItem(v: VideoRow): JSX.Element {
+  function renderYoutubeListItem(v: VideoRow): React.JSX.Element {
     const title = v.title?.trim() || "Vidéo";
     const pts = Number(v.points_value ?? 0);
     const ptsLabel = `${Number.isFinite(pts) ? pts : 0} pts`;
@@ -1117,7 +1117,7 @@ export default function VideosPage(): JSX.Element | null {
     );
   }
 
-  function renderYoutubeFeed(): JSX.Element {
+  function renderYoutubeFeed(): React.JSX.Element {
     return (
       <div style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
         {hero ? (

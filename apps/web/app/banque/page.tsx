@@ -155,7 +155,7 @@ const dateFmt = new Intl.DateTimeFormat("fr-CA", {
   timeStyle: "short",
 });
 
-export default function BanquePage(): JSX.Element | null {
+export default function BanquePage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);

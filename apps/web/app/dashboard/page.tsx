@@ -268,7 +268,7 @@ async function sumAllQuizPtsPonderes(
   return total;
 }
 
-export default function DashboardPage(): JSX.Element | null {
+export default function DashboardPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [graceFromUrl, setGraceFromUrl] = useState(false);

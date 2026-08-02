@@ -44,7 +44,7 @@ function NavItem({
   active: boolean;
   blocked?: boolean;
   onNavigate?: () => void;
-}): JSX.Element {
+}): React.JSX.Element {
   const style = {
     flex: "0 0 auto",
     display: "inline-flex",
@@ -95,7 +95,7 @@ export function AppBottomNav({
   session,
   memberType,
   blockedHrefs,
-}: AppBottomNavProps): JSX.Element {
+}: AppBottomNavProps): React.JSX.Element {
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);

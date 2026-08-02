@@ -256,7 +256,7 @@ type RecipientSearchResult = {
   member_type: string | null;
 };
 
-function IconVideo({ size = 14 }: { size?: number }): JSX.Element {
+function IconVideo({ size = 14 }: { size?: number }): React.JSX.Element {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -276,7 +276,7 @@ function IconVideo({ size = 14 }: { size?: number }): JSX.Element {
   );
 }
 
-function IconCoin({ size = 14 }: { size?: number }): JSX.Element {
+function IconCoin({ size = 14 }: { size?: number }): React.JSX.Element {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -297,7 +297,7 @@ function IconCoin({ size = 14 }: { size?: number }): JSX.Element {
   );
 }
 
-export default function PoolPaPage(): JSX.Element | null {
+export default function PoolPaPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
