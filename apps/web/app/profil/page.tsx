@@ -1021,7 +1021,7 @@ export default function ProfilPage(): React.JSX.Element | null {
   };
 
   return (
-    <div className={fonts} style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
+    <div className={`${fonts} leve-page-profil`} style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "var(--font-mono), ui-monospace, monospace", paddingBottom: "6rem" }}>
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -1072,7 +1072,7 @@ export default function ProfilPage(): React.JSX.Element | null {
         ) : null}
         {profile ? (
         <>
-        <section style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "#141414", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
+        <section className="leve-hero" style={{ borderRadius: "4px", padding: "1.75rem 1.5rem", marginBottom: "1.25rem", background: "#141414", borderTop: `2px solid ${GOLD}`, borderLeft: "1px solid rgba(245, 240, 232, 0.1)", borderRight: "1px solid rgba(245, 240, 232, 0.1)", borderBottom: "1px solid rgba(245, 240, 232, 0.1)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
             <MemberAvatar
               displayName={name}
@@ -1145,9 +1145,9 @@ export default function ProfilPage(): React.JSX.Element | null {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.85rem", marginBottom: "1.75rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-          <article style={{ position: "relative", borderRadius: "4px", padding: "1.1rem 1.1rem 2.35rem", background: "#141414", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
-            <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>{pmqMonthLabel ? `Points PMQ · ${pmqMonthLabel}` : "Points PMQ"}</p>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
+          <article className="leve-card" style={{ position: "relative", borderRadius: "4px", padding: "1.1rem 1.1rem 2.35rem", background: "#141414", border: `1px solid rgba(212, 160, 23, 0.35)` }}>
+            <p className="profil-stat-label leve-card-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD, opacity: 0.95 }}>{pmqMonthLabel ? `Points PMQ · ${pmqMonthLabel}` : "Points PMQ"}</p>
+            <p className="leve-card-value" style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{pointsFmt.format(totalPointsPmq)}</p>
             <p className="profil-stat-label" style={{ margin: "0.75rem 0 0", fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", opacity: 0.5 }}>{pmqMonthLabel ? `Points pondérés · ${pmqMonthLabel}` : "Points pondérés (base redistribution)"}</p>
             <p style={{ margin: "0.25rem 0 0", fontSize: "0.95rem", fontWeight: 600, opacity: 0.75 }}>{pointsFmt.format(weightedPointsPmq)}</p>
             <p style={{ margin: "0.3rem 0 0", fontSize: "0.7rem", opacity: 0.45, lineHeight: 1.4 }}>
@@ -1186,11 +1186,12 @@ export default function ProfilPage(): React.JSX.Element | null {
               </p>
             ) : null}
           </article>
-          <article style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid #D4A017" }}>
-            <p className="profil-stat-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
+          <article className="leve-card" style={{ borderRadius: "4px", padding: "1.1rem", background: "#141414", border: "1px solid rgba(245, 240, 232, 0.06)", borderTop: "2px solid #D4A017" }}>
+            <p className="profil-stat-label leve-card-label" style={{ margin: 0, fontSize: "0.72rem", letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.55 }}>Multiplicateur</p>
             {isOwnProfile && pmqShare ? (
               <div style={{ marginTop: "0.5rem" }}>
                 <p
+                  className="leve-card-value"
                   style={{
                     margin: 0,
                     fontSize: "0.95rem",
@@ -1225,7 +1226,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                 </div>
               </div>
             ) : (
-              <p style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{multiplierDisplay}</p>
+              <p className="leve-card-value" style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{multiplierDisplay}</p>
             )}
           </article>
         </div>

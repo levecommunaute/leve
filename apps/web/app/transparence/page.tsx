@@ -509,7 +509,7 @@ export default function TransparencePage(): React.JSX.Element {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-page-transparence`}
       style={{
         minHeight: "100vh",
         background: "var(--bg)",
@@ -687,6 +687,7 @@ export default function TransparencePage(): React.JSX.Element {
         ) : null}
 
         <section
+          className="leve-hero"
           style={{
             marginBottom: "2rem",
             paddingBottom: "1.5rem",
@@ -746,6 +747,7 @@ export default function TransparencePage(): React.JSX.Element {
             {poolCards.map((c) => (
               <article
                 key={c.label}
+                className="leve-card"
                 style={{
                   borderRadius: "4px",
                   padding: "1.15rem 1rem",
@@ -755,6 +757,7 @@ export default function TransparencePage(): React.JSX.Element {
                 }}
               >
                 <p
+                  className="leve-card-label"
                   style={{
                     margin: 0,
                     fontFamily: "var(--font-bebas), Impact, sans-serif",
@@ -776,6 +779,7 @@ export default function TransparencePage(): React.JSX.Element {
                   {c.sub}
                 </p>
                 <p
+                  className="leve-card-value"
                   style={{
                     margin: "0.75rem 0 0",
                     fontSize: "1.65rem",

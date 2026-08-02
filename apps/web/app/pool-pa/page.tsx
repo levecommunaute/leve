@@ -968,7 +968,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-page-pool-pa`}
       style={{
         minHeight: "100vh",
         background: "var(--bg)",
@@ -1042,6 +1042,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
         ) : (
           <>
             <section
+              className="leve-card"
               style={{
                 borderRadius: "4px",
                 padding: "1.5rem 1.35rem",
@@ -1052,6 +1053,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
               }}
             >
               <p
+                className="leve-card-label"
                 style={{
                   margin: 0,
                   fontSize: "0.72rem",
@@ -1065,6 +1067,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                 Solde PA
               </p>
               <p
+                className="leve-card-value"
                 style={{
                   margin: "0.35rem 0 0",
                   fontSize: "clamp(2.25rem, 7vw, 3rem)",

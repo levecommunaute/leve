@@ -1206,7 +1206,7 @@ export default function VideosPage(): React.JSX.Element | null {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-page-videos`}
       style={{
         minHeight: "100vh",
         background: "var(--bg)",
@@ -1237,6 +1237,7 @@ export default function VideosPage(): React.JSX.Element | null {
 
       <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "1.25rem" }}>
         <section
+          className="leve-hero"
           style={{
             marginBottom: "1.75rem",
             paddingBottom: "1.25rem",
