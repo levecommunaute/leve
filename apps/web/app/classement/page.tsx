@@ -312,6 +312,7 @@ function PodiumCard({
   const badge = memberTypeBadgeStyle(row.member_type);
   return (
     <div
+      className="leve-card"
       style={{
         flex: place === 1 ? "1.15" : "1",
         maxWidth: place === 1 ? "200px" : "170px",
@@ -719,7 +720,7 @@ export default function ClassementPage(): React.JSX.Element | null {
 
   return (
     <div
-      className={fonts}
+      className={`${fonts} leve-page-classement`}
       style={{
         minHeight: "100vh",
         background: "var(--bg)",
@@ -792,7 +793,7 @@ export default function ClassementPage(): React.JSX.Element | null {
           </p>
         ) : null}
 
-        <div style={{ marginBottom: "0.35rem" }}>
+        <div className="leve-hero" style={{ marginBottom: "0.35rem" }}>
           <h1
             style={{
               fontFamily: "var(--font-bebas), Impact, sans-serif",
@@ -945,6 +946,7 @@ export default function ClassementPage(): React.JSX.Element | null {
                       }}
                     >
                       <th
+                        className="leve-card-label"
                         style={{
                           padding: "0.75rem 0.85rem",
                           fontWeight: 600,
@@ -954,13 +956,14 @@ export default function ClassementPage(): React.JSX.Element | null {
                       >
                         #
                       </th>
-                      <th style={{ padding: "0.75rem 0.85rem", fontWeight: 600 }}>
+                      <th className="leve-card-label" style={{ padding: "0.75rem 0.85rem", fontWeight: 600 }}>
                         Membre
                       </th>
-                      <th style={{ padding: "0.75rem 0.85rem", fontWeight: 600 }}>
+                      <th className="leve-card-label" style={{ padding: "0.75rem 0.85rem", fontWeight: 600 }}>
                         Type
                       </th>
                       <th
+                        className="leve-card-label"
                         style={{
                           padding: "0.75rem 0.85rem",
                           fontWeight: 600,
@@ -970,6 +973,7 @@ export default function ClassementPage(): React.JSX.Element | null {
                         Mult.
                       </th>
                       <th
+                        className="leve-card-label"
                         style={{
                           padding: "0.75rem 0.85rem",
                           fontWeight: 600,
@@ -1071,6 +1075,7 @@ export default function ClassementPage(): React.JSX.Element | null {
                             {formatMultiplier(row.multiplier)}
                           </td>
                           <td
+                            className="leve-card-value"
                             style={{
                               padding: "0.65rem 0.85rem",
                               textAlign: "right",
