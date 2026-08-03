@@ -22,11 +22,11 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
-const G2 = "#141414";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
+const G2 = "var(--bg-card)";
 
 function currentMonthDate(): string {
   const d = new Date();
@@ -788,7 +788,7 @@ export default function BanquePage(): React.JSX.Element | null {
 
   if (session && !dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -878,7 +878,7 @@ export default function BanquePage(): React.JSX.Element | null {
               border-radius: 4px;
               padding: 1rem;
               background: rgba(245, 240, 232, 0.04);
-              border: 1px solid rgba(245, 240, 232, 0.1);
+              border: 1px solid var(--border-soft);
             }
             @media (max-width: 479px) {
               .banque-history-table-wrap {
@@ -959,9 +959,9 @@ export default function BanquePage(): React.JSX.Element | null {
             borderRadius: "4px",
             padding: "1.5rem 1.35rem",
             marginBottom: "1rem",
-            background: "#141414",
-            borderTop: "2px solid #D4A017",
-            border: "1px solid rgba(245, 240, 232, 0.06)",
+            background: "var(--bg-card)",
+            borderTop: "2px solid var(--accent)",
+            border: "1px solid var(--border-soft)",
           }}
         >
           <p
@@ -1003,7 +1003,7 @@ export default function BanquePage(): React.JSX.Element | null {
             style={{
               height: "8px",
               borderRadius: "4px",
-              background: "rgba(245, 240, 232, 0.12)",
+              background: "var(--border-soft)",
               overflow: "hidden",
               }}
           >
@@ -1048,9 +1048,9 @@ export default function BanquePage(): React.JSX.Element | null {
             marginBottom: "1.5rem",
             background: G2,
             borderTop: `2px solid ${GOLD}`,
-            borderRight: "1px solid rgba(245, 240, 232, 0.1)",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.1)",
-            borderLeft: "1px solid rgba(245, 240, 232, 0.1)",
+            borderRight: "1px solid var(--border-soft)",
+            borderBottom: "1px solid var(--border-soft)",
+            borderLeft: "1px solid var(--border-soft)",
             color: TEXT,
           }}
         >
@@ -1161,7 +1161,7 @@ export default function BanquePage(): React.JSX.Element | null {
           </p>
           <div
             style={{
-              borderTop: "1px solid rgba(245,240,232,0.06)",
+              borderTop: "1px solid var(--border-soft)",
               marginTop: "0.85rem",
               paddingTop: "0.85rem",
               display: "flex",
@@ -1184,7 +1184,7 @@ export default function BanquePage(): React.JSX.Element | null {
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: "0.9rem",
-                color: "#2ECC71",
+                color: "var(--accent-green)",
                 fontWeight: 700,
               }}
             >
@@ -1226,15 +1226,15 @@ export default function BanquePage(): React.JSX.Element | null {
               border:
                 canTransfer && !retraitGeleActif
                   ? "1px solid rgba(212, 160, 23, 0.4)"
-                  : "2px solid rgba(245, 240, 232, 0.2)",
+                  : "2px solid var(--border-strong)",
               background:
                 canTransfer && !retraitGeleActif
                   ? "transparent"
-                  : "rgba(245, 240, 232, 0.06)",
+                  : "var(--border-soft)",
               color:
                 canTransfer && !retraitGeleActif
                   ? GOLD
-                  : "rgba(245, 240, 232, 0.45)",
+                  : "var(--text-40)",
               cursor:
                 canTransfer && !retraitGeleActif ? "pointer" : "not-allowed",
             }}
@@ -1269,8 +1269,8 @@ export default function BanquePage(): React.JSX.Element | null {
                 style={{
                   maxWidth: "28rem",
                   width: "100%",
-                  background: "#121212",
-                  border: "1px solid rgba(245, 240, 232, 0.18)",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: "4px",
                   padding: "1.35rem 1.5rem",
                 }}
@@ -1371,7 +1371,7 @@ export default function BanquePage(): React.JSX.Element | null {
                             gap: "1rem",
                             marginTop: "0.5rem",
                             paddingTop: "0.65rem",
-                            borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+                            borderTop: "1px solid var(--border-soft)",
                             fontFamily:
                               "var(--font-mono), ui-monospace, monospace",
                           }}
@@ -1444,8 +1444,8 @@ export default function BanquePage(): React.JSX.Element | null {
                         width: "100%",
                         padding: "0.85rem 1rem",
                         borderRadius: "4px",
-                        border: "1px solid rgba(245, 240, 232, 0.2)",
-                        background: "#0a0a0a",
+                        border: "1px solid var(--border-strong)",
+                        background: "var(--bg-card)",
                         color: TEXT,
                         fontSize: "1.5rem",
                         letterSpacing: "0.35em",
@@ -1621,7 +1621,7 @@ export default function BanquePage(): React.JSX.Element | null {
                         borderRadius: "4px",
                         fontWeight: 600,
                         fontSize: "0.9rem",
-                        border: "1px solid rgba(245, 240, 232, 0.25)",
+                        border: "1px solid var(--border-strong)",
                         background: "transparent",
                         color: TEXT,
                         cursor: retraitSubmitting ? "wait" : "pointer",
@@ -1786,7 +1786,7 @@ export default function BanquePage(): React.JSX.Element | null {
                 lineHeight: 1.55,
                 padding: "1.25rem",
                 borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
+                border: "1px solid var(--border-soft)",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
             >
@@ -1843,7 +1843,7 @@ export default function BanquePage(): React.JSX.Element | null {
                 className="banque-history-table-wrap"
                 style={{
                   borderRadius: "4px",
-                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  border: "1px solid var(--border-soft)",
                   overflow: "hidden",
                   background: "rgba(245, 240, 232, 0.03)",
                 }}
@@ -1860,7 +1860,7 @@ export default function BanquePage(): React.JSX.Element | null {
                     <tr
                       style={{
                         textAlign: "left",
-                        borderBottom: "1px solid rgba(245, 240, 232, 0.12)",
+                        borderBottom: "1px solid var(--border-soft)",
                         background: "rgba(8, 8, 8, 0.5)",
                       }}
                     >
@@ -1898,7 +1898,7 @@ export default function BanquePage(): React.JSX.Element | null {
                           key={row.id}
                           style={{
                             borderBottom:
-                              "1px solid rgba(245, 240, 232, 0.06)",
+                              "1px solid var(--border-soft)",
                           }}
                         >
                           <td
