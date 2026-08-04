@@ -23,15 +23,15 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
-const G2 = "#141414";
-const G3 = "#1A1A1A";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
+const G2 = "var(--bg-card)";
+const G3 = "var(--bg-card-inner)";
 const SILVER = "#C0C0C0";
 const BRONZE = "#CD7F32";
-const VIOLET_BADGE = "#8E44AD";
+const VIOLET_BADGE = "var(--accent-violet)";
 const GRIS_COMM = "#6B6B6B";
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
@@ -323,9 +323,9 @@ function PodiumCard({
         justifyContent: "flex-end",
         padding: "1rem 0.65rem 1.15rem",
         borderRadius: "4px",
-        background: "#141414",
+        background: "var(--bg-card)",
         borderTop: `2px solid ${accent}`,
-        border: "1px solid rgba(245,240,232,0.06)",
+        border: "1px solid var(--border-soft)",
         position: "relative",
         outline: isCurrentUser ? `2px solid rgba(212,160,23,0.45)` : "none",
         outlineOffset: 2,
@@ -647,7 +647,7 @@ export default function ClassementPage(): React.JSX.Element | null {
             alignItems: "center",
             justifyContent: "space-between",
             padding: "1rem 1.25rem",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            borderBottom: "1px solid var(--border-soft)",
             position: "sticky",
             top: 0,
             background: "rgba(8, 8, 8, 0.92)",
@@ -697,7 +697,7 @@ export default function ClassementPage(): React.JSX.Element | null {
 
   if (session && !dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -768,7 +768,7 @@ export default function ClassementPage(): React.JSX.Element | null {
               padding: 0.85rem 1rem;
               border-radius: 4px;
               background: ${G2};
-              border: 1px solid rgba(245, 240, 232, 0.08);
+              border: 1px solid var(--border-soft);
             }
             .leve-classement-card.leve-classement-me {
               background: rgba(212, 160, 23, 0.06);
@@ -851,7 +851,7 @@ export default function ClassementPage(): React.JSX.Element | null {
               borderRadius: "4px",
               background:
                 "linear-gradient(160deg, rgba(212,160,23,0.08) 0%, rgba(8,8,8,0.6) 40%, rgba(192,57,43,0.06) 100%)",
-              border: "1px solid rgba(245, 240, 232, 0.1)",
+              border: "1px solid var(--border-soft)",
             }}
           >
             <p
@@ -923,7 +923,7 @@ export default function ClassementPage(): React.JSX.Element | null {
             <div
               style={{
                 borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
+                border: "1px solid var(--border-soft)",
                 overflow: "hidden",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
@@ -941,7 +941,7 @@ export default function ClassementPage(): React.JSX.Element | null {
                     <tr
                       style={{
                         textAlign: "left",
-                        borderBottom: "1px solid rgba(245, 240, 232, 0.12)",
+                        borderBottom: "1px solid var(--border-soft)",
                         background: "rgba(8, 8, 8, 0.55)",
                       }}
                     >
@@ -994,7 +994,7 @@ export default function ClassementPage(): React.JSX.Element | null {
                           key={row.membre_id}
                           className={isMe ? "leve-classement-me" : undefined}
                           style={{
-                            borderBottom: "1px solid rgba(245, 240, 232, 0.06)",
+                            borderBottom: "1px solid var(--border-soft)",
                           }}
                         >
                           <td
