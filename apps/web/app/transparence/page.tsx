@@ -29,11 +29,11 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
-const VERT = "#2ECC71";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
+const VERT = "var(--accent-green)";
 const GRIS_OPS = "#7F8C8D";
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
@@ -461,7 +461,7 @@ export default function TransparencePage(): React.JSX.Element {
 
   if (!dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -550,7 +550,7 @@ export default function TransparencePage(): React.JSX.Element {
               border-radius: 4px;
               padding: 1rem;
               background: rgba(245, 240, 232, 0.04);
-              border: 1px solid rgba(245, 240, 232, 0.1);
+              border: 1px solid var(--border-soft);
             }
             .leve-transparence-history-card-month {
               margin: 0 0 0.65rem;
@@ -602,10 +602,10 @@ export default function TransparencePage(): React.JSX.Element {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "1rem 1.25rem",
-          borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+          borderBottom: "1px solid var(--border-soft)",
           position: "sticky",
           top: 0,
-          background: "rgba(8, 8, 8, 0.92)",
+          background: "color-mix(in srgb, var(--bg) 92%, transparent)",
           backdropFilter: "blur(8px)",
           zIndex: 20,
         }}
@@ -691,7 +691,7 @@ export default function TransparencePage(): React.JSX.Element {
           style={{
             marginBottom: "2rem",
             paddingBottom: "1.5rem",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            borderBottom: "1px solid var(--border-soft)",
           }}
         >
           <p
@@ -751,8 +751,8 @@ export default function TransparencePage(): React.JSX.Element {
                 style={{
                   borderRadius: "4px",
                   padding: "1.15rem 1rem",
-                  background: "#141414",
-                  border: "1px solid rgba(245, 240, 232, 0.06)",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-soft)",
                   borderTop: `2px solid ${c.color}`,
                 }}
               >
@@ -825,8 +825,8 @@ export default function TransparencePage(): React.JSX.Element {
                     gridColumn: "1 / -1",
                     borderRadius: "4px",
                     padding: "1.35rem 1.25rem",
-                    background: `linear-gradient(125deg, rgba(212, 160, 23, 0.14) 0%, rgba(8,8,8,0.95) 55%, rgba(192, 57, 43, 0.08) 100%)`,
-                    border: "1px solid rgba(245, 240, 232, 0.12)",
+                    background: `linear-gradient(125deg, rgba(212, 160, 23, 0.14) 0%, var(--bg-card) 55%, rgba(192, 57, 43, 0.08) 100%)`,
+                    border: "1px solid var(--border-soft)",
                   }}
                 >
                   <p
@@ -939,7 +939,7 @@ export default function TransparencePage(): React.JSX.Element {
                       borderRadius: "4px",
                       padding: "1.05rem",
                       background: "rgba(245, 240, 232, 0.04)",
-                      border: `1px solid rgba(245, 240, 232, 0.1)`,
+                      border: `1px solid var(--border-soft)`,
                       borderLeft: `3px solid ${row.accent}`,
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                   >
@@ -1003,7 +1003,7 @@ export default function TransparencePage(): React.JSX.Element {
                       borderRadius: "4px",
                       padding: "1.05rem",
                       background: "rgba(245, 240, 232, 0.04)",
-                      border: `1px solid rgba(245, 240, 232, 0.1)`,
+                      border: `1px solid var(--border-soft)`,
                       borderLeft: `3px solid ${row.accent}`,
                     }}
                   >
@@ -1067,7 +1067,7 @@ export default function TransparencePage(): React.JSX.Element {
                 lineHeight: 1.55,
                 padding: "1.35rem",
                 borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
+                border: "1px solid var(--border-soft)",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
             >
@@ -1077,7 +1077,7 @@ export default function TransparencePage(): React.JSX.Element {
             <div
               style={{
                 borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
+                border: "1px solid var(--border-soft)",
                 overflow: "hidden",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
@@ -1098,8 +1098,8 @@ export default function TransparencePage(): React.JSX.Element {
                     <tr
                       style={{
                         textAlign: "left",
-                        borderBottom: "1px solid rgba(245, 240, 232, 0.12)",
-                        background: "rgba(8, 8, 8, 0.55)",
+                        borderBottom: "1px solid var(--border-soft)",
+                        background: "var(--bg-card-inner)",
                       }}
                     >
                       <th
@@ -1135,7 +1135,7 @@ export default function TransparencePage(): React.JSX.Element {
                       <tr
                         key={row.month}
                         style={{
-                          borderBottom: "1px solid rgba(245, 240, 232, 0.06)",
+                          borderBottom: "1px solid var(--border-soft)",
                         }}
                       >
                         <td
