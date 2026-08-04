@@ -25,10 +25,10 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
 const SB = "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxyb2xhdGJ1ZHZpYW5lYXpsaWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3NTA1NjYsImV4cCI6MjA5MzMyNjU2Nn0.ETlgrZ9qi9hAxXKrysPbmNpJTiaCE7-BXo5tfes5IV4";
@@ -67,8 +67,8 @@ const STATUS_STYLES: Record<
   completed: {
     label: "Quiz complété",
     icon: "✅",
-    color: "#2ECC71",
-    border: "#2ECC71",
+    color: "var(--accent-green)",
+    border: "var(--accent-green)",
     bg: "rgba(46, 204, 113, 0.06)",
   },
   code_submitted: {
@@ -198,7 +198,7 @@ function VideoThumb({
         aspectRatio: "16 / 9",
         overflow: "hidden",
         borderRadius,
-        background: "rgba(245, 240, 232, 0.06)",
+        background: "var(--border-soft)",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -617,7 +617,7 @@ export default function VideosPage(): React.JSX.Element | null {
 
   if (session && !dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -665,13 +665,13 @@ export default function VideosPage(): React.JSX.Element | null {
     );
 
     const renderGridItem = (v: VideoRow, variant: 'bonus' | 'urgent' | 'normal' | 'done' | 'quiz') => {
-      const borderColor = variant === 'bonus' ? '#2ECC71' : variant === 'urgent' ? '#C0392B' : variant === 'quiz' ? '#D4A017' : variant === 'done' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.08)';
+      const borderColor = variant === 'bonus' ? 'var(--accent-green)' : variant === 'urgent' ? 'var(--accent-red)' : variant === 'quiz' ? 'var(--accent)' : variant === 'done' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.08)';
       const pts = v.points_value ?? 0;
       const thumbUrl = `https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`;
       const expiresSoon = v.bonus_expire_at ? (new Date(v.bonus_expire_at).getTime() - Date.now()) < 1000 * 60 * 60 * 6 : false;
 
       return (
-        <div key={v.id} style={{ background: '#141414', borderLeft: `3px solid ${borderColor}`, display: 'flex', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '1px', opacity: variant === 'done' ? 0.5 : 1, overflow: 'hidden' }}>
+        <div key={v.id} style={{ background: 'var(--bg-card)', borderLeft: `3px solid ${borderColor}`, display: 'flex', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '1px', opacity: variant === 'done' ? 0.5 : 1, overflow: 'hidden' }}>
           {/* Thumbnail gauche */}
           <div style={{ width: '120px', minWidth: '120px', height: '68px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
             <img
@@ -680,7 +680,7 @@ export default function VideosPage(): React.JSX.Element | null {
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: variant === 'done' ? 'grayscale(0.5)' : 'none' }}
             />
             {variant === 'bonus' || variant === 'urgent' ? (
-              <div style={{ position: 'absolute', bottom: '3px', right: '4px', background: 'rgba(8,8,8,0.85)', fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: '#D4A017', padding: '0.1rem 0.3rem', border: '1px solid rgba(212,160,23,0.3)' }}>
+              <div style={{ position: 'absolute', bottom: '3px', right: '4px', background: 'rgba(8,8,8,0.85)', fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'var(--accent)', padding: '0.1rem 0.3rem', border: '1px solid rgba(212,160,23,0.3)' }}>
                 +{variant === 'bonus' ? pts * 2 : pts} PTS
               </div>
             ) : null}
@@ -694,17 +694,17 @@ export default function VideosPage(): React.JSX.Element | null {
               {formatPublishedAgo(v.created_at)}
             </div>
             {variant === 'bonus' && (
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: '#2ECC71' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: 'var(--accent-green)' }}>
                 ⚡ +{pts * 2} pts avec ×2 {profile?.member_type ?? ''}
               </div>
             )}
             {variant === 'urgent' && (
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: '#C0392B' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: 'var(--accent-red)' }}>
                 ⚡ Bonus expire bientôt !
               </div>
             )}
             {variant === 'quiz' && (
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: '#D4A017' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.48rem', color: 'var(--accent)' }}>
                 ⚡ Code trouvé · Lance le quiz pour gagner tes points
               </div>
             )}
@@ -713,21 +713,21 @@ export default function VideosPage(): React.JSX.Element | null {
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0.55rem 0.85rem 0.55rem 0', flexShrink: 0 }}>
             {variant === 'quiz' ? (
               <a href={`/videos/${v.id}/quiz`}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid #D4A017', color: '#D4A017', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 FAIRE LE QUIZ →
               </a>
             ) : variant !== 'done' ? (
               <a href={`/videos/${v.id}`}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: variant === 'bonus' || variant === 'urgent' ? '#C0392B' : 'transparent', border: variant === 'normal' ? '1px solid rgba(255,255,255,0.15)' : 'none', color: '#F5F0E8', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: variant === 'bonus' || variant === 'urgent' ? 'var(--accent-red)' : 'transparent', border: variant === 'normal' ? '1px solid rgba(255,255,255,0.15)' : 'none', color: 'var(--text)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                 {variant === 'urgent' ? 'URGENT →' : 'VOIR →'}
               </a>
             ) : (
               <>
                 <a href={`/videos/${v.id}`}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid rgba(46,204,113,0.2)', color: 'rgba(46,204,113,0.5)', textDecoration: 'none' }}>
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid rgba(46,204,113,0.2)', color: 'var(--accent-green)', textDecoration: 'none' }}>
                   REVOIR ✓
                 </a>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'rgba(46,204,113,0.4)', marginTop: '0.2rem', textAlign: 'right' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'rgba(46,204,113,0.7)', marginTop: '0.2rem', textAlign: 'right' }}>
                   Revoir pour bonus
                 </div>
               </>
@@ -741,7 +741,7 @@ export default function VideosPage(): React.JSX.Element | null {
       <div>
         {bonusActif.length > 0 && (
           <>
-            {sectionHdr('#2ECC71', 'Points +2 — Moins de 72h', bonusActif.length)}
+            {sectionHdr('var(--accent-green)', 'Points +2 — Moins de 72h', bonusActif.length)}
             {bonusActif.map(v => {
               const expiresSoon = v.bonus_expire_at ? (new Date(v.bonus_expire_at).getTime() - Date.now()) < 1000 * 60 * 60 * 6 : false;
               return renderGridItem(v, expiresSoon ? 'urgent' : 'bonus');
@@ -756,13 +756,13 @@ export default function VideosPage(): React.JSX.Element | null {
         )}
         {codeSubmis.length > 0 && (
           <>
-            {sectionHdr('#D4A017', '🔒 Code soumis — Quiz en attente', codeSubmis.length)}
+            {sectionHdr('var(--accent)', '🔒 Code soumis — Quiz en attente', codeSubmis.length)}
             {codeSubmis.map(v => renderGridItem(v, 'quiz'))}
           </>
         )}
         {completes.length > 0 && (
           <>
-            {sectionHdr('#2ECC71', '✅ Vidéos complétées', completes.length)}
+            {sectionHdr('var(--accent-green)', '✅ Vidéos complétées', completes.length)}
             {completes.map(v => renderGridItem(v, 'done'))}
           </>
         )}
@@ -836,11 +836,11 @@ export default function VideosPage(): React.JSX.Element | null {
     const renderItem = (v: VideoRow, variant: "bonus" | "urgent" | "normal" | "done" | "quiz") => {
       const borderColor =
         variant === "bonus"
-          ? "#2ECC71"
+          ? "var(--accent-green)"
           : variant === "urgent"
-            ? "#C0392B"
+            ? "var(--accent-red)"
             : variant === "quiz"
-              ? "#D4A017"
+              ? "var(--accent)"
               : variant === "done"
                 ? "rgba(255,255,255,0.06)"
                 : "rgba(255,255,255,0.08)";
@@ -852,7 +852,7 @@ export default function VideosPage(): React.JSX.Element | null {
         <div
           key={v.id}
           style={{
-            background: "#141414",
+            background: "var(--bg-card)",
             borderLeft: `3px solid ${borderColor}`,
             padding: "0.75rem 1rem",
             display: "flex",
@@ -891,7 +891,7 @@ export default function VideosPage(): React.JSX.Element | null {
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.48rem",
-                  color: "#2ECC71",
+                  color: "var(--accent-green)",
                   marginTop: "0.15rem",
                 }}
               >
@@ -903,7 +903,7 @@ export default function VideosPage(): React.JSX.Element | null {
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.48rem",
-                  color: "#C0392B",
+                  color: "var(--accent-red)",
                   marginTop: "0.15rem",
                 }}
               >
@@ -915,7 +915,7 @@ export default function VideosPage(): React.JSX.Element | null {
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: "0.48rem",
-                  color: "#D4A017",
+                  color: "var(--accent)",
                   marginTop: "0.15rem",
                 }}
               >
@@ -936,7 +936,7 @@ export default function VideosPage(): React.JSX.Element | null {
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: "0.6rem",
-                color: variant === "done" ? "rgba(255,255,255,0.25)" : "#D4A017",
+                color: variant === "done" ? "rgba(255,255,255,0.25)" : "var(--accent)",
                 fontWeight: 600,
               }}
             >
@@ -954,8 +954,8 @@ export default function VideosPage(): React.JSX.Element | null {
                   textTransform: "uppercase",
                   padding: "0.28rem 0.65rem",
                   background: "transparent",
-                  border: "1px solid #D4A017",
-                  color: "#D4A017",
+                  border: "1px solid var(--accent)",
+                  color: "var(--accent)",
                   textDecoration: "none",
                   whiteSpace: "nowrap",
                 }}
@@ -972,10 +972,10 @@ export default function VideosPage(): React.JSX.Element | null {
                   textTransform: "uppercase",
                   padding: "0.28rem 0.65rem",
                   background:
-                    variant === "bonus" || variant === "urgent" ? "#C0392B" : "transparent",
+                    variant === "bonus" || variant === "urgent" ? "var(--accent-red)" : "transparent",
                   border:
                     variant === "normal" ? "1px solid rgba(255,255,255,0.15)" : "none",
-                  color: "#F5F0E8",
+                  color: "var(--text)",
                   textDecoration: "none",
                   whiteSpace: "nowrap",
                 }}
@@ -994,7 +994,7 @@ export default function VideosPage(): React.JSX.Element | null {
                     padding: "0.28rem 0.65rem",
                     background: "transparent",
                     border: "1px solid rgba(46,204,113,0.2)",
-                    color: "rgba(46,204,113,0.5)",
+                    color: "var(--accent-green)",
                     textDecoration: "none",
                   }}
                 >
@@ -1004,7 +1004,7 @@ export default function VideosPage(): React.JSX.Element | null {
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: "0.44rem",
-                    color: "rgba(46,204,113,0.4)",
+                    color: "rgba(46,204,113,0.7)",
                     marginTop: "0.2rem",
                     textAlign: "right",
                   }}
@@ -1022,7 +1022,7 @@ export default function VideosPage(): React.JSX.Element | null {
       <div>
         {bonusActif.length > 0 && (
           <>
-            {sectionHdr("#2ECC71", "Points +2 — Moins de 72h", bonusActif.length)}
+            {sectionHdr("var(--accent-green)", "Points +2 — Moins de 72h", bonusActif.length)}
             {bonusActif.map((v) => {
               const expiresSoon = v.bonus_expire_at
                 ? new Date(v.bonus_expire_at).getTime() - Date.now() < 1000 * 60 * 60 * 6
@@ -1043,13 +1043,13 @@ export default function VideosPage(): React.JSX.Element | null {
         )}
         {codeSubmis.length > 0 && (
           <>
-            {sectionHdr("#D4A017", "🔒 Code soumis — Quiz en attente", codeSubmis.length)}
+            {sectionHdr("var(--accent)", "🔒 Code soumis — Quiz en attente", codeSubmis.length)}
             {codeSubmis.map((v) => renderItem(v, "quiz"))}
           </>
         )}
         {completes.length > 0 && (
           <>
-            {sectionHdr("#2ECC71", "✅ Vidéos complétées", completes.length)}
+            {sectionHdr("var(--accent-green)", "✅ Vidéos complétées", completes.length)}
             {completes.map((v) => renderItem(v, "done"))}
           </>
         )}
@@ -1070,7 +1070,7 @@ export default function VideosPage(): React.JSX.Element | null {
           display: "flex",
           gap: "0.85rem",
           padding: "0.85rem 0",
-          borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+          borderBottom: "1px solid var(--border-soft)",
           fontFamily: "var(--font-mono), ui-monospace, monospace",
         }}
       >
@@ -1130,7 +1130,7 @@ export default function VideosPage(): React.JSX.Element | null {
             style={{
               marginBottom: "1.75rem",
               paddingBottom: "1.75rem",
-              borderBottom: "1px solid rgba(245, 240, 232, 0.12)",
+              borderBottom: "1px solid var(--border-soft)",
             }}
           >
             <div style={{ position: "relative", marginBottom: "1rem" }}>
@@ -1244,7 +1244,7 @@ export default function VideosPage(): React.JSX.Element | null {
           style={{
             marginBottom: "1.75rem",
             paddingBottom: "1.25rem",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            borderBottom: "1px solid var(--border-soft)",
           }}
         >
           <h1
@@ -1277,8 +1277,8 @@ export default function VideosPage(): React.JSX.Element | null {
             marginBottom: "1.75rem",
             padding: "1.1rem 1.15rem",
             borderRadius: "4px",
-            background: "#141414",
-            border: "1px solid rgba(245, 240, 232, 0.1)",
+            background: "var(--bg-card)",
+            border: "1px solid var(--border-soft)",
           }}
         >
           <h2
@@ -1313,8 +1313,8 @@ export default function VideosPage(): React.JSX.Element | null {
                 minWidth: "220px",
                 maxWidth: "320px",
                 padding: "0.75rem 1rem",
-                background: "#222",
-                border: "1px solid rgba(245, 240, 232, 0.15)",
+                background: "var(--bg-card-inner)",
+                border: "1px solid var(--border-strong)",
                 color: TEXT,
                 textAlign: "center",
                 fontSize: "1.05rem",
@@ -1353,7 +1353,7 @@ export default function VideosPage(): React.JSX.Element | null {
               </a>
             </p>
           ) : alreadyCompletedMessage ? (
-            <p style={{ margin: "0.85rem 0 0", color: "#2ECC71", fontSize: "0.9rem", lineHeight: 1.5 }}>
+            <p style={{ margin: "0.85rem 0 0", color: "var(--accent-green)", fontSize: "0.9rem", lineHeight: 1.5 }}>
               {alreadyCompletedMessage}
               {alreadyCompletedVideoId && (
                 <>
@@ -1370,7 +1370,7 @@ export default function VideosPage(): React.JSX.Element | null {
                       padding: "0.28rem 0.65rem",
                       background: "transparent",
                       border: "1px solid rgba(46,204,113,0.3)",
-                      color: "#2ECC71",
+                      color: "var(--accent-green)",
                       textDecoration: "none",
                     }}
                   >
@@ -1414,9 +1414,9 @@ export default function VideosPage(): React.JSX.Element | null {
                 aria-label="Vue grille"
                 aria-pressed={viewMode === "grid"}
                 style={{
-                  background: viewMode === "grid" ? "rgba(245,240,232,0.12)" : "transparent",
-                  border: "1px solid rgba(245,240,232,0.15)",
-                  color: viewMode === "grid" ? TEXT : "rgba(245,240,232,0.4)",
+                  background: viewMode === "grid" ? "var(--border-soft)" : "transparent",
+                  border: "1px solid var(--border-strong)",
+                  color: viewMode === "grid" ? TEXT : "var(--text-40)",
                   padding: "0.4rem 0.55rem",
                   cursor: "pointer",
                   borderRadius: "2px 0 0 2px",
@@ -1439,9 +1439,9 @@ export default function VideosPage(): React.JSX.Element | null {
                 aria-label="Vue liste"
                 aria-pressed={viewMode === "list"}
                 style={{
-                  background: viewMode === "list" ? "rgba(245,240,232,0.12)" : "transparent",
-                  border: "1px solid rgba(245,240,232,0.15)",
-                  color: viewMode === "list" ? TEXT : "rgba(245,240,232,0.4)",
+                  background: viewMode === "list" ? "var(--border-soft)" : "transparent",
+                  border: "1px solid var(--border-strong)",
+                  color: viewMode === "list" ? TEXT : "var(--text-40)",
                   padding: "0.4rem 0.55rem",
                   cursor: "pointer",
                   borderRadius: "0 2px 2px 0",
@@ -1490,7 +1490,7 @@ export default function VideosPage(): React.JSX.Element | null {
             style={{
               width: "100%",
               maxWidth: "420px",
-              background: "#111",
+              background: "var(--bg-card)",
               border: "1px solid rgba(255,255,255,.1)",
               padding: "2rem",
               fontFamily: "var(--font-dm), system-ui, sans-serif",
