@@ -722,10 +722,10 @@ export default function VideosPage(): React.JSX.Element | null {
             ) : (
               <>
                 <a href={`/videos/${v.id}`}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid rgba(46,204,113,0.2)', color: 'rgba(46,204,113,0.5)', textDecoration: 'none' }}>
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.46rem', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '0.28rem 0.65rem', background: 'transparent', border: '1px solid rgba(46,204,113,0.2)', color: 'var(--accent-green)', textDecoration: 'none' }}>
                   REVOIR ✓
                 </a>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'rgba(46,204,113,0.4)', marginTop: '0.2rem', textAlign: 'right' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'rgba(46,204,113,0.7)', marginTop: '0.2rem', textAlign: 'right' }}>
                   Revoir pour bonus
                 </div>
               </>
@@ -992,7 +992,7 @@ export default function VideosPage(): React.JSX.Element | null {
                     padding: "0.28rem 0.65rem",
                     background: "transparent",
                     border: "1px solid rgba(46,204,113,0.2)",
-                    color: "rgba(46,204,113,0.5)",
+                    color: "var(--accent-green)",
                     textDecoration: "none",
                   }}
                 >
@@ -1002,7 +1002,7 @@ export default function VideosPage(): React.JSX.Element | null {
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: "0.44rem",
-                    color: "rgba(46,204,113,0.4)",
+                    color: "rgba(46,204,113,0.7)",
                     marginTop: "0.2rem",
                     textAlign: "right",
                   }}
