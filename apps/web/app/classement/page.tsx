@@ -180,7 +180,7 @@ function memberTypeBadgeStyle(label: string): {
     case "Collaborateur":
       return {
         background: "rgba(142, 68, 173, 0.22)",
-        color: "#D6B8E8",
+        color: VIOLET_BADGE,
         border: `1px solid ${VIOLET_BADGE}`,
       };
     default:
@@ -433,7 +433,7 @@ function comingSoonSection(title: string): React.JSX.Element {
         textAlign: "center",
         marginTop: "2rem",
         background:
-          "linear-gradient(180deg, rgba(212, 160, 23, 0.07) 0%, rgba(8, 8, 8, 0.95) 55%)",
+          "linear-gradient(180deg, rgba(212, 160, 23, 0.07) 0%, var(--bg-card) 55%)",
         border: "1px solid rgba(212, 160, 23, 0.22)",
       }}
     >
@@ -850,7 +850,7 @@ export default function ClassementPage(): React.JSX.Element | null {
               padding: "1.5rem 0.75rem 1.75rem",
               borderRadius: "4px",
               background:
-                "linear-gradient(160deg, rgba(212,160,23,0.08) 0%, rgba(8,8,8,0.6) 40%, rgba(192,57,43,0.06) 100%)",
+                "linear-gradient(160deg, rgba(212,160,23,0.08) 0%, var(--bg-card) 40%, rgba(192,57,43,0.06) 100%)",
               border: "1px solid var(--border-soft)",
             }}
           >
