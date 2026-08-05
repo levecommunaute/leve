@@ -21,15 +21,15 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
-const VERT = "#2ECC71";
-const VIOLET = "#7B5EA7";
-const CARD_BG = "#141414";
-const MODAL_BG = "#1A1A1A";
-const MUTED = "rgba(245, 240, 232, 0.5)";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
+const VERT = "var(--accent-green)";
+const VIOLET = "var(--accent-violet)";
+const CARD_BG = "var(--bg-card)";
+const MODAL_BG = "var(--bg-card-inner)";
+const MUTED = "var(--text-55)";
 const PA_TAX_RATE = 0.02;
 const TIP_AMOUNTS = [1, 2, 5, 10] as const;
 const MIN_DON_PTS = 5;
@@ -774,7 +774,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
 
   if (session && !dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -806,10 +806,10 @@ export default function PoolPaPage(): React.JSX.Element | null {
             alignItems: "center",
             justifyContent: "space-between",
             padding: "1rem 1.25rem",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            borderBottom: "1px solid var(--border-soft)",
             position: "sticky",
             top: 0,
-            background: "rgba(8, 8, 8, 0.92)",
+            background: "color-mix(in srgb, var(--bg) 92%, transparent)",
             backdropFilter: "blur(8px)",
             zIndex: 20,
           }}
@@ -998,7 +998,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
               border-radius: 4px;
               padding: 1rem;
               background: rgba(245, 240, 232, 0.04);
-              border: 1px solid rgba(245, 240, 232, 0.1);
+              border: 1px solid var(--border-soft);
             }
             @media (max-width: 479px) {
               .pool-pa-history-table-wrap {
@@ -1047,9 +1047,9 @@ export default function PoolPaPage(): React.JSX.Element | null {
                 borderRadius: "4px",
                 padding: "1.5rem 1.35rem",
                 marginBottom: "1rem",
-                background: "#141414",
-                borderTop: "2px solid #7B5EA7",
-                border: "1px solid rgba(245, 240, 232, 0.06)",
+                background: "var(--bg-card)",
+                borderTop: "2px solid var(--accent-violet)",
+                border: "1px solid var(--border-soft)",
               }}
             >
               <p
@@ -1061,7 +1061,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                   textTransform: "uppercase",
                   fontWeight: 700,
                   opacity: 0.85,
-                  color: "#F5F0E8",
+                  color: "var(--text)",
                 }}
               >
                 Solde PA
@@ -1073,7 +1073,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                   fontSize: "clamp(2.25rem, 7vw, 3rem)",
                   fontWeight: 800,
                   fontFamily: "var(--font-dm), system-ui, sans-serif",
-                  color: "#7B5EA7",
+                  color: "var(--accent-violet)",
                 }}
               >
                 {ptsFmt.format(soldePa)} pt{soldePa !== 1 ? "s" : ""}
@@ -1088,7 +1088,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                 borderRadius: "4px",
                 padding: "1.5rem 1.35rem",
                 marginBottom: "1.5rem",
-                border: "1px solid rgba(245, 240, 232, 0.12)",
+                border: "1px solid var(--border-soft)",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
             >
@@ -1163,7 +1163,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                     width: "5rem",
                     padding: "0.5rem",
                     borderRadius: "4px",
-                    border: "1px solid rgba(245, 240, 232, 0.2)",
+                    border: "1px solid var(--border-strong)",
                     background: BG,
                     color: TEXT,
                     fontSize: "1rem",
@@ -1188,7 +1188,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                     display: "flex",
                     justifyContent: "space-between",
                     paddingTop: "0.5rem",
-                    borderTop: "1px solid rgba(245, 240, 232, 0.1)",
+                    borderTop: "1px solid var(--border-soft)",
                     fontWeight: 700,
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                 >
@@ -1222,9 +1222,9 @@ export default function PoolPaPage(): React.JSX.Element | null {
                   fontWeight: 700,
                   fontSize: "0.95rem",
                   letterSpacing: "0.04em",
-                  border: `2px solid ${canBuy ? ROUGE : "rgba(245, 240, 232, 0.2)"}`,
-                  background: canBuy ? ROUGE : "rgba(245, 240, 232, 0.06)",
-                  color: canBuy ? TEXT : "rgba(245, 240, 232, 0.45)",
+                  border: `2px solid ${canBuy ? ROUGE : "var(--border-strong)"}`,
+                  background: canBuy ? ROUGE : "var(--border-soft)",
+                  color: canBuy ? TEXT : "var(--text-40)",
                   cursor: canBuy ? "pointer" : "not-allowed",
                 }}
               >
@@ -1473,7 +1473,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                       flex: "1 1 180px",
                       padding: "0.55rem 0.75rem",
                       borderRadius: "4px",
-                      border: "1px solid rgba(245, 240, 232, 0.2)",
+                      border: "1px solid var(--border-strong)",
                       background: BG,
                       color: TEXT,
                       fontSize: "0.95rem",
@@ -1518,7 +1518,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                       padding: "1rem",
                       borderRadius: "4px",
                       background: CARD_BG,
-                      border: "1px solid rgba(245, 240, 232, 0.1)",
+                      border: "1px solid var(--border-soft)",
                     }}
                   >
                     <div
@@ -1606,7 +1606,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                           width: "5rem",
                           padding: "0.5rem",
                           borderRadius: "4px",
-                          border: "1px solid rgba(245, 240, 232, 0.2)",
+                          border: "1px solid var(--border-strong)",
                           background: BG,
                           color: GOLD,
                           fontWeight: 700,
@@ -1676,7 +1676,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                 lineHeight: 1.55,
                 padding: "1.25rem",
                 borderRadius: "4px",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
+                border: "1px solid var(--border-soft)",
                 background: "rgba(245, 240, 232, 0.03)",
               }}
             >
@@ -1742,7 +1742,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                 className="pool-pa-history-table-wrap"
                 style={{
                   borderRadius: "4px",
-                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  border: "1px solid var(--border-soft)",
                   overflow: "hidden",
                   background: "rgba(245, 240, 232, 0.03)",
                 }}
@@ -1759,8 +1759,8 @@ export default function PoolPaPage(): React.JSX.Element | null {
                     <tr
                       style={{
                         textAlign: "left",
-                        borderBottom: "1px solid rgba(245, 240, 232, 0.12)",
-                        background: "rgba(8, 8, 8, 0.5)",
+                        borderBottom: "1px solid var(--border-soft)",
+                        background: "var(--bg-card-inner)",
                       }}
                     >
                       <th
@@ -1794,7 +1794,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
                         <tr
                           key={row.id}
                           style={{
-                            borderBottom: "1px solid rgba(245, 240, 232, 0.06)",
+                            borderBottom: "1px solid var(--border-soft)",
                           }}
                         >
                           <td
