@@ -122,11 +122,11 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
-const CARD_BG = "#141414";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
+const CARD_BG = "var(--bg-card)";
 const YOUTUBE_URL = "https://www.youtube.com/@levecommunaute";
 const VOTE_PA_COST = 5;
 const TICKET_PA_COST = 10;
@@ -592,9 +592,9 @@ export default function ConcoursPage(): React.JSX.Element | null {
           borderRadius: "4px",
           padding: "1rem",
           marginBottom: "0.75rem",
-          background: "#141414",
-          borderTop: "2px solid #D4A017",
-          border: "1px solid rgba(245,240,232,0.06)",
+          background: "var(--bg-card)",
+          borderTop: "2px solid var(--accent)",
+          border: "1px solid var(--border-soft)",
           fontFamily: "var(--font-mono), ui-monospace, monospace",
         }}
       >
@@ -617,7 +617,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
                 borderRadius: "4px",
                 background: "transparent",
                 border: "1px solid rgba(212,160,23,0.4)",
-                color: "#D4A017",
+                color: "var(--accent)",
                 fontFamily: "var(--font-mono)",
                 fontSize: "0.75rem",
                 letterSpacing: "0.12em",
@@ -682,7 +682,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
 
   if (session && !dataLoaded) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -708,10 +708,10 @@ export default function ConcoursPage(): React.JSX.Element | null {
             alignItems: "center",
             justifyContent: "space-between",
             padding: "1rem 1.25rem",
-            borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+            borderBottom: "1px solid var(--border-soft)",
             position: "sticky",
             top: 0,
-            background: "rgba(8, 8, 8, 0.92)",
+            background: "color-mix(in srgb, var(--bg) 92%, transparent)",
             zIndex: 20,
           }}
         >
@@ -884,7 +884,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE }}>{loadError}</p> : null}
 
-        <section style={{ borderRadius: "4px", padding: "1.5rem", marginBottom: "1rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+        <section style={{ borderRadius: "4px", padding: "1.5rem", marginBottom: "1rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid var(--border-soft)" }}>
           <h1 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2.2rem" }}>
             CONCOURS PMQ
           </h1>
@@ -913,7 +913,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
           const end = new Date(row.date_fin);
           const msg = participationMsg?.concoursId === row.id ? participationMsg : null;
           return (
-            <section key={row.id} style={{ borderRadius: "4px", padding: "1.25rem", marginBottom: "0.9rem", background: "#111", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <section key={row.id} style={{ borderRadius: "4px", padding: "1.25rem", marginBottom: "0.9rem", background: "var(--bg-card)", border: "1px solid var(--border-soft)" }}>
               <h2 style={{ margin: "0 0 0.5rem", color: ROUGE, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.06em" }}>
                 {row.titre || "Concours"}
               </h2>
@@ -949,7 +949,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
               <span style={{ opacity: 0.7 }}> · partagés entre les deux concours</span>
             </p>
 
-            <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "0.75rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "0.75rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid var(--border-soft)" }}>
               <h2 className="concours-section-title" style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em" }}>
                 🌍 CONCOURS INTERNATIONAL
               </h2>
@@ -963,7 +963,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
               )}
             </section>
 
-            <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+            <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid var(--border-soft)" }}>
               <h2 className="concours-section-title" style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em" }}>
                 🇭🇹 CONCOURS CULTURE HAÏTIENNE — Par département
               </h2>
@@ -986,7 +986,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
         ) : null}
 
         {flagTirage ? (
-          <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid rgba(245, 240, 232, 0.1)" }}>
+          <section style={{ borderRadius: "4px", padding: "1.5rem", marginTop: "1.5rem", background: "rgba(245, 240, 232, 0.03)", border: "1px solid var(--border-soft)" }}>
             <h2 style={{ margin: 0, fontFamily: "var(--font-bebas), Impact, sans-serif", letterSpacing: "0.08em", fontSize: "2rem" }}>
               TIRAGE TRIMESTRIEL
             </h2>
@@ -1014,7 +1014,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
                         borderRadius: "4px",
                         background: "transparent",
                         border: "1px solid rgba(212,160,23,0.4)",
-                        color: "#D4A017",
+                        color: "var(--accent)",
                         fontFamily: "var(--font-mono)",
                         fontSize: "0.75rem",
                         letterSpacing: "0.12em",
@@ -1059,7 +1059,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
                 style={{
                   marginTop: "1.25rem",
                   paddingTop: "1rem",
-                  borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+                  borderTop: "1px solid var(--border-soft)",
                 }}
               >
                 <h3
