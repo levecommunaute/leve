@@ -13,11 +13,11 @@ import { AppBottomNav } from "../../components/app-bottom-nav";
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
-const VERT = "#2ECC71";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
+const VERT = "var(--accent-green)";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://lrolatbudvianeazliax.supabase.co";
 const KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
@@ -715,7 +715,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
             width: "2.25rem",
             height: "2.25rem",
             borderRadius: "50%",
-            border: "3px solid rgba(245, 240, 232, 0.15)",
+            border: "3px solid var(--border-strong)",
             borderTopColor: GOLD,
             animation: "collab-spin 0.8s linear infinite",
           }}
@@ -776,10 +776,10 @@ export default function CollaborateurPage(): React.JSX.Element | null {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "1rem 1.25rem",
-          borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+          borderBottom: "1px solid var(--border-soft)",
           position: "sticky",
           top: 0,
-          background: "rgba(8, 8, 8, 0.92)",
+          background: "color-mix(in srgb, var(--bg) 92%, transparent)",
           backdropFilter: "blur(8px)",
           zIndex: 20,
         }}
@@ -821,7 +821,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
                 paddingBottom: prevMonthLabel ? "2.5rem" : "1.75rem",
                 marginBottom: "1.25rem",
                 background:
-                  "linear-gradient(145deg, rgba(212, 160, 23, 0.15) 0%, rgba(8, 8, 8, 0.9) 50%, rgba(192, 57, 43, 0.08) 100%)",
+                  "linear-gradient(145deg, rgba(212, 160, 23, 0.15) 0%, var(--bg-card) 50%, rgba(192, 57, 43, 0.08) 100%)",
                 border: "1px solid rgba(212, 160, 23, 0.35)",
               }}
             >
@@ -900,7 +900,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
                 padding: "1.35rem 1.25rem",
                 marginBottom: "1.25rem",
                 background: "rgba(245, 240, 232, 0.03)",
-                border: "1px solid rgba(245, 240, 232, 0.1)",
+                border: "1px solid var(--border-soft)",
               }}
             >
               <p
@@ -958,7 +958,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
                   borderRadius: "4px",
                   padding: "1.1rem",
                   background: "rgba(245, 240, 232, 0.04)",
-                  border: "1px solid rgba(245, 240, 232, 0.12)",
+                  border: "1px solid var(--border-soft)",
                 }}
               >
                 <p
@@ -981,7 +981,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
                   borderRadius: "4px",
                   padding: "1.1rem",
                   background: "rgba(245, 240, 232, 0.04)",
-                  border: "1px solid rgba(245, 240, 232, 0.12)",
+                  border: "1px solid var(--border-soft)",
                 }}
               >
                 <p
@@ -1046,7 +1046,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
                             : inactive
                               ? "rgba(245, 240, 232, 0.04)"
                               : "rgba(212, 160, 23, 0.1)",
-                          border: `1px solid ${expired ? ROUGE : inactive ? "rgba(245, 240, 232, 0.15)" : "rgba(212, 160, 23, 0.35)"}`,
+                          border: `1px solid ${expired ? ROUGE : inactive ? "var(--border-strong)" : "rgba(212, 160, 23, 0.35)"}`,
                           opacity: inactive ? 0.55 : 1,
                           textDecoration: inactive ? "line-through" : "none",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
@@ -1150,7 +1150,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
                           borderRadius: "4px",
                           padding: "1.1rem",
                           background: "rgba(245, 240, 232, 0.04)",
-                          border: "1px solid rgba(245, 240, 232, 0.1)",
+                          border: "1px solid var(--border-soft)",
                           opacity: v.statut === "expired" ? 0.55 : 1,
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                       >
@@ -1213,7 +1213,7 @@ export default function CollaborateurPage(): React.JSX.Element | null {
                                       m.statut === "expired"
                                         ? ROUGE
                                         : isTransferred
-                                          ? "rgba(245, 240, 232, 0.15)"
+                                          ? "var(--border-strong)"
                                           : "rgba(212, 160, 23, 0.35)"
                                     }`,
                                   }}
