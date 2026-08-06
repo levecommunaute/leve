@@ -14,10 +14,10 @@ import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
 
 const MIN_DON_PTS = 5;
 const MAX_DON_PTS = 50;
@@ -255,7 +255,7 @@ export default function DonsPage(): React.JSX.Element | null {
 
   if (session && loading) {
     return (
-      <div style={{ background: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(212,160,23,0.4)" }}>
           Chargement...
         </p>
@@ -302,7 +302,7 @@ export default function DonsPage(): React.JSX.Element | null {
             style={{
               width: "100%",
               maxWidth: "480px",
-              background: "#141414",
+              background: "var(--bg-card)",
               border: `1px solid ${GOLD}`,
               borderRadius: "4px",
               padding: "2.5rem 1.75rem",
@@ -392,8 +392,8 @@ export default function DonsPage(): React.JSX.Element | null {
                       style={{
                         borderRadius: "4px",
                         padding: "1.15rem",
-                        background: "#141414",
-                        border: "1px solid rgba(245, 240, 232, 0.1)",
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-soft)",
                         display: "flex",
                         flexDirection: "column",
                         gap: "0.65rem",
@@ -502,7 +502,7 @@ export default function DonsPage(): React.JSX.Element | null {
               width: "min(100%, 22rem)",
               borderRadius: "4px",
               padding: "1.35rem",
-              background: "#141414",
+              background: "var(--bg-card)",
               border: `1px solid rgba(212, 160, 23, 0.45)`,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -556,8 +556,8 @@ export default function DonsPage(): React.JSX.Element | null {
                   width: "4.5rem",
                   padding: "0.35rem 0.45rem",
                   borderRadius: "4px",
-                  border: "1px solid rgba(245, 240, 232, 0.2)",
-                  background: "#111",
+                  border: "1px solid var(--border-strong)",
+                  background: "var(--bg-card)",
                   color: GOLD,
                   fontWeight: 700,
                   textAlign: "center",
@@ -565,7 +565,7 @@ export default function DonsPage(): React.JSX.Element | null {
               />
             </div>
             {donSuccess ? (
-              <p style={{ margin: "0 0 1rem", color: "#2ECC71", fontSize: "0.9rem" }}>
+              <p style={{ margin: "0 0 1rem", color: "var(--accent-green)", fontSize: "0.9rem" }}>
                 Points envoyés avec succès ✓
               </p>
             ) : null}
@@ -577,7 +577,7 @@ export default function DonsPage(): React.JSX.Element | null {
                 style={{
                   background: "transparent",
                   color: TEXT,
-                  border: "1px solid rgba(245, 240, 232, 0.25)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: "4px",
                   padding: "0.45rem 0.85rem",
                   fontSize: "0.82rem",
