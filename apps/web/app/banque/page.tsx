@@ -1272,7 +1272,7 @@ export default function BanquePage(): React.JSX.Element | null {
                       style={{
                         textAlign: "left",
                         borderBottom: "1px solid var(--border-soft)",
-                        background: "rgba(8, 8, 8, 0.5)",
+                        background: "var(--bg-card-inner)",
                       }}
                     >
                       <th

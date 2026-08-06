@@ -650,7 +650,7 @@ export default function ClassementPage(): React.JSX.Element | null {
             borderBottom: "1px solid var(--border-soft)",
             position: "sticky",
             top: 0,
-            background: "rgba(8, 8, 8, 0.92)",
+            background: "color-mix(in srgb, var(--bg) 92%, transparent)",
             backdropFilter: "blur(8px)",
             zIndex: 20,
           }}
@@ -942,7 +942,7 @@ export default function ClassementPage(): React.JSX.Element | null {
                       style={{
                         textAlign: "left",
                         borderBottom: "1px solid var(--border-soft)",
-                        background: "rgba(8, 8, 8, 0.55)",
+                        background: "var(--bg-card-inner)",
                       }}
                     >
                       <th

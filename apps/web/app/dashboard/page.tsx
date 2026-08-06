@@ -706,7 +706,7 @@ export default function DashboardPage(): React.JSX.Element | null {
             padding: "1.75rem 1.5rem",
             marginBottom: "1.25rem",
             background:
-              "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, rgba(8, 8, 8, 0.9) 45%, rgba(212, 160, 23, 0.06) 100%)",
+              "linear-gradient(145deg, rgba(192, 57, 43, 0.12) 0%, var(--bg-card) 45%, rgba(212, 160, 23, 0.06) 100%)",
             border: "1px solid var(--border-soft)",
           }}
         >
@@ -774,7 +774,7 @@ export default function DashboardPage(): React.JSX.Element | null {
               padding: "1.1rem 1.25rem",
               marginBottom: "1.25rem",
               background:
-                "linear-gradient(135deg, rgba(212, 160, 23, 0.14) 0%, rgba(8, 8, 8, 0.9) 70%)",
+                "linear-gradient(135deg, rgba(212, 160, 23, 0.14) 0%, var(--bg-card) 70%)",
               border: "1px solid rgba(212, 160, 23, 0.4)",
             }}
           >
