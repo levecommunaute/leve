@@ -39,8 +39,8 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 const YOUTUBE_URL = "https://www.youtube.com/@levecommunaute";
@@ -605,7 +605,7 @@ export default function Home(): React.JSX.Element {
               <div
                 aria-hidden
                 className="mb-3 h-2.5 overflow-hidden rounded-md"
-                style={{ background: "rgba(245, 240, 232, 0.1)",
+                style={{ background: "var(--border-strong)",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
                 <div
@@ -645,7 +645,7 @@ export default function Home(): React.JSX.Element {
       </section>
 
       {/* ——— COMMENT ÇA MARCHE ——— */}
-      <section className="border-t px-6 py-20 md:py-28" style={{ borderColor: "#1a1a1a" }}>
+      <section className="border-t px-6 py-20 md:py-28" style={{ borderColor: "var(--border-strong)" }}>
         <div className="mx-auto max-w-6xl">
           <h2
             className="mb-14 text-center text-4xl tracking-wide md:text-5xl lg:text-[3.25rem]"
@@ -672,7 +672,7 @@ export default function Home(): React.JSX.Element {
       </section>
 
       {/* ——— MEMBRES ——— */}
-      <section className="border-t px-6 py-20 md:py-28" style={{ borderColor: "#1a1a1a" }}>
+      <section className="border-t px-6 py-20 md:py-28" style={{ borderColor: "var(--border-strong)" }}>
         <div className="mx-auto max-w-6xl">
           <h2
             className="mb-14 text-center text-4xl tracking-wide md:text-5xl lg:text-[3.25rem]"
@@ -712,7 +712,7 @@ export default function Home(): React.JSX.Element {
       </section>
 
       {/* ——— REDISTRIBUTION ——— */}
-      <section className="border-t px-6 py-20 md:py-28" style={{ borderColor: "#1a1a1a" }}>
+      <section className="border-t px-6 py-20 md:py-28" style={{ borderColor: "var(--border-strong)" }}>
         <div className="mx-auto max-w-6xl">
           <h2
             className="mb-6 text-center text-3xl tracking-wide md:text-4xl lg:text-[2.75rem]"
@@ -770,7 +770,7 @@ export default function Home(): React.JSX.Element {
       </section>
 
       {/* ——— CTA ——— */}
-      <section className="border-t px-6 py-24 md:py-32" style={{ borderColor: "#1a1a1a" }}>
+      <section className="border-t px-6 py-24 md:py-32" style={{ borderColor: "var(--border-strong)" }}>
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-8 text-center">
           <h2
             className="text-4xl tracking-wide md:text-5xl lg:text-[3.5rem]"
@@ -804,7 +804,7 @@ export default function Home(): React.JSX.Element {
       {/* ——— FOOTER ——— */}
       <footer
         className="border-t px-6 py-12 text-sm"
-        style={{ borderColor: "#1a1a1a", background: "#050505" }}
+        style={{ borderColor: "var(--border-strong)", background: "var(--bg)" }}
       >
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 md:flex-row md:justify-between md:gap-4">
           <p className="text-center opacity-75 md:text-left">
