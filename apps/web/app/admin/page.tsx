@@ -1606,16 +1606,6 @@ export default function AdminPage(): React.JSX.Element {
   );
 
   useEffect(() => {
-    const previousTheme = document.documentElement.getAttribute("data-theme");
-    document.documentElement.setAttribute("data-theme", "A");
-    return () => {
-      if (previousTheme) {
-        document.documentElement.setAttribute("data-theme", previousTheme);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     setHydrated(true);
     const s = sessionStorage.getItem(STORAGE_KEY);
     if (s) setAuthed(true);
