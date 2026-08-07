@@ -3,7 +3,7 @@
 import { useState, type JSX } from "react";
 
 const GOLD = "#D4A017";
-const MAP_BG = "#141414";
+const MAP_BG = "var(--bg-card)";
 
 export type MemberGeoRow = {
   pays: string | null;
@@ -151,9 +151,9 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
                 borderRadius: "4px",
                 border: active
                   ? `1px solid ${GOLD}`
-                  : "1px solid rgba(245,240,232,0.14)",
+                  : "1px solid var(--border-soft)",
                 background: active ? "rgba(212,160,23,0.14)" : "transparent",
-                color: active ? GOLD : "#F5F0E8",
+                color: active ? GOLD : "var(--text)",
                 cursor: "pointer",
                 fontSize: "0.78rem",
                 letterSpacing: "0.08em",
@@ -174,7 +174,7 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
               borderRadius: "4px",
               border: "1px solid rgba(192,57,43,0.45)",
               background: "rgba(192,57,43,0.12)",
-              color: "#F5F0E8",
+              color: "var(--text)",
               cursor: "pointer",
               fontSize: "0.78rem",
               letterSpacing: "0.06em",
@@ -190,7 +190,7 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
         style={{
           background: MAP_BG,
           borderRadius: "4px",
-          border: "1px solid rgba(245,240,232,0.08)",
+          border: "1px solid var(--border-soft)",
           padding: "0.75rem",
           marginBottom: "1.35rem",
           overflow: "hidden",
@@ -204,7 +204,7 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
         >
           <rect width="1000" height="520" fill={MAP_BG} />
           {/* Silhouette monde simplifiée */}
-          <g fill="rgba(245,240,232,0.06)" stroke="rgba(245,240,232,0.1)" strokeWidth="1">
+          <g fill="var(--border-soft)" stroke="var(--border-soft)" strokeWidth="1">
             <path d="M80 140 C120 90 180 80 230 110 C280 140 300 200 270 250 C240 300 170 320 120 280 C70 240 50 180 80 140 Z" />
             <path d="M200 340 C230 320 270 330 290 370 C310 410 280 450 240 440 C200 430 170 380 200 340 Z" />
             <path d="M460 90 C510 70 560 80 590 120 C620 160 600 200 560 210 C520 220 470 190 460 150 C450 120 450 100 460 90 Z" />
@@ -240,7 +240,7 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
                   r={r}
                   fill={c.color}
                   opacity={active ? 0.95 : 0.78}
-                  stroke={active ? GOLD : "rgba(245,240,232,0.25)"}
+                  stroke={active ? GOLD : "var(--border-strong)"}
                   strokeWidth={active ? 2.5 : 1}
                 />
                 <text
@@ -258,7 +258,7 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
                   x={c.cx}
                   y={c.cy + r + 18}
                   textAnchor="middle"
-                  fill="#F5F0E8"
+                  fill="var(--text)"
                   fontSize="12"
                   opacity={0.75}
                   fontFamily="var(--font-mono), ui-monospace, monospace"
@@ -313,7 +313,7 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
           style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}
         >
           <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
               {[tableHeader, "Membres", "%"].map((h) => (
                 <th
                   key={h}
@@ -346,7 +346,7 @@ export function MemberWorldMap({ members, total }: Props): React.JSX.Element {
                 return (
                   <tr
                     key={row.label}
-                    style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}
+                    style={{ borderBottom: "1px solid var(--border-soft)" }}
                   >
                     <td style={{ padding: "0.6rem 0.5rem" }}>
                       <span
