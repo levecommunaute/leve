@@ -102,9 +102,9 @@ function codeInputStyle(disabled: boolean): React.CSSProperties {
     minWidth: "220px",
     maxWidth: "320px",
     padding: ".75rem 1rem",
-    background: disabled ? "#1a1a1a" : "#222",
+    background: "var(--bg-card-inner)",
     border: "1px solid #333",
-    color: disabled ? "rgba(245,240,232,0.45)" : "#F5F0E8",
+    color: disabled ? "var(--text-40)" : "var(--text)",
     textAlign: "center",
     fontSize: "1.1rem",
     letterSpacing: "0.08em",
@@ -114,9 +114,9 @@ function codeInputStyle(disabled: boolean): React.CSSProperties {
 }
 
 const pageShell: React.CSSProperties = {
-  background: "#080808",
+  background: "var(--bg)",
   minHeight: "100vh",
-  color: "#F5F0E8",
+  color: "var(--text)",
   fontFamily: "DM Sans,sans-serif",
 };
 
@@ -843,7 +843,7 @@ export default function VideoPage(): React.JSX.Element {
         >
           <span
             style={{
-              background: "#D4A017",
+              background: "var(--accent)",
               color: "#080808",
               padding: ".25rem .75rem",
               fontSize: ".75rem",
@@ -921,7 +921,7 @@ export default function VideoPage(): React.JSX.Element {
             />
           )}
         </div>
-        <div className="video-page-code-box" style={{ background: "#111", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
+        <div className="video-page-code-box" style={{ background: "var(--bg-card)", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
           <h2
             style={{
               fontFamily: "Bebas Neue,sans-serif",
@@ -1045,7 +1045,7 @@ export default function VideoPage(): React.JSX.Element {
             style={{
               width: "100%",
               maxWidth: "420px",
-              background: "#111",
+              background: "var(--bg-card)",
               border: "1px solid rgba(255,255,255,.1)",
               padding: "2rem",
               fontFamily: "DM Sans,sans-serif",
@@ -1057,7 +1057,7 @@ export default function VideoPage(): React.JSX.Element {
                 fontFamily: "Bebas Neue,sans-serif",
                 fontSize: "2rem",
                 margin: "0 0 1rem",
-                color: "#F5F0E8",
+                color: "var(--text)",
               }}
             >
               Prêt pour le quiz ?
@@ -1093,7 +1093,7 @@ export default function VideoPage(): React.JSX.Element {
                 onClick={() => setShowQuizReadyModal(false)}
                 style={{
                   background: "transparent",
-                  color: "#F5F0E8",
+                  color: "var(--text)",
                   border: "1px solid rgba(255,255,255,.2)",
                   padding: ".75rem 1.5rem",
                   cursor: "pointer",
