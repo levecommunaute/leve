@@ -4187,7 +4187,7 @@ export default function AdminPage(): React.JSX.Element {
                 font-size: 12px;
                 letter-spacing: 0.06em;
                 text-decoration: none;
-                color: var(--text-55);
+                color: rgba(245,240,232,0.55);
                 background: transparent;
                 border-left: 2px solid transparent;
                 box-sizing: border-box;
