@@ -23,16 +23,16 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
-const ROUGE = "#C0392B";
-const GOLD = "#D4A017";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
+const ROUGE = "var(--accent-red)";
+const GOLD = "var(--accent)";
 const ORANGE = "#E67E22";
-const VERT = "#2ECC71";
-const BLEU = "#5DADE2";
-const VIOLET = "#9B59B6";
-const G2 = "#141414";
-const G3 = "#1A1A1A";
+const VERT = "var(--accent-green)";
+const BLEU = "var(--accent-blue)";
+const VIOLET = "var(--accent-violet)";
+const G2 = "var(--bg-card)";
+const G3 = "var(--bg-card-inner)";
 const GLOBAL_STATS_REFRESH_MS = 60_000;
 
 const STORAGE_KEY = "leve_admin_secret";
@@ -798,7 +798,7 @@ function yesNoBadge(value: boolean): React.JSX.Element {
         letterSpacing: "0.08em",
         textTransform: "uppercase",
         background: value ? "rgba(46, 204, 113, 0.18)" : "rgba(192, 57, 43, 0.15)",
-        color: value ? "#2ECC71" : ROUGE,
+        color: value ? "var(--accent-green)" : ROUGE,
         border: `1px solid ${value ? "rgba(46, 204, 113, 0.35)" : "rgba(192, 57, 43, 0.35)"}`,
       }}
     >
@@ -829,8 +829,8 @@ function onOffSwitch(props: {
         width: "3.25rem",
         height: "1.75rem",
         borderRadius: "4px",
-        border: `1px solid ${checked ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
-        background: checked ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
+        border: `1px solid ${checked ? "rgba(46, 204, 113, 0.5)" : "var(--border-strong)"}`,
+        background: checked ? "rgba(46, 204, 113, 0.35)" : "var(--border-soft)",
         cursor: disabled || busy ? "wait" : "pointer",
         padding: 0,
         transition: "background 0.2s ease",
@@ -845,7 +845,7 @@ function onOffSwitch(props: {
           width: "1.15rem",
           height: "1.15rem",
           borderRadius: "50%",
-          background: checked ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
+          background: checked ? "var(--accent-green)" : "var(--text-40)",
           transition: "left 0.2s ease, background 0.2s ease",
         }}
       />
@@ -941,14 +941,14 @@ function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): React.
                 y1={y}
                 x2={W - pad.r}
                 y2={y}
-                stroke="rgba(245,240,232,0.08)"
+                stroke="var(--border-soft)"
                 strokeWidth={1}
               />
               <text
                 x={pad.l - 8}
                 y={y + 4}
                 textAnchor="end"
-                fill="rgba(245,240,232,0.45)"
+                fill="var(--text-40)"
                 fontSize={10}
               >
                 {cad.format(val)}
@@ -964,7 +964,7 @@ function PoolAccumulationChart({ series }: { series: PoolMonthPoint[] }): React.
               x={x}
               y={H - 10}
               textAnchor="middle"
-              fill="rgba(245,240,232,0.5)"
+              fill="var(--text-55)"
               fontSize={10}
             >
               {row.month.slice(5)}
@@ -1054,14 +1054,14 @@ function ValorisationChart({ series }: { series: ValorisationRow[] }): React.JSX
                 y1={y}
                 x2={W - pad.r}
                 y2={y}
-                stroke="rgba(245,240,232,0.08)"
+                stroke="var(--border-soft)"
                 strokeWidth={1}
               />
               <text
                 x={pad.l - 8}
                 y={y + 4}
                 textAnchor="end"
-                fill="rgba(245,240,232,0.45)"
+                fill="var(--text-40)"
                 fontSize={10}
               >
                 {cad.format(maxY * t)}
@@ -1075,7 +1075,7 @@ function ValorisationChart({ series }: { series: ValorisationRow[] }): React.JSX
             x={xAt(i)}
             y={H - 10}
             textAnchor="middle"
-            fill="rgba(245,240,232,0.5)"
+            fill="var(--text-55)"
             fontSize={10}
           >
             {row.mois}
@@ -1147,9 +1147,9 @@ function betaStatut(derniereActivite: string | null): { emoji: string; label: st
 }
 
 const BETA_BUG_SEVERITES: { value: string; couleur: string }[] = [
-  { value: "P1", couleur: "#C0392B" },
+  { value: "P1", couleur: "var(--accent-red)" },
   { value: "P2", couleur: "#E67E22" },
-  { value: "P3", couleur: "#D4A017" },
+  { value: "P3", couleur: "var(--accent)" },
 ];
 
 const BETA_BUG_STATUTS: { value: string; label: string }[] = [
@@ -1185,7 +1185,7 @@ function concoursVotesNumber(value: number | string | null | undefined): number 
 }
 
 function betaBugSeveriteCouleur(severite: string): string {
-  return BETA_BUG_SEVERITES.find((s) => s.value === severite)?.couleur ?? "rgba(245,240,232,0.4)";
+  return BETA_BUG_SEVERITES.find((s) => s.value === severite)?.couleur ?? "var(--text-40)";
 }
 
 function betaBugStatutLabel(statut: string): string {
@@ -1341,7 +1341,7 @@ function GlobalStatCard({
 
 const actionsSubCard = {
   background: "rgba(245, 240, 232, 0.025)",
-  border: "1px solid rgba(245, 240, 232, 0.08)",
+  border: "1px solid var(--border-soft)",
   borderRadius: "4px",
   padding: "1.25rem",
   marginBottom: "1.25rem",
@@ -4187,7 +4187,7 @@ export default function AdminPage(): React.JSX.Element {
                 font-size: 12px;
                 letter-spacing: 0.06em;
                 text-decoration: none;
-                color: rgba(245, 240, 232, 0.5);
+                color: var(--text-55);
                 background: transparent;
                 border-left: 2px solid transparent;
                 box-sizing: border-box;
@@ -4234,10 +4234,10 @@ export default function AdminPage(): React.JSX.Element {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "1rem 1.35rem",
-          borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+          borderBottom: "1px solid var(--border-soft)",
           position: "sticky",
           top: 0,
-          background: "rgba(8, 8, 8, 0.94)",
+          background: "color-mix(in srgb, var(--bg) 94%, transparent)",
           backdropFilter: "blur(10px)",
           zIndex: 30,
         }}
@@ -4331,8 +4331,8 @@ export default function AdminPage(): React.JSX.Element {
                   width: "100%",
                   boxSizing: "border-box",
                   padding: "0.85rem 1rem",
-                  background: "rgba(245, 240, 232, 0.06)",
-                  border: "1px solid rgba(245, 240, 232, 0.14)",
+                  background: "var(--border-soft)",
+                  border: "1px solid var(--border-soft)",
                   borderRadius: "4px",
                   color: TEXT,
                   fontSize: "1rem",
@@ -4389,8 +4389,8 @@ export default function AdminPage(): React.JSX.Element {
                 style={{
                   maxWidth: "28rem",
                   width: "100%",
-                  background: "#121212",
-                  border: "1px solid rgba(245, 240, 232, 0.18)",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: "4px",
                   padding: "1.35rem 1.5rem",
                 }}
@@ -4444,10 +4444,10 @@ export default function AdminPage(): React.JSX.Element {
                       width: "100%",
                       boxSizing: "border-box",
                       padding: "0.75rem 0.85rem",
-                      background: "rgba(245, 240, 232, 0.06)",
+                      background: "var(--border-soft)",
                       border: videoDeletePasswordError
                         ? `1px solid ${ROUGE}`
-                        : "1px solid rgba(245, 240, 232, 0.14)",
+                        : "1px solid var(--border-soft)",
                       borderRadius: "4px",
                       color: TEXT,
                       fontSize: "0.92rem",
@@ -4472,7 +4472,7 @@ export default function AdminPage(): React.JSX.Element {
                     style={{
                       background: "transparent",
                       color: TEXT,
-                      border: "1px solid rgba(245, 240, 232, 0.25)",
+                      border: "1px solid var(--border-strong)",
                       padding: "0.5rem 1rem",
                       cursor: "pointer",
                       fontSize: "0.78rem",
@@ -4528,8 +4528,8 @@ export default function AdminPage(): React.JSX.Element {
                 style={{
                   maxWidth: "28rem",
                   width: "100%",
-                  background: "#121212",
-                  border: "1px solid rgba(245, 240, 232, 0.18)",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: "4px",
                   padding: "1.35rem 1.5rem",
                 }}
@@ -4583,8 +4583,8 @@ export default function AdminPage(): React.JSX.Element {
                         width: "100%",
                         boxSizing: "border-box",
                         padding: "0.75rem 0.85rem",
-                        background: "rgba(245, 240, 232, 0.06)",
-                        border: "1px solid rgba(245, 240, 232, 0.14)",
+                        background: "var(--border-soft)",
+                        border: "1px solid var(--border-soft)",
                         borderRadius: "4px",
                         color: TEXT,
                         fontSize: "0.92rem",
@@ -4599,7 +4599,7 @@ export default function AdminPage(): React.JSX.Element {
                     style={{
                       background: "transparent",
                       color: TEXT,
-                      border: "1px solid rgba(245, 240, 232, 0.25)",
+                      border: "1px solid var(--border-strong)",
                       padding: "0.5rem 1rem",
                       cursor: "pointer",
                       fontSize: "0.78rem",
@@ -4714,7 +4714,7 @@ export default function AdminPage(): React.JSX.Element {
               style={{
                 marginTop: "1.25rem",
                 paddingTop: "1.1rem",
-                borderTop: "1px solid rgba(245, 240, 232, 0.1)",
+                borderTop: "1px solid var(--border-soft)",
                 display: "flex",
                 flexWrap: "wrap",
                 gap: "0.75rem",
@@ -4801,9 +4801,9 @@ export default function AdminPage(): React.JSX.Element {
                       fontSize: "1rem",
                       letterSpacing: "0.06em",
                       padding: "0.45rem 0.75rem",
-                      background: "rgba(245, 240, 232, 0.06)",
+                      background: "var(--border-soft)",
                       borderRadius: "4px",
-                      border: "1px solid rgba(245, 240, 232, 0.12)",
+                      border: "1px solid var(--border-soft)",
                     }}
                   >
                     {standaloneGeneratedCode}
@@ -4853,7 +4853,7 @@ export default function AdminPage(): React.JSX.Element {
                   }}
                 >
                   <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                       <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Titre
                       </th>
@@ -4895,7 +4895,7 @@ export default function AdminPage(): React.JSX.Element {
                             ]
                           : collaboratorMembers;
                       return (
-                        <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                        <tr key={v.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                           <td style={{ padding: "0.75rem 0.5rem", minWidth: "140px", maxWidth: "320px", verticalAlign: "top" }}>
                             <div style={{ fontWeight: 500, lineHeight: 1.35 }}>{v.title ?? "—"}</div>
                             <div className="leve-video-actions">
@@ -4970,13 +4970,13 @@ export default function AdminPage(): React.JSX.Element {
                                 letterSpacing: "0.08em",
                                 textTransform: "uppercase",
                                 borderRadius: "3px",
-                                color: isActive ? VERT : "rgba(245,240,232,0.55)",
+                                color: isActive ? VERT : "var(--text-55)",
                                 background: isActive
                                   ? "rgba(46, 204, 113, 0.12)"
-                                  : "rgba(245, 240, 232, 0.08)",
+                                  : "var(--border-soft)",
                                 border: isActive
                                   ? "1px solid rgba(46, 204, 113, 0.35)"
-                                  : "1px solid rgba(245, 240, 232, 0.14)",
+                                  : "1px solid var(--border-soft)",
                               }}
                             >
                               {isActive ? "Actif" : "Inactif"}
@@ -4993,8 +4993,8 @@ export default function AdminPage(): React.JSX.Element {
                                 minWidth: "120px",
                                 padding: "0.45rem 0.55rem",
                                 fontSize: "0.82rem",
-                                background: "rgba(245, 240, 232, 0.06)",
-                                border: "1px solid rgba(245, 240, 232, 0.14)",
+                                background: "var(--border-soft)",
+                                border: "1px solid var(--border-soft)",
                                 borderRadius: "4px",
                                 color: TEXT,
                                 cursor: collabBusy || membersLoading ? "wait" : "pointer",
@@ -5049,8 +5049,8 @@ export default function AdminPage(): React.JSX.Element {
                                   padding: "0.45rem 0.55rem",
                                   fontFamily: "var(--font-mono), ui-monospace, monospace",
                                   fontSize: "0.8rem",
-                                  background: linked ? "rgba(245, 240, 232, 0.04)" : "rgba(245, 240, 232, 0.06)",
-                                  border: "1px solid rgba(245, 240, 232, 0.14)",
+                                  background: linked ? "rgba(245, 240, 232, 0.04)" : "var(--border-soft)",
+                                  border: "1px solid var(--border-soft)",
                                   borderRadius: "4px",
                                   color: TEXT,
                                   opacity: linked ? 0.92 : 1,
@@ -5189,7 +5189,7 @@ export default function AdminPage(): React.JSX.Element {
                                 style={{
                                   margin: "0.5rem 0 0",
                                   fontSize: "0.78rem",
-                                  color: "#2ECC71",
+                                  color: "var(--accent-green)",
                                   opacity: 0.95,
                                 }}
                               >
@@ -5234,7 +5234,7 @@ export default function AdminPage(): React.JSX.Element {
               style={{
                 marginTop: "2rem",
                 paddingTop: "1.5rem",
-                borderTop: "1px solid rgba(245, 240, 232, 0.08)",
+                borderTop: "1px solid var(--border-soft)",
               }}
             >
               <h3
@@ -5347,7 +5347,7 @@ export default function AdminPage(): React.JSX.Element {
                   }}
                 >
                   <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                       {["Question", "A", "B", "C", "D", "Bonne réponse", ""].map((h) => (
                         <th
                           key={h}
@@ -5369,7 +5369,7 @@ export default function AdminPage(): React.JSX.Element {
                     {quizQuestions.map((q) => {
                       const choix = quizChoix(q);
                       return (
-                      <tr key={q.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                      <tr key={q.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                         <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", maxWidth: "220px" }}>{q.question}</td>
                         <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{choix[0] || "—"}</td>
                         <td style={{ padding: "0.65rem 0.5rem", verticalAlign: "top", opacity: 0.92 }}>{choix[1] || "—"}</td>
@@ -5412,7 +5412,7 @@ export default function AdminPage(): React.JSX.Element {
               style={{
                 marginTop: "2rem",
                 paddingTop: "1.5rem",
-                borderTop: "1px solid rgba(245, 240, 232, 0.08)",
+                borderTop: "1px solid var(--border-soft)",
               }}
             >
               <h3
@@ -5537,7 +5537,7 @@ export default function AdminPage(): React.JSX.Element {
                       background: active ? GOLD : "transparent",
                       color: active ? "#000000" : TEXT,
                       fontWeight: 600,
-                      border: `1px solid ${active ? GOLD : "rgba(245,240,232,0.25)"}`,
+                      border: `1px solid ${active ? GOLD : "var(--border-strong)"}`,
                       cursor: "pointer",
                       fontSize: "0.85rem",
                       letterSpacing: "0.06em",
@@ -5588,7 +5588,7 @@ export default function AdminPage(): React.JSX.Element {
                   padding: "1.25rem",
                   borderRadius: "4px",
                   background: "rgba(245, 240, 232, 0.04)",
-                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  border: "1px solid var(--border-soft)",
                 }}
               >
                 <h3
@@ -5715,7 +5715,7 @@ export default function AdminPage(): React.JSX.Element {
                       style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}
                     >
                       <thead>
-                        <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                           {[
                             "Nom",
                             "Pays",
@@ -5744,7 +5744,7 @@ export default function AdminPage(): React.JSX.Element {
                         {filtered.map((row) => {
                           const busy = concoursBusyId === row.id;
                           return (
-                            <tr key={row.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                            <tr key={row.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                               <td style={{ padding: "0.6rem 0.5rem" }}>{row.artiste_nom ?? "—"}</td>
                               <td style={{ padding: "0.6rem 0.5rem" }}>{row.artiste_pays ?? "—"}</td>
                               <td style={{ padding: "0.6rem 0.5rem" }}>
@@ -5769,7 +5769,7 @@ export default function AdminPage(): React.JSX.Element {
                                     disabled={busy}
                                     onChange={() => void toggleConcoursArtisteActif(row)}
                                   />
-                                  <span style={{ fontSize: "0.82rem", color: row.actif ? GOLD : "rgba(245,240,232,0.5)" }}>
+                                  <span style={{ fontSize: "0.82rem", color: row.actif ? GOLD : "var(--text-55)" }}>
                                     {row.actif ? "Oui" : "Non"}
                                   </span>
                                 </label>
@@ -5815,7 +5815,7 @@ export default function AdminPage(): React.JSX.Element {
               style={{
                 marginTop: "2rem",
                 paddingTop: "1.5rem",
-                borderTop: "1px solid rgba(245, 240, 232, 0.12)",
+                borderTop: "1px solid var(--border-soft)",
               }}
             >
               <h3
@@ -6069,7 +6069,7 @@ export default function AdminPage(): React.JSX.Element {
                         <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
                           Pool PA (actuel)
                         </p>
-                        <p style={{ margin: "0.35rem 0 0", color: "#2ECC71", fontWeight: 600, fontSize: "0.95rem" }}>
+                        <p style={{ margin: "0.35rem 0 0", color: "var(--accent-green)", fontWeight: 600, fontSize: "0.95rem" }}>
                           {cad.format(poolCurrent.pa_balance)}
                         </p>
                       </div>
@@ -6099,7 +6099,7 @@ export default function AdminPage(): React.JSX.Element {
                         <p style={{ margin: 0, fontSize: "0.65rem", letterSpacing: "0.14em", opacity: 0.55, textTransform: "uppercase" }}>
                           Taxe PA communauté (actuel)
                         </p>
-                        <p style={{ margin: "0.35rem 0 0", color: "#2ECC71", fontWeight: 600, fontSize: "0.95rem" }}>
+                        <p style={{ margin: "0.35rem 0 0", color: "var(--accent-green)", fontWeight: 600, fontSize: "0.95rem" }}>
                           {cad.format(poolCurrent.taxe_pa_balance)}
                         </p>
                       </div>
@@ -6127,9 +6127,9 @@ export default function AdminPage(): React.JSX.Element {
                         </p>
                         <p style={{ margin: 0, lineHeight: 1.85, fontSize: "0.88rem" }}>
                           Total collecté :{" "}
-                          <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.total)}</strong>
+                          <strong style={{ color: "var(--accent-green)" }}>{cad.format(paTaxStats.total)}</strong>
                           {" · → Communauté (75 %) : "}
-                          <strong style={{ color: "#2ECC71" }}>{cad.format(paTaxStats.communaute)}</strong>
+                          <strong style={{ color: "var(--accent-green)" }}>{cad.format(paTaxStats.communaute)}</strong>
                           {" · → Fonctionnement (25 %) : "}
                           <strong style={{ color: GOLD }}>{cad.format(paTaxStats.fonctionnement)}</strong>
                         </p>
@@ -6143,7 +6143,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                     <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                       <thead>
-                        <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                        <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                           {[
                             "Mois",
                             "PMQ cumul.",
@@ -6172,7 +6172,7 @@ export default function AdminPage(): React.JSX.Element {
                       </thead>
                       <tbody>
                         {[...poolSeries].reverse().map((row) => (
-                          <tr key={row.month} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                          <tr key={row.month} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                             <td style={{ padding: "0.55rem 0.45rem" }}>{formatMonthLabel(row.month)}</td>
                             <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.pmq_balance)}</td>
                             <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.production_balance)}</td>
@@ -6223,7 +6223,7 @@ export default function AdminPage(): React.JSX.Element {
                         padding: "0.85rem 1rem",
                         borderRadius: "4px",
                         background: "rgba(245, 240, 232, 0.04)",
-                        border: "1px solid rgba(245, 240, 232, 0.1)",
+                        border: "1px solid var(--border-soft)",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                     >
                       <div style={{ minWidth: 0 }}>
@@ -6268,14 +6268,14 @@ export default function AdminPage(): React.JSX.Element {
                   lineHeight: 1.7,
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
               >
-                <strong style={{ color: "#2ECC71" }}>Taxes PA 2 % (cumul)</strong> —{" "}
+                <strong style={{ color: "var(--accent-green)" }}>Taxes PA 2 % (cumul)</strong> —{" "}
                 {cad.format(paTaxStats.total)} collectées · {cad.format(paTaxStats.communaute)} → taxe PA ·{" "}
                 {cad.format(paTaxStats.fonctionnement)} → frais plateforme (part taxe)
                 {poolCurrent ? (
                   <>
                     {" "}
                     · soldes : taxe PA{" "}
-                    <strong style={{ color: "#2ECC71" }}>{cad.format(poolCurrent.taxe_pa_balance)}</strong>
+                    <strong style={{ color: "var(--accent-green)" }}>{cad.format(poolCurrent.taxe_pa_balance)}</strong>
                     {" "}
                     · frais plateforme{" "}
                     <strong style={{ color: GOLD }}>{cad.format(poolCurrent.frais_plateforme_balance)}</strong>
@@ -6327,7 +6327,7 @@ export default function AdminPage(): React.JSX.Element {
                   style={{
                     background: "transparent",
                     color: TEXT,
-                    border: "1px solid rgba(245, 240, 232, 0.2)",
+                    border: "1px solid var(--border-strong)",
                     padding: "0.65rem 1rem",
                     cursor: "pointer",
                     fontSize: "0.72rem",
@@ -6394,7 +6394,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
                     <thead>
-                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                         {[
                           "Mois",
                           "Revenu",
@@ -6423,7 +6423,7 @@ export default function AdminPage(): React.JSX.Element {
                     </thead>
                     <tbody>
                       {transparencyRows.map((row) => (
-                        <tr key={row.month} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                        <tr key={row.month} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                           <td style={{ padding: "0.55rem 0.45rem" }}>{formatMonthLabel(row.month)}</td>
                           <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.total_revenue)}</td>
                           <td style={{ padding: "0.55rem 0.45rem" }}>{cad.format(row.pmq_pool)}</td>
@@ -6463,7 +6463,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                 <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                       {[
                         "Titre",
                         "YouTube",
@@ -6492,7 +6492,7 @@ export default function AdminPage(): React.JSX.Element {
                   </thead>
                   <tbody>
                     {productionVideos.map((v) => (
-                      <tr key={v.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                      <tr key={v.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                         <td style={{ padding: "0.6rem 0.5rem", minWidth: "10rem" }}>{v.title ?? "—"}</td>
                         <td
                           style={{
@@ -6543,7 +6543,7 @@ export default function AdminPage(): React.JSX.Element {
               <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{fraisPlateformeError}</p>
             ) : null}
             {fraisPlateformeSaveMsg ? (
-              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{fraisPlateformeSaveMsg}</p>
+              <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{fraisPlateformeSaveMsg}</p>
             ) : null}
 
             {(() => {
@@ -6560,7 +6560,7 @@ export default function AdminPage(): React.JSX.Element {
                     marginBottom: "1.25rem",
                     borderRadius: "4px",
                     background: "rgba(245, 240, 232, 0.04)",
-                    border: "1px solid rgba(245, 240, 232, 0.1)",
+                    border: "1px solid var(--border-soft)",
                   }}
                 >
                   <div>
@@ -6601,7 +6601,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
-                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                         {["Palier", "Min ($)", "Max ($)", "%", "Actif", ""].map((h, i) => (
                           <th
                             key={`frais-h-${i}`}
@@ -6627,7 +6627,7 @@ export default function AdminPage(): React.JSX.Element {
                           <tr
                             key={p.id}
                             style={{
-                              borderBottom: "1px solid rgba(245,240,232,0.06)",
+                              borderBottom: "1px solid var(--border-soft)",
                               background: dirty ? "rgba(212, 160, 23, 0.06)" : undefined,
                             }}
                           >
@@ -6749,7 +6749,7 @@ export default function AdminPage(): React.JSX.Element {
               <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{reseauxSociauxError}</p>
             ) : null}
             {reseauxSociauxSaveMsg ? (
-              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{reseauxSociauxSaveMsg}</p>
+              <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{reseauxSociauxSaveMsg}</p>
             ) : null}
             {reseauxSociauxLoading ? (
               <p style={{ opacity: 0.65 }}>Chargement…</p>
@@ -6764,7 +6764,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
-                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                         {["Réseau", "Abonnés", "Actif", ""].map((h, i) => (
                           <th
                             key={`${h}-${i}`}
@@ -6789,7 +6789,7 @@ export default function AdminPage(): React.JSX.Element {
                           <tr
                             key={r.id}
                             style={{
-                              borderBottom: "1px solid rgba(245,240,232,0.06)",
+                              borderBottom: "1px solid var(--border-soft)",
                               background: dirty ? "rgba(212, 160, 23, 0.06)" : undefined,
                             }}
                           >
@@ -6873,7 +6873,7 @@ export default function AdminPage(): React.JSX.Element {
               </p>
             ) : null}
             {fondateurConfigSaveMsg ? (
-              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+              <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
                 {fondateurConfigSaveMsg}
               </p>
             ) : null}
@@ -7014,7 +7014,7 @@ export default function AdminPage(): React.JSX.Element {
               </p>
             ) : null}
             {rangConfigSaveMsg ? (
-              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+              <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
                 {rangConfigSaveMsg}
               </p>
             ) : null}
@@ -7162,7 +7162,7 @@ export default function AdminPage(): React.JSX.Element {
               </p>
             ) : null}
             {ptcUtilisationsSaveMsg ? (
-              <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
+              <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>
                 {ptcUtilisationsSaveMsg}
               </p>
             ) : null}
@@ -7224,7 +7224,7 @@ export default function AdminPage(): React.JSX.Element {
                           background: dirty
                             ? "rgba(212, 160, 23, 0.06)"
                             : "rgba(245, 240, 232, 0.04)",
-                          border: "1px solid rgba(245, 240, 232, 0.1)",
+                          border: "1px solid var(--border-soft)",
                         }}
                       >
                         <div
@@ -7340,7 +7340,7 @@ export default function AdminPage(): React.JSX.Element {
                         padding: "1rem 1.1rem",
                         borderRadius: "4px",
                         background: "rgba(245, 240, 232, 0.04)",
-                        border: "1px solid rgba(245, 240, 232, 0.1)",
+                        border: "1px solid var(--border-soft)",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}
                     >
                       <div>
@@ -7374,8 +7374,8 @@ export default function AdminPage(): React.JSX.Element {
                           width: "3.25rem",
                           height: "1.75rem",
                           borderRadius: "4px",
-                          border: `1px solid ${flag.actif ? "rgba(46, 204, 113, 0.5)" : "rgba(245, 240, 232, 0.2)"}`,
-                          background: flag.actif ? "rgba(46, 204, 113, 0.35)" : "rgba(245, 240, 232, 0.08)",
+                          border: `1px solid ${flag.actif ? "rgba(46, 204, 113, 0.5)" : "var(--border-strong)"}`,
+                          background: flag.actif ? "rgba(46, 204, 113, 0.35)" : "var(--border-soft)",
                           cursor: busy ? "wait" : "pointer",
                           padding: 0,
                           transition: "background 0.2s ease",
@@ -7390,7 +7390,7 @@ export default function AdminPage(): React.JSX.Element {
                             width: "1.15rem",
                             height: "1.15rem",
                             borderRadius: "50%",
-                            background: flag.actif ? "#2ECC71" : "rgba(245, 240, 232, 0.45)",
+                            background: flag.actif ? "var(--accent-green)" : "var(--text-40)",
                             transition: "left 0.2s ease, background 0.2s ease",
                           }}
                         />
@@ -7460,7 +7460,7 @@ export default function AdminPage(): React.JSX.Element {
                           height: "1.6rem",
                           borderRadius: "999px",
                           border: "none",
-                          background: theme.enabled ? "#2ECC71" : "rgba(245,240,232,0.15)",
+                          background: theme.enabled ? "var(--accent-green)" : "var(--border-strong)",
                           position: "relative",
                           cursor: isDefault ? "not-allowed" : busy ? "wait" : "pointer",
                           transition: "background 0.2s",
@@ -7500,7 +7500,7 @@ export default function AdminPage(): React.JSX.Element {
                 <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionnairesError}</p>
               ) : null}
               {actionnairesMsg ? (
-                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionnairesMsg}</p>
+                <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionnairesMsg}</p>
               ) : null}
               {actionnairesLoading ? (
                 <p style={{ opacity: 0.65 }}>Chargement des actionnaires…</p>
@@ -7514,7 +7514,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
-                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                         {["Siège", "Nom", "Catégorie", "Actions", "Pourcentage", "Rôle", "Actif", ""].map((h, i) => (
                           <th
                             key={`act-h-${i}`}
@@ -7542,7 +7542,7 @@ export default function AdminPage(): React.JSX.Element {
                           <tr
                             key={a.id}
                             style={{
-                              borderBottom: "1px solid rgba(245,240,232,0.06)",
+                              borderBottom: "1px solid var(--border-soft)",
                               background: editable && dirty ? "rgba(212, 160, 23, 0.06)" : undefined,
                             }}
                           >
@@ -7637,9 +7637,9 @@ export default function AdminPage(): React.JSX.Element {
                                     disabled={!dirty || busy}
                                     onClick={() => void saveActionnaire(a)}
                                     style={{
-                                      background: dirty ? GOLD : "rgba(245, 240, 232, 0.06)",
+                                      background: dirty ? GOLD : "var(--border-soft)",
                                       color: dirty ? "#000000" : TEXT,
-                                      border: `1px solid ${dirty ? GOLD : "rgba(245, 240, 232, 0.12)"}`,
+                                      border: `1px solid ${dirty ? GOLD : "var(--border-soft)"}`,
                                       padding: "0.45rem 0.55rem",
                                       cursor: !dirty || busy ? "not-allowed" : "pointer",
                                       fontSize: "0.68rem",
@@ -7659,9 +7659,9 @@ export default function AdminPage(): React.JSX.Element {
                                   style={{
                                     background: a.locked
                                       ? "rgba(212, 160, 23, 0.12)"
-                                      : "rgba(245, 240, 232, 0.06)",
+                                      : "var(--border-soft)",
                                     color: a.locked ? GOLD : TEXT,
-                                    border: `1px solid ${a.locked ? "rgba(212, 160, 23, 0.35)" : "rgba(245, 240, 232, 0.2)"}`,
+                                    border: `1px solid ${a.locked ? "rgba(212, 160, 23, 0.35)" : "var(--border-strong)"}`,
                                     padding: "0.45rem 0.55rem",
                                     cursor: busy ? "wait" : "pointer",
                                     fontSize: "0.68rem",
@@ -7699,7 +7699,7 @@ export default function AdminPage(): React.JSX.Element {
                 <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionsConfigError}</p>
               ) : null}
               {actionsConfigMsg ? (
-                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionsConfigMsg}</p>
+                <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{actionsConfigMsg}</p>
               ) : null}
               {actionsConfigLoading ? (
                 <p style={{ opacity: 0.65 }}>Chargement de la configuration…</p>
@@ -7860,9 +7860,9 @@ export default function AdminPage(): React.JSX.Element {
                         borderRadius: "4px",
                         background: actionsConfig.locked
                           ? "rgba(212, 160, 23, 0.12)"
-                          : "rgba(245, 240, 232, 0.06)",
+                          : "var(--border-soft)",
                         color: actionsConfig.locked ? GOLD : TEXT,
-                        border: `1px solid ${actionsConfig.locked ? "rgba(212, 160, 23, 0.35)" : "rgba(245, 240, 232, 0.2)"}`,
+                        border: `1px solid ${actionsConfig.locked ? "rgba(212, 160, 23, 0.35)" : "var(--border-strong)"}`,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",
                         fontSize: "0.78rem",
@@ -7888,7 +7888,7 @@ export default function AdminPage(): React.JSX.Element {
                 <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{revenusError}</p>
               ) : null}
               {revenusMsg ? (
-                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{revenusMsg}</p>
+                <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{revenusMsg}</p>
               ) : null}
               <div style={{ maxWidth: "16rem", marginBottom: "1.1rem" }}>
                 <span style={labelSm}>Mois</span>
@@ -8018,7 +8018,7 @@ export default function AdminPage(): React.JSX.Element {
                               padding: "1rem 1.1rem",
                               borderRadius: "4px",
                               background: "rgba(245, 240, 232, 0.04)",
-                              border: "1px solid rgba(245, 240, 232, 0.1)",
+                              border: "1px solid var(--border-soft)",
                             }}
                           >
                             <span style={labelSm}>{s.label}</span>
@@ -8040,7 +8040,7 @@ export default function AdminPage(): React.JSX.Element {
                 <p style={{ color: ROUGE, marginBottom: "0.85rem", fontSize: "0.9rem" }}>{divError}</p>
               ) : null}
               {divMsg ? (
-                <p style={{ color: "#2ECC71", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{divMsg}</p>
+                <p style={{ color: "var(--accent-green)", marginBottom: "0.85rem", fontSize: "0.9rem" }}>{divMsg}</p>
               ) : null}
               {(() => {
                 const derniereValo = valorisations[valorisations.length - 1];
@@ -8123,7 +8123,7 @@ export default function AdminPage(): React.JSX.Element {
                         </p>
                         <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                           <thead>
-                            <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                               {["Actionnaire", "Pourcentage", "Montant"].map((h) => (
                                 <th
                                   key={`div-prev-${h}`}
@@ -8142,7 +8142,7 @@ export default function AdminPage(): React.JSX.Element {
                           </thead>
                           <tbody>
                             {actifs.map((a) => (
-                              <tr key={`prev-${a.id}`} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                              <tr key={`prev-${a.id}`} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                                 <td style={{ padding: "0.55rem 0.5rem" }}>{a.nom}</td>
                                 <td style={{ padding: "0.55rem 0.5rem" }}>{a.pourcentage} %</td>
                                 <td style={{ padding: "0.55rem 0.5rem", color: GOLD, fontWeight: 600 }}>
@@ -8196,7 +8196,7 @@ export default function AdminPage(): React.JSX.Element {
                                 padding: "0.85rem 1rem",
                                 borderRadius: "4px",
                                 background: "rgba(245, 240, 232, 0.04)",
-                                border: "1px solid rgba(245, 240, 232, 0.1)",
+                                border: "1px solid var(--border-soft)",
                               }}
                             >
                               <p style={{ margin: "0 0 0.5rem", fontSize: "0.9rem" }}>
@@ -8243,7 +8243,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                 <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                   <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                    <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                       {["Id", "Nom", "Courriel", "Type", "Mult.", "N° membre", ""].map((h, i) => (
                         <th
                           key={`${h}-${i}`}
@@ -8273,7 +8273,7 @@ export default function AdminPage(): React.JSX.Element {
                             : "—";
                       return (
                         <tbody key={m.id}>
-                          <tr style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                          <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
                             <td
                               style={{
                                 padding: "0.6rem 0.5rem",
@@ -8376,9 +8376,9 @@ export default function AdminPage(): React.JSX.Element {
                                     disabled={!dirty || savingMemberId === m.id}
                                     onClick={() => void saveMember(m.id)}
                                     style={{
-                                      background: dirty ? GOLD : "rgba(245, 240, 232, 0.06)",
+                                      background: dirty ? GOLD : "var(--border-soft)",
                                       color: dirty ? "#000000" : TEXT,
-                                      border: `1px solid ${dirty ? GOLD : "rgba(245, 240, 232, 0.12)"}`,
+                                      border: `1px solid ${dirty ? GOLD : "var(--border-soft)"}`,
                                       padding: "0.45rem 0.55rem",
                                       cursor: !dirty || savingMemberId === m.id ? "not-allowed" : "pointer",
                                       fontSize: "0.68rem",
@@ -8397,7 +8397,7 @@ export default function AdminPage(): React.JSX.Element {
                                     style={{
                                       background: "transparent",
                                       color: TEXT,
-                                      border: "1px solid rgba(245, 240, 232, 0.2)",
+                                      border: "1px solid var(--border-strong)",
                                       padding: "0.45rem 0.55rem",
                                       cursor: savingMemberId === m.id ? "wait" : "pointer",
                                       fontSize: "0.68rem",
@@ -8438,7 +8438,7 @@ export default function AdminPage(): React.JSX.Element {
                             </td>
                           </tr>
                           {editingMemberId === m.id && d.member_type === "collaborateur" ? (
-                            <tr style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                            <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
                               <td colSpan={7} style={{ padding: "0.5rem 0.5rem 0.75rem", verticalAlign: "top" }}>
                                 <div
                                   style={{
@@ -8545,7 +8545,7 @@ export default function AdminPage(): React.JSX.Element {
                 const moyennePoints = nb > 0 ? totalPoints / nb : 0;
                 const statCard = {
                   background: "rgba(245, 240, 232, 0.04)",
-                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  border: "1px solid var(--border-soft)",
                   borderRadius: "4px",
                   padding: "0.85rem 1.1rem",
                   minWidth: "10rem",
@@ -8574,7 +8574,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                       <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                         <thead>
-                          <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                          <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                             {["N° membre", "Nom", "Courriel", "Temps total", "Points Beta", "Dernière activité", "Statut"].map(
                               (h) => (
                                 <th
@@ -8601,7 +8601,7 @@ export default function AdminPage(): React.JSX.Element {
                                 : betaStatut(t.beta_derniere_activite);
                             const medaille = idx < 3 ? BETA_TOP_MEDAILLES[idx] : null;
                             return (
-                              <tr key={t.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                              <tr key={t.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                                 <td style={{ padding: "0.6rem 0.5rem" }}>
                                   {t.numero_membre != null && String(t.numero_membre).length
                                     ? String(t.numero_membre)
@@ -8679,7 +8679,7 @@ export default function AdminPage(): React.JSX.Element {
                                   flex: "1 1 14rem",
                                   minWidth: "13rem",
                                   background: "rgba(245, 240, 232, 0.04)",
-                                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                                  border: "1px solid var(--border-soft)",
                                   borderRadius: "4px",
                                   padding: "1rem",
                                   display: "flex",
@@ -8735,7 +8735,7 @@ export default function AdminPage(): React.JSX.Element {
               style={{
                 marginTop: "2rem",
                 paddingTop: "1.5rem",
-                borderTop: "1px solid rgba(245,240,232,0.12)",
+                borderTop: "1px solid var(--border-soft)",
               }}
             >
               <h3
@@ -8815,7 +8815,7 @@ export default function AdminPage(): React.JSX.Element {
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
                   <table className="leve-admin-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                     <thead>
-                      <tr style={{ textAlign: "left", borderBottom: "1px solid rgba(245,240,232,0.12)" }}>
+                      <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border-soft)" }}>
                         {["Email", "Nom", "Statut", "Actions"].map((h) => (
                           <th
                             key={h}
@@ -8836,11 +8836,11 @@ export default function AdminPage(): React.JSX.Element {
                       {betaEmails.map((row) => {
                         const busy = betaEmailBusyId === row.id;
                         return (
-                          <tr key={row.id} style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}>
+                          <tr key={row.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                             <td style={{ padding: "0.6rem 0.5rem" }}>{row.email}</td>
                             <td style={{ padding: "0.6rem 0.5rem" }}>{row.nom_testeur ?? "—"}</td>
                             <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
-                              <span style={{ color: row.actif ? GOLD : "rgba(245,240,232,0.5)" }}>
+                              <span style={{ color: row.actif ? GOLD : "var(--text-55)" }}>
                                 {row.actif ? "Actif" : "Inactif"}
                               </span>
                             </td>
@@ -8855,7 +8855,7 @@ export default function AdminPage(): React.JSX.Element {
                                   borderRadius: "4px",
                                   background: "transparent",
                                   color: TEXT,
-                                  border: "1px solid rgba(245,240,232,0.25)",
+                                  border: "1px solid var(--border-strong)",
                                   cursor: busy ? "wait" : "pointer",
                                   opacity: busy ? 0.6 : 1,
                                   fontSize: "0.8rem",
@@ -8912,7 +8912,7 @@ export default function AdminPage(): React.JSX.Element {
                 const p3 = ouvertsParSeverite("P3");
                 const statCard = {
                   background: "rgba(245, 240, 232, 0.04)",
-                  border: "1px solid rgba(245, 240, 232, 0.1)",
+                  border: "1px solid var(--border-soft)",
                   borderRadius: "4px",
                   padding: "0.85rem 1.1rem",
                   minWidth: "10rem",
@@ -8965,7 +8965,7 @@ export default function AdminPage(): React.JSX.Element {
                           <tr
                             style={{
                               textAlign: "left",
-                              borderBottom: "1px solid rgba(245,240,232,0.12)",
+                              borderBottom: "1px solid var(--border-soft)",
                             }}
                           >
                             {["Sévérité", "Page", "Description", "Membre", "Date", "Statut", "Action"].map(
@@ -8993,7 +8993,7 @@ export default function AdminPage(): React.JSX.Element {
                             return (
                               <tr
                                 key={bug.id}
-                                style={{ borderBottom: "1px solid rgba(245,240,232,0.06)" }}
+                                style={{ borderBottom: "1px solid var(--border-soft)" }}
                               >
                                 <td style={{ padding: "0.6rem 0.5rem", whiteSpace: "nowrap" }}>
                                   <span
@@ -9050,9 +9050,9 @@ export default function AdminPage(): React.JSX.Element {
                                     style={{
                                       padding: "0.4rem 0.6rem",
                                       borderRadius: "4px",
-                                      background: "rgba(245,240,232,0.05)",
+                                      background: "var(--border-soft)",
                                       color: TEXT,
-                                      border: "1px solid rgba(245,240,232,0.25)",
+                                      border: "1px solid var(--border-strong)",
                                       cursor: busy ? "wait" : "pointer",
                                       opacity: busy ? 0.6 : 1,
                                       fontSize: "0.8rem",

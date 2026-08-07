@@ -22,9 +22,9 @@ type QuizQuestion = {
 const FEEDBACK_DELAY_MS = 1500;
 
 const OPTION_STYLE_NEUTRAL: React.CSSProperties = {
-  background: "#141414",
+  background: "var(--bg-card)",
   border: "1px solid rgba(255,255,255,.08)",
-  color: "#F5F0E8",
+  color: "var(--text)",
 };
 
 const OPTION_STYLE_CORRECT: React.CSSProperties = {
@@ -329,9 +329,9 @@ export default function VideoQuizPage(): React.JSX.Element {
   const currentQuestion = quiz_questions[currentQuestionIndex];
 
   const shellStyle: React.CSSProperties = {
-    background: "#080808",
+    background: "var(--bg)",
     minHeight: "100vh",
-    color: "#F5F0E8",
+    color: "var(--text)",
     fontFamily: "DM Sans, sans-serif",
   };
 
@@ -515,7 +515,7 @@ export default function VideoQuizPage(): React.JSX.Element {
             <div
               key={currentQuestion.id}
               style={{
-                background: "#111",
+                background: "var(--bg-card)",
                 padding: "1.5rem",
                 border: "1px solid rgba(255,255,255,.06)",
               }}
@@ -525,7 +525,7 @@ export default function VideoQuizPage(): React.JSX.Element {
                   fontFamily: "Bebas Neue, sans-serif",
                   fontSize: "1.15rem",
                   marginBottom: "1rem",
-                  color: "#F5F0E8",
+                  color: "var(--text)",
                 }}
               >
                 {currentQuestionIndex + 1}. {currentQuestion.question}
@@ -615,7 +615,7 @@ export default function VideoQuizPage(): React.JSX.Element {
                 style={{
                   marginTop: "1rem",
                   background: "transparent",
-                  color: "#F5F0E8",
+                  color: "var(--text)",
                   border: "1px solid rgba(255,255,255,.2)",
                   padding: "0.5rem 1.25rem",
                   cursor: "pointer",

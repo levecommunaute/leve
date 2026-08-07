@@ -680,7 +680,7 @@ export default function VideosPage(): React.JSX.Element | null {
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: variant === 'done' ? 'grayscale(0.5)' : 'none' }}
             />
             {variant === 'bonus' || variant === 'urgent' ? (
-              <div style={{ position: 'absolute', bottom: '3px', right: '4px', background: 'rgba(8,8,8,0.85)', fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'var(--accent)', padding: '0.1rem 0.3rem', border: '1px solid rgba(212,160,23,0.3)' }}>
+              <div style={{ position: 'absolute', bottom: '3px', right: '4px', background: 'var(--bg-card-inner)', fontFamily: 'var(--font-mono)', fontSize: '0.44rem', color: 'var(--accent)', padding: '0.1rem 0.3rem', border: '1px solid rgba(212,160,23,0.3)' }}>
                 +{variant === 'bonus' ? pts * 2 : pts} PTS
               </div>
             ) : null}

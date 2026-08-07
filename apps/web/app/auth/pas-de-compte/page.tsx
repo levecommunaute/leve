@@ -15,8 +15,8 @@ const dmSans = DM_Sans({
   variable: "--font-dm",
 });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 const YOUTUBE_URL = "https://www.youtube.com/@levecommunaute";
@@ -43,7 +43,7 @@ export default function PasDeComptePage(): React.JSX.Element {
           maxWidth: "28rem",
           width: "100%",
           borderRadius: "4px",
-          border: "1px solid rgba(245, 240, 232, 0.15)",
+          border: "1px solid var(--border-strong)",
           background: "#0d0d0d",
           padding: "2rem 1.75rem",
           textAlign: "center",

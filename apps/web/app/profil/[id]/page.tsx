@@ -15,8 +15,8 @@ import { readSessionFromAuthCookies } from "../../../lib/supabase-auth-cookies";
 const bebas = Bebas_Neue({ weight: "400", subsets: ["latin"], variable: "--font-bebas" });
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm" });
 
-const BG = "#080808";
-const TEXT = "#F5F0E8";
+const BG = "var(--bg)";
+const TEXT = "var(--text)";
 const ROUGE = "#C0392B";
 const GOLD = "#D4A017";
 
@@ -264,10 +264,10 @@ export default function ProfilPublicPage(): React.JSX.Element | null {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "1rem 1.25rem",
-          borderBottom: "1px solid rgba(245, 240, 232, 0.08)",
+          borderBottom: "1px solid var(--border-soft)",
           position: "sticky",
           top: 0,
-          background: "rgba(8, 8, 8, 0.92)",
+          background: "color-mix(in srgb, var(--bg) 92%, transparent)",
           backdropFilter: "blur(8px)",
           zIndex: 20,
         }}
@@ -320,9 +320,9 @@ export default function ProfilPublicPage(): React.JSX.Element | null {
                 borderRadius: "4px",
                 padding: "1.75rem 1.5rem",
                 marginBottom: "1.25rem",
-                background: "#141414",
+                background: "var(--bg-card)",
                 borderTop: `2px solid ${GOLD}`,
-                border: "1px solid rgba(245, 240, 232, 0.1)",
+                border: "1px solid var(--border-soft)",
               }}
             >
               <p
@@ -456,7 +456,7 @@ export default function ProfilPublicPage(): React.JSX.Element | null {
                   borderRadius: "4px",
                   padding: "1.1rem",
                   background: "rgba(245, 240, 232, 0.04)",
-                  border: "1px solid rgba(245, 240, 232, 0.12)",
+                  border: "1px solid var(--border-soft)",
                 }}
               >
                 <p
@@ -510,7 +510,7 @@ export default function ProfilPublicPage(): React.JSX.Element | null {
               width: "min(100%, 22rem)",
               borderRadius: "4px",
               padding: "1.35rem",
-              background: "#141414",
+              background: "var(--bg-card)",
               border: `1px solid rgba(212, 160, 23, 0.45)`,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -588,8 +588,8 @@ export default function ProfilPublicPage(): React.JSX.Element | null {
                   width: "4.5rem",
                   padding: "0.35rem 0.45rem",
                   borderRadius: "4px",
-                  border: "1px solid rgba(245, 240, 232, 0.2)",
-                  background: "#111",
+                  border: "1px solid var(--border-strong)",
+                  background: "var(--bg-card)",
                   color: GOLD,
                   fontWeight: 700,
                   textAlign: "center",
@@ -609,7 +609,7 @@ export default function ProfilPublicPage(): React.JSX.Element | null {
                 style={{
                   background: "transparent",
                   color: TEXT,
-                  border: "1px solid rgba(245, 240, 232, 0.25)",
+                  border: "1px solid var(--border-strong)",
                   borderRadius: "4px",
                   padding: "0.45rem 0.85rem",
                   fontSize: "0.82rem",

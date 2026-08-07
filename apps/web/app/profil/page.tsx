@@ -182,7 +182,7 @@ function memberTypeBadgeStyle(label: string): {
   return {
     background: "rgba(255, 255, 255, 0.04)",
     color: "#888888",
-    border: "1px solid rgba(255, 255, 255, 0.15)",
+    border: "1px solid var(--border-soft)",
   };
 }
 
