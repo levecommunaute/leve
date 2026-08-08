@@ -1438,6 +1438,9 @@ export default function AdminPage(): React.JSX.Element {
   const [themesError, setThemesError] = useState<string | null>(null);
   const [togglingThemeId, setTogglingThemeId] = useState<string | null>(null);
 
+  const [nouvelleNavActive, setNouvelleNavActive] = useState(false);
+  const [nouvelleNavLoading, setNouvelleNavLoading] = useState(false);
+
   const [fraisPaliers, setFraisPaliers] = useState<FraisPlateformePalierRow[]>([]);
   const [fraisPalierDrafts, setFraisPalierDrafts] = useState<Record<string, FraisPalierDraft>>({});
   const [fraisPlateformeLoading, setFraisPlateformeLoading] = useState(false);
@@ -1885,6 +1888,19 @@ export default function AdminPage(): React.JSX.Element {
       setThemes([]);
     } finally {
       setThemesLoading(false);
+    }
+  }, [adminHeaders]);
+
+  const loadNouvelleNav = useCallback(async (): Promise<void> => {
+    try {
+      const r = await fetch("/api/admin/feature-flags", { headers: adminHeaders() });
+      const j = (await r.json()) as { flags?: { nom: string; actif: boolean }[] };
+      if (r.ok) {
+        const flag = j.flags?.find((f) => f.nom === "nouvelle-navigation");
+        setNouvelleNavActive(flag?.actif ?? false);
+      }
+    } catch {
+      /* ignore */
     }
   }, [adminHeaders]);
 
@@ -2868,6 +2884,7 @@ export default function AdminPage(): React.JSX.Element {
     void loadTirageAdmin();
     void loadFeatureFlags();
     void loadThemes();
+    void loadNouvelleNav();
     void loadFraisPlateforme();
     void loadMemberMap();
     void loadGlobalStats();
@@ -2895,6 +2912,7 @@ export default function AdminPage(): React.JSX.Element {
     loadTirageAdmin,
     loadFeatureFlags,
     loadThemes,
+    loadNouvelleNav,
     loadFraisPlateforme,
     loadMemberMap,
     loadGlobalStats,
@@ -3429,6 +3447,25 @@ export default function AdminPage(): React.JSX.Element {
       setThemesError(e instanceof Error ? e.message : "Erreur");
     } finally {
       setTogglingThemeId(null);
+    }
+  }
+
+  async function handleToggleNouvelleNav(): Promise<void> {
+    setNouvelleNavLoading(true);
+    try {
+      const r = await fetch("/api/admin/feature-flags", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          nom: "nouvelle-navigation",
+          actif: !nouvelleNavActive,
+        }),
+      });
+      if (r.ok) setNouvelleNavActive((prev) => !prev);
+    } catch {
+      /* ignore */
+    } finally {
+      setNouvelleNavLoading(false);
     }
   }
 
@@ -7483,6 +7520,67 @@ export default function AdminPage(): React.JSX.Element {
                 })}
               </ul>
             )}
+          </section>
+
+          <section id="section-approche-test" style={cardStyle()}>
+            {sectionTitle("APPROCHE TEST")}
+            <p style={{ margin: "0 0 1.25rem", fontSize: "0.92rem", opacity: 0.72, lineHeight: 1.55 }}>
+              Fonctionnalités expérimentales. Activez pour tester la nouvelle navigation sans affecter les membres.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0.75rem 1rem",
+                background: "rgba(245,240,232,0.03)",
+                borderRadius: "4px",
+              }}
+            >
+              <div>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: "0.88rem" }}>Nouvelle page Compte</p>
+                <p
+                  style={{
+                    margin: "0.2rem 0 0",
+                    fontSize: "0.72rem",
+                    opacity: 0.45,
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  Profil + Banque + Paramètres unifiés dans /compte
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={nouvelleNavActive}
+                disabled={nouvelleNavLoading}
+                onClick={() => void handleToggleNouvelleNav()}
+                style={{
+                  width: "3rem",
+                  height: "1.6rem",
+                  borderRadius: "999px",
+                  border: "none",
+                  background: nouvelleNavActive ? "#2ECC71" : "rgba(245,240,232,0.15)",
+                  position: "relative",
+                  cursor: nouvelleNavLoading ? "wait" : "pointer",
+                  transition: "background 0.2s",
+                }}
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    transform: `translateY(-50%) translateX(${nouvelleNavActive ? "1.4rem" : "0.2rem"})`,
+                    width: "1.2rem",
+                    height: "1.2rem",
+                    borderRadius: "50%",
+                    background: "#fff",
+                    transition: "transform 0.2s",
+                  }}
+                />
+              </button>
+            </div>
           </section>
 
           {/* SECTION SYSTÈME ACTIONS & DIVIDENDES */}
