@@ -47,24 +47,20 @@ function currentMonthEndIso(d = new Date()): string {
 
 async function sumQuizPtsPonderes(
   supabase: SupabaseClient,
-  opts: { membreId?: string; startIso: string; endIso: string },
+  opts: { membreId: string; startIso: string; endIso: string },
 ): Promise<number> {
   let total = 0;
   let offset = 0;
 
   for (;;) {
-    let query = supabase
+    const { data, error } = await supabase
       .from("points_ponderes")
       .select("pts_ponderes")
       .eq("type", "quiz")
+      .eq("membre_id", opts.membreId)
       .gte("created_at", opts.startIso)
-      .lt("created_at", opts.endIso);
-
-    if (opts.membreId) {
-      query = query.eq("membre_id", opts.membreId);
-    }
-
-    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+      .lt("created_at", opts.endIso)
+      .range(offset, offset + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
 
     const rows = data ?? [];
@@ -80,6 +76,42 @@ async function sumQuizPtsPonderes(
   return total;
 }
 
+/** Pool communautaire du mois : total pts + membres distincts actifs (quiz). */
+async function aggregateQuizPool(
+  supabase: SupabaseClient,
+  opts: { startIso: string; endIso: string },
+): Promise<{ total_pts_pool: number; nb_membres_actifs: number }> {
+  let total_pts_pool = 0;
+  const membres = new Set<string>();
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("points_ponderes")
+      .select("pts_ponderes, membre_id")
+      .eq("type", "quiz")
+      .gte("created_at", opts.startIso)
+      .lt("created_at", opts.endIso)
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      const amt = Number(row.pts_ponderes ?? 0);
+      if (Number.isFinite(amt)) total_pts_pool += amt;
+      const mid = row.membre_id;
+      if (typeof mid === "string" && mid.trim()) {
+        membres.add(mid);
+      }
+    }
+
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return { total_pts_pool, nb_membres_actifs: membres.size };
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await resolveAuthUser(request);
   if (auth instanceof NextResponse) return auth;
@@ -89,21 +121,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const svc = getServiceSupabase();
 
   try {
-    const [mes_pts, total_pts] = await Promise.all([
+    const [mes_pts, pool] = await Promise.all([
       sumQuizPtsPonderes(svc, {
         membreId: auth.uid,
         startIso,
         endIso,
       }),
-      sumQuizPtsPonderes(svc, { startIso, endIso }),
+      aggregateQuizPool(svc, { startIso, endIso }),
     ]);
 
+    const total_pts = pool.total_pts_pool;
     const pourcentage =
       total_pts > 0 ? (mes_pts / total_pts) * 100 : 0;
 
     return NextResponse.json({
       mes_pts,
       total_pts,
+      total_pts_pool: pool.total_pts_pool,
+      nb_membres_actifs: pool.nb_membres_actifs,
       pourcentage,
     });
   } catch (e) {
