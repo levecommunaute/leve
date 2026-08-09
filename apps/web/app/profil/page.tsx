@@ -32,9 +32,9 @@ import {
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import {
   ageBracketFromIso,
+  assessJjMmAaaaInput,
   formatIsoToJjMmAaaa,
   maskJjMmAaaaInput,
-  parseJjMmAaaa,
   profilAgeMessage,
   type AgeMessage,
 } from "../../lib/date-naissance";
@@ -1743,64 +1743,84 @@ export default function ProfilPage(): React.JSX.Element | null {
                   <label htmlFor="date-naissance" style={fieldLabelStyle}>
                     Date de naissance
                   </label>
-                  <input
-                    id="date-naissance"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="bday"
-                    placeholder="JJ/MM/AAAA"
-                    maxLength={10}
-                    value={dateNaissance}
-                    disabled={profilPublicSaving}
-                    onChange={(e) =>
-                      setDateNaissance(maskJjMmAaaaInput(e.target.value))
-                    }
-                    style={fieldInputStyle}
-                  />
                   {(() => {
-                    const trimmed = dateNaissance.trim();
-                    if (!trimmed) return null;
-                    const parsed = parseJjMmAaaa(trimmed);
-                    if (!parsed) {
-                      if (trimmed.length < 10) return null;
-                      return (
-                        <p
-                          role="alert"
-                          style={{
-                            margin: "0.45rem 0 0",
-                            fontSize: "0.82rem",
-                            color: ROUGE,
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          Date invalide. Utilisez le format JJ/MM/AAAA (ex.
-                          15/03/2005).
-                        </p>
-                      );
-                    }
-                    const bracket = ageBracketFromIso(parsed.iso);
-                    if (!bracket) return null;
-                    const msg: AgeMessage = profilAgeMessage(bracket);
-                    const color =
-                      msg.tone === "error"
+                    const dateAssess = assessJjMmAaaaInput(dateNaissance);
+                    const borderColor =
+                      dateAssess.status === "invalid"
                         ? ROUGE
-                        : msg.tone === "warn"
-                          ? "#E67E22"
-                          : msg.tone === "ok"
-                            ? "var(--accent-green)"
-                            : GOLD;
+                        : dateAssess.status === "valid"
+                          ? "var(--accent-green)"
+                          : "var(--border-strong)";
                     return (
-                      <p
-                        role={msg.tone === "error" ? "alert" : "status"}
-                        style={{
-                          margin: "0.45rem 0 0",
-                          fontSize: "0.82rem",
-                          color,
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {msg.text}
-                      </p>
+                      <>
+                        <input
+                          id="date-naissance"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="bday"
+                          placeholder="JJ/MM/AAAA"
+                          maxLength={10}
+                          value={dateNaissance}
+                          disabled={profilPublicSaving}
+                          onChange={(e) =>
+                            setDateNaissance(maskJjMmAaaaInput(e.target.value))
+                          }
+                          aria-invalid={dateAssess.status === "invalid"}
+                          style={{
+                            ...fieldInputStyle,
+                            border: `1px solid ${borderColor}`,
+                            outlineColor:
+                              dateAssess.status === "invalid"
+                                ? ROUGE
+                                : dateAssess.status === "valid"
+                                  ? "var(--accent-green)"
+                                  : undefined,
+                          }}
+                        />
+                        {dateAssess.status === "invalid" && dateAssess.error ? (
+                          <p
+                            role="alert"
+                            style={{
+                              margin: "0.45rem 0 0",
+                              fontSize: "0.82rem",
+                              color: ROUGE,
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {dateAssess.error}
+                          </p>
+                        ) : null}
+                        {dateAssess.status === "valid" && dateAssess.iso
+                          ? (() => {
+                              const bracket = ageBracketFromIso(dateAssess.iso);
+                              if (!bracket) return null;
+                              const msg: AgeMessage = profilAgeMessage(bracket);
+                              const color =
+                                msg.tone === "error"
+                                  ? ROUGE
+                                  : msg.tone === "warn"
+                                    ? "#E67E22"
+                                    : msg.tone === "ok"
+                                      ? "var(--accent-green)"
+                                      : GOLD;
+                              return (
+                                <p
+                                  role={
+                                    msg.tone === "error" ? "alert" : "status"
+                                  }
+                                  style={{
+                                    margin: "0.45rem 0 0",
+                                    fontSize: "0.82rem",
+                                    color,
+                                    lineHeight: 1.4,
+                                  }}
+                                >
+                                  {msg.text}
+                                </p>
+                              );
+                            })()
+                          : null}
+                      </>
                     );
                   })()}
                 </div>
@@ -1854,21 +1874,22 @@ export default function ProfilPage(): React.JSX.Element | null {
                     const trimmed = dateNaissance.trim();
                     let iso: string | null = null;
                     if (trimmed) {
-                      const parsed = parseJjMmAaaa(trimmed);
-                      if (!parsed) {
+                      const assessed = assessJjMmAaaaInput(trimmed);
+                      if (assessed.status !== "valid" || !assessed.iso) {
                         setLoadError(
-                          "Date de naissance invalide. Utilisez JJ/MM/AAAA.",
+                          assessed.error ??
+                            "Date de naissance invalide. Utilisez JJ/MM/AAAA.",
                         );
                         return;
                       }
-                      const bracket = ageBracketFromIso(parsed.iso);
+                      const bracket = ageBracketFromIso(assessed.iso);
                       if (bracket === "under12") {
                         setLoadError(
                           "Vous devez avoir au moins 12 ans pour rejoindre LEVE.",
                         );
                         return;
                       }
-                      iso = parsed.iso;
+                      iso = assessed.iso;
                     }
                     void handleSaveProfil({
                       nom_legal: nomLegal.trim() || null,
