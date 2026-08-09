@@ -1229,25 +1229,6 @@ export default function ProfilPage(): React.JSX.Element | null {
                     ? `×${profileMultiplier.toFixed(1)} · Aucun quiz complété ce mois`
                     : `×${profileMultiplier.toFixed(1)} · ${pointsFmt.format(pmqShare.mes_pts)} pts · ${pmqShare.pourcentage.toFixed(1)}% du pool`}
                 </p>
-                {pmqShare.total_pts > 0 ? (
-                  <p
-                    style={{
-                      margin: "0.45rem 0 0",
-                      paddingTop: "0.45rem",
-                      borderTop: "1px solid var(--border-soft)",
-                      fontSize: "0.65rem",
-                      lineHeight: 1.35,
-                      opacity: 0.45,
-                      fontFamily: "var(--font-mono), ui-monospace, monospace",
-                    }}
-                  >
-                    {pmqShare.nb_membres_actifs} membre
-                    {pmqShare.nb_membres_actifs === 1 ? "" : "s"} actif
-                    {pmqShare.nb_membres_actifs === 1 ? "" : "s"} ·{" "}
-                    {pointsFmt.format(pmqShare.total_pts_pool)} pts au total dans
-                    le pool
-                  </p>
-                ) : null}
                 <div
                   style={{
                     marginTop: "0.55rem",
@@ -1267,6 +1248,23 @@ export default function ProfilPage(): React.JSX.Element | null {
                     }}
                   />
                 </div>
+                {pmqShare.total_pts > 0 ? (
+                  <p
+                    style={{
+                      margin: "0.45rem 0 0",
+                      fontSize: "0.65rem",
+                      lineHeight: 1.35,
+                      opacity: 0.45,
+                      fontFamily: "var(--font-mono), ui-monospace, monospace",
+                    }}
+                  >
+                    {pmqShare.nb_membres_actifs} membre
+                    {pmqShare.nb_membres_actifs === 1 ? "" : "s"} actif
+                    {pmqShare.nb_membres_actifs === 1 ? "" : "s"} ·{" "}
+                    {pointsFmt.format(pmqShare.total_pts_pool)} pts au total dans
+                    le pool
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className="leve-card-value" style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{multiplierDisplay}</p>
