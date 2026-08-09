@@ -329,6 +329,9 @@ export default function ProfilPage(): React.JSX.Element | null {
   const [pmqShare, setPmqShare] = useState<{
     mes_pts: number;
     total_pts: number;
+    total_pts_pool: number;
+    nb_membres_actifs: number;
+    nb_membres_total: number;
     pourcentage: number;
   } | null>(null);
   const [filleulsActifs, setFilleulsActifs] = useState(0);
@@ -471,20 +474,38 @@ export default function ProfilPage(): React.JSX.Element | null {
               const json = (await res.json().catch(() => null)) as {
                 mes_pts?: unknown;
                 total_pts?: unknown;
+                total_pts_pool?: unknown;
+                nb_membres_actifs?: unknown;
+                nb_membres_total?: unknown;
                 pourcentage?: unknown;
               } | null;
               if (!res.ok || !json) return null;
               const mes_pts = Number(json.mes_pts ?? 0);
               const total_pts = Number(json.total_pts ?? 0);
+              const total_pts_pool = Number(
+                json.total_pts_pool ?? json.total_pts ?? 0,
+              );
+              const nb_membres_actifs = Number(json.nb_membres_actifs ?? 0);
+              const nb_membres_total = Number(json.nb_membres_total ?? 0);
               const pourcentage = Number(json.pourcentage ?? 0);
               if (
                 !Number.isFinite(mes_pts) ||
                 !Number.isFinite(total_pts) ||
+                !Number.isFinite(total_pts_pool) ||
+                !Number.isFinite(nb_membres_actifs) ||
+                !Number.isFinite(nb_membres_total) ||
                 !Number.isFinite(pourcentage)
               ) {
                 return null;
               }
-              return { mes_pts, total_pts, pourcentage };
+              return {
+                mes_pts,
+                total_pts,
+                total_pts_pool,
+                nb_membres_actifs,
+                nb_membres_total,
+                pourcentage,
+              };
             })
             .catch(() => null)
         : Promise.resolve(null),
@@ -1234,6 +1255,22 @@ export default function ProfilPage(): React.JSX.Element | null {
                     }}
                   />
                 </div>
+                {pmqShare.total_pts > 0 ? (
+                  <p
+                    style={{
+                      margin: "0.45rem 0 0",
+                      fontSize: "0.65rem",
+                      lineHeight: 1.35,
+                      opacity: 0.45,
+                      fontFamily: "var(--font-mono), ui-monospace, monospace",
+                    }}
+                  >
+                    {pmqShare.nb_membres_actifs} / {pmqShare.nb_membres_total}{" "}
+                    membres actifs ce mois ·{" "}
+                    {pointsFmt.format(pmqShare.total_pts_pool)} pts au total dans
+                    le pool
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className="leve-card-value" style={{ margin: "0.5rem 0 0", fontSize: "1.65rem", fontWeight: 700, color: GOLD }}>{multiplierDisplay}</p>
