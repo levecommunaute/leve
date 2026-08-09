@@ -15,7 +15,6 @@ import {
   getMonthlyMemberRankBadge,
   isCommunauteMemberType,
 } from "../../lib/rank-badge";
-import { buildReferralLink } from "../../lib/parrainage";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 
@@ -207,10 +206,6 @@ function memberTypeBadgeStyle(label: string): {
 }
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
-const cad = new Intl.NumberFormat("fr-CA", {
-  style: "currency",
-  currency: "CAD",
-});
 
 export default function ComptePage(): JSX.Element | null {
   const router = useRouter();
@@ -232,9 +227,6 @@ export default function ComptePage(): JSX.Element | null {
     total_pts: number;
     pourcentage: number;
   } | null>(null);
-  const [lastRedistributionCad, setLastRedistributionCad] = useState<
-    number | null
-  >(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [referralCopied, setReferralCopied] = useState<"code" | "link" | null>(
     null,
@@ -257,7 +249,6 @@ export default function ComptePage(): JSX.Element | null {
       prevMonthPts,
       prevHistRes,
       pmqShareRes,
-      banqueRes,
     ] = await Promise.all([
       fetchRestJson(
         `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,avatar_url`,
@@ -297,10 +288,6 @@ export default function ComptePage(): JSX.Element | null {
           return { mes_pts, total_pts, pourcentage };
         })
         .catch(() => null),
-      fetchRestJson(
-        `${SB}/rest/v1/banque_membres?membre_id=eq.${encodeURIComponent(uid)}&select=solde_dollars`,
-        token,
-      ),
     ]);
 
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -320,14 +307,6 @@ export default function ComptePage(): JSX.Element | null {
       Array.isArray(prevHistRes) && prevHistRes.length > 0,
     );
     setPmqShare(pmqShareRes);
-
-    if (Array.isArray(banqueRes) && banqueRes[0]) {
-      const raw = (banqueRes[0] as { solde_dollars?: unknown }).solde_dollars;
-      const n = Number(raw ?? 0);
-      setLastRedistributionCad(Number.isFinite(n) ? n : null);
-    } else {
-      setLastRedistributionCad(null);
-    }
 
     setDataLoaded(true);
   }, []);
@@ -462,7 +441,9 @@ export default function ComptePage(): JSX.Element | null {
     profile.code_parrainage.trim()
       ? profile.code_parrainage.trim().toUpperCase()
       : null;
-  const referralLink = referralCode ? buildReferralLink(referralCode) : null;
+  const referralLink = referralCode
+    ? `${window.location.origin}/?ref=${encodeURIComponent(referralCode)}`
+    : null;
 
   return (
     <div
@@ -863,42 +844,6 @@ export default function ComptePage(): JSX.Element | null {
                   </p>
                 )}
               </article>
-
-              <article
-                className="leve-card"
-                style={{
-                  borderRadius: "4px",
-                  padding: "1.1rem",
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-soft)",
-                }}
-              >
-                <p
-                  className="leve-card-label"
-                  style={{
-                    margin: 0,
-                    fontSize: "0.72rem",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    opacity: 0.55,
-                  }}
-                >
-                  Dernière redistribution
-                </p>
-                <p
-                  className="leve-card-value"
-                  style={{
-                    margin: "0.5rem 0 0",
-                    fontSize: "1.35rem",
-                    fontWeight: 700,
-                    color: GOLD,
-                  }}
-                >
-                  {lastRedistributionCad != null
-                    ? cad.format(lastRedistributionCad)
-                    : cad.format(0)}
-                </p>
-              </article>
             </div>
 
             <section
@@ -975,82 +920,100 @@ export default function ComptePage(): JSX.Element | null {
                     {emailDisplay}
                   </dd>
                 </div>
-                <div>
-                  <dt
+              </dl>
+            </section>
+
+            <section
+              style={{
+                borderRadius: "4px",
+                padding: "1.25rem 1.1rem",
+                marginBottom: "1.75rem",
+                background: "var(--bg-card)",
+                border:
+                  "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
+              }}
+            >
+              <p
+                className="leve-card-label"
+                style={{
+                  margin: 0,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: GOLD,
+                  opacity: 0.95,
+                }}
+              >
+                CODE PARRAINAGE
+              </p>
+              {referralCode ? (
+                <>
+                  <p
                     style={{
-                      opacity: 0.55,
-                      fontSize: "0.72rem",
-                      textTransform: "uppercase",
+                      margin: "0.65rem 0 1rem",
+                      fontFamily: "var(--font-mono), ui-monospace, monospace",
+                      fontSize: "1.35rem",
+                      fontWeight: 700,
                       letterSpacing: "0.08em",
+                      color: GOLD,
                     }}
                   >
-                    Code parrainage
-                  </dt>
-                  <dd style={{ margin: "0.25rem 0 0" }}>
-                    {referralCode ? (
-                      <div
+                    {referralCode}
+                  </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "0.65rem",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => void copyReferral(referralCode, "code")}
+                      style={{
+                        background: "transparent",
+                        color: TEXT,
+                        border: "1px solid var(--border-strong)",
+                        borderRadius: "4px",
+                        padding: "0.45rem 0.85rem",
+                        fontSize: "0.78rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {referralCopied === "code" ? "Copié !" : "Copier le code"}
+                    </button>
+                    {referralLink ? (
+                      <button
+                        type="button"
+                        onClick={() => void copyReferral(referralLink, "link")}
                         style={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          alignItems: "center",
-                          gap: "0.65rem",
+                          background: "transparent",
+                          color: TEXT,
+                          border: "1px solid var(--border-strong)",
+                          borderRadius: "4px",
+                          padding: "0.45rem 0.85rem",
+                          fontSize: "0.78rem",
+                          cursor: "pointer",
                         }}
                       >
-                        <span
-                          style={{
-                            fontFamily:
-                              "var(--font-mono), ui-monospace, monospace",
-                            fontSize: "1.1rem",
-                            fontWeight: 700,
-                            letterSpacing: "0.08em",
-                            color: GOLD,
-                          }}
-                        >
-                          {referralCode}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void copyReferral(referralCode, "code")}
-                          style={{
-                            background: "transparent",
-                            color: TEXT,
-                            border: "1px solid var(--border-strong)",
-                            borderRadius: "4px",
-                            padding: "0.35rem 0.65rem",
-                            fontSize: "0.78rem",
-                            cursor: "pointer",
-                          }}
-                        >
-                          {referralCopied === "code" ? "Copié ✓" : "Copier"}
-                        </button>
-                        {referralLink ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void copyReferral(referralLink, "link")
-                            }
-                            style={{
-                              background: "transparent",
-                              color: TEXT,
-                              border: "1px solid var(--border-strong)",
-                              borderRadius: "4px",
-                              padding: "0.35rem 0.65rem",
-                              fontSize: "0.78rem",
-                              cursor: "pointer",
-                            }}
-                          >
-                            {referralCopied === "link"
-                              ? "Lien copié ✓"
-                              : "Copier le lien"}
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : (
-                      "—"
-                    )}
-                  </dd>
-                </div>
-              </dl>
+                        {referralCopied === "link"
+                          ? "Copié !"
+                          : "Copier le lien"}
+                      </button>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <p
+                  style={{
+                    margin: "0.65rem 0 0",
+                    opacity: 0.65,
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  Votre code parrainage sera disponible prochainement.
+                </p>
+              )}
             </section>
           </>
         ) : null}
