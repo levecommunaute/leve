@@ -21,6 +21,7 @@ import {
   resolveAvatarMode,
   type AvatarMode,
 } from "../../lib/avatar";
+import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import {
   getMonthlyMemberRankBadge,
   isCommunauteMemberType,
@@ -67,6 +68,9 @@ type ProfileRow = {
   profil_public: boolean | null;
   message_don: string | null;
   avatar_url: string | null;
+  nom_legal: string | null;
+  telephone: string | null;
+  pays_residence_fiscale: string | null;
   palier_verification: number | string | null;
   retrait_methode: string | null;
   retrait_identifiant: string | null;
@@ -77,7 +81,41 @@ type ProfileRow = {
   theme: string | null;
 };
 
+type PointsTxRow = {
+  id: string;
+  created_at: string;
+  amount: number | string | null;
+  type: string | null;
+  description: string | null;
+};
+
+type BanqueMouvementRow = {
+  id: string;
+  created_at: string;
+  montant: number | string | null;
+  type: string | null;
+  description: string | null;
+};
+
+type HistoryRow =
+  | {
+      id: string;
+      created_at: string;
+      kind: "points";
+      amount: number;
+      type: string | null;
+      description: string | null;
+    }
+  | {
+      id: string;
+      created_at: string;
+      kind: "dollars";
+      amount: number;
+      description: string;
+    };
+
 const MAX_MESSAGE_DON = 200;
+const MIN_TRANSFER_CAD = 100;
 
 const RETRAIT_METHODES = [
   "MonCash",
@@ -88,7 +126,33 @@ const RETRAIT_METHODES = [
 ] as const;
 
 const PROFIL_SELECT =
-  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,palier_verification,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme";
+  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,nom_legal,telephone,pays_residence_fiscale,palier_verification,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme";
+
+function currentMonthDate(): string {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function formatPmqPtValue(v: number): string {
+  return `~$${v.toFixed(4)}/pt · Mois en cours`;
+}
+
+function transactionDescription(type: string | null | undefined): string {
+  const t = (type ?? "").toLowerCase();
+  if (t === "redistribution") return "Redistribution PMQ";
+  if (
+    t === "code" ||
+    t === "video_code" ||
+    t === "code_secret" ||
+    t === "fragment"
+  ) {
+    return "Points code vidéo";
+  }
+  if (t === "quiz" || t === "quiz_bonus") return "Bonus quiz";
+  if (t === "adjustment" || t === "manual") return "Ajustement solde";
+  if (type?.trim()) return type.replace(/_/g, " ");
+  return "Transaction";
+}
 
 function palierLabel(palier: number): string {
   if (palier >= 2) return "Palier 2 — vérifié";
@@ -245,6 +309,10 @@ function memberTypeBadgeStyle(label: string): {
 }
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
+const cad = new Intl.NumberFormat("fr-CA", {
+  style: "currency",
+  currency: "CAD",
+});
 const dateFmt = new Intl.DateTimeFormat("fr-CA", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -314,6 +382,21 @@ export default function ComptePage(): JSX.Element | null {
     total_pts: number;
     pourcentage: number;
   } | null>(null);
+  const [soldeDollars, setSoldeDollars] = useState(0);
+  const [pmqValuePerPoint, setPmqValuePerPoint] = useState<number | null>(null);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [retraitOpen, setRetraitOpen] = useState(false);
+  const [retraitPreview, setRetraitPreview] = useState<{
+    montant: number;
+    pourcentage: number;
+    frais: number;
+    montant_net: number;
+    actif: boolean;
+  } | null>(null);
+  const [retraitLoading, setRetraitLoading] = useState(false);
+  const [retraitSubmitting, setRetraitSubmitting] = useState(false);
+  const [retraitError, setRetraitError] = useState<string | null>(null);
+  const [retraitSuccess, setRetraitSuccess] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [referralCopied, setReferralCopied] = useState<"code" | "link" | null>(
     null,
@@ -337,6 +420,10 @@ export default function ComptePage(): JSX.Element | null {
       prevHistRes,
       pmqShareRes,
       themesRes,
+      banqueRes,
+      pointsListRes,
+      mouvementsRes,
+      redistValueRes,
     ] = await Promise.all([
       fetchRestJson(
         `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=${PROFIL_SELECT}`,
@@ -378,6 +465,24 @@ export default function ComptePage(): JSX.Element | null {
         .catch(() => null),
       fetchRestJson(
         `${SB}/rest/v1/theme_config?enabled=eq.true&select=theme_id,name`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/banque_membres?membre_id=eq.${encodeURIComponent(uid)}&select=solde_dollars`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz` +
+          `&select=id,created_at,amount,type,description&order=created_at.desc&limit=20`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/banque_membres_mouvements?membre_id=eq.${encodeURIComponent(uid)}` +
+          `&select=id,created_at,montant,type,description&order=created_at.desc&limit=20`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/redistribution_history?month=eq.${encodeURIComponent(currentMonthDate())}&select=value_per_point&limit=1`,
         token,
       ),
     ]);
@@ -425,6 +530,58 @@ export default function ComptePage(): JSX.Element | null {
       Array.isArray(prevHistRes) && prevHistRes.length > 0,
     );
     setPmqShare(pmqShareRes);
+
+    if (Array.isArray(banqueRes) && banqueRes[0]) {
+      const n = Number(
+        (banqueRes[0] as { solde_dollars?: unknown }).solde_dollars ?? 0,
+      );
+      setSoldeDollars(Number.isFinite(n) ? n : 0);
+    } else {
+      setSoldeDollars(0);
+    }
+
+    if (Array.isArray(redistValueRes) && redistValueRes[0]) {
+      const raw = (redistValueRes[0] as { value_per_point?: unknown })
+        .value_per_point;
+      const n = raw != null && raw !== "" ? Number(raw) : Number.NaN;
+      setPmqValuePerPoint(Number.isFinite(n) ? n : null);
+    } else {
+      setPmqValuePerPoint(null);
+    }
+
+    const merged: HistoryRow[] = [];
+    if (Array.isArray(pointsListRes)) {
+      for (const row of pointsListRes as PointsTxRow[]) {
+        merged.push({
+          id: `pt-${row.id}`,
+          created_at: row.created_at,
+          kind: "points",
+          amount: Number(row.amount ?? 0),
+          type: row.type,
+          description: row.description ?? null,
+        });
+      }
+    }
+    if (Array.isArray(mouvementsRes)) {
+      for (const row of mouvementsRes as BanqueMouvementRow[]) {
+        merged.push({
+          id: `bm-${row.id}`,
+          created_at: row.created_at,
+          kind: "dollars",
+          amount: Number(row.montant ?? 0),
+          description:
+            row.description?.trim() ||
+            (row.type === "redistribution"
+              ? "Redistribution PMQ"
+              : row.type?.replace(/_/g, " ") || "Crédit banque"),
+        });
+      }
+    }
+    merged.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    setHistory(merged.slice(0, 20));
 
     setDataLoaded(true);
   }, []);
@@ -484,6 +641,119 @@ export default function ComptePage(): JSX.Element | null {
       window.setTimeout(() => setReferralCopied(null), 2000);
     } catch {
       /* ignore */
+    }
+  }
+
+  async function openRetraitConfirm(): Promise<void> {
+    if (!session || soldeDollars < MIN_TRANSFER_CAD) return;
+
+    const nomLegal = profile?.nom_legal?.trim() ?? "";
+    const telephone = profile?.telephone?.trim() ?? "";
+    const paysFiscal = profile?.pays_residence_fiscale?.trim() ?? "";
+    if (!nomLegal || !telephone || !paysFiscal) {
+      setActiveTab("parametres");
+      setLoadError("Complétez votre identité pour effectuer un retrait.");
+      return;
+    }
+
+    const methode = profile?.retrait_methode?.trim() ?? "";
+    if (!methode) {
+      setActiveTab("parametres");
+      setLoadError("Choisissez une méthode de paiement pour effectuer un retrait.");
+      return;
+    }
+
+    setRetraitOpen(true);
+    setRetraitError(null);
+    setRetraitSuccess(null);
+    setRetraitPreview(null);
+    setRetraitLoading(true);
+
+    try {
+      const res = await fetch(
+        `/api/frais-plateforme?montant=${encodeURIComponent(String(soldeDollars))}`,
+      );
+      const json = (await res.json()) as {
+        error?: string;
+        pourcentage?: number;
+        frais?: number;
+        montant_net?: number;
+        actif?: boolean;
+      };
+      if (!res.ok) {
+        setRetraitError(json.error ?? "Impossible de calculer les frais");
+        return;
+      }
+      setRetraitPreview({
+        montant: soldeDollars,
+        pourcentage: Number(json.pourcentage ?? 0),
+        frais: Number(json.frais ?? 0),
+        montant_net: Number(json.montant_net ?? soldeDollars),
+        actif: Boolean(json.actif),
+      });
+    } catch {
+      setRetraitError("Erreur réseau");
+    } finally {
+      setRetraitLoading(false);
+    }
+  }
+
+  function cancelRetrait(): void {
+    setRetraitOpen(false);
+    setRetraitPreview(null);
+    setRetraitError(null);
+  }
+
+  async function confirmRetrait(): Promise<void> {
+    if (!session || !retraitPreview) return;
+
+    const geleUntil = profile?.retrait_gele_jusqua;
+    if (
+      typeof geleUntil === "string" &&
+      geleUntil.trim() !== "" &&
+      new Date(geleUntil).getTime() > Date.now()
+    ) {
+      setRetraitError(
+        `Retraits gelés jusqu'au ${dateFmt.format(new Date(geleUntil))}`,
+      );
+      return;
+    }
+
+    const methode = profile?.retrait_methode?.trim() ?? "";
+    if (!methode) {
+      setRetraitOpen(false);
+      setActiveTab("parametres");
+      setLoadError("Choisissez une méthode de paiement pour effectuer un retrait.");
+      return;
+    }
+
+    setRetraitSubmitting(true);
+    setRetraitError(null);
+
+    try {
+      const res = await fetch("/api/banque/retrait", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ membre_id: session.user.id }),
+      });
+      const json = (await res.json()) as { error?: string; net?: number };
+      if (!res.ok) {
+        setRetraitError(json.error ?? "Retrait impossible");
+        return;
+      }
+      setRetraitSuccess(
+        `Retrait confirmé — vous recevrez ${cad.format(Number(json.net ?? retraitPreview.montant_net))}.`,
+      );
+      setRetraitOpen(false);
+      setRetraitPreview(null);
+      await loadCompte(session);
+    } catch {
+      setRetraitError("Erreur réseau");
+    } finally {
+      setRetraitSubmitting(false);
     }
   }
 
@@ -755,6 +1025,60 @@ export default function ComptePage(): JSX.Element | null {
     border: "1px solid var(--border-soft)",
   };
 
+  const canTransfer = soldeDollars >= MIN_TRANSFER_CAD;
+  const progressPct = Math.min(
+    100,
+    Math.max(0, (soldeDollars / MIN_TRANSFER_CAD) * 100),
+  );
+  const moisCourantLabel =
+    new Date()
+      .toLocaleDateString("fr-CA", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+      .toUpperCase() + " · UTC";
+  const typeMembre = profile?.member_type?.trim() || "—";
+  const banqueWeightedPts = totalPointsPmq * profileMultiplier;
+  const estimation =
+    pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
+      ? totalPointsPmq * pmqValuePerPoint
+      : 0;
+
+  function renderHistoryEntry(row: HistoryRow): {
+    dateLabel: string;
+    label: string;
+    signed: string;
+    color: string;
+    quizLines: ReturnType<typeof formatQuizTransactionLines> | null;
+    isDollars: boolean;
+  } {
+    const amt = row.amount;
+    const isDollars = row.kind === "dollars";
+    const signed = isDollars
+      ? amt > 0
+        ? `+${cad.format(amt)}`
+        : cad.format(amt)
+      : amt > 0
+        ? `+${pointsFmt.format(amt)} pts`
+        : `${pointsFmt.format(amt)} pts`;
+    const color = amt >= 0 ? GOLD : ROUGE;
+    const isQuizPoints = !isDollars && (row.type ?? "").toLowerCase() === "quiz";
+    const quizLines = isQuizPoints
+      ? formatQuizTransactionLines(row.amount, row.description, profileMultiplier)
+      : null;
+    const label = isDollars
+      ? row.description
+      : transactionDescription(row.type);
+    let dateLabel = "—";
+    try {
+      dateLabel = dateFmt.format(new Date(row.created_at));
+    } catch {
+      dateLabel = row.created_at;
+    }
+    return { dateLabel, label, signed, color, quizLines, isDollars };
+  }
+
   return (
     <div
       className={`${fonts} leve-page-compte`}
@@ -766,6 +1090,37 @@ export default function ComptePage(): JSX.Element | null {
         paddingBottom: "6rem",
       }}
     >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .banque-solde-amount {
+              font-size: clamp(1.5rem, 5vw, 2.5rem) !important;
+            }
+            .banque-transfer-btn {
+              min-height: 44px;
+            }
+            .banque-history-cards {
+              display: none;
+              flex-direction: column;
+              gap: 0.65rem;
+            }
+            .banque-history-card {
+              border-radius: 4px;
+              padding: 1rem;
+              background: color-mix(in srgb, var(--text) 4%, transparent);
+              border: 1px solid var(--border-soft);
+            }
+            @media (max-width: 479px) {
+              .banque-history-table-wrap {
+                display: none !important;
+              }
+              .banque-history-cards {
+                display: flex !important;
+              }
+            }
+          `,
+        }}
+      />
       <EnDirectBanner />
       <AppHeader
         displayName={name}
@@ -1329,7 +1684,806 @@ export default function ComptePage(): JSX.Element | null {
         ) : null}
 
         {activeTab === "banque" ? (
-          <p style={{ margin: 0, opacity: 0.7 }}>Contenu banque</p>
+          <>
+            {loadError ? (
+              <p
+                role="alert"
+                style={{
+                  color: ROUGE,
+                  fontSize: "0.9rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                {loadError}
+              </p>
+            ) : null}
+
+            <p
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.55rem",
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                opacity: 0.3,
+                marginBottom: "0.4rem",
+              }}
+            >
+              MA BANQUE · LEVE MÉDIA INC.
+            </p>
+            <h1
+              style={{
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "clamp(2rem, 8vw, 3.5rem)",
+                lineHeight: 0.88,
+                letterSpacing: "0.02em",
+                marginBottom: "1.25rem",
+              }}
+            >
+              BANQUE
+              <br />
+              <span style={{ color: GOLD }}>LEVE</span>
+            </h1>
+
+            <section
+              className="leve-card"
+              style={{
+                borderRadius: "4px",
+                padding: "1.5rem 1.35rem",
+                marginBottom: "1rem",
+                background: "var(--bg-card)",
+                borderTop: "2px solid var(--accent)",
+                border: "1px solid var(--border-soft)",
+              }}
+            >
+              <p
+                className="leve-card-label"
+                style={{
+                  margin: 0,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                  opacity: 0.3,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                }}
+              >
+                SOLDE BANQUE · {moisCourantLabel}
+              </p>
+              <p
+                className="banque-solde-amount leve-card-value"
+                style={{
+                  margin: "0.35rem 0 0.15rem",
+                  fontSize: "clamp(2.25rem, 7vw, 3rem)",
+                  fontWeight: 800,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                  letterSpacing: "-0.02em",
+                  color: GOLD,
+                }}
+              >
+                {cad.format(soldeDollars)}
+              </p>
+              <p
+                style={{
+                  margin: "0.85rem 0 0.35rem",
+                  fontSize: "0.78rem",
+                  opacity: 0.75,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                }}
+              >
+                Seuil de retrait : {cad.format(MIN_TRANSFER_CAD)}
+              </p>
+              <div
+                style={{
+                  height: "8px",
+                  borderRadius: "4px",
+                  background: "var(--border-soft)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${progressPct}%`,
+                    borderRadius: "4px",
+                    background: canTransfer ? GOLD : ROUGE,
+                    transition: "width 0.35s ease",
+                  }}
+                />
+              </div>
+              <p
+                style={{
+                  margin: "0.45rem 0 0",
+                  fontSize: "0.78rem",
+                  opacity: 0.7,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                }}
+              >
+                {canTransfer
+                  ? "Seuil atteint — transfert disponible"
+                  : `${progressPct.toFixed(0)} % vers le seuil de ${cad.format(MIN_TRANSFER_CAD)}`}
+              </p>
+              <p
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.58rem",
+                  opacity: 0.35,
+                  marginTop: "0.35rem",
+                }}
+              >
+                Minimum $100 pour transférer · PayPal · Virement · Mobile Money
+              </p>
+            </section>
+
+            <section
+              className="leve-card"
+              style={{
+                borderRadius: "4px",
+                padding: "1.5rem 1.35rem",
+                marginBottom: "1.5rem",
+                background: "var(--bg-card)",
+                borderTop: `2px solid ${GOLD}`,
+                borderRight: "1px solid var(--border-soft)",
+                borderBottom: "1px solid var(--border-soft)",
+                borderLeft: "1px solid var(--border-soft)",
+                color: TEXT,
+              }}
+            >
+              <p
+                className="leve-card-label"
+                style={{
+                  margin: 0,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                  opacity: 0.85,
+                  color: GOLD,
+                }}
+              >
+                POINTS PMQ · {moisCourantLabel}
+              </p>
+              <p
+                className="leve-card-value"
+                style={{
+                  margin: "0.35rem 0 0.15rem",
+                  fontSize: "clamp(2.25rem, 7vw, 3rem)",
+                  fontWeight: 800,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                  letterSpacing: "-0.02em",
+                  color: GOLD,
+                }}
+              >
+                {pointsFmt.format(totalPointsPmq)} pts
+              </p>
+              <p
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.65rem",
+                  opacity: 0.45,
+                  marginTop: "0.2rem",
+                }}
+              >
+                Multiplicateur ×{profileMultiplier} · {typeMembre}
+              </p>
+              <p
+                style={{
+                  margin: "0.55rem 0 0",
+                  fontSize: "0.78rem",
+                  letterSpacing: "0.04em",
+                  opacity: 0.75,
+                  lineHeight: 1.4,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                }}
+              >
+                {pmqValuePerPoint != null
+                  ? formatPmqPtValue(pmqValuePerPoint)
+                  : "(Revenus × 45%) ÷ Total pts · Variable mensuel"}
+              </p>
+              <p
+                style={{
+                  margin: "0.68rem 0 0",
+                  fontSize: "0.68rem",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  opacity: 0.65,
+                }}
+              >
+                Points pondérés (base redistribution)
+              </p>
+              <p
+                style={{
+                  margin: "0.2rem 0 0",
+                  fontSize: "1.05rem",
+                  fontWeight: 700,
+                  opacity: 0.85,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                }}
+              >
+                {pointsFmt.format(banqueWeightedPts)} pts
+              </p>
+              <p
+                style={{
+                  margin: "0.3rem 0 0",
+                  fontSize: "0.72rem",
+                  opacity: 0.65,
+                  lineHeight: 1.4,
+                  fontFamily: "var(--font-mono), ui-monospace, monospace",
+                }}
+              >
+                Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
+                utilisés pour calculer votre part de redistribution
+              </p>
+              <div
+                style={{
+                  borderTop: "1px solid var(--border-soft)",
+                  marginTop: "0.85rem",
+                  paddingTop: "0.85rem",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.52rem",
+                    letterSpacing: "0.15em",
+                    textTransform: "uppercase",
+                    opacity: 0.28,
+                  }}
+                >
+                  ESTIMATION REDISTRIB.
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "0.9rem",
+                    color: "var(--accent-green)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {estimation > 0 ? `≈ $${estimation.toFixed(0)}` : "—"}
+                </span>
+              </div>
+            </section>
+
+            {!canTransfer ? (
+              <p
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "0.65rem",
+                  color: ROUGE,
+                  opacity: 0.8,
+                  margin: "0.5rem 0",
+                }}
+              >
+                🔒 Solde insuffisant · $
+                {(MIN_TRANSFER_CAD - soldeDollars).toFixed(2)} manquants
+              </p>
+            ) : null}
+
+            <div
+              style={{
+                marginBottom: "2rem",
+                fontFamily: "var(--font-mono), ui-monospace, monospace",
+              }}
+            >
+              <button
+                type="button"
+                className="banque-transfer-btn"
+                disabled={!canTransfer}
+                onClick={() => void openRetraitConfirm()}
+                style={{
+                  width: "100%",
+                  maxWidth: "420px",
+                  padding: "0.85rem 1.25rem",
+                  borderRadius: "4px",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  border: canTransfer
+                    ? "1px solid color-mix(in srgb, var(--accent) 40%, transparent)"
+                    : "2px solid var(--border-strong)",
+                  background: canTransfer ? "transparent" : "var(--border-soft)",
+                  color: canTransfer ? GOLD : "var(--text-40)",
+                  cursor: canTransfer ? "pointer" : "not-allowed",
+                }}
+              >
+                Transférer vers mon compte
+              </button>
+
+              {retraitOpen ? (
+                <div
+                  role="presentation"
+                  onClick={cancelRetrait}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 100,
+                    background: "color-mix(in srgb, var(--bg) 72%, transparent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "1.25rem",
+                  }}
+                >
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="compte-retrait-confirm-title"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      maxWidth: "28rem",
+                      width: "100%",
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-strong)",
+                      borderRadius: "4px",
+                      padding: "1.35rem 1.5rem",
+                    }}
+                  >
+                    <h3
+                      id="compte-retrait-confirm-title"
+                      style={{
+                        margin: "0 0 1rem",
+                        fontFamily: "var(--font-bebas), Impact, sans-serif",
+                        fontSize: "1.25rem",
+                        letterSpacing: "0.08em",
+                        color: GOLD,
+                      }}
+                    >
+                      Confirmer le transfert
+                    </h3>
+
+                    {retraitGeleActif ? (
+                      <p
+                        role="alert"
+                        style={{
+                          margin: "0 0 1rem",
+                          padding: "0.7rem 0.85rem",
+                          borderRadius: "4px",
+                          background:
+                            "color-mix(in srgb, var(--accent-red) 14%, transparent)",
+                          border: `1px solid ${ROUGE}`,
+                          color: ROUGE,
+                          fontSize: "0.88rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Retraits gelés jusqu&apos;au {retraitGeleLabel}
+                      </p>
+                    ) : null}
+
+                    {retraitLoading ? (
+                      <p style={{ opacity: 0.7, margin: 0 }}>
+                        Calcul des frais…
+                      </p>
+                    ) : retraitPreview ? (
+                      <div style={{ fontSize: "0.92rem", lineHeight: 1.7 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                          }}
+                        >
+                          <span style={{ opacity: 0.85 }}>Montant demandé</span>
+                          <span style={{ fontWeight: 700 }}>
+                            {cad.format(retraitPreview.montant)}
+                          </span>
+                        </div>
+                        {retraitPreview.actif && retraitPreview.frais > 0 ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "1rem",
+                              color: ROUGE,
+                              fontFamily:
+                                "var(--font-mono), ui-monospace, monospace",
+                            }}
+                          >
+                            <span>
+                              Frais plateforme{" "}
+                              {retraitPreview.pourcentage % 1 === 0
+                                ? retraitPreview.pourcentage.toFixed(0)
+                                : retraitPreview.pourcentage}
+                              %
+                            </span>
+                            <span style={{ fontWeight: 700 }}>
+                              -{cad.format(retraitPreview.frais)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "1rem",
+                              fontFamily:
+                                "var(--font-mono), ui-monospace, monospace",
+                            }}
+                          >
+                            <span style={{ opacity: 0.85 }}>
+                              Frais plateforme
+                            </span>
+                            <span style={{ fontWeight: 700 }}>
+                              {cad.format(0)}
+                            </span>
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                            marginTop: "0.5rem",
+                            paddingTop: "0.65rem",
+                            borderTop: "1px solid var(--border-soft)",
+                            fontFamily:
+                              "var(--font-mono), ui-monospace, monospace",
+                          }}
+                        >
+                          <span style={{ fontWeight: 700 }}>Vous recevrez</span>
+                          <span
+                            style={{
+                              fontWeight: 800,
+                              color: GOLD,
+                              fontSize: "1.05rem",
+                            }}
+                          >
+                            {cad.format(retraitPreview.montant_net)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {retraitError ? (
+                      <p
+                        role="alert"
+                        style={{
+                          color: ROUGE,
+                          margin: "0.85rem 0 0",
+                          fontSize: "0.88rem",
+                        }}
+                      >
+                        {retraitError}
+                      </p>
+                    ) : null}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "0.65rem",
+                        marginTop: "1.15rem",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        disabled={
+                          retraitSubmitting ||
+                          retraitLoading ||
+                          !retraitPreview ||
+                          retraitGeleActif
+                        }
+                        onClick={() => void confirmRetrait()}
+                        style={{
+                          flex: "1 1 140px",
+                          padding: "0.75rem 1rem",
+                          borderRadius: "4px",
+                          fontWeight: 700,
+                          fontSize: "0.9rem",
+                          border: "none",
+                          background: ROUGE,
+                          color: TEXT,
+                          cursor:
+                            retraitSubmitting ||
+                            retraitLoading ||
+                            !retraitPreview ||
+                            retraitGeleActif
+                              ? "wait"
+                              : "pointer",
+                          opacity:
+                            retraitSubmitting ||
+                            retraitLoading ||
+                            !retraitPreview ||
+                            retraitGeleActif
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        {retraitSubmitting
+                          ? "En cours…"
+                          : "Confirmer le transfert"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={retraitSubmitting}
+                        onClick={cancelRetrait}
+                        style={{
+                          flex: "1 1 100px",
+                          padding: "0.75rem 1rem",
+                          borderRadius: "4px",
+                          fontWeight: 600,
+                          fontSize: "0.9rem",
+                          border: "1px solid var(--border-strong)",
+                          background: "transparent",
+                          color: TEXT,
+                          cursor: retraitSubmitting ? "wait" : "pointer",
+                        }}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {retraitSuccess ? (
+                <p
+                  role="status"
+                  style={{
+                    margin: "0.75rem 0 0",
+                    fontSize: "0.88rem",
+                    color: GOLD,
+                    maxWidth: "420px",
+                  }}
+                >
+                  {retraitSuccess}
+                </p>
+              ) : null}
+            </div>
+
+            <section>
+              <h2
+                style={{
+                  fontFamily: "var(--font-bebas), Impact, sans-serif",
+                  fontSize: "1.35rem",
+                  letterSpacing: "0.1em",
+                  margin: "0 0 0.85rem",
+                  color: TEXT,
+                }}
+              >
+                Historique
+              </h2>
+
+              {history.length === 0 ? (
+                <p
+                  style={{
+                    opacity: 0.78,
+                    fontSize: "1rem",
+                    lineHeight: 1.55,
+                    padding: "1.25rem",
+                    borderRadius: "4px",
+                    border: "1px solid var(--border-soft)",
+                    background:
+                      "color-mix(in srgb, var(--text) 3%, transparent)",
+                  }}
+                >
+                  Aucune transaction pour le moment. Soumets ton premier code!
+                </p>
+              ) : (
+                <>
+                  <div className="banque-history-cards">
+                    {history.map((row) => {
+                      const {
+                        dateLabel,
+                        label,
+                        signed,
+                        color,
+                        quizLines,
+                        isDollars,
+                      } = renderHistoryEntry(row);
+                      return (
+                        <article key={row.id} className="banque-history-card">
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: "0.8rem",
+                              opacity: 0.55,
+                            }}
+                          >
+                            {dateLabel}
+                          </p>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                              gap: "0.75rem",
+                              marginTop: "0.45rem",
+                            }}
+                          >
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              {quizLines ? (
+                                <>
+                                  <p style={{ margin: 0, fontWeight: 600 }}>
+                                    {quizLines.line1}
+                                  </p>
+                                  <p
+                                    style={{
+                                      margin: "0.25rem 0 0",
+                                      fontSize: "0.85rem",
+                                      opacity: 0.8,
+                                    }}
+                                  >
+                                    {quizLines.line2}
+                                  </p>
+                                </>
+                              ) : (
+                                <p style={{ margin: 0, fontWeight: 600 }}>
+                                  {label}
+                                </p>
+                              )}
+                              <p
+                                style={{
+                                  margin: "0.35rem 0 0",
+                                  fontSize: "0.72rem",
+                                  opacity: 0.55,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.06em",
+                                }}
+                              >
+                                {isDollars ? "Banque $" : "Points PMQ"}
+                              </p>
+                            </div>
+                            <span
+                              style={{
+                                color,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {signed}
+                            </span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  <div
+                    className="banque-history-table-wrap"
+                    style={{
+                      borderRadius: "4px",
+                      border: "1px solid var(--border-soft)",
+                      overflow: "hidden",
+                      background:
+                        "color-mix(in srgb, var(--text) 3%, transparent)",
+                    }}
+                  >
+                    <div style={{ overflowX: "auto" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "0.88rem",
+                        }}
+                      >
+                        <thead>
+                          <tr
+                            style={{
+                              textAlign: "left",
+                              borderBottom: "1px solid var(--border-soft)",
+                              background: "var(--bg-card-inner)",
+                            }}
+                          >
+                            <th
+                              style={{
+                                padding: "0.75rem 1rem",
+                                fontWeight: 600,
+                                color: GOLD,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Date
+                            </th>
+                            <th
+                              style={{
+                                padding: "0.75rem 1rem",
+                                fontWeight: 600,
+                              }}
+                            >
+                              Description
+                            </th>
+                            <th
+                              style={{
+                                padding: "0.75rem 1rem",
+                                fontWeight: 600,
+                                textAlign: "right",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Montant
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {history.map((row) => {
+                            const {
+                              dateLabel,
+                              label,
+                              signed,
+                              color,
+                              quizLines,
+                              isDollars,
+                            } = renderHistoryEntry(row);
+                            return (
+                              <tr
+                                key={row.id}
+                                style={{
+                                  borderBottom: "1px solid var(--border-soft)",
+                                }}
+                              >
+                                <td
+                                  style={{
+                                    padding: "0.7rem 1rem",
+                                    whiteSpace: "nowrap",
+                                    opacity: 0.9,
+                                  }}
+                                >
+                                  {dateLabel}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "0.7rem 1rem",
+                                    maxWidth: "360px",
+                                  }}
+                                >
+                                  {quizLines ? (
+                                    <>
+                                      <span style={{ display: "block" }}>
+                                        {quizLines.line1}
+                                      </span>
+                                      <span
+                                        style={{
+                                          display: "block",
+                                          marginTop: "0.25rem",
+                                          fontSize: "0.85rem",
+                                          opacity: 0.8,
+                                        }}
+                                      >
+                                        {quizLines.line2}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    label
+                                  )}
+                                  <span
+                                    style={{
+                                      display: "block",
+                                      marginTop: "0.2rem",
+                                      fontSize: "0.72rem",
+                                      opacity: 0.55,
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.06em",
+                                    }}
+                                  >
+                                    {isDollars ? "Banque $" : "Points PMQ"}
+                                  </span>
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "0.7rem 1rem",
+                                    textAlign: "right",
+                                    fontWeight: 700,
+                                    color,
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {signed}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+          </>
         ) : null}
 
         {activeTab === "parametres" ? (
