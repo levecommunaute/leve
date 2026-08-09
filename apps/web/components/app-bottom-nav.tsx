@@ -102,6 +102,7 @@ export function AppBottomNav({
   const [moreOpen, setMoreOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(true);
   const [scrollEdges, setScrollEdges] = useState({ left: false, right: false });
+  const [nouvelleNav, setNouvelleNav] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -111,14 +112,44 @@ export function AppBottomNav({
     return () => mq.removeEventListener("change", update);
   }, []);
 
+  useEffect(() => {
+    async function checkFlag(): Promise<void> {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/feature_flags?nom=eq.nouvelle-navigation&select=actif`,
+          { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! } },
+        );
+        if (res.ok) {
+          const data = (await res.json()) as { actif: boolean }[];
+          setNouvelleNav(data[0]?.actif ?? false);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    void checkFlag();
+  }, []);
+
   const navLinks = useAppBottomNavLinks(session, memberType);
+
+  const transformedNavLinks = useMemo(() => {
+    if (!nouvelleNav) return navLinks;
+    return navLinks
+      .filter((link) => link.href !== "/banque")
+      .map((link) =>
+        link.href === "/profil"
+          ? { ...link, href: "/compte", label: "Compte", shortLabel: "Compte" }
+          : link,
+      );
+  }, [navLinks, nouvelleNav]);
+
   const { primary, secondary } = useMemo(
-    () => splitAppBottomNavLinks(navLinks),
-    [navLinks],
+    () => splitAppBottomNavLinks(transformedNavLinks),
+    [transformedNavLinks],
   );
 
   /** Mobile : primary + menu Plus+ ; desktop : tous les liens à plat. */
-  const barLinks = isMobile ? primary : navLinks;
+  const barLinks = isMobile ? primary : transformedNavLinks;
   const showMoreMenu = isMobile && secondary.length > 0;
 
   const secondaryActive = useMemo(
