@@ -30,6 +30,14 @@ import {
   isCommunauteMemberType,
 } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import {
+  ageBracketFromIso,
+  formatIsoToJjMmAaaa,
+  maskJjMmAaaaInput,
+  parseJjMmAaaa,
+  profilAgeMessage,
+  type AgeMessage,
+} from "../../lib/date-naissance";
 import { buildReferralLink } from "../../lib/parrainage";
 import { checkJwtExpired, getSupabaseClient } from "../../lib/supabase";
 
@@ -396,7 +404,7 @@ export default function ProfilPage(): React.JSX.Element | null {
       setNomLegal(typeof row?.nom_legal === "string" ? row.nom_legal : "");
       setDateNaissance(
         typeof row?.date_naissance === "string"
-          ? row.date_naissance.slice(0, 10)
+          ? formatIsoToJjMmAaaa(row.date_naissance)
           : "",
       );
       setPaysResidenceFiscale(
@@ -730,7 +738,7 @@ export default function ProfilPage(): React.JSX.Element | null {
       if (json.date_naissance !== undefined) {
         setDateNaissance(
           typeof json.date_naissance === "string"
-            ? json.date_naissance.slice(0, 10)
+            ? formatIsoToJjMmAaaa(json.date_naissance)
             : "",
         );
       }
@@ -1737,12 +1745,64 @@ export default function ProfilPage(): React.JSX.Element | null {
                   </label>
                   <input
                     id="date-naissance"
-                    type="date"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="bday"
+                    placeholder="JJ/MM/AAAA"
+                    maxLength={10}
                     value={dateNaissance}
                     disabled={profilPublicSaving}
-                    onChange={(e) => setDateNaissance(e.target.value)}
+                    onChange={(e) =>
+                      setDateNaissance(maskJjMmAaaaInput(e.target.value))
+                    }
                     style={fieldInputStyle}
                   />
+                  {(() => {
+                    const trimmed = dateNaissance.trim();
+                    if (!trimmed) return null;
+                    const parsed = parseJjMmAaaa(trimmed);
+                    if (!parsed) {
+                      if (trimmed.length < 10) return null;
+                      return (
+                        <p
+                          role="alert"
+                          style={{
+                            margin: "0.45rem 0 0",
+                            fontSize: "0.82rem",
+                            color: ROUGE,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          Date invalide. Utilisez le format JJ/MM/AAAA (ex.
+                          15/03/2005).
+                        </p>
+                      );
+                    }
+                    const bracket = ageBracketFromIso(parsed.iso);
+                    if (!bracket) return null;
+                    const msg: AgeMessage = profilAgeMessage(bracket);
+                    const color =
+                      msg.tone === "error"
+                        ? ROUGE
+                        : msg.tone === "warn"
+                          ? "#E67E22"
+                          : msg.tone === "ok"
+                            ? "var(--accent-green)"
+                            : GOLD;
+                    return (
+                      <p
+                        role={msg.tone === "error" ? "alert" : "status"}
+                        style={{
+                          margin: "0.45rem 0 0",
+                          fontSize: "0.82rem",
+                          color,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {msg.text}
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label htmlFor="pays-fiscal" style={fieldLabelStyle}>
@@ -1790,15 +1850,35 @@ export default function ProfilPage(): React.JSX.Element | null {
                   type="button"
                   disabled={profilPublicSaving}
                   style={saveBtnStyle}
-                  onClick={() =>
+                  onClick={() => {
+                    const trimmed = dateNaissance.trim();
+                    let iso: string | null = null;
+                    if (trimmed) {
+                      const parsed = parseJjMmAaaa(trimmed);
+                      if (!parsed) {
+                        setLoadError(
+                          "Date de naissance invalide. Utilisez JJ/MM/AAAA.",
+                        );
+                        return;
+                      }
+                      const bracket = ageBracketFromIso(parsed.iso);
+                      if (bracket === "under12") {
+                        setLoadError(
+                          "Vous devez avoir au moins 12 ans pour rejoindre LEVE.",
+                        );
+                        return;
+                      }
+                      iso = parsed.iso;
+                    }
                     void handleSaveProfil({
                       nom_legal: nomLegal.trim() || null,
-                      date_naissance: dateNaissance || null,
-                      pays_residence_fiscale: paysResidenceFiscale.trim() || null,
+                      date_naissance: iso,
+                      pays_residence_fiscale:
+                        paysResidenceFiscale.trim() || null,
                       telephone: telephone.trim() || null,
                       adresse: adresse.trim() || null,
-                    })
-                  }
+                    });
+                  }}
                 >
                   {profilPublicSaving ? "…" : "Enregistrer"}
                 </button>

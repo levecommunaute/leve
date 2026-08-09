@@ -3,6 +3,10 @@ import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
+  ageBracketFromIso,
+  retraitAgeGate,
+} from "../../../../lib/date-naissance";
+import {
   calculerFraisPlateforme,
   crediterFraisPlateformeBalance,
   roundUSD,
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { data: profilSecu, error: profilSecuError } = await supabase
     .from("profiles")
     .select(
-      "nom_legal, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
+      "nom_legal, date_naissance, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
     )
     .eq("id", membreId)
     .maybeSingle();
@@ -83,14 +87,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     typeof profilSecu?.pays_residence_fiscale === "string"
       ? profilSecu.pays_residence_fiscale.trim()
       : "";
-  if (!nomLegal || !telephone || !paysFiscal) {
+  const dateNaissance =
+    typeof profilSecu?.date_naissance === "string"
+      ? profilSecu.date_naissance.trim()
+      : "";
+  if (!nomLegal || !telephone || !paysFiscal || !dateNaissance) {
     return NextResponse.json(
       {
         error:
-          "Complétez votre profil (nom légal, téléphone, pays de résidence fiscale) pour effectuer un retrait",
+          "Complétez votre profil (nom légal, date de naissance, téléphone, pays de résidence fiscale) pour effectuer un retrait",
         redirect: "/profil?onglet=identite",
       },
       { status: 400 },
+    );
+  }
+
+  const ageBracket = ageBracketFromIso(dateNaissance);
+  if (!ageBracket) {
+    return NextResponse.json(
+      {
+        error: "Date de naissance invalide — mettez à jour votre profil",
+        redirect: "/profil?onglet=identite",
+      },
+      { status: 400 },
+    );
+  }
+  const ageGate = retraitAgeGate(ageBracket);
+  if (!ageGate.allowNormal) {
+    return NextResponse.json(
+      { error: ageGate.message ?? "Retrait non autorisé" },
+      { status: 403 },
     );
   }
 

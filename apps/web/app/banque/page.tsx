@@ -6,6 +6,10 @@ import { createClient, type Session, type SupabaseClient } from "@supabase/supab
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import {
+  ageBracketFromIso,
+  retraitAgeGate,
+} from "../../lib/date-naissance";
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
@@ -64,6 +68,7 @@ type ProfileRow = {
   member_type: string | null;
   multiplier: number | string | null;
   nom_legal: string | null;
+  date_naissance: string | null;
   telephone: string | null;
   pays_residence_fiscale: string | null;
   retrait_methode: string | null;
@@ -178,6 +183,9 @@ export default function BanquePage(): React.JSX.Element | null {
   const [retraitSubmitting, setRetraitSubmitting] = useState(false);
   const [retraitError, setRetraitError] = useState<string | null>(null);
   const [retraitSuccess, setRetraitSuccess] = useState<string | null>(null);
+  const [retraitAgeMessage, setRetraitAgeMessage] = useState<string | null>(
+    null,
+  );
   const [dataLoaded, setDataLoaded] = useState(false);
 
   const loadBanque = useCallback(async (activeSession: Session) => {
@@ -190,7 +198,7 @@ export default function BanquePage(): React.JSX.Element | null {
         sb
           .from("profiles")
           .select(
-            "display_name, member_type, multiplier, nom_legal, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
+            "display_name, member_type, multiplier, nom_legal, date_naissance, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
           )
           .eq("id", uid)
           .maybeSingle(),
@@ -381,10 +389,29 @@ export default function BanquePage(): React.JSX.Element | null {
     const nomLegal = profile?.nom_legal?.trim() ?? "";
     const telephone = profile?.telephone?.trim() ?? "";
     const paysFiscal = profile?.pays_residence_fiscale?.trim() ?? "";
-    if (!nomLegal || !telephone || !paysFiscal) {
+    const dateNaissanceRaw =
+      typeof profile?.date_naissance === "string"
+        ? profile.date_naissance.trim()
+        : "";
+    if (!nomLegal || !telephone || !paysFiscal || !dateNaissanceRaw) {
       router.push("/profil?onglet=identite&msg=complet_profil");
       return;
     }
+
+    const bracket = ageBracketFromIso(dateNaissanceRaw);
+    if (!bracket) {
+      router.push("/profil?onglet=identite&msg=complet_profil");
+      return;
+    }
+    const ageGate = retraitAgeGate(bracket);
+    if (!ageGate.allowNormal) {
+      setRetraitAgeMessage(ageGate.message);
+      setRetraitSuccess(null);
+      setRetraitError(null);
+      setRetraitOpen(false);
+      return;
+    }
+    setRetraitAgeMessage(null);
 
     const methode = profile?.retrait_methode?.trim() ?? "";
     if (!methode) {
@@ -1159,6 +1186,25 @@ export default function BanquePage(): React.JSX.Element | null {
                 </div>
               </div>
             </div>
+          ) : null}
+
+          {retraitAgeMessage ? (
+            <p
+              role="alert"
+              style={{
+                margin: "0.75rem 0 0",
+                fontSize: "0.88rem",
+                color: ROUGE,
+                maxWidth: "420px",
+                lineHeight: 1.45,
+                padding: "0.7rem 0.85rem",
+                borderRadius: "4px",
+                background: "rgba(192, 57, 43, 0.12)",
+                border: `1px solid ${ROUGE}`,
+              }}
+            >
+              {retraitAgeMessage}
+            </p>
           ) : null}
 
           {retraitSuccess ? (
