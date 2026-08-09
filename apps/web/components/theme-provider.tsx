@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const pathname = usePathname();
+
   useEffect(() => {
     async function applyTheme() {
+      if (pathname?.startsWith("/admin")) {
+        document.documentElement.setAttribute("data-theme", "A");
+        return;
+      }
+
       try {
         const supabase = createBrowserClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +41,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }): Reac
     }
     
     void applyTheme();
-  }, []);
+  }, [pathname]);
   
   return <>{children}</>;
 }
