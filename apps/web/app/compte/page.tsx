@@ -4,7 +4,12 @@ import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useState, type JSX } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+  type JSX,
+} from "react";
 import { RankBadge } from "../../components/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
@@ -12,11 +17,16 @@ import { EnDirectBanner } from "../../components/en-direct-banner";
 import { MemberAvatar } from "../../components/member-avatar";
 import { signOut } from "../../lib/auth";
 import {
+  PRESET_AVATARS,
+  resolveAvatarMode,
+  type AvatarMode,
+} from "../../lib/avatar";
+import {
   getMonthlyMemberRankBadge,
   isCommunauteMemberType,
 } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
-import { checkJwtExpired } from "../../lib/supabase";
+import { checkJwtExpired, getSupabaseClient } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -54,8 +64,37 @@ type ProfileRow = {
   numero_membre: string | null;
   is_beta_tester: boolean | null;
   code_parrainage: string | null;
+  profil_public: boolean | null;
+  message_don: string | null;
   avatar_url: string | null;
+  palier_verification: number | string | null;
+  retrait_methode: string | null;
+  retrait_identifiant: string | null;
+  retrait_gele_jusqua: string | null;
+  notif_quiz: boolean | null;
+  notif_redistribution: boolean | null;
+  notif_concours: boolean | null;
+  theme: string | null;
 };
+
+const MAX_MESSAGE_DON = 200;
+
+const RETRAIT_METHODES = [
+  "MonCash",
+  "Xoom",
+  "Remitly",
+  "TAKSIMOTO",
+  "Virement",
+] as const;
+
+const PROFIL_SELECT =
+  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,palier_verification,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme";
+
+function palierLabel(palier: number): string {
+  if (palier >= 2) return "Palier 2 — vérifié";
+  if (palier === 1) return "Palier 1 — partiel";
+  return "Palier 0 — non vérifié";
+}
 
 const PP_PAGE_SIZE = 1000;
 
@@ -206,6 +245,36 @@ function memberTypeBadgeStyle(label: string): {
 }
 
 const pointsFmt = new Intl.NumberFormat("fr-CA", { maximumFractionDigits: 2 });
+const dateFmt = new Intl.DateTimeFormat("fr-CA", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function parametresSectionTitle(text: string): JSX.Element {
+  return (
+    <>
+      <p
+        className="leve-card-label"
+        style={{
+          margin: 0,
+          fontSize: "0.72rem",
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: GOLD,
+          opacity: 0.95,
+        }}
+      >
+        {text}
+      </p>
+      <div
+        style={{
+          borderBottom: "1px solid var(--border-soft)",
+          margin: "0.55rem 0 1rem",
+        }}
+      />
+    </>
+  );
+}
 
 export default function ComptePage(): JSX.Element | null {
   const router = useRouter();
@@ -216,6 +285,24 @@ export default function ComptePage(): JSX.Element | null {
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarMode, setAvatarMode] = useState<AvatarMode>("initiales");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+  const [draftAvatarMode, setDraftAvatarMode] =
+    useState<AvatarMode>("initiales");
+  const [messageDon, setMessageDon] = useState("");
+  const [displayNameEdit, setDisplayNameEdit] = useState("");
+  const [profilPublicSaving, setProfilPublicSaving] = useState(false);
+  const [retraitMethode, setRetraitMethode] = useState("");
+  const [retraitIdentifiant, setRetraitIdentifiant] = useState("");
+  const [notifQuiz, setNotifQuiz] = useState(true);
+  const [notifRedistribution, setNotifRedistribution] = useState(true);
+  const [notifConcours, setNotifConcours] = useState(true);
+  const [currentTheme, setCurrentTheme] = useState("A");
+  const [themeLoading, setThemeLoading] = useState(false);
+  const [availableThemes, setAvailableThemes] = useState<
+    { theme_id: string; name: string }[]
+  >([]);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [pmqMonthLabel, setPmqMonthLabel] = useState("");
   const [prevMonthLabel, setPrevMonthLabel] = useState("");
@@ -249,9 +336,10 @@ export default function ComptePage(): JSX.Element | null {
       prevMonthPts,
       prevHistRes,
       pmqShareRes,
+      themesRes,
     ] = await Promise.all([
       fetchRestJson(
-        `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,avatar_url`,
+        `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=${PROFIL_SELECT}`,
         token,
       ),
       fetchRestJson(
@@ -288,12 +376,42 @@ export default function ComptePage(): JSX.Element | null {
           return { mes_pts, total_pts, pourcentage };
         })
         .catch(() => null),
+      fetchRestJson(
+        `${SB}/rest/v1/theme_config?enabled=eq.true&select=theme_id,name`,
+        token,
+      ),
     ]);
 
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
     const row = (profileData as ProfileRow | null) ?? null;
     setProfile(row);
-    setAvatarUrl(typeof row?.avatar_url === "string" ? row.avatar_url : null);
+    const nextAvatar =
+      typeof row?.avatar_url === "string" ? row.avatar_url : null;
+    setAvatarUrl(nextAvatar);
+    setAvatarMode(resolveAvatarMode(nextAvatar));
+    setMessageDon(typeof row?.message_don === "string" ? row.message_don : "");
+    setDisplayNameEdit(
+      typeof row?.display_name === "string" ? row.display_name : "",
+    );
+    setRetraitMethode(
+      typeof row?.retrait_methode === "string" ? row.retrait_methode : "",
+    );
+    setRetraitIdentifiant(
+      typeof row?.retrait_identifiant === "string"
+        ? row.retrait_identifiant
+        : "",
+    );
+    setNotifQuiz(row?.notif_quiz !== false);
+    setNotifRedistribution(row?.notif_redistribution !== false);
+    setNotifConcours(row?.notif_concours !== false);
+    setCurrentTheme(
+      typeof row?.theme === "string" && row.theme.trim() ? row.theme : "A",
+    );
+    setAvailableThemes(
+      Array.isArray(themesRes)
+        ? (themesRes as { theme_id: string; name: string }[])
+        : [],
+    );
 
     const txData = Array.isArray(txRes) ? txRes : [];
     const sum = txData.reduce(
@@ -366,6 +484,143 @@ export default function ComptePage(): JSX.Element | null {
       window.setTimeout(() => setReferralCopied(null), 2000);
     } catch {
       /* ignore */
+    }
+  }
+
+  async function changeTheme(themeId: string): Promise<void> {
+    if (!session) return;
+    setThemeLoading(true);
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ theme: themeId })
+        .eq("id", session.user.id);
+      if (!error) {
+        setCurrentTheme(themeId);
+        document.documentElement.setAttribute("data-theme", themeId);
+      }
+    } finally {
+      setThemeLoading(false);
+    }
+  }
+
+  async function handleSaveProfil(
+    patch: Record<string, unknown>,
+  ): Promise<boolean> {
+    if (!session) return false;
+    setProfilPublicSaving(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/membres/profil", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(patch),
+      });
+      const json = (await res.json()) as ProfileRow & { error?: string };
+      if (!res.ok) {
+        setLoadError(json.error ?? "Impossible de mettre à jour le profil.");
+        return false;
+      }
+      setProfile((prev) => (prev ? { ...prev, ...json } : prev));
+      if (json.message_don !== undefined) {
+        setMessageDon(json.message_don ?? "");
+      }
+      if (json.display_name !== undefined) {
+        setDisplayNameEdit(json.display_name ?? "");
+      }
+      if (json.avatar_url !== undefined) {
+        const next = json.avatar_url ?? null;
+        setAvatarUrl(next);
+        setAvatarMode(resolveAvatarMode(next));
+      }
+      if (json.retrait_methode !== undefined) {
+        setRetraitMethode(json.retrait_methode ?? "");
+      }
+      if (json.retrait_identifiant !== undefined) {
+        setRetraitIdentifiant(json.retrait_identifiant ?? "");
+      }
+      if (json.notif_quiz !== undefined) setNotifQuiz(json.notif_quiz !== false);
+      if (json.notif_redistribution !== undefined) {
+        setNotifRedistribution(json.notif_redistribution !== false);
+      }
+      if (json.notif_concours !== undefined) {
+        setNotifConcours(json.notif_concours !== false);
+      }
+      return true;
+    } catch {
+      setLoadError("Erreur réseau lors de la mise à jour du profil.");
+      return false;
+    } finally {
+      setProfilPublicSaving(false);
+    }
+  }
+
+  function openAvatarModal(): void {
+    const mode = resolveAvatarMode(avatarUrl);
+    setAvatarMode(mode);
+    setDraftAvatarMode(mode);
+    setAvatarModalOpen(true);
+  }
+
+  function closeAvatarModal(): void {
+    if (avatarUploading || profilPublicSaving) return;
+    setAvatarModalOpen(false);
+    setDraftAvatarMode(resolveAvatarMode(avatarUrl));
+    setAvatarMode(resolveAvatarMode(avatarUrl));
+  }
+
+  async function handleSelectAvatarMode(mode: AvatarMode): Promise<void> {
+    setDraftAvatarMode(mode);
+    if (mode === "initiales") {
+      const ok = await handleSaveProfil({ avatar_url: null });
+      if (ok) setAvatarModalOpen(false);
+    }
+  }
+
+  async function handleSelectPresetEmoji(emoji: string): Promise<void> {
+    setDraftAvatarMode("avatar");
+    setAvatarMode("avatar");
+    const ok = await handleSaveProfil({ avatar_url: emoji });
+    if (ok) {
+      setAvatarUrl(emoji);
+      setAvatarModalOpen(false);
+    }
+  }
+
+  async function handleUploadAvatarPhoto(file: File): Promise<void> {
+    if (!session) return;
+    setAvatarUploading(true);
+    setLoadError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/membres/avatar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body,
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        avatar_url?: string;
+      };
+      if (!res.ok) {
+        setLoadError(json.error ?? "Échec de l'upload de la photo.");
+        return;
+      }
+      const next = json.avatar_url ?? null;
+      setAvatarUrl(next);
+      setAvatarMode("photo");
+      setDraftAvatarMode("photo");
+      setProfile((prev) => (prev ? { ...prev, avatar_url: next } : prev));
+      setAvatarModalOpen(false);
+    } catch {
+      setLoadError("Erreur réseau lors de l'upload de la photo.");
+    } finally {
+      setAvatarUploading(false);
     }
   }
 
@@ -444,6 +699,61 @@ export default function ComptePage(): JSX.Element | null {
   const referralLink = referralCode
     ? `${window.location.origin}/?ref=${encodeURIComponent(referralCode)}`
     : null;
+  const profilPublic = Boolean(profile?.profil_public);
+  const palierVerification = Number(profile?.palier_verification ?? 0);
+  const retraitGeleJusqua =
+    typeof profile?.retrait_gele_jusqua === "string"
+      ? profile.retrait_gele_jusqua
+      : null;
+  const retraitGeleActif =
+    Boolean(retraitGeleJusqua) &&
+    new Date(retraitGeleJusqua as string).getTime() > Date.now();
+  let retraitGeleLabel = "";
+  if (retraitGeleActif && retraitGeleJusqua) {
+    try {
+      retraitGeleLabel = dateFmt.format(new Date(retraitGeleJusqua));
+    } catch {
+      retraitGeleLabel = retraitGeleJusqua;
+    }
+  }
+
+  const fieldLabelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: "0.72rem",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    opacity: 0.55,
+    marginBottom: "0.35rem",
+  };
+  const fieldInputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "0.55rem 0.75rem",
+    borderRadius: "4px",
+    border: "1px solid var(--border-strong)",
+    background: "var(--bg)",
+    color: TEXT,
+    fontSize: "0.95rem",
+    fontFamily: "inherit",
+  };
+  const saveBtnStyle: React.CSSProperties = {
+    marginTop: "1rem",
+    background: GOLD,
+    color: BG,
+    border: "none",
+    borderRadius: "4px",
+    padding: "0.55rem 1.1rem",
+    fontSize: "0.85rem",
+    fontWeight: 700,
+    cursor: profilPublicSaving ? "wait" : "pointer",
+    opacity: profilPublicSaving ? 0.6 : 1,
+  };
+  const parametresCardStyle: React.CSSProperties = {
+    borderRadius: "4px",
+    padding: "1.25rem 1.1rem",
+    marginBottom: "1.25rem",
+    background: "var(--bg-card)",
+    border: "1px solid var(--border-soft)",
+  };
 
   return (
     <div
@@ -1021,8 +1331,594 @@ export default function ComptePage(): JSX.Element | null {
         {activeTab === "banque" ? (
           <p style={{ margin: 0, opacity: 0.7 }}>Contenu banque</p>
         ) : null}
+
         {activeTab === "parametres" ? (
-          <p style={{ margin: 0, opacity: 0.7 }}>Contenu paramètres</p>
+          <>
+            {loadError ? (
+              <p
+                role="alert"
+                style={{
+                  color: ROUGE,
+                  fontSize: "0.9rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                {loadError}
+              </p>
+            ) : null}
+
+            <section style={parametresCardStyle}>
+              {parametresSectionTitle("PROFIL PUBLIC")}
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.65rem",
+                  cursor: profilPublicSaving ? "wait" : "pointer",
+                  fontSize: "0.92rem",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={profilPublic}
+                  disabled={profilPublicSaving}
+                  onChange={(e) =>
+                    void handleSaveProfil({
+                      profil_public: e.target.checked,
+                      message_don: messageDon,
+                    })
+                  }
+                  style={{
+                    width: "1.1rem",
+                    height: "1.1rem",
+                    accentColor: GOLD,
+                  }}
+                />
+                Activer mon profil public
+              </label>
+              <label
+                htmlFor="compte-message-don"
+                style={{ ...fieldLabelStyle, marginTop: "0.85rem" }}
+              >
+                Message don
+              </label>
+              <textarea
+                id="compte-message-don"
+                value={messageDon}
+                maxLength={MAX_MESSAGE_DON}
+                disabled={profilPublicSaving}
+                onChange={(e) => setMessageDon(e.target.value)}
+                rows={3}
+                placeholder="Expliquez pourquoi vous sollicitez des points…"
+                style={{
+                  ...fieldInputStyle,
+                  resize: "vertical",
+                  lineHeight: 1.5,
+                }}
+              />
+              <p
+                style={{
+                  margin: "0.35rem 0 0",
+                  fontSize: "0.75rem",
+                  opacity: 0.5,
+                  textAlign: "right",
+                }}
+              >
+                {messageDon.length}/{MAX_MESSAGE_DON}
+              </p>
+              <button
+                type="button"
+                disabled={profilPublicSaving}
+                style={saveBtnStyle}
+                onClick={() =>
+                  void handleSaveProfil({
+                    profil_public: profilPublic,
+                    message_don: messageDon.trim(),
+                  })
+                }
+              >
+                {profilPublicSaving ? "…" : "Enregistrer"}
+              </button>
+            </section>
+
+            <section style={parametresCardStyle}>
+              {parametresSectionTitle("IDENTITÉ")}
+              <p style={fieldLabelStyle}>Avatar</p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "0.55rem",
+                  marginBottom: "1.15rem",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={openAvatarModal}
+                  aria-label="Modifier l'avatar"
+                  style={{
+                    padding: 0,
+                    border: "none",
+                    background: "transparent",
+                    cursor: "pointer",
+                    lineHeight: 0,
+                  }}
+                >
+                  <MemberAvatar
+                    displayName={displayNameEdit.trim() || name}
+                    avatarUrl={avatarUrl}
+                    size={72}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={openAvatarModal}
+                  style={{
+                    background: "transparent",
+                    color: "var(--text-70)",
+                    border: "1px solid var(--border-strong)",
+                    borderRadius: "4px",
+                    padding: "0.3rem 0.7rem",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    letterSpacing: "0.04em",
+                    cursor: "pointer",
+                  }}
+                >
+                  Modifier
+                </button>
+              </div>
+
+              {avatarModalOpen ? (
+                <div
+                  role="presentation"
+                  onClick={closeAvatarModal}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 100,
+                    background: "color-mix(in srgb, var(--bg) 72%, transparent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "1.25rem",
+                  }}
+                >
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="compte-avatar-modal-title"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: "100%",
+                      maxWidth: "22rem",
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-strong)",
+                      borderRadius: "4px",
+                      padding: "1.25rem 1.35rem",
+                    }}
+                  >
+                    <h3
+                      id="compte-avatar-modal-title"
+                      style={{
+                        margin: "0 0 1rem",
+                        fontFamily: "var(--font-bebas), Impact, sans-serif",
+                        fontSize: "1.25rem",
+                        letterSpacing: "0.08em",
+                        color: GOLD,
+                      }}
+                    >
+                      Modifier l&apos;avatar
+                    </h3>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <MemberAvatar
+                        displayName={displayNameEdit.trim() || name}
+                        avatarUrl={
+                          draftAvatarMode === "initiales"
+                            ? null
+                            : draftAvatarMode === "avatar"
+                              ? avatarUrl &&
+                                resolveAvatarMode(avatarUrl) === "avatar"
+                                ? avatarUrl
+                                : PRESET_AVATARS[0]
+                              : avatarUrl &&
+                                  resolveAvatarMode(avatarUrl) === "photo"
+                                ? avatarUrl
+                                : null
+                        }
+                        size={72}
+                      />
+                    </div>
+                    <div
+                      role="group"
+                      aria-label="Type d'avatar"
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "0.4rem",
+                        marginBottom: "0.85rem",
+                      }}
+                    >
+                      {(
+                        [
+                          { id: "initiales" as const, label: "Initiales" },
+                          { id: "avatar" as const, label: "Avatar" },
+                          { id: "photo" as const, label: "Photo" },
+                        ] as const
+                      ).map((opt) => {
+                        const active = draftAvatarMode === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            disabled={profilPublicSaving || avatarUploading}
+                            onClick={() => void handleSelectAvatarMode(opt.id)}
+                            style={{
+                              background: active
+                                ? "color-mix(in srgb, var(--accent) 14%, transparent)"
+                                : "transparent",
+                              color: active ? GOLD : "var(--text-70)",
+                              border: active
+                                ? `1px solid ${GOLD}`
+                                : "1px solid var(--border-strong)",
+                              borderRadius: "4px",
+                              padding: "0.4rem 0.75rem",
+                              fontSize: "0.78rem",
+                              fontWeight: 600,
+                              cursor:
+                                profilPublicSaving || avatarUploading
+                                  ? "wait"
+                                  : "pointer",
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {draftAvatarMode === "avatar" ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+                          gap: "0.45rem",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        {PRESET_AVATARS.map((emoji) => {
+                          const selected = avatarUrl === emoji;
+                          return (
+                            <button
+                              key={emoji}
+                              type="button"
+                              disabled={profilPublicSaving}
+                              onClick={() => void handleSelectPresetEmoji(emoji)}
+                              aria-label={`Choisir ${emoji}`}
+                              style={{
+                                aspectRatio: "1",
+                                borderRadius: "4px",
+                                border: selected
+                                  ? `1px solid ${GOLD}`
+                                  : "1px solid var(--border-strong)",
+                                background: selected
+                                  ? "color-mix(in srgb, var(--accent) 14%, transparent)"
+                                  : "color-mix(in srgb, var(--text) 4%, transparent)",
+                                fontSize: "1.35rem",
+                                cursor: profilPublicSaving ? "wait" : "pointer",
+                              }}
+                            >
+                              {emoji}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    {draftAvatarMode === "photo" ? (
+                      <div style={{ marginBottom: "1rem" }}>
+                        <label
+                          htmlFor="compte-avatar-photo"
+                          style={{
+                            display: "inline-block",
+                            padding: "0.5rem 0.9rem",
+                            borderRadius: "4px",
+                            border: "1px solid var(--border-strong)",
+                            background:
+                              "color-mix(in srgb, var(--text) 4%, transparent)",
+                            fontSize: "0.85rem",
+                            cursor: avatarUploading ? "wait" : "pointer",
+                            opacity: avatarUploading ? 0.6 : 1,
+                          }}
+                        >
+                          {avatarUploading ? "Upload…" : "Choisir une photo"}
+                        </label>
+                        <input
+                          id="compte-avatar-photo"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          disabled={avatarUploading || profilPublicSaving}
+                          style={{ display: "none" }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) void handleUploadAvatarPhoto(file);
+                          }}
+                        />
+                        <p
+                          style={{
+                            margin: "0.5rem 0 0",
+                            fontSize: "0.75rem",
+                            opacity: 0.5,
+                          }}
+                        >
+                          JPEG, PNG, WebP ou GIF · max 2 Mo
+                        </p>
+                      </div>
+                    ) : null}
+                    {draftAvatarMode === "initiales" ? (
+                      <p
+                        style={{
+                          margin: "0 0 1rem",
+                          fontSize: "0.82rem",
+                          opacity: 0.65,
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        Cliquez sur « Initiales » pour enregistrer le cercle avec
+                        vos initiales.
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={avatarUploading || profilPublicSaving}
+                      onClick={closeAvatarModal}
+                      style={{
+                        width: "100%",
+                        padding: "0.65rem 1rem",
+                        borderRadius: "4px",
+                        fontWeight: 600,
+                        fontSize: "0.88rem",
+                        border: "1px solid var(--border-strong)",
+                        background: "transparent",
+                        color: TEXT,
+                        cursor:
+                          avatarUploading || profilPublicSaving
+                            ? "wait"
+                            : "pointer",
+                      }}
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <label htmlFor="compte-pseudo" style={fieldLabelStyle}>
+                Pseudo
+              </label>
+              <input
+                id="compte-pseudo"
+                type="text"
+                value={displayNameEdit}
+                disabled={profilPublicSaving}
+                maxLength={80}
+                onChange={(e) => setDisplayNameEdit(e.target.value)}
+                style={fieldInputStyle}
+              />
+              <button
+                type="button"
+                disabled={profilPublicSaving}
+                style={saveBtnStyle}
+                onClick={() =>
+                  void handleSaveProfil({
+                    display_name: displayNameEdit.trim(),
+                  })
+                }
+              >
+                {profilPublicSaving ? "…" : "Enregistrer"}
+              </button>
+            </section>
+
+            <section style={parametresCardStyle}>
+              {parametresSectionTitle("RETRAIT")}
+              {retraitGeleActif ? (
+                <p
+                  role="alert"
+                  style={{
+                    margin: "0 0 1rem",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "4px",
+                    background:
+                      "color-mix(in srgb, var(--accent-red) 12%, transparent)",
+                    border: `1px solid ${ROUGE}`,
+                    color: ROUGE,
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  Retraits gelés jusqu&apos;au {retraitGeleLabel}
+                </p>
+              ) : null}
+              <p style={{ ...fieldLabelStyle, marginBottom: "0.5rem" }}>
+                Palier de vérification
+              </p>
+              <p
+                style={{
+                  margin: "0 0 1rem",
+                  fontSize: "0.92rem",
+                  color: palierVerification > 0 ? GOLD : "var(--text-70)",
+                }}
+              >
+                {palierLabel(
+                  Number.isFinite(palierVerification) ? palierVerification : 0,
+                )}
+              </p>
+              <label htmlFor="compte-retrait-methode" style={fieldLabelStyle}>
+                Méthode de paiement
+              </label>
+              <select
+                id="compte-retrait-methode"
+                value={retraitMethode}
+                disabled={profilPublicSaving}
+                onChange={(e) => setRetraitMethode(e.target.value)}
+                style={{ ...fieldInputStyle, cursor: "pointer" }}
+              >
+                <option value="">— Choisir —</option>
+                {RETRAIT_METHODES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <label
+                htmlFor="compte-retrait-identifiant"
+                style={{ ...fieldLabelStyle, marginTop: "0.85rem" }}
+              >
+                Identifiant du compte
+              </label>
+              <input
+                id="compte-retrait-identifiant"
+                type="text"
+                value={retraitIdentifiant}
+                disabled={profilPublicSaving}
+                maxLength={200}
+                placeholder="N° téléphone, courriel ou compte…"
+                onChange={(e) => setRetraitIdentifiant(e.target.value)}
+                style={fieldInputStyle}
+              />
+              <p
+                style={{
+                  margin: "0.65rem 0 0",
+                  fontSize: "0.78rem",
+                  opacity: 0.55,
+                  lineHeight: 1.45,
+                }}
+              >
+                Un changement de méthode ou d&apos;identifiant gèle les retraits
+                pendant 72 heures.
+              </p>
+              <button
+                type="button"
+                disabled={profilPublicSaving || !retraitMethode}
+                style={saveBtnStyle}
+                onClick={() =>
+                  void handleSaveProfil({
+                    retrait_methode: retraitMethode || null,
+                    retrait_identifiant: retraitIdentifiant.trim() || null,
+                  })
+                }
+              >
+                {profilPublicSaving ? "…" : "Enregistrer"}
+              </button>
+            </section>
+
+            <section style={parametresCardStyle}>
+              {parametresSectionTitle("APPARENCE")}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                  gap: "2px",
+                }}
+              >
+                {availableThemes.map((t) => (
+                  <button
+                    key={t.theme_id}
+                    type="button"
+                    onClick={() => void changeTheme(t.theme_id)}
+                    disabled={themeLoading}
+                    style={{
+                      padding: "0.65rem 0.85rem",
+                      background:
+                        currentTheme === t.theme_id
+                          ? "color-mix(in srgb, var(--accent) 12%, transparent)"
+                          : "transparent",
+                      border:
+                        currentTheme === t.theme_id
+                          ? "1px solid var(--accent)"
+                          : "1px solid var(--border-soft)",
+                      color:
+                        currentTheme === t.theme_id
+                          ? "var(--accent)"
+                          : "var(--text-40)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.58rem",
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      cursor: themeLoading ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section style={parametresCardStyle}>
+              {parametresSectionTitle("NOTIFICATIONS")}
+              <div style={{ display: "grid", gap: "0.85rem" }}>
+                {(
+                  [
+                    {
+                      id: "compte-notif-quiz",
+                      label: "Notifications quiz",
+                      checked: notifQuiz,
+                      set: setNotifQuiz,
+                      key: "notif_quiz" as const,
+                    },
+                    {
+                      id: "compte-notif-redistribution",
+                      label: "Notifications redistribution",
+                      checked: notifRedistribution,
+                      set: setNotifRedistribution,
+                      key: "notif_redistribution" as const,
+                    },
+                    {
+                      id: "compte-notif-concours",
+                      label: "Notifications concours",
+                      checked: notifConcours,
+                      set: setNotifConcours,
+                      key: "notif_concours" as const,
+                    },
+                  ] as const
+                ).map((item) => (
+                  <label
+                    key={item.id}
+                    htmlFor={item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.65rem",
+                      cursor: profilPublicSaving ? "wait" : "pointer",
+                      fontSize: "0.95rem",
+                    }}
+                  >
+                    <input
+                      id={item.id}
+                      type="checkbox"
+                      checked={item.checked}
+                      disabled={profilPublicSaving}
+                      onChange={(e) => {
+                        item.set(e.target.checked);
+                        void handleSaveProfil({ [item.key]: e.target.checked });
+                      }}
+                      style={{
+                        width: "1.1rem",
+                        height: "1.1rem",
+                        accentColor: GOLD,
+                      }}
+                    />
+                    {item.label}
+                  </label>
+                ))}
+              </div>
+            </section>
+          </>
         ) : null}
       </main>
 
