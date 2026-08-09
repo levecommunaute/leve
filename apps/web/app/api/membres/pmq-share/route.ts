@@ -121,15 +121,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const svc = getServiceSupabase();
 
   try {
-    const [mes_pts, pool] = await Promise.all([
+    const [mes_pts, pool, membresTotalRes] = await Promise.all([
       sumQuizPtsPonderes(svc, {
         membreId: auth.uid,
         startIso,
         endIso,
       }),
       aggregateQuizPool(svc, { startIso, endIso }),
+      svc
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .not("numero_membre", "is", null),
     ]);
 
+    if (membresTotalRes.error) {
+      throw new Error(membresTotalRes.error.message);
+    }
+
+    const nb_membres_total = membresTotalRes.count ?? 0;
     const total_pts = pool.total_pts_pool;
     const pourcentage =
       total_pts > 0 ? (mes_pts / total_pts) * 100 : 0;
@@ -139,6 +148,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       total_pts,
       total_pts_pool: pool.total_pts_pool,
       nb_membres_actifs: pool.nb_membres_actifs,
+      nb_membres_total,
       pourcentage,
     });
   } catch (e) {

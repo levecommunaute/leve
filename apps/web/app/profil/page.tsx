@@ -329,6 +329,7 @@ export default function ProfilPage(): React.JSX.Element | null {
     total_pts: number;
     total_pts_pool: number;
     nb_membres_actifs: number;
+    nb_membres_total: number;
     pourcentage: number;
   } | null>(null);
   const [filleulsActifs, setFilleulsActifs] = useState(0);
@@ -473,6 +474,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                 total_pts?: unknown;
                 total_pts_pool?: unknown;
                 nb_membres_actifs?: unknown;
+                nb_membres_total?: unknown;
                 pourcentage?: unknown;
               } | null;
               if (!res.ok || !json) return null;
@@ -482,12 +484,14 @@ export default function ProfilPage(): React.JSX.Element | null {
                 json.total_pts_pool ?? json.total_pts ?? 0,
               );
               const nb_membres_actifs = Number(json.nb_membres_actifs ?? 0);
+              const nb_membres_total = Number(json.nb_membres_total ?? 0);
               const pourcentage = Number(json.pourcentage ?? 0);
               if (
                 !Number.isFinite(mes_pts) ||
                 !Number.isFinite(total_pts) ||
                 !Number.isFinite(total_pts_pool) ||
                 !Number.isFinite(nb_membres_actifs) ||
+                !Number.isFinite(nb_membres_total) ||
                 !Number.isFinite(pourcentage)
               ) {
                 return null;
@@ -497,6 +501,7 @@ export default function ProfilPage(): React.JSX.Element | null {
                 total_pts,
                 total_pts_pool,
                 nb_membres_actifs,
+                nb_membres_total,
                 pourcentage,
               };
             })
@@ -1258,9 +1263,8 @@ export default function ProfilPage(): React.JSX.Element | null {
                       fontFamily: "var(--font-mono), ui-monospace, monospace",
                     }}
                   >
-                    {pmqShare.nb_membres_actifs} membre
-                    {pmqShare.nb_membres_actifs === 1 ? "" : "s"} actif
-                    {pmqShare.nb_membres_actifs === 1 ? "" : "s"} ·{" "}
+                    {pmqShare.nb_membres_actifs} / {pmqShare.nb_membres_total}{" "}
+                    membres actifs ce mois ·{" "}
                     {pointsFmt.format(pmqShare.total_pts_pool)} pts au total dans
                     le pool
                   </p>
