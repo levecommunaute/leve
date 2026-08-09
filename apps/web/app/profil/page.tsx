@@ -31,6 +31,16 @@ import {
 } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { useBetaTracking } from "../../lib/beta-tracking";
+import {
+  ageBracketFromIso,
+  assessJjMmAaaaInput,
+  backspaceJjMmAaaaInput,
+  formatIsoToJjMmAaaa,
+  formatJjMmAaaaDigits,
+  maskJjMmAaaaInput,
+  profilAgeMessage,
+  type AgeMessage,
+} from "../../lib/date-naissance";
 import { buildReferralLink } from "../../lib/parrainage";
 import { checkJwtExpired, getSupabaseClient } from "../../lib/supabase";
 
@@ -398,7 +408,7 @@ export default function ProfilPage(): React.JSX.Element | null {
       setNomLegal(typeof row?.nom_legal === "string" ? row.nom_legal : "");
       setDateNaissance(
         typeof row?.date_naissance === "string"
-          ? row.date_naissance.slice(0, 10)
+          ? formatIsoToJjMmAaaa(row.date_naissance)
           : "",
       );
       setPaysResidenceFiscale(
@@ -732,7 +742,7 @@ export default function ProfilPage(): React.JSX.Element | null {
       if (json.date_naissance !== undefined) {
         setDateNaissance(
           typeof json.date_naissance === "string"
-            ? json.date_naissance.slice(0, 10)
+            ? formatIsoToJjMmAaaa(json.date_naissance)
             : "",
         );
       }
@@ -1737,14 +1747,122 @@ export default function ProfilPage(): React.JSX.Element | null {
                   <label htmlFor="date-naissance" style={fieldLabelStyle}>
                     Date de naissance
                   </label>
-                  <input
-                    id="date-naissance"
-                    type="date"
-                    value={dateNaissance}
-                    disabled={profilPublicSaving}
-                    onChange={(e) => setDateNaissance(e.target.value)}
-                    style={fieldInputStyle}
-                  />
+                  {(() => {
+                    const dateAssess = assessJjMmAaaaInput(dateNaissance);
+                    const borderColor =
+                      dateAssess.status === "invalid"
+                        ? ROUGE
+                        : dateAssess.status === "valid"
+                          ? "var(--accent-green)"
+                          : "var(--border-strong)";
+                    return (
+                      <>
+                        <input
+                          id="date-naissance"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="bday"
+                          placeholder="JJ/MM/AAAA"
+                          maxLength={10}
+                          value={dateNaissance}
+                          disabled={profilPublicSaving}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Backspace" || profilPublicSaving) {
+                              return;
+                            }
+                            const el = e.currentTarget;
+                            const start = el.selectionStart ?? 0;
+                            const end = el.selectionEnd ?? 0;
+                            // Sélection : effacer la plage sans réappliquer le masque d'ajout
+                            if (start !== end) {
+                              e.preventDefault();
+                              const next =
+                                dateNaissance.slice(0, start) +
+                                dateNaissance.slice(end);
+                              setDateNaissance(formatJjMmAaaaDigits(next));
+                              return;
+                            }
+                            // Curseur en fin de champ : comportement Backspace dédié
+                            if (start === dateNaissance.length) {
+                              e.preventDefault();
+                              setDateNaissance(
+                                backspaceJjMmAaaaInput(dateNaissance),
+                              );
+                            }
+                            // Curseur au milieu : laisser le navigateur, onChange reformate
+                          }}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            const prevDigits = dateNaissance.replace(
+                              /\D/g,
+                              "",
+                            ).length;
+                            const nextDigits = next.replace(/\D/g, "").length;
+                            // Masque (/ auto) uniquement à l'ajout de chiffres
+                            if (nextDigits < prevDigits) {
+                              setDateNaissance(formatJjMmAaaaDigits(next));
+                            } else {
+                              setDateNaissance(maskJjMmAaaaInput(next));
+                            }
+                          }}
+                          aria-invalid={dateAssess.status === "invalid"}
+                          style={{
+                            ...fieldInputStyle,
+                            border: `1px solid ${borderColor}`,
+                            outlineColor:
+                              dateAssess.status === "invalid"
+                                ? ROUGE
+                                : dateAssess.status === "valid"
+                                  ? "var(--accent-green)"
+                                  : undefined,
+                          }}
+                        />
+                        {dateAssess.status === "invalid" && dateAssess.error ? (
+                          <p
+                            role="alert"
+                            style={{
+                              margin: "0.45rem 0 0",
+                              fontSize: "0.82rem",
+                              color: ROUGE,
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {dateAssess.error}
+                          </p>
+                        ) : null}
+                        {dateAssess.status === "valid" && dateAssess.iso
+                          ? (() => {
+                              const bracket = ageBracketFromIso(dateAssess.iso);
+                              if (!bracket) return null;
+                              const msg: AgeMessage = profilAgeMessage(bracket);
+                              const color =
+                                msg.tone === "error"
+                                  ? ROUGE
+                                  : msg.tone === "warn"
+                                    ? "#E67E22"
+                                    : msg.tone === "ok"
+                                      ? "var(--accent-green)"
+                                      : GOLD;
+                              return (
+                                <p
+                                  role={
+                                    msg.tone === "error" ? "alert" : "status"
+                                  }
+                                  style={{
+                                    margin: "0.45rem 0 0",
+                                    fontSize: "0.82rem",
+                                    color,
+                                    lineHeight: 1.4,
+                                  }}
+                                >
+                                  {msg.text}
+                                </p>
+                              );
+                            })()
+                          : null}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label htmlFor="pays-fiscal" style={fieldLabelStyle}>
@@ -1792,15 +1910,36 @@ export default function ProfilPage(): React.JSX.Element | null {
                   type="button"
                   disabled={profilPublicSaving}
                   style={saveBtnStyle}
-                  onClick={() =>
+                  onClick={() => {
+                    const trimmed = dateNaissance.trim();
+                    let iso: string | null = null;
+                    if (trimmed) {
+                      const assessed = assessJjMmAaaaInput(trimmed);
+                      if (assessed.status !== "valid" || !assessed.iso) {
+                        setLoadError(
+                          assessed.error ??
+                            "Date de naissance invalide. Utilisez JJ/MM/AAAA.",
+                        );
+                        return;
+                      }
+                      const bracket = ageBracketFromIso(assessed.iso);
+                      if (bracket === "under12") {
+                        setLoadError(
+                          "Vous devez avoir au moins 12 ans pour rejoindre LEVE.",
+                        );
+                        return;
+                      }
+                      iso = assessed.iso;
+                    }
                     void handleSaveProfil({
                       nom_legal: nomLegal.trim() || null,
-                      date_naissance: dateNaissance || null,
-                      pays_residence_fiscale: paysResidenceFiscale.trim() || null,
+                      date_naissance: iso,
+                      pays_residence_fiscale:
+                        paysResidenceFiscale.trim() || null,
                       telephone: telephone.trim() || null,
                       adresse: adresse.trim() || null,
-                    })
-                  }
+                    });
+                  }}
                 >
                   {profilPublicSaving ? "…" : "Enregistrer"}
                 </button>

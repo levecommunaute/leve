@@ -7,6 +7,10 @@ import {
   isPresetAvatar,
   PRESET_AVATARS,
 } from "../../../../lib/avatar";
+import {
+  ageBracketFromIso,
+  parseIsoDate,
+} from "../../../../lib/date-naissance";
 import { sendMethodeRetraitChangeeEmail } from "../../../../lib/emails";
 
 export const dynamic = "force-dynamic";
@@ -109,21 +113,22 @@ function parseOptionalDate(
       { status: 400 },
     );
   }
-  const trimmed = value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+  const parsed = parseIsoDate(value);
+  if (!parsed) {
     return NextResponse.json(
-      { error: `${field} doit être au format YYYY-MM-DD` },
+      { error: `${field} doit être une date valide au format YYYY-MM-DD` },
       { status: 400 },
     );
   }
-  const d = new Date(`${trimmed}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) {
+  if (ageBracketFromIso(parsed.iso) === "under12") {
     return NextResponse.json(
-      { error: `${field} n'est pas une date valide` },
+      {
+        error: "Vous devez avoir au moins 12 ans pour rejoindre LEVE.",
+      },
       { status: 400 },
     );
   }
-  return trimmed;
+  return parsed.iso;
 }
 
 function clientIp(request: NextRequest): string | null {

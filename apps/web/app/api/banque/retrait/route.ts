@@ -8,6 +8,10 @@ import {
   memberContact,
   type RetraitRow,
 } from "../../../../lib/banque-retrait-securite";
+import {
+  ageBracketFromIso,
+  retraitAgeGate,
+} from "../../../../lib/date-naissance";
 import { sendRetraitStatutEmail } from "../../../../lib/emails";
 import { roundUSD } from "../../../../lib/frais-plateforme";
 
@@ -130,6 +134,88 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       executed: execResult.executed,
       exec_errors: execResult.errors,
     });
+  }
+
+  // Contrôles profil / âge (main) avant activation du délai de sécurité
+  const { data: profilSecu, error: profilSecuError } = await supabase
+    .from("profiles")
+    .select(
+      "nom_legal, date_naissance, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
+    )
+    .eq("id", membreId)
+    .maybeSingle();
+
+  if (profilSecuError) {
+    return NextResponse.json({ error: profilSecuError.message }, { status: 500 });
+  }
+
+  const nomLegal =
+    typeof profilSecu?.nom_legal === "string" ? profilSecu.nom_legal.trim() : "";
+  const telephone =
+    typeof profilSecu?.telephone === "string" ? profilSecu.telephone.trim() : "";
+  const paysFiscal =
+    typeof profilSecu?.pays_residence_fiscale === "string"
+      ? profilSecu.pays_residence_fiscale.trim()
+      : "";
+  const dateNaissance =
+    typeof profilSecu?.date_naissance === "string"
+      ? profilSecu.date_naissance.trim()
+      : "";
+  if (!nomLegal || !telephone || !paysFiscal || !dateNaissance) {
+    return NextResponse.json(
+      {
+        error:
+          "Complétez votre profil (nom légal, date de naissance, téléphone, pays de résidence fiscale) pour effectuer un retrait",
+        redirect: "/profil?onglet=identite",
+      },
+      { status: 400 },
+    );
+  }
+
+  const ageBracket = ageBracketFromIso(dateNaissance);
+  if (!ageBracket) {
+    return NextResponse.json(
+      {
+        error: "Date de naissance invalide — mettez à jour votre profil",
+        redirect: "/profil?onglet=identite",
+      },
+      { status: 400 },
+    );
+  }
+  const ageGate = retraitAgeGate(ageBracket);
+  if (!ageGate.allowNormal) {
+    return NextResponse.json(
+      { error: ageGate.message ?? "Retrait non autorisé" },
+      { status: 403 },
+    );
+  }
+
+  const geleUntil =
+    typeof profilSecu?.retrait_gele_jusqua === "string"
+      ? profilSecu.retrait_gele_jusqua
+      : null;
+  if (geleUntil && new Date(geleUntil).getTime() > Date.now()) {
+    return NextResponse.json(
+      {
+        error: `Retraits gelés jusqu'au ${geleUntil}`,
+        retrait_gele_jusqua: geleUntil,
+      },
+      { status: 403 },
+    );
+  }
+
+  const methode =
+    typeof profilSecu?.retrait_methode === "string"
+      ? profilSecu.retrait_methode.trim()
+      : "";
+  if (!methode) {
+    return NextResponse.json(
+      {
+        error: "Définissez une méthode de retrait dans votre profil",
+        redirect: "/profil?onglet=retrait",
+      },
+      { status: 400 },
+    );
   }
 
   const { data: retrait, error: retraitErr } = await supabase
