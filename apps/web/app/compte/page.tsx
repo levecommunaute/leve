@@ -1135,7 +1135,10 @@ export default function ComptePage(): JSX.Element | null {
         }
       />
 
-      <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
+      <main
+        className={activeTab === "banque" ? "leve-page-banque" : "leve-page-profil"}
+        style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}
+      >
         <nav
           role="tablist"
           aria-label="Compte"
