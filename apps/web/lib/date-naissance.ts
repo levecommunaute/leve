@@ -70,8 +70,19 @@ function dayRangeError(month: number, maxDay: number): string {
   return `Le jour doit être entre 01 et ${String(maxDay).padStart(2, "0")} pour ${name}`;
 }
 
+/** Chiffres seuls, formatés JJ/MM/AAAA sans `/` final forcé (pour l'effacement). */
+export function formatJjMmAaaaDigits(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
 /**
- * Masque automatique : chiffres seulement, `/` insérés.
+ * Masque à l'ajout de chiffres uniquement : `/` auto après jour et mois.
  * "30" → "30/" · "3012" → "30/12/" · "30122024" → "30/12/2024"
  */
 export function maskJjMmAaaaInput(raw: string): string {
@@ -86,6 +97,20 @@ export function maskJjMmAaaaInput(raw: string): string {
     return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/`;
   }
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/**
+ * Backspace dédié :
+ * - "30/" → "3" (efface `/` + dernier chiffre)
+ * - "30/12/" → "30/1"
+ * - "30/12/2024" → "30/12/202"
+ * - "3" → ""
+ * Ne réinsère pas de `/` final.
+ */
+export function backspaceJjMmAaaaInput(current: string): string {
+  const digits = current.replace(/\D/g, "");
+  if (digits.length === 0) return "";
+  return formatJjMmAaaaDigits(digits.slice(0, -1));
 }
 
 /**

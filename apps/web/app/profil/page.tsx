@@ -33,7 +33,9 @@ import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import {
   ageBracketFromIso,
   assessJjMmAaaaInput,
+  backspaceJjMmAaaaInput,
   formatIsoToJjMmAaaa,
+  formatJjMmAaaaDigits,
   maskJjMmAaaaInput,
   profilAgeMessage,
   type AgeMessage,
@@ -1762,9 +1764,45 @@ export default function ProfilPage(): React.JSX.Element | null {
                           maxLength={10}
                           value={dateNaissance}
                           disabled={profilPublicSaving}
-                          onChange={(e) =>
-                            setDateNaissance(maskJjMmAaaaInput(e.target.value))
-                          }
+                          onKeyDown={(e) => {
+                            if (e.key !== "Backspace" || profilPublicSaving) {
+                              return;
+                            }
+                            const el = e.currentTarget;
+                            const start = el.selectionStart ?? 0;
+                            const end = el.selectionEnd ?? 0;
+                            // Sélection : effacer la plage sans réappliquer le masque d'ajout
+                            if (start !== end) {
+                              e.preventDefault();
+                              const next =
+                                dateNaissance.slice(0, start) +
+                                dateNaissance.slice(end);
+                              setDateNaissance(formatJjMmAaaaDigits(next));
+                              return;
+                            }
+                            // Curseur en fin de champ : comportement Backspace dédié
+                            if (start === dateNaissance.length) {
+                              e.preventDefault();
+                              setDateNaissance(
+                                backspaceJjMmAaaaInput(dateNaissance),
+                              );
+                            }
+                            // Curseur au milieu : laisser le navigateur, onChange reformate
+                          }}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            const prevDigits = dateNaissance.replace(
+                              /\D/g,
+                              "",
+                            ).length;
+                            const nextDigits = next.replace(/\D/g, "").length;
+                            // Masque (/ auto) uniquement à l'ajout de chiffres
+                            if (nextDigits < prevDigits) {
+                              setDateNaissance(formatJjMmAaaaDigits(next));
+                            } else {
+                              setDateNaissance(maskJjMmAaaaInput(next));
+                            }
+                          }}
                           aria-invalid={dateAssess.status === "invalid"}
                           style={{
                             ...fieldInputStyle,
