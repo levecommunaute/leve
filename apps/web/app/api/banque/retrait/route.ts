@@ -3,7 +3,6 @@ import { createServerClient } from "@repo/supabase/server";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "../../../../lib/admin-server";
 import {
-<<<<<<< HEAD
   activerDelaiSecurite,
   executerRetraitsPrets,
   memberContact,
@@ -15,16 +14,6 @@ import {
 } from "../../../../lib/date-naissance";
 import { sendRetraitStatutEmail } from "../../../../lib/emails";
 import { roundUSD } from "../../../../lib/frais-plateforme";
-=======
-  ageBracketFromIso,
-  retraitAgeGate,
-} from "../../../../lib/date-naissance";
-import {
-  calculerFraisPlateforme,
-  crediterFraisPlateformeBalance,
-  roundUSD,
-} from "../../../../lib/frais-plateforme";
->>>>>>> main
 
 export const dynamic = "force-dynamic";
 
