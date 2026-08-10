@@ -172,6 +172,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Identité incohérente" }, { status: 403 });
   }
 
+  console.log(
+    "[quiz-submit] membre_id:",
+    user.id,
+    "video_id:",
+    videoId,
+    "nb_reponses:",
+    Object.keys(answers).length,
+    "timestamp:",
+    new Date().toISOString(),
+  );
+
   try {
     const svc = getServiceSupabase();
 

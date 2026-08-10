@@ -49,6 +49,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       correct_answer: String(row.bonne_reponse ?? ""),
     }));
 
+    console.log(
+      "[quiz-questions] video_id:",
+      videoId,
+      "questions_en_base:",
+      rows.length,
+      "questions_retournees:",
+      picked.length,
+    );
+
     return NextResponse.json({ quiz_questions: picked });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
