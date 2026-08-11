@@ -350,6 +350,9 @@ export default function ComptePage(): JSX.Element | null {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [activeTab, setActiveTab] = useState<CompteTab>("profil");
+  const [activeParamsTab, setActiveParamsTab] = useState<
+    "public" | "identite" | "retrait" | "notifications"
+  >("public");
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -2542,6 +2545,56 @@ export default function ComptePage(): JSX.Element | null {
               </p>
             ) : null}
 
+            <nav
+              role="tablist"
+              aria-label="Paramètres"
+              style={{
+                display: "flex",
+                width: "100%",
+                borderBottom: "1px solid var(--border-soft)",
+                marginBottom: "1.5rem",
+              }}
+            >
+              {(
+                [
+                  { id: "public" as const, label: "Public" },
+                  { id: "identite" as const, label: "Identité" },
+                  { id: "retrait" as const, label: "Retrait" },
+                  { id: "notifications" as const, label: "Notifications" },
+                ] as const
+              ).map((tab) => {
+                const active = activeParamsTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setActiveParamsTab(tab.id)}
+                    style={{
+                      flex: 1,
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: active
+                        ? "2px solid var(--accent)"
+                        : "2px solid transparent",
+                      color: active ? "var(--accent)" : TEXT,
+                      opacity: active ? 1 : 0.4,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.65rem",
+                      letterSpacing: "0.15em",
+                      textTransform: "uppercase",
+                      padding: "0.85rem 0.5rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {activeParamsTab === "public" ? (
             <section style={parametresCardStyle}>
               {parametresSectionTitle("PROFIL PUBLIC")}
               <label
@@ -2615,7 +2668,9 @@ export default function ComptePage(): JSX.Element | null {
                 {profilPublicSaving ? "…" : "Enregistrer"}
               </button>
             </section>
+            ) : null}
 
+            {activeParamsTab === "identite" ? (
             <section style={parametresCardStyle}>
               {parametresSectionTitle("IDENTITÉ")}
               <p style={fieldLabelStyle}>Avatar</p>
@@ -2919,7 +2974,9 @@ export default function ComptePage(): JSX.Element | null {
                 {profilPublicSaving ? "…" : "Enregistrer"}
               </button>
             </section>
+            ) : null}
 
+            {activeParamsTab === "retrait" ? (
             <section style={parametresCardStyle}>
               {parametresSectionTitle("RETRAIT")}
               {retraitGeleActif ? (
@@ -3011,7 +3068,10 @@ export default function ComptePage(): JSX.Element | null {
                 {profilPublicSaving ? "…" : "Enregistrer"}
               </button>
             </section>
+            ) : null}
 
+            {activeParamsTab === "notifications" ? (
+              <>
             <section style={parametresCardStyle}>
               {parametresSectionTitle("APPARENCE")}
               <div
@@ -3113,6 +3173,8 @@ export default function ComptePage(): JSX.Element | null {
                 ))}
               </div>
             </section>
+              </>
+            ) : null}
           </>
         ) : null}
       </main>
