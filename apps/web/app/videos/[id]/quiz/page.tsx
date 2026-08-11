@@ -103,6 +103,33 @@ function indexToAnswerLetter(index: number): "a" | "b" | "c" | "d" | null {
   return String.fromCharCode(97 + index) as "a" | "b" | "c" | "d";
 }
 
+function playSound(type: "correct" | "incorrect"): void {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    const ctx = new AudioCtx();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = type === "correct" ? 880 : 220;
+    const duration = type === "correct" ? 0.15 : 0.3;
+    gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + duration);
+    oscillator.onended = () => {
+      void ctx.close();
+    };
+  } catch {
+    // Web Audio non disponible — ignore
+  }
+}
+
 export default function VideoQuizPage(): React.JSX.Element {
   const params = useParams();
   const router = useRouter();
@@ -122,6 +149,7 @@ export default function VideoQuizPage(): React.JSX.Element {
   const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");
   const [submitting, setSubmitting] = useState(false);
   const [showManualSubmit, setShowManualSubmit] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [result, setResult] = useState<{
     score_correct: number;
     score_total: number;
@@ -135,6 +163,18 @@ export default function VideoQuizPage(): React.JSX.Element {
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const secondsLeftRef = useRef(secondsLeft);
 
+  const readQuestion = useCallback((text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "fr-FR";
+    utterance.rate = 0.9;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
   const allAnswered = Object.keys(answers).length === quiz_questions.length;
 
   useEffect(() => {
@@ -144,6 +184,9 @@ export default function VideoQuizPage(): React.JSX.Element {
   useEffect(() => {
     return () => {
       if (advanceTimeoutRef.current) clearTimeout(advanceTimeoutRef.current);
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -229,6 +272,10 @@ export default function VideoQuizPage(): React.JSX.Element {
         clearTimeout(advanceTimeoutRef.current);
         advanceTimeoutRef.current = null;
       }
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+      }
       submitOnce.current = true;
       setSubmitting(true);
       setPhase("done");
@@ -309,8 +356,20 @@ export default function VideoQuizPage(): React.JSX.Element {
     return () => clearTimeout(t);
   }, [allAnswered]);
 
+  const currentQuestion = quiz_questions[currentQuestionIndex];
+
+  useEffect(() => {
+    if (phase !== "running") return;
+    const q = quiz_questions[currentQuestionIndex];
+    if (!q) return;
+    readQuestion(q.question);
+  }, [currentQuestionIndex, phase, quiz_questions, readQuestion]);
+
   const onSelect = (q: QuizQuestion, index: number) => {
     if (phase !== "running" || revealedQuestionId === q.id) return;
+
+    const correctIndex = resolveCorrectIndex(q.correct_answer, q.options);
+    playSound(index === correctIndex ? "correct" : "incorrect");
 
     const nextAnswers = { ...answers, [q.id]: index };
     setAnswers(nextAnswers);
@@ -330,13 +389,21 @@ export default function VideoQuizPage(): React.JSX.Element {
     }, FEEDBACK_DELAY_MS);
   };
 
+  const toggleSpeech = () => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    if (currentQuestion) readQuestion(currentQuestion.question);
+  };
+
   const handleManualSubmit = () => {
     if (phase !== "running" || submitting) return;
     autoSubmitFired.current = true;
     void doSubmit(secondsLeftRef.current);
   };
-
-  const currentQuestion = quiz_questions[currentQuestionIndex];
 
   const shellStyle: React.CSSProperties = {
     background: "var(--bg)",
@@ -530,16 +597,46 @@ export default function VideoQuizPage(): React.JSX.Element {
                 border: "1px solid rgba(255,255,255,.06)",
               }}
             >
-              <p
+              <div
                 style={{
-                  fontFamily: "Bebas Neue, sans-serif",
-                  fontSize: "1.15rem",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
                   marginBottom: "1rem",
-                  color: "var(--text)",
                 }}
               >
-                {currentQuestionIndex + 1}. {currentQuestion.question}
-              </p>
+                <p
+                  style={{
+                    fontFamily: "Bebas Neue, sans-serif",
+                    fontSize: "1.15rem",
+                    margin: 0,
+                    color: "var(--text)",
+                    flex: 1,
+                  }}
+                >
+                  {currentQuestionIndex + 1}. {currentQuestion.question}
+                </p>
+                <button
+                  type="button"
+                  onClick={toggleSpeech}
+                  aria-label={isSpeaking ? "Arrêter la lecture" : "Lire la question"}
+                  title={isSpeaking ? "Arrêter la lecture" : "Lire la question"}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,.15)",
+                    color: "var(--text)",
+                    cursor: "pointer",
+                    minWidth: "44px",
+                    minHeight: "44px",
+                    fontSize: "1.25rem",
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  {isSpeaking ? "🔇" : "🔊"}
+                </button>
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 {currentQuestion.options.map((opt, oi) => {
                   const selectedIndex = answers[currentQuestion.id];
