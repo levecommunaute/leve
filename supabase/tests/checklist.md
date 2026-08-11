@@ -12,3 +12,5 @@ Manual / automated checks that must pass before production launch.
 8. **Transfer blocked if `solde` < $100** — Any bank transfer or external payout request with balance under 100.00 USD (or configured currency) is rejected before execution.
 9. **Classement updates in real time** — After points or PMQ-affecting actions, the leaderboard reflects new ordering without a full app restart (Realtime subscription or equivalent refresh).
 10. **Admin can generate codes and trigger redistribution** — Authorized admin flows can mint video codes and invoke monthly redistribution (and related notifications) without manual SQL.
+11. **TTS lecture des questions** — Bouton 🔊 sur chaque question ; lecture via Web Speech API en `fr-FR`.
+12. **Sons feedback bonne/mauvaise réponse** — Feedback audio via Web Audio API à la révélation de la réponse.
