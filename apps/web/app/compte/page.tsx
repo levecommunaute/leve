@@ -385,6 +385,7 @@ export default function ComptePage(): JSX.Element | null {
   const [showQuizHistory, setShowQuizHistory] = useState(false);
   const [showLastQuiz, setShowLastQuiz] = useState(false);
   const [showDonHistory, setShowDonHistory] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -547,12 +548,12 @@ export default function ComptePage(): JSX.Element | null {
       ),
       fetchRestJson(
         `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz` +
-          `&select=id,created_at,amount,type,description&order=created_at.desc&limit=20`,
+          `&select=id,created_at,amount,type,description&order=created_at.desc&limit=100`,
         token,
       ),
       fetchRestJson(
         `${SB}/rest/v1/banque_membres_mouvements?membre_id=eq.${encodeURIComponent(uid)}` +
-          `&select=id,created_at,montant,type,description&order=created_at.desc&limit=20`,
+          `&select=id,created_at,montant,type,description&order=created_at.desc&limit=100`,
         token,
       ),
       fetchRestJson(
@@ -676,7 +677,7 @@ export default function ComptePage(): JSX.Element | null {
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
-    setHistory(merged.slice(0, 20));
+    setHistory(merged.slice(0, 100));
 
     setQuizTxHistory(
       Array.isArray(pointsListRes)
@@ -2820,7 +2821,7 @@ export default function ComptePage(): JSX.Element | null {
               ) : (
                 <>
                   <div className="banque-history-cards">
-                    {history.map((row) => {
+                    {(showAllHistory ? history : history.slice(0, 20)).map((row) => {
                       const {
                         dateLabel,
                         label,
@@ -2953,7 +2954,7 @@ export default function ComptePage(): JSX.Element | null {
                           </tr>
                         </thead>
                         <tbody>
-                          {history.map((row) => {
+                          {(showAllHistory ? history : history.slice(0, 20)).map((row) => {
                             const {
                               dateLabel,
                               label,
@@ -3034,6 +3035,30 @@ export default function ComptePage(): JSX.Element | null {
                       </table>
                     </div>
                   </div>
+                  {history.length > 20 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllHistory((prev) => !prev)}
+                      style={{
+                        display: "block",
+                        margin: "1rem auto 0",
+                        background: "transparent",
+                        border: "1px solid var(--border-strong)",
+                        color: "var(--text-40)",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "0.65rem",
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        padding: "0.5rem 1.25rem",
+                        cursor: "pointer",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {showAllHistory
+                        ? "Masquer"
+                        : `Afficher tout (${history.length})`}
+                    </button>
+                  ) : null}
                 </>
               )}
             </section>
