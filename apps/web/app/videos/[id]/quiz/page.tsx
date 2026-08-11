@@ -121,6 +121,7 @@ export default function VideoQuizPage(): React.JSX.Element {
   const [revealedQuestionId, setRevealedQuestionId] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle" | "running" | "done">("idle");
   const [submitting, setSubmitting] = useState(false);
+  const [showManualSubmit, setShowManualSubmit] = useState(false);
   const [result, setResult] = useState<{
     score_correct: number;
     score_total: number;
@@ -133,6 +134,8 @@ export default function VideoQuizPage(): React.JSX.Element {
   const autoSubmitFired = useRef(false);
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const secondsLeftRef = useRef(secondsLeft);
+
+  const allAnswered = Object.keys(answers).length === quiz_questions.length;
 
   useEffect(() => {
     secondsLeftRef.current = secondsLeft;
@@ -196,6 +199,7 @@ export default function VideoQuizPage(): React.JSX.Element {
           setCurrentQuestionIndex(0);
           setRevealedQuestionId(null);
           setResult(null);
+          setShowManualSubmit(false);
           submitOnce.current = false;
           autoSubmitFired.current = false;
         }
@@ -298,6 +302,12 @@ export default function VideoQuizPage(): React.JSX.Element {
     autoSubmitFired.current = true;
     void doSubmit(0);
   }, [phase, secondsLeft, doSubmit]);
+
+  useEffect(() => {
+    if (!allAnswered || autoSubmitFired.current) return;
+    const t = setTimeout(() => setShowManualSubmit(true), 4000);
+    return () => clearTimeout(t);
+  }, [allAnswered]);
 
   const onSelect = (q: QuizQuestion, index: number) => {
     if (phase !== "running" || revealedQuestionId === q.id) return;
@@ -556,7 +566,7 @@ export default function VideoQuizPage(): React.JSX.Element {
           ) : null}
         </div>
 
-        {phase === "running" ? (
+        {phase === "running" && showManualSubmit ? (
           <div style={{ marginTop: "2rem" }}>
             <button
               type="button"
