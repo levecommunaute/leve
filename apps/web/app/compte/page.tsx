@@ -21,12 +21,25 @@ import {
   resolveAvatarMode,
   type AvatarMode,
 } from "../../lib/avatar";
-import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
+import {
+  formatPaTransferDonLines,
+  formatQuizTransactionLines,
+} from "../../lib/quizTransactionDisplay";
 import {
   getMonthlyMemberRankBadge,
   isCommunauteMemberType,
 } from "../../lib/rank-badge";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
+import {
+  ageBracketFromIso,
+  assessJjMmAaaaInput,
+  backspaceJjMmAaaaInput,
+  formatIsoToJjMmAaaa,
+  formatJjMmAaaaDigits,
+  maskJjMmAaaaInput,
+  profilAgeMessage,
+  type AgeMessage,
+} from "../../lib/date-naissance";
 import { checkJwtExpired, getSupabaseClient } from "../../lib/supabase";
 
 const bebas = Bebas_Neue({
@@ -69,8 +82,10 @@ type ProfileRow = {
   message_don: string | null;
   avatar_url: string | null;
   nom_legal: string | null;
-  telephone: string | null;
+  date_naissance: string | null;
   pays_residence_fiscale: string | null;
+  telephone: string | null;
+  adresse: string | null;
   palier_verification: number | string | null;
   retrait_methode: string | null;
   retrait_identifiant: string | null;
@@ -126,7 +141,21 @@ const RETRAIT_METHODES = [
 ] as const;
 
 const PROFIL_SELECT =
-  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,nom_legal,telephone,pays_residence_fiscale,palier_verification,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme";
+  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,nom_legal,date_naissance,pays_residence_fiscale,telephone,adresse,palier_verification,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme";
+
+type QuizSubmissionRow = {
+  video_id: string;
+  score: number | null;
+  points_awarded: number | null;
+  completed_at?: string | null;
+};
+
+type ProfilHistoryTxRow = {
+  id: string;
+  created_at: string;
+  amount: number | string | null;
+  description: string | null;
+};
 
 function currentMonthDate(): string {
   const d = new Date();
@@ -351,8 +380,11 @@ export default function ComptePage(): JSX.Element | null {
   const [signingOut, setSigningOut] = useState(false);
   const [activeTab, setActiveTab] = useState<CompteTab>("profil");
   const [activeParamsTab, setActiveParamsTab] = useState<
-    "public" | "identite" | "retrait" | "notifications"
+    "public" | "identite" | "retrait" | "apparence" | "notifications"
   >("public");
+  const [showQuizHistory, setShowQuizHistory] = useState(false);
+  const [showLastQuiz, setShowLastQuiz] = useState(false);
+  const [showDonHistory, setShowDonHistory] = useState(false);
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -363,9 +395,25 @@ export default function ComptePage(): JSX.Element | null {
     useState<AvatarMode>("initiales");
   const [messageDon, setMessageDon] = useState("");
   const [displayNameEdit, setDisplayNameEdit] = useState("");
+  const [nomLegal, setNomLegal] = useState("");
+  const [dateNaissance, setDateNaissance] = useState("");
+  const [paysResidenceFiscale, setPaysResidenceFiscale] = useState("");
+  const [telephone, setTelephone] = useState("");
+  const [adresse, setAdresse] = useState("");
   const [profilPublicSaving, setProfilPublicSaving] = useState(false);
   const [retraitMethode, setRetraitMethode] = useState("");
   const [retraitIdentifiant, setRetraitIdentifiant] = useState("");
+  const [quizRows, setQuizRows] = useState<
+    {
+      video_id: string;
+      title: string;
+      score: number;
+      points: number;
+      at: string | null;
+    }[]
+  >([]);
+  const [quizTxHistory, setQuizTxHistory] = useState<ProfilHistoryTxRow[]>([]);
+  const [donTxHistory, setDonTxHistory] = useState<ProfilHistoryTxRow[]>([]);
   const [notifQuiz, setNotifQuiz] = useState(true);
   const [notifRedistribution, setNotifRedistribution] = useState(true);
   const [notifConcours, setNotifConcours] = useState(true);
@@ -430,6 +478,8 @@ export default function ComptePage(): JSX.Element | null {
       pointsListRes,
       mouvementsRes,
       redistValueRes,
+      donHistoryRes,
+      quizSubmissionsRes,
     ] = await Promise.all([
       fetchRestJson(
         `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=${PROFIL_SELECT}`,
@@ -509,6 +559,14 @@ export default function ComptePage(): JSX.Element | null {
         `${SB}/rest/v1/redistribution_history?month=eq.${encodeURIComponent(currentMonthDate())}&select=value_per_point&limit=1`,
         token,
       ),
+      fetchRestJson(
+        `${SB}/rest/v1/points_transactions?membre_id=eq.${encodeURIComponent(uid)}&type=eq.pa_transfer&description=ilike.*Don*&select=id,created_at,amount,description&order=created_at.desc&limit=20`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/quiz_submissions?membre_id=eq.${encodeURIComponent(uid)}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`,
+        token,
+      ),
     ]);
 
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -522,6 +580,19 @@ export default function ComptePage(): JSX.Element | null {
     setDisplayNameEdit(
       typeof row?.display_name === "string" ? row.display_name : "",
     );
+    setNomLegal(typeof row?.nom_legal === "string" ? row.nom_legal : "");
+    setDateNaissance(
+      typeof row?.date_naissance === "string"
+        ? formatIsoToJjMmAaaa(row.date_naissance)
+        : "",
+    );
+    setPaysResidenceFiscale(
+      typeof row?.pays_residence_fiscale === "string"
+        ? row.pays_residence_fiscale
+        : "",
+    );
+    setTelephone(typeof row?.telephone === "string" ? row.telephone : "");
+    setAdresse(typeof row?.adresse === "string" ? row.adresse : "");
     setRetraitMethode(
       typeof row?.retrait_methode === "string" ? row.retrait_methode : "",
     );
@@ -606,6 +677,48 @@ export default function ComptePage(): JSX.Element | null {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
     setHistory(merged.slice(0, 20));
+
+    setQuizTxHistory(
+      Array.isArray(pointsListRes)
+        ? (pointsListRes as ProfilHistoryTxRow[])
+        : [],
+    );
+    setDonTxHistory(
+      Array.isArray(donHistoryRes)
+        ? (donHistoryRes as ProfilHistoryTxRow[])
+        : [],
+    );
+
+    const quizSubs = Array.isArray(quizSubmissionsRes)
+      ? (quizSubmissionsRes as QuizSubmissionRow[])
+      : [];
+    const quizVideoIds = [
+      ...new Set(quizSubs.map((s) => s.video_id).filter(Boolean)),
+    ];
+    let quizTitles = new Map<string, string>();
+    if (quizVideoIds.length > 0) {
+      const vRes = await fetchRestJson(
+        `${SB}/rest/v1/videos?id=in.(${quizVideoIds.join(",")})&select=id,title`,
+        token,
+      );
+      if (Array.isArray(vRes)) {
+        quizTitles = new Map(
+          vRes.map((v: { id: string; title: string }) => [
+            String(v.id),
+            String(v.title ?? ""),
+          ]),
+        );
+      }
+    }
+    setQuizRows(
+      quizSubs.map((s) => ({
+        video_id: s.video_id,
+        title: quizTitles.get(s.video_id)?.trim() || "Vidéo",
+        score: Number(s.score ?? 0),
+        points: Number(s.points_awarded ?? 0),
+        at: s.completed_at ?? null,
+      })),
+    );
 
     setDataLoaded(true);
   }, []);
@@ -837,6 +950,19 @@ export default function ComptePage(): JSX.Element | null {
       if (json.retrait_identifiant !== undefined) {
         setRetraitIdentifiant(json.retrait_identifiant ?? "");
       }
+      if (json.nom_legal !== undefined) setNomLegal(json.nom_legal ?? "");
+      if (json.date_naissance !== undefined) {
+        setDateNaissance(
+          typeof json.date_naissance === "string"
+            ? formatIsoToJjMmAaaa(json.date_naissance)
+            : "",
+        );
+      }
+      if (json.pays_residence_fiscale !== undefined) {
+        setPaysResidenceFiscale(json.pays_residence_fiscale ?? "");
+      }
+      if (json.telephone !== undefined) setTelephone(json.telephone ?? "");
+      if (json.adresse !== undefined) setAdresse(json.adresse ?? "");
       if (json.notif_quiz !== undefined) setNotifQuiz(json.notif_quiz !== false);
       if (json.notif_redistribution !== undefined) {
         setNotifRedistribution(json.notif_redistribution !== false);
@@ -1134,12 +1260,30 @@ export default function ComptePage(): JSX.Element | null {
               background: color-mix(in srgb, var(--text) 4%, transparent);
               border: 1px solid var(--border-soft);
             }
+            .profil-tx-card {
+              border-radius: 4px;
+              padding: 1rem;
+              background: rgba(245, 240, 232, 0.04);
+              border: 1px solid var(--border-soft);
+              display: flex;
+              flex-wrap: wrap;
+              align-items: flex-start;
+              justify-content: space-between;
+              gap: 0.5rem;
+            }
             @media (max-width: 479px) {
               .banque-history-table-wrap {
                 display: none !important;
               }
               .banque-history-cards {
                 display: flex !important;
+              }
+              .profil-tx-card {
+                flex-direction: column;
+                align-items: stretch;
+              }
+              .profil-tx-amount {
+                text-align: left !important;
               }
             }
           `,
@@ -1723,6 +1867,372 @@ export default function ComptePage(): JSX.Element | null {
                   Votre code parrainage sera disponible prochainement.
                 </p>
               )}
+            </section>
+
+            <section style={{ marginBottom: "1.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  marginBottom: showQuizHistory ? "0.75rem" : 0,
+                }}
+              >
+                <h2
+                  style={{
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.35rem",
+                    letterSpacing: "0.08em",
+                    margin: 0,
+                    color: GOLD,
+                  }}
+                >
+                  Historique des transactions quiz
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowQuizHistory((v) => !v)}
+                  style={{
+                    background: "transparent",
+                    color: TEXT,
+                    border: "1px solid var(--border-strong)",
+                    borderRadius: "4px",
+                    padding: "0.35rem 0.75rem",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {showQuizHistory ? "Masquer" : "Afficher"}
+                </button>
+              </div>
+              {showQuizHistory ? (
+                <>
+                  <p
+                    style={{
+                      margin: "0 0 1rem",
+                      opacity: 0.75,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    Points PMQ crédités ou débités par quiz.
+                  </p>
+                  {quizTxHistory.length === 0 ? (
+                    <p style={{ opacity: 0.65, fontSize: "0.95rem" }}>
+                      Aucune transaction quiz pour le moment.
+                    </p>
+                  ) : (
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        margin: 0,
+                        padding: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.65rem",
+                      }}
+                    >
+                      {quizTxHistory.map((tx) => {
+                        const amount = Number(tx.amount ?? 0);
+                        const lines = formatQuizTransactionLines(
+                          amount,
+                          tx.description,
+                          profileMultiplier,
+                        );
+                        let dateLabel = "—";
+                        try {
+                          dateLabel = dateFmt.format(new Date(tx.created_at));
+                        } catch {
+                          dateLabel = tx.created_at;
+                        }
+                        const color = amount >= 0 ? GOLD : ROUGE;
+                        const signed =
+                          amount > 0
+                            ? `+${pointsFmt.format(amount)} pts`
+                            : `${pointsFmt.format(amount)} pts`;
+                        return (
+                          <li key={tx.id} className="profil-tx-card">
+                            <div
+                              style={{ flex: "1 1 12rem", minWidth: 0 }}
+                            >
+                              <p style={{ margin: 0, fontWeight: 600 }}>
+                                {lines.line1}
+                              </p>
+                              <p
+                                style={{
+                                  margin: "0.3rem 0 0",
+                                  fontSize: "0.88rem",
+                                  opacity: 0.8,
+                                }}
+                              >
+                                {lines.line2}
+                              </p>
+                              <p
+                                style={{
+                                  margin: "0.4rem 0 0",
+                                  fontSize: "0.8rem",
+                                  opacity: 0.55,
+                                }}
+                              >
+                                {dateLabel}
+                              </p>
+                            </div>
+                            <span
+                              className="profil-tx-amount"
+                              style={{
+                                color,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {signed}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              ) : null}
+            </section>
+
+            <section style={{ marginBottom: "1.75rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  marginBottom: showLastQuiz ? "0.75rem" : 0,
+                }}
+              >
+                <h2
+                  style={{
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.35rem",
+                    letterSpacing: "0.08em",
+                    margin: 0,
+                    color: GOLD,
+                  }}
+                >
+                  Derniers quiz
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowLastQuiz((v) => !v)}
+                  style={{
+                    background: "transparent",
+                    color: TEXT,
+                    border: "1px solid var(--border-strong)",
+                    borderRadius: "4px",
+                    padding: "0.35rem 0.75rem",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {showLastQuiz ? "Masquer" : "Afficher"}
+                </button>
+              </div>
+              {showLastQuiz ? (
+                <>
+                  <p
+                    style={{
+                      margin: "0 0 1rem",
+                      opacity: 0.75,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    Les 5 dernières soumissions enregistrées.
+                  </p>
+                  {quizRows.length === 0 ? (
+                    <p style={{ opacity: 0.65, fontSize: "0.95rem" }}>
+                      Aucun quiz complété pour le moment.
+                    </p>
+                  ) : (
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        margin: 0,
+                        padding: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.65rem",
+                      }}
+                    >
+                      {quizRows.map((row, i) => (
+                        <li
+                          key={`${row.video_id}-${row.at ?? i}`}
+                          style={{
+                            borderRadius: "4px",
+                            padding: "1rem",
+                            background: "rgba(245, 240, 232, 0.04)",
+                            border: "1px solid var(--border-soft)",
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "baseline",
+                            justifyContent: "space-between",
+                            gap: "0.5rem",
+                            fontFamily:
+                              "var(--font-mono), ui-monospace, monospace",
+                          }}
+                        >
+                          <div>
+                            <p style={{ margin: 0, fontWeight: 600 }}>
+                              {row.title}
+                            </p>
+                            {row.at ? (
+                              <p
+                                style={{
+                                  margin: "0.35rem 0 0",
+                                  fontSize: "0.8rem",
+                                  opacity: 0.55,
+                                }}
+                              >
+                                {dateFmt.format(new Date(row.at))}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <span style={{ color: GOLD, fontWeight: 700 }}>
+                              +{pointsFmt.format(row.points)} pts
+                            </span>
+                            <p
+                              style={{
+                                margin: "0.25rem 0 0",
+                                fontSize: "0.85rem",
+                                opacity: 0.75,
+                              }}
+                            >
+                              Score : {row.score} bonnes réponses
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : null}
+            </section>
+
+            <section style={{ marginBottom: "2rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  marginBottom: showDonHistory ? "0.75rem" : 0,
+                }}
+              >
+                <h2
+                  style={{
+                    fontFamily: "var(--font-bebas), Impact, sans-serif",
+                    fontSize: "1.35rem",
+                    letterSpacing: "0.08em",
+                    margin: 0,
+                    color: GOLD,
+                  }}
+                >
+                  Historique des dons
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowDonHistory((v) => !v)}
+                  style={{
+                    background: "transparent",
+                    color: TEXT,
+                    border: "1px solid var(--border-strong)",
+                    borderRadius: "4px",
+                    padding: "0.35rem 0.75rem",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {showDonHistory ? "Masquer" : "Afficher"}
+                </button>
+              </div>
+              {showDonHistory ? (
+                <>
+                  <p
+                    style={{
+                      margin: "0 0 1rem",
+                      opacity: 0.75,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    Points PMQ envoyés ou reçus entre membres.
+                  </p>
+                  {donTxHistory.length === 0 ? (
+                    <p style={{ opacity: 0.65, fontSize: "0.95rem" }}>
+                      Aucun don pour le moment.
+                    </p>
+                  ) : (
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        margin: 0,
+                        padding: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.65rem",
+                      }}
+                    >
+                      {donTxHistory.map((tx) => {
+                        const amount = Number(tx.amount ?? 0);
+                        const lines = formatPaTransferDonLines(tx.description);
+                        if (!lines) return null;
+                        let dateLabel = "—";
+                        try {
+                          dateLabel = dateFmt.format(new Date(tx.created_at));
+                        } catch {
+                          dateLabel = tx.created_at;
+                        }
+                        const color = amount >= 0 ? GOLD : ROUGE;
+                        const signed =
+                          amount > 0
+                            ? `+${pointsFmt.format(amount)} pts`
+                            : `${pointsFmt.format(amount)} pts`;
+                        return (
+                          <li key={tx.id} className="profil-tx-card">
+                            <div
+                              style={{ flex: "1 1 12rem", minWidth: 0 }}
+                            >
+                              <p style={{ margin: 0, fontWeight: 600 }}>
+                                {lines.line1}
+                              </p>
+                              <p
+                                style={{
+                                  margin: "0.4rem 0 0",
+                                  fontSize: "0.8rem",
+                                  opacity: 0.55,
+                                }}
+                              >
+                                {dateLabel}
+                              </p>
+                            </div>
+                            <span
+                              className="profil-tx-amount"
+                              style={{
+                                color,
+                                fontWeight: 700,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {signed}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
+              ) : null}
             </section>
           </>
         ) : null}
@@ -2560,6 +3070,7 @@ export default function ComptePage(): JSX.Element | null {
                   { id: "public" as const, label: "Public" },
                   { id: "identite" as const, label: "Identité" },
                   { id: "retrait" as const, label: "Retrait" },
+                  { id: "apparence" as const, label: "Apparence" },
                   { id: "notifications" as const, label: "Notifications" },
                 ] as const
               ).map((tab) => {
@@ -2973,6 +3484,223 @@ export default function ComptePage(): JSX.Element | null {
               >
                 {profilPublicSaving ? "…" : "Enregistrer"}
               </button>
+
+              <div style={{ display: "grid", gap: "0.85rem", marginTop: "1.35rem" }}>
+                <div>
+                  <label htmlFor="compte-nom-legal" style={fieldLabelStyle}>
+                    Nom légal
+                  </label>
+                  <input
+                    id="compte-nom-legal"
+                    type="text"
+                    value={nomLegal}
+                    disabled={profilPublicSaving}
+                    maxLength={500}
+                    onChange={(e) => setNomLegal(e.target.value)}
+                    style={fieldInputStyle}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="compte-date-naissance" style={fieldLabelStyle}>
+                    Date de naissance
+                  </label>
+                  {(() => {
+                    const dateAssess = assessJjMmAaaaInput(dateNaissance);
+                    const borderColor =
+                      dateAssess.status === "invalid"
+                        ? ROUGE
+                        : dateAssess.status === "valid"
+                          ? "var(--accent-green)"
+                          : "var(--border-strong)";
+                    return (
+                      <>
+                        <input
+                          id="compte-date-naissance"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="bday"
+                          placeholder="JJ/MM/AAAA"
+                          maxLength={10}
+                          value={dateNaissance}
+                          disabled={profilPublicSaving}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Backspace" || profilPublicSaving) {
+                              return;
+                            }
+                            const el = e.currentTarget;
+                            const start = el.selectionStart ?? 0;
+                            const end = el.selectionEnd ?? 0;
+                            if (start !== end) {
+                              e.preventDefault();
+                              const next =
+                                dateNaissance.slice(0, start) +
+                                dateNaissance.slice(end);
+                              setDateNaissance(formatJjMmAaaaDigits(next));
+                              return;
+                            }
+                            if (start === dateNaissance.length) {
+                              e.preventDefault();
+                              setDateNaissance(
+                                backspaceJjMmAaaaInput(dateNaissance),
+                              );
+                            }
+                          }}
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            const prevDigits = dateNaissance.replace(
+                              /\D/g,
+                              "",
+                            ).length;
+                            const nextDigits = next.replace(/\D/g, "").length;
+                            if (nextDigits < prevDigits) {
+                              setDateNaissance(formatJjMmAaaaDigits(next));
+                            } else {
+                              setDateNaissance(maskJjMmAaaaInput(next));
+                            }
+                          }}
+                          aria-invalid={dateAssess.status === "invalid"}
+                          style={{
+                            ...fieldInputStyle,
+                            border: `1px solid ${borderColor}`,
+                            outlineColor:
+                              dateAssess.status === "invalid"
+                                ? ROUGE
+                                : dateAssess.status === "valid"
+                                  ? "var(--accent-green)"
+                                  : undefined,
+                          }}
+                        />
+                        {dateAssess.status === "invalid" && dateAssess.error ? (
+                          <p
+                            role="alert"
+                            style={{
+                              margin: "0.45rem 0 0",
+                              fontSize: "0.82rem",
+                              color: ROUGE,
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {dateAssess.error}
+                          </p>
+                        ) : null}
+                        {dateAssess.status === "valid" && dateAssess.iso
+                          ? (() => {
+                              const bracket = ageBracketFromIso(dateAssess.iso);
+                              if (!bracket) return null;
+                              const msg: AgeMessage = profilAgeMessage(bracket);
+                              const color =
+                                msg.tone === "error"
+                                  ? ROUGE
+                                  : msg.tone === "warn"
+                                    ? "#E67E22"
+                                    : msg.tone === "ok"
+                                      ? "var(--accent-green)"
+                                      : GOLD;
+                              return (
+                                <p
+                                  role={
+                                    msg.tone === "error" ? "alert" : "status"
+                                  }
+                                  style={{
+                                    margin: "0.45rem 0 0",
+                                    fontSize: "0.82rem",
+                                    color,
+                                    lineHeight: 1.4,
+                                  }}
+                                >
+                                  {msg.text}
+                                </p>
+                              );
+                            })()
+                          : null}
+                      </>
+                    );
+                  })()}
+                </div>
+                <div>
+                  <label htmlFor="compte-pays-fiscal" style={fieldLabelStyle}>
+                    Pays de résidence fiscale
+                  </label>
+                  <input
+                    id="compte-pays-fiscal"
+                    type="text"
+                    value={paysResidenceFiscale}
+                    disabled={profilPublicSaving}
+                    maxLength={120}
+                    onChange={(e) => setPaysResidenceFiscale(e.target.value)}
+                    style={fieldInputStyle}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="compte-telephone" style={fieldLabelStyle}>
+                    Téléphone
+                  </label>
+                  <input
+                    id="compte-telephone"
+                    type="tel"
+                    value={telephone}
+                    disabled={profilPublicSaving}
+                    maxLength={40}
+                    onChange={(e) => setTelephone(e.target.value)}
+                    style={fieldInputStyle}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="compte-adresse" style={fieldLabelStyle}>
+                    Adresse
+                  </label>
+                  <textarea
+                    id="compte-adresse"
+                    value={adresse}
+                    disabled={profilPublicSaving}
+                    maxLength={500}
+                    rows={3}
+                    onChange={(e) => setAdresse(e.target.value)}
+                    style={{
+                      ...fieldInputStyle,
+                      resize: "vertical",
+                      lineHeight: 1.5,
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={profilPublicSaving}
+                  style={saveBtnStyle}
+                  onClick={() => {
+                    const trimmed = dateNaissance.trim();
+                    let iso: string | null = null;
+                    if (trimmed) {
+                      const assessed = assessJjMmAaaaInput(trimmed);
+                      if (assessed.status !== "valid" || !assessed.iso) {
+                        setLoadError(
+                          assessed.error ??
+                            "Date de naissance invalide. Utilisez JJ/MM/AAAA.",
+                        );
+                        return;
+                      }
+                      const bracket = ageBracketFromIso(assessed.iso);
+                      if (bracket === "under12") {
+                        setLoadError(
+                          "Vous devez avoir au moins 12 ans pour rejoindre LEVE.",
+                        );
+                        return;
+                      }
+                      iso = assessed.iso;
+                    }
+                    void handleSaveProfil({
+                      nom_legal: nomLegal.trim() || null,
+                      date_naissance: iso,
+                      pays_residence_fiscale:
+                        paysResidenceFiscale.trim() || null,
+                      telephone: telephone.trim() || null,
+                      adresse: adresse.trim() || null,
+                    });
+                  }}
+                >
+                  {profilPublicSaving ? "…" : "Enregistrer"}
+                </button>
+              </div>
             </section>
             ) : null}
 
@@ -3070,8 +3798,7 @@ export default function ComptePage(): JSX.Element | null {
             </section>
             ) : null}
 
-            {activeParamsTab === "notifications" ? (
-              <>
+            {activeParamsTab === "apparence" ? (
             <section style={parametresCardStyle}>
               {parametresSectionTitle("APPARENCE")}
               <div
@@ -3113,7 +3840,9 @@ export default function ComptePage(): JSX.Element | null {
                 ))}
               </div>
             </section>
+            ) : null}
 
+            {activeParamsTab === "notifications" ? (
             <section style={parametresCardStyle}>
               {parametresSectionTitle("NOTIFICATIONS")}
               <div style={{ display: "grid", gap: "0.85rem" }}>
@@ -3173,7 +3902,6 @@ export default function ComptePage(): JSX.Element | null {
                 ))}
               </div>
             </section>
-              </>
             ) : null}
           </>
         ) : null}
