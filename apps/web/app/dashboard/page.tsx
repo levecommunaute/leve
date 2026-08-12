@@ -19,6 +19,7 @@ import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 import { endActiveBetaSession, useBetaTracking } from "../../lib/beta-tracking";
+import { Play, Landmark, Trophy, ShieldCheck, ChevronRight } from "lucide-react";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -1193,39 +1194,79 @@ export default function DashboardPage(): React.JSX.Element | null {
             }}
           >
             {[
-              { href: "/videos", label: "Vidéos", blockOnGrace: false },
-              { href: "/banque", label: "Banque LEVE", blockOnGrace: true },
-              { href: "/classement", label: "Classement", blockOnGrace: false },
-              { href: "/transparence", label: "Transparence", blockOnGrace: true },
+              { href: "/videos", label: "Vidéos", icon: Play, blockOnGrace: false },
+              { href: "/banque", label: "Banque LEVE", icon: Landmark, blockOnGrace: true },
+              { href: "/classement", label: "Classement", icon: Trophy, blockOnGrace: false },
+              { href: "/transparence", label: "Transparence", icon: ShieldCheck, blockOnGrace: true },
             ].map((item) => {
               const blocked = inGrace && item.blockOnGrace;
+              const Icon = item.icon;
+              const accentColor = blocked ? "var(--text-40)" : "var(--accent)";
               const cellStyle = {
                 display: "flex",
+                flexDirection: "row" as const,
                 alignItems: "center",
-                justifyContent: "center",
-                padding: "0.9rem",
+                gap: "14px",
+                padding: "1rem 1.1rem",
+                borderLeft: blocked
+                  ? "2px solid rgba(255,255,255,0.08)"
+                  : "2px solid rgba(212,160,23,0.5)",
+                borderTop: "1px solid var(--border-soft)",
+                borderRight: "1px solid var(--border-soft)",
+                borderBottom: "1px solid var(--border-soft)",
+                background: "var(--bg-card)",
                 borderRadius: "4px",
-                background: blocked ? "rgba(80, 80, 80, 0.1)" : "transparent",
-                border: blocked ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(212,160,23,0.4)",
-                color: blocked ? "var(--text-40)" : "var(--accent)",
                 textDecoration: "none",
-                fontWeight: 600,
-                fontSize: "0.9rem",
-                textAlign: "center" as const,
-                opacity: blocked ? 0.45 : 1,
                 cursor: blocked ? "not-allowed" : "pointer",
                 pointerEvents: blocked ? ("none" as const) : ("auto" as const),
               };
+              const content = (
+                <>
+                  <span
+                    style={{
+                      width: 38,
+                      height: 38,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(212,160,23,0.08)",
+                      border: "1px solid rgba(212,160,23,0.15)",
+                      borderRadius: "4px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon strokeWidth={1.5} size={18} color={accentColor} />
+                  </span>
+                  <p
+                    style={{
+                      flex: 1,
+                      fontFamily: "var(--font-bebas)",
+                      fontSize: "1rem",
+                      letterSpacing: "0.06em",
+                      color: accentColor,
+                      margin: 0,
+                    }}
+                  >
+                    {item.label}
+                  </p>
+                  <ChevronRight
+                    strokeWidth={1.5}
+                    size={16}
+                    color="var(--text-40)"
+                    style={{ opacity: 0.5, flexShrink: 0 }}
+                  />
+                </>
+              );
               if (blocked) {
                 return (
                   <span key={item.href} className="leve-shortcut" style={cellStyle} title="Accès suspendu (période de grâce)">
-                    {item.label}
+                    {content}
                   </span>
                 );
               }
               return (
                 <Link key={item.href} href={item.href} className="leve-shortcut" style={cellStyle}>
-                  {item.label}
+                  {content}
                 </Link>
               );
             })}

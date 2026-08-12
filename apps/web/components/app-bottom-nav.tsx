@@ -18,6 +18,35 @@ import {
   type AppBottomNavLink,
 } from "../lib/appBottomNavLinks";
 import { useAppBottomNavLinks } from "../lib/useAppBottomNavLinks";
+import {
+  BarChart2,
+  Play,
+  Landmark,
+  Trophy,
+  Droplets,
+  Target,
+  ShieldCheck,
+  Gift,
+  User,
+  Users,
+  Home,
+  Plus,
+  type LucideProps,
+} from "lucide-react";
+
+const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
+  BarChart2,
+  Play,
+  Landmark,
+  Trophy,
+  Droplets,
+  Target,
+  ShieldCheck,
+  Gift,
+  User,
+  Users,
+  Home,
+};
 
 const TEXT = "#F5F0E8";
 const GOLD = "#D4A017";
@@ -67,11 +96,10 @@ function NavItem({
     fontFamily: "inherit",
   } as const;
 
+  const IconComp = ICON_MAP[getAppBottomNavIcon(link.href)];
   const content = (
     <>
-      <span aria-hidden style={{ fontSize: "1rem", lineHeight: 1 }}>
-        {getAppBottomNavIcon(link.href)}
-      </span>
+      {IconComp ? <IconComp size={20} strokeWidth={active ? 2 : 1.5} /> : null}
       <span>{getAppBottomNavShortLabel(link)}</span>
     </>
   );
@@ -308,10 +336,18 @@ export function AppBottomNav({
               style={plusStyle}
               onClick={() => setMoreOpen((open) => !open)}
             >
-              <span aria-hidden style={{ fontSize: "1rem", lineHeight: 1 }}>
-                ➕
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-flex",
+                  border: "1.5px solid currentColor",
+                  borderRadius: "50%",
+                  padding: "3px",
+                }}
+              >
+                <Plus size={20} strokeWidth={1.5} />
               </span>
-              <span>Plus +</span>
+              <span>Plus</span>
             </button>
 
             {moreOpen ? (
@@ -348,9 +384,12 @@ export function AppBottomNav({
                     whiteSpace: "nowrap",
                   } as const;
 
+                  const IconComp = ICON_MAP[getAppBottomNavIcon(link.href)];
                   const label = (
                     <>
-                      <span aria-hidden>{getAppBottomNavIcon(link.href)}</span>
+                      {IconComp ? (
+                        <IconComp size={20} strokeWidth={active ? 2 : 1.5} />
+                      ) : null}
                       <span>{getAppBottomNavShortLabel(link)}</span>
                     </>
                   );
