@@ -31,12 +31,10 @@ import {
   Users,
   Home,
   Plus,
+  type LucideProps,
 } from "lucide-react";
 
-const ICON_MAP: Record<
-  string,
-  React.ComponentType<{ size?: number; strokeWidth?: number }>
-> = {
+const ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
   BarChart2,
   Play,
   Landmark,
