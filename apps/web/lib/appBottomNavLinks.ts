@@ -25,19 +25,19 @@ export const APP_BOTTOM_NAV_PRIMARY_HREFS: readonly string[] = [
   "/classement",
 ];
 
-/** Emojis affichés devant chaque lien (barre basse mobile). */
+/** Noms d'icônes Lucide affichés devant chaque lien (barre basse mobile). */
 export const APP_BOTTOM_NAV_ICONS: Record<string, string> = {
-  "/": "🏠",
-  "/dashboard": "📊",
-  "/videos": "🎬",
-  "/banque": "🏦",
-  "/pool-pa": "💧",
-  "/classement": "🏆",
-  "/concours": "🎯",
-  "/transparence": "🔍",
-  "/dons": "🎁",
-  "/profil": "👤",
-  "/collaborateur": "🤝",
+  "/": "Home",
+  "/dashboard": "BarChart2",
+  "/videos": "Play",
+  "/banque": "Landmark",
+  "/pool-pa": "Droplets",
+  "/classement": "Trophy",
+  "/concours": "Target",
+  "/transparence": "ShieldCheck",
+  "/dons": "Gift",
+  "/profil": "User",
+  "/collaborateur": "Users",
 };
 
 /** Libellés courts pour la barre mobile. */
