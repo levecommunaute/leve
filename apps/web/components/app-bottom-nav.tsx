@@ -75,25 +75,8 @@ function NavItem({
   onNavigate?: () => void;
 }): React.JSX.Element {
   const style = {
-    flex: "0 0 auto",
-    display: "inline-flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "0.15rem",
-    minHeight: "48px",
-    minWidth: "48px",
-    fontSize: "12px",
-    lineHeight: 1.2,
     color: active ? GOLD : TEXT,
     opacity: blocked ? 0.35 : active ? 1 : 0.75,
-    textDecoration: "none",
-    padding: "0.25rem 0.45rem",
-    whiteSpace: "nowrap",
-    cursor: blocked ? "not-allowed" : "pointer",
-    border: "none",
-    background: "transparent",
-    fontFamily: "inherit",
   } as const;
 
   const IconComp = ICON_MAP[getAppBottomNavIcon(link.href)];
@@ -106,14 +89,14 @@ function NavItem({
 
   if (blocked) {
     return (
-      <span style={style} title="Accès suspendu (période de grâce)">
+      <span className="leve-nav-item" style={style} title="Accès suspendu (période de grâce)">
         {content}
       </span>
     );
   }
 
   return (
-    <Link href={link.href} style={style} onClick={onNavigate}>
+    <Link href={link.href} className="leve-nav-item" style={style} onClick={onNavigate}>
       {content}
     </Link>
   );
@@ -264,6 +247,43 @@ export function AppBottomNav({
         zIndex: 30,
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: `
+        .leve-nav-item {
+          flex: 0 0 auto;
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.15rem;
+          min-height: 48px;
+          min-width: 48px;
+          font-size: 11px;
+          line-height: 1.2;
+          text-decoration: none;
+          padding: 0.25rem 0.45rem;
+          white-space: nowrap;
+          cursor: pointer;
+          border: none;
+          background: transparent;
+          font-family: inherit;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+        @media (min-width: 480px) {
+          .leve-nav-item {
+            min-width: 64px;
+            font-size: 12px;
+            padding: 0.35rem 0.75rem;
+          }
+        }
+        @media (min-width: 768px) {
+          .leve-nav-item {
+            min-width: 80px;
+            font-size: 13px;
+            padding: 0.4rem 1rem;
+          }
+        }
+      `}} />
       <div
         style={{
           position: "relative",
