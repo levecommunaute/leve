@@ -41,7 +41,6 @@ export function AppHeader({ displayName, onSignOut, signingOut = false, rightExt
         LEVE
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        {rightExtra}
         {displayName ? (
           <span
             style={{
@@ -56,6 +55,7 @@ export function AppHeader({ displayName, onSignOut, signingOut = false, rightExt
             {displayName}
           </span>
         ) : null}
+        {rightExtra}
         <button
           type="button"
           disabled={signingOut}
