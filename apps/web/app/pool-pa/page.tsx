@@ -7,6 +7,7 @@ import { createClient, type Session, type SupabaseClient } from "@supabase/supab
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 
@@ -79,6 +80,7 @@ async function restJson<T>(
 type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
+  avatar_url?: string | null;
 };
 
 type CollaborateurProfileRow = {
@@ -301,6 +303,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [soldePa, setSoldePa] = useState(0);
   const [soldeBanque, setSoldeBanque] = useState(0);
   const [history, setHistory] = useState<PaTxRow[]>([]);
@@ -441,7 +444,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
     const [profileRes, banqueRes, paSumRes, historyRes] = await Promise.all([
       sb
         .from("profiles")
-        .select("display_name, member_type")
+        .select("display_name, member_type, avatar_url")
         .eq("id", uid)
         .maybeSingle(),
       sb
@@ -465,7 +468,10 @@ export default function PoolPaPage(): React.JSX.Element | null {
     setLoadError(errMsg);
 
     if (!profileRes.error) {
-      setProfile((profileRes.data ?? null) as ProfileRow | null);
+      const row = (profileRes.data ?? null) as ProfileRow | null;
+      setProfile(row);
+      const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+      setAvatarUrl(nextAvatar);
     }
 
     if (banqueRes.error) {
@@ -1011,7 +1017,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
           `,
         }}
       />
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? (

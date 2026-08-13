@@ -7,6 +7,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { signOut } from "../../lib/auth";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { useBetaTracking } from "../../lib/beta-tracking";
@@ -24,6 +25,7 @@ type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
   multiplier: number | string | null;
+  avatar_url?: string | null;
 };
 
 type ConcoursRow = {
@@ -175,6 +177,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
   useBetaTracking(session, "concours");
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [soldePa, setSoldePa] = useState(0);
   const [concours, setConcours] = useState<ConcoursRow[]>([]);
@@ -254,7 +257,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
 
       const baseReqs = await Promise.all([
         fetchRest<ProfileRow[]>(
-          `profiles?select=display_name,member_type,multiplier&id=eq.${encodeURIComponent(uid)}`,
+          `profiles?select=display_name,member_type,multiplier,avatar_url&id=eq.${encodeURIComponent(uid)}`,
           token,
         ),
         fetchRest<{ amount?: unknown }[]>(
@@ -334,7 +337,12 @@ export default function ConcoursPage(): React.JSX.Element | null {
         null;
       setLoadError(errMsg);
 
-      if (!profileRes.error) setProfile(profileRes.data?.[0] ?? null);
+      if (!profileRes.error) {
+        const row = profileRes.data?.[0] ?? null;
+        setProfile(row);
+        const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+        setAvatarUrl(nextAvatar);
+      }
       if (!txRes.error) {
         const sum = (txRes.data ?? []).reduce((acc, row) => acc + Number(row.amount ?? 0), 0);
         setTotalPointsPmq(sum);
@@ -882,7 +890,7 @@ export default function ConcoursPage(): React.JSX.Element | null {
           `,
         }}
       />
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? <p role="alert" style={{ color: ROUGE }}>{loadError}</p> : null}

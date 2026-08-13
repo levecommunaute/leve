@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { signOut } from "../../lib/auth";
 import { rankBadgeStyle, type RankTier } from "../../lib/rank-badge";
@@ -69,6 +70,8 @@ export default function DonsPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [memberType, setMemberType] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null);
   const [donsFlagState, setDonsFlagState] = useState<
     "loading" | "enabled" | "disabled"
   >("loading");
@@ -161,7 +164,7 @@ export default function DonsPage(): React.JSX.Element | null {
     void (async () => {
       try {
         const res = await fetch(
-          `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}&select=member_type`,
+          `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}&select=member_type,avatar_url,display_name`,
           {
             headers: {
               apikey: KEY,
@@ -169,12 +172,19 @@ export default function DonsPage(): React.JSX.Element | null {
             },
           },
         );
-        const json = (await res.json()) as { member_type?: string }[];
+        const json = (await res.json()) as { member_type?: string; avatar_url?: string | null; display_name?: string | null }[];
         if (!cancelled) {
-          setMemberType(Array.isArray(json) && json[0] ? json[0].member_type ?? null : null);
+          const row = Array.isArray(json) && json[0] ? json[0] : null;
+          setMemberType(row ? row.member_type ?? null : null);
+          const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+          setAvatarUrl(nextAvatar);
+          const nextName = typeof row?.display_name === "string" ? row.display_name : null;
+          setProfileDisplayName(nextName);
         }
       } catch {
         if (!cancelled) setMemberType(null);
+        if (!cancelled) setAvatarUrl(null);
+        if (!cancelled) setProfileDisplayName(null);
       }
     })();
     return () => {
@@ -264,6 +274,7 @@ export default function DonsPage(): React.JSX.Element | null {
   }
 
   if (!session) return null;
+  const name = profileDisplayName?.trim() || session.user.email?.split("@")[0] || "Membre";
 
   const visibleMembres = membres.filter((m) => m.id !== session.user.id);
 
@@ -279,7 +290,7 @@ export default function DonsPage(): React.JSX.Element | null {
       }}
     >
       <EnDirectBanner />
-      <AppHeader onSignOut={() => void handleSignOut()} signingOut={signingOut} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main
         style={{

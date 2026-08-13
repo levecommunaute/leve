@@ -9,6 +9,7 @@ import { RankBadge } from "../../components/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { MemberAvatar } from "../../components/member-avatar";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { useBetaTracking } from "../../lib/beta-tracking";
@@ -71,6 +72,7 @@ async function restJson<T>(
 
 type ProfileRow = {
   display_name: string | null;
+  avatar_url?: string | null;
 };
 
 type ClassementRow = {
@@ -471,6 +473,7 @@ export default function ClassementPage(): React.JSX.Element | null {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   useBetaTracking(session, "classement");
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [rows, setRows] = useState<ClassementRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -502,7 +505,7 @@ export default function ClassementPage(): React.JSX.Element | null {
     const uid = activeSession.user.id;
 
     const profileRes = await restJson<ProfileRow[]>(
-      `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name`,
+      `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,avatar_url`,
       token,
     );
 
@@ -510,7 +513,10 @@ export default function ClassementPage(): React.JSX.Element | null {
       setLoadError(profileRes.error);
     } else {
       const rows = profileRes.data ?? [];
-      setProfile((rows[0] ?? null) as ProfileRow | null);
+      const row = (rows[0] ?? null) as ProfileRow | null;
+      setProfile(row);
+      const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+      setAvatarUrl(nextAvatar);
     }
 
     try {
@@ -781,7 +787,7 @@ export default function ClassementPage(): React.JSX.Element | null {
         }}
       />
       <EnDirectBanner />
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? (

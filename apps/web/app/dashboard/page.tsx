@@ -13,6 +13,7 @@ import {
 } from "../../lib/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { getAppBottomNavLinks } from "../../lib/appBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
@@ -79,6 +80,7 @@ type ProfileRow = {
   beta_points: number | string | null;
   beta_temps_total_secondes: number | string | null;
   abonnement_verifie_at?: string | null;
+  avatar_url?: string | null;
 };
 
 type RangConfigRow = {
@@ -276,6 +278,7 @@ export default function DashboardPage(): React.JSX.Element | null {
   useBetaTracking(session, "dashboard");
   const [graceFromUrl, setGraceFromUrl] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [totalPointsPmq, setTotalPointsPmq] = useState(0);
   const [pmqBalance, setPmqBalance] = useState(0);
   const [memberPtsPonderes, setMemberPtsPonderes] = useState(0);
@@ -346,7 +349,7 @@ export default function DashboardPage(): React.JSX.Element | null {
       pmqShareRes,
     ] = await Promise.all([
         restJson<ProfileRow[]>(
-          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at,is_beta_tester,beta_points,beta_temps_total_secondes,abonnement_verifie_at`,
+          `profiles?id=eq.${encodeURIComponent(uid)}&select=display_name,member_type,multiplier,numero_membre,abonnement_statut,grace_expire_at,is_beta_tester,beta_points,beta_temps_total_secondes,abonnement_verifie_at,avatar_url`,
           token,
         ),
         restJson<{ amount?: unknown }[]>(
@@ -430,6 +433,10 @@ export default function DashboardPage(): React.JSX.Element | null {
     if (!profileRes.error) {
       const rows = profileRes.data ?? [];
       setProfile((rows[0] ?? null) as ProfileRow | null);
+      const nextAvatar = typeof (rows[0] as ProfileRow | undefined)?.avatar_url === "string"
+        ? (rows[0] as ProfileRow).avatar_url as string
+        : null;
+      setAvatarUrl(nextAvatar);
       const profileRow = rows[0] ?? null;
       if (!profileRow || (!profileRow.abonnement_verifie_at && !profileRow.is_beta_tester)) {
         handleSignOut();
@@ -664,7 +671,12 @@ export default function DashboardPage(): React.JSX.Element | null {
         }}
       />
       <EnDirectBanner />
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} />
+      <AppHeader
+        displayName={name}
+        onSignOut={() => void handleSignOut()}
+        signingOut={signingOut}
+        rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />}
+      />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {isBetaTester ? (
