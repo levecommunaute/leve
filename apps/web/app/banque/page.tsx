@@ -74,6 +74,7 @@ type ProfileRow = {
   pays_residence_fiscale: string | null;
   retrait_methode: string | null;
   retrait_gele_jusqua: string | null;
+  avatar_url?: string | null;
 };
 
 type PointsTxRow = {
@@ -165,6 +166,7 @@ export default function BanquePage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [profileMultiplier, setProfileMultiplier] = useState(1);
   const [soldeDollars, setSoldeDollars] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
@@ -199,7 +201,7 @@ export default function BanquePage(): React.JSX.Element | null {
         sb
           .from("profiles")
           .select(
-            "display_name, member_type, multiplier, nom_legal, date_naissance, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua",
+            "display_name, member_type, multiplier, nom_legal, date_naissance, telephone, pays_residence_fiscale, retrait_methode, retrait_gele_jusqua, avatar_url",
           )
           .eq("id", uid)
           .maybeSingle(),
@@ -260,6 +262,8 @@ export default function BanquePage(): React.JSX.Element | null {
     if (!profileRes.error) {
       const prof = (profileRes.data ?? null) as ProfileRow | null;
       setProfile(prof);
+      const nextAvatar = typeof prof?.avatar_url === "string" ? prof.avatar_url : null;
+      setAvatarUrl(nextAvatar);
       const m = Number(prof?.multiplier ?? 1);
       setProfileMultiplier(Number.isFinite(m) && m > 0 ? m : 1);
     }
@@ -654,7 +658,7 @@ export default function BanquePage(): React.JSX.Element | null {
           `,
         }}
       />
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={null} />} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? (

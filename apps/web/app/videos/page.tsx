@@ -90,6 +90,7 @@ const STATUS_STYLES: Record<
 type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
+  avatar_url?: string | null;
 };
 
 function displayNameFrom(
@@ -301,6 +302,7 @@ export default function VideosPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [quizVideoIds, setQuizVideoIds] = useState<Set<string>>(() => new Set());
   const [codeVideoIds, setCodeVideoIds] = useState<Set<string>>(() => new Set());
@@ -425,7 +427,7 @@ export default function VideosPage(): React.JSX.Element | null {
       setSession(next);
       void loadVideos(next);
       const res = await fetch(
-        `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name,member_type`,
+        `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name,member_type,avatar_url`,
         {
           headers: {
             apikey: KEY,
@@ -439,9 +441,13 @@ export default function VideosPage(): React.JSX.Element | null {
         return;
       }
       if (!cancelled && res.ok && Array.isArray(json)) {
-        setProfile((json[0] ?? null) as ProfileRow | null);
+        const row = (json[0] ?? null) as ProfileRow | null;
+        setProfile(row);
+        const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+        setAvatarUrl(nextAvatar);
       } else if (!cancelled) {
         setProfile(null);
+        setAvatarUrl(null);
       }
     }
 
@@ -1235,7 +1241,7 @@ export default function VideosPage(): React.JSX.Element | null {
         }}
       />
 
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={null} />} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "1.25rem" }}>
         <section

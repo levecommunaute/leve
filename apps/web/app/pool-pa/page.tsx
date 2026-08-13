@@ -80,6 +80,7 @@ async function restJson<T>(
 type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
+  avatar_url?: string | null;
 };
 
 type CollaborateurProfileRow = {
@@ -302,6 +303,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [soldePa, setSoldePa] = useState(0);
   const [soldeBanque, setSoldeBanque] = useState(0);
   const [history, setHistory] = useState<PaTxRow[]>([]);
@@ -442,7 +444,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
     const [profileRes, banqueRes, paSumRes, historyRes] = await Promise.all([
       sb
         .from("profiles")
-        .select("display_name, member_type")
+        .select("display_name, member_type, avatar_url")
         .eq("id", uid)
         .maybeSingle(),
       sb
@@ -466,7 +468,10 @@ export default function PoolPaPage(): React.JSX.Element | null {
     setLoadError(errMsg);
 
     if (!profileRes.error) {
-      setProfile((profileRes.data ?? null) as ProfileRow | null);
+      const row = (profileRes.data ?? null) as ProfileRow | null;
+      setProfile(row);
+      const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+      setAvatarUrl(nextAvatar);
     }
 
     if (banqueRes.error) {
@@ -1012,7 +1017,7 @@ export default function PoolPaPage(): React.JSX.Element | null {
           `,
         }}
       />
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={null} />} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? (

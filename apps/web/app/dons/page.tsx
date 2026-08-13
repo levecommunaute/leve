@@ -70,6 +70,7 @@ export default function DonsPage(): React.JSX.Element | null {
   const router = useRouter();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [memberType, setMemberType] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [donsFlagState, setDonsFlagState] = useState<
     "loading" | "enabled" | "disabled"
   >("loading");
@@ -162,7 +163,7 @@ export default function DonsPage(): React.JSX.Element | null {
     void (async () => {
       try {
         const res = await fetch(
-          `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}&select=member_type`,
+          `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}&select=member_type,avatar_url`,
           {
             headers: {
               apikey: KEY,
@@ -170,12 +171,16 @@ export default function DonsPage(): React.JSX.Element | null {
             },
           },
         );
-        const json = (await res.json()) as { member_type?: string }[];
+        const json = (await res.json()) as { member_type?: string; avatar_url?: string | null }[];
         if (!cancelled) {
-          setMemberType(Array.isArray(json) && json[0] ? json[0].member_type ?? null : null);
+          const row = Array.isArray(json) && json[0] ? json[0] : null;
+          setMemberType(row ? row.member_type ?? null : null);
+          const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+          setAvatarUrl(nextAvatar);
         }
       } catch {
         if (!cancelled) setMemberType(null);
+        if (!cancelled) setAvatarUrl(null);
       }
     })();
     return () => {
@@ -281,7 +286,7 @@ export default function DonsPage(): React.JSX.Element | null {
       }}
     >
       <EnDirectBanner />
-      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={null} />} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main
         style={{
