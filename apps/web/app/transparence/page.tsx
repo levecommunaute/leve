@@ -1,11 +1,12 @@
 "use client";
 
 import { Bebas_Neue, DM_Sans } from "next/font/google";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
+import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
 
@@ -69,6 +70,7 @@ async function restJson<T>(
 
 type ProfileRow = {
   display_name: string | null;
+  avatar_url?: string | null;
 };
 
 type BanqueLeveRow = {
@@ -274,8 +276,8 @@ const poolCards = [
 export default function TransparencePage(): React.JSX.Element {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [banque, setBanque] = useState<BanqueLeveRow | null>(null);
   const [transparenceConfig, setTransparenceConfig] = useState<
     TransparenceConfigRow[]
@@ -288,12 +290,15 @@ export default function TransparencePage(): React.JSX.Element {
 
   const loadProfile = useCallback(async (activeSession: Session) => {
     const profileRes = await restJson<ProfileRow[]>(
-      `profiles?id=eq.${encodeURIComponent(activeSession.user.id)}&select=display_name`,
+      `profiles?id=eq.${encodeURIComponent(activeSession.user.id)}&select=display_name,avatar_url`,
       activeSession.access_token,
     );
     if (!profileRes.error && profileRes.data) {
       const rows = profileRes.data;
-      setProfile((rows[0] ?? null) as ProfileRow | null);
+      const row = (rows[0] ?? null) as ProfileRow | null;
+      setProfile(row);
+      const nextAvatar = typeof row?.avatar_url === "string" ? row.avatar_url : null;
+      setAvatarUrl(nextAvatar);
     }
   }, []);
 
@@ -395,11 +400,11 @@ export default function TransparencePage(): React.JSX.Element {
     async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
       setSession(next ?? null);
-      setAuthChecked(true);
       if (next) {
         await loadProfile(next);
       } else {
         setProfile(null);
+        setAvatarUrl(null);
       }
     }
 
@@ -596,81 +601,14 @@ export default function TransparencePage(): React.JSX.Element {
         }}
       />
 
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "1rem 1.25rem",
-          borderBottom: "1px solid var(--border-soft)",
-          position: "sticky",
-          top: 0,
-          background: "color-mix(in srgb, var(--bg) 92%, transparent)",
-          backdropFilter: "blur(8px)",
-          zIndex: 20,
-        }}
-      >
-        <Link
-          href={session ? "/dashboard" : "/"}
-          style={{
-            fontFamily: "var(--font-bebas), Impact, sans-serif",
-            fontSize: "2rem",
-            letterSpacing: "0.12em",
-            color: TEXT,
-            textDecoration: "none",
-          }}
-        >
-          LEVE
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          {!authChecked ? (
-            <span style={{ fontSize: "0.8rem", opacity: 0.45 }}>…</span>
-          ) : session && name ? (
-            <>
-              <span
-                style={{
-                  fontSize: "0.9rem",
-                  opacity: 0.85,
-                  maxWidth: "42vw",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {name}
-              </span>
-              <button
-                type="button"
-                disabled={signingOut}
-                onClick={() => void handleSignOut()}
-                style={{
-                  background: "transparent",
-                  color: ROUGE,
-                  border: `1px solid ${ROUGE}`,
-                  borderRadius: "4px",
-                  padding: "0.45rem 0.9rem",
-                  fontSize: "0.8rem",
-                  cursor: signingOut ? "wait" : "pointer",
-                }}
-              >
-                {signingOut ? "…" : "Déconnexion"}
-              </button>
-            </>
-          ) : (
-            <Link
-              href="/"
-              style={{
-                fontSize: "0.85rem",
-                color: GOLD,
-                textDecoration: "none",
-                opacity: 0.9,
-              }}
-            >
-              Connexion
-            </Link>
-          )}
-        </div>
-      </header>
+      <AppHeader
+        displayName={session && name ? name : undefined}
+        onSignOut={() => void handleSignOut()}
+        signingOut={signingOut}
+        rightExtra={session && name
+          ? <HeaderRight displayName={name} avatarUrl={avatarUrl} />
+          : undefined}
+      />
 
       <main style={{ maxWidth: "1024px", margin: "0 auto", padding: "1.25rem" }}>
         {loadError ? (
