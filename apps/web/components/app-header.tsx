@@ -46,13 +46,13 @@ export function AppHeader({ displayName, onSignOut, signingOut = false, rightExt
             style={{
               fontSize: "0.9rem",
               opacity: 0.85,
-              maxWidth: "42vw",
+              maxWidth: "28vw",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
             }}
           >
-            {displayName}
+            {displayName.length > 15 ? displayName.slice(0, 15).trimEnd() + "…" : displayName}
           </span>
         ) : null}
         {rightExtra}
