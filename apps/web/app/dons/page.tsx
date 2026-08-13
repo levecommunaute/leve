@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { signOut } from "../../lib/auth";
 import { rankBadgeStyle, type RankTier } from "../../lib/rank-badge";
@@ -264,6 +265,7 @@ export default function DonsPage(): React.JSX.Element | null {
   }
 
   if (!session) return null;
+  const name = session.user.email?.split("@")[0] || "Membre";
 
   const visibleMembres = membres.filter((m) => m.id !== session.user.id);
 
@@ -279,7 +281,7 @@ export default function DonsPage(): React.JSX.Element | null {
       }}
     >
       <EnDirectBanner />
-      <AppHeader onSignOut={() => void handleSignOut()} signingOut={signingOut} />
+      <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={null} />} />
 
       <main
         style={{

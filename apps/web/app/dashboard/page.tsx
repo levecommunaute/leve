@@ -13,12 +13,13 @@ import {
 } from "../../lib/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { getAppBottomNavLinks } from "../../lib/appBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
-import { Play, Landmark, Trophy, ShieldCheck, ChevronRight, Bell } from "lucide-react";
+import { Play, Landmark, Trophy, ShieldCheck, ChevronRight } from "lucide-react";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -617,37 +618,6 @@ export default function DashboardPage(): React.JSX.Element | null {
     ? getMonthlyMemberRankBadge(memberPtsPonderes, rangConfig ?? undefined)
     : null;
 
-  const bellExtra = (
-    <button
-      type="button"
-      onClick={() => console.log("notifications - à implémenter")} // TODO: page /notifications
-      style={{
-        position: "relative",
-        background: "transparent",
-        border: "none",
-        cursor: "pointer",
-        padding: "4px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "var(--text)",
-      }}
-    >
-      <Bell size={20} strokeWidth={1.5} />
-      <span
-        style={{
-          position: "absolute",
-          top: "-2px",
-          right: "-2px",
-          width: "7px",
-          height: "7px",
-          borderRadius: "50%",
-          background: "#C0392B",
-        }}
-      />
-    </button>
-  );
-
   return (
     <div
       className={`${fonts} leve-page-dashboard`}
@@ -695,7 +665,7 @@ export default function DashboardPage(): React.JSX.Element | null {
         displayName={name}
         onSignOut={() => void handleSignOut()}
         signingOut={signingOut}
-        rightExtra={bellExtra}
+        rightExtra={<HeaderRight displayName={name} avatarUrl={null} />}
       />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>

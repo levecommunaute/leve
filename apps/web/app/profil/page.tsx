@@ -13,6 +13,7 @@ import React, {
 import { RankBadge } from "../../components/rank-badge";
 import { AppBottomNav } from "../../components/app-bottom-nav";
 import { AppHeader } from "../../components/app-header";
+import { HeaderRight } from "../../components/header-right";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { MemberAvatar } from "../../components/member-avatar";
 import { signOut } from "../../lib/auth";
@@ -1085,13 +1086,7 @@ export default function ProfilPage(): React.JSX.Element | null {
         displayName={name}
         onSignOut={() => void handleSignOut()}
         signingOut={signingOut}
-        rightExtra={
-          <MemberAvatar
-            displayName={name}
-            avatarUrl={effectiveAvatarUrl}
-            size={28}
-          />
-        }
+        rightExtra={<HeaderRight displayName={name} avatarUrl={effectiveAvatarUrl ?? null} />}
       />
 
       <main style={{ maxWidth: "960px", margin: "0 auto", padding: "1.25rem" }}>
