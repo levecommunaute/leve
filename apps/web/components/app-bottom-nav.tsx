@@ -106,7 +106,7 @@ export function AppBottomNav({
   session,
   memberType,
   blockedHrefs,
-}: AppBottomNavProps): React.JSX.Element {
+}: AppBottomNavProps): React.JSX.Element | null {
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
