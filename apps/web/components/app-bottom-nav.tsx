@@ -113,7 +113,7 @@ export function AppBottomNav({
   const [moreOpen, setMoreOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(true);
   const [scrollEdges, setScrollEdges] = useState({ left: false, right: false });
-  const [nouvelleNav, setNouvelleNav] = useState(false);
+  const [nouvelleNav, setNouvelleNav] = useState<boolean | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -133,9 +133,11 @@ export function AppBottomNav({
         if (res.ok) {
           const data = (await res.json()) as { actif: boolean }[];
           setNouvelleNav(data[0]?.actif ?? false);
+        } else {
+          setNouvelleNav(false);
         }
       } catch {
-        /* ignore */
+        setNouvelleNav(false);
       }
     }
     void checkFlag();
@@ -143,8 +145,10 @@ export function AppBottomNav({
 
   const navLinks = useAppBottomNavLinks(session, memberType);
 
+  const flagActif = nouvelleNav === true;
+
   const transformedNavLinks = useMemo(() => {
-    if (!nouvelleNav) return navLinks;
+    if (!flagActif) return navLinks;
     return navLinks
       .filter((link) => link.href !== "/banque")
       .map((link) =>
@@ -152,10 +156,10 @@ export function AppBottomNav({
           ? { ...link, href: "/compte", label: "Compte", shortLabel: "Compte" }
           : link,
       );
-  }, [navLinks, nouvelleNav]);
+  }, [navLinks, flagActif]);
 
   const { primary, secondary } = useMemo(() => {
-    if (!nouvelleNav) return splitAppBottomNavLinks(transformedNavLinks);
+    if (!flagActif) return splitAppBottomNavLinks(transformedNavLinks);
     const newPrimaryHrefs = ["/dashboard", "/videos", "/compte", "/classement"];
     const primarySet = new Set(newPrimaryHrefs);
     const primary: AppBottomNavLink[] = [];
@@ -165,7 +169,7 @@ export function AppBottomNav({
     }
     const secondary = transformedNavLinks.filter((l) => !primarySet.has(l.href));
     return { primary, secondary };
-  }, [transformedNavLinks, nouvelleNav]);
+  }, [transformedNavLinks, flagActif]);
 
   /** Mobile : primary + menu Plus+ ; desktop : tous les liens à plat. */
   const barLinks = isMobile ? primary : transformedNavLinks;
@@ -241,6 +245,8 @@ export function AppBottomNav({
     background: "transparent",
     fontFamily: "inherit",
   } as const;
+
+  if (nouvelleNav === null) return null;
 
   return (
     <nav
