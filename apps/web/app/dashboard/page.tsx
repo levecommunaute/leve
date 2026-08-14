@@ -20,7 +20,7 @@ import { getAppBottomNavLinks } from "../../lib/appBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
-import { Play, Landmark, Trophy, ShieldCheck, ChevronRight, TrendingUp, Users, Calendar } from "lucide-react";
+import { Play, Landmark, Trophy, ShieldCheck, ChevronRight, TrendingUp, Users, Calendar, Clock } from "lucide-react";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -624,6 +624,19 @@ export default function DashboardPage(): React.JSX.Element | null {
   const monthlyRankBadge = showRankBadge
     ? getMonthlyMemberRankBadge(memberPtsPonderes, rangConfig ?? undefined)
     : null;
+  const bankBtnStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    padding: "0.85rem 1rem",
+    borderRadius: "8px",
+    background: "rgba(212,160,23,0.06)",
+    border: "1px solid rgba(212,160,23,0.25)",
+    color: GOLD,
+    textDecoration: "none",
+    fontSize: "0.9rem",
+    fontWeight: 600,
+  } as const;
 
   return (
     <div
@@ -644,8 +657,12 @@ export default function DashboardPage(): React.JSX.Element | null {
             }
             .dash-stats-grid {
               display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+              grid-template-columns: 1fr 1fr;
+              grid-template-rows: auto auto;
               gap: 0.85rem;
+            }
+            .dash-stats-grid > article:nth-child(3) {
+              grid-column: 1 / -1;
             }
             .dash-shortcuts-grid {
               display: grid;
@@ -660,8 +677,10 @@ export default function DashboardPage(): React.JSX.Element | null {
                 grid-template-columns: 1fr;
               }
               .dash-stats-grid {
-                display: flex;
-                flex-direction: column;
+                grid-template-columns: 1fr;
+              }
+              .dash-stats-grid > article:nth-child(3) {
+                grid-column: 1;
               }
             }
           `,
@@ -887,45 +906,20 @@ export default function DashboardPage(): React.JSX.Element | null {
               gap: "1rem",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <MemberAvatar displayName={name} avatarUrl={avatarUrl} size={42} />
-                <p
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-bebas), Impact, sans-serif",
-                    fontSize: "0.85rem",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    opacity: 0.7,
-                  }}
-                >
-                  Mes points PMQ
-                </p>
-              </div>
-              <div
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <MemberAvatar displayName={name} avatarUrl={avatarUrl} size={42} />
+              <p
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.4rem",
-                  background: "rgba(212,160,23,0.1)",
-                  border: "1px solid rgba(212,160,23,0.3)",
-                  borderRadius: "20px",
-                  padding: "0.35rem 0.75rem",
-                  fontSize: "0.7rem",
-                  color: GOLD,
-                  letterSpacing: "0.06em",
+                  margin: 0,
+                  fontFamily: "var(--font-bebas), Impact, sans-serif",
+                  fontSize: "0.85rem",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  opacity: 0.7,
                 }}
               >
-                <Calendar size={13} strokeWidth={1.5} color={GOLD} />
-                {pmqMonthLabel || "Période actuelle"}
-              </div>
+                Mes points PMQ
+              </p>
             </div>
 
             <div style={{ display: "flex", gap: "1rem" }}>
@@ -990,87 +984,30 @@ export default function DashboardPage(): React.JSX.Element | null {
 
             <div style={{ height: 1, background: "rgba(212,160,23,0.1)", margin: 0 }} />
 
-            {redistributionPending ? (
-              <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.75, lineHeight: 1.4 }}>
-                Redistribution : en attente des revenus du mois
-              </p>
-            ) : (
-              <>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.82rem",
-                    opacity: 0.85,
-                    lineHeight: 1.4,
-                    fontWeight: 600,
-                  }}
-                >
-                  Estimation redistribution : ~{cad.format(redistributionEstimate)}
-                </p>
-                <p
-                  className="dash-formule-text"
-                  style={{
-                    margin: 0,
-                    fontSize: "0.75rem",
-                    opacity: 0.55,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  Formule : (Pool PMQ {cad.format(pmqBalance)} × tes pts{" "}
-                  {pointsFmt.format(memberPtsPonderes)} ÷ total pts{" "}
-                  {pointsFmt.format(totalPtsPonderesAll)})
-                </p>
-              </>
-            )}
-
-            {prevMonthLabel ? (
-              prevMonthRedistributed && !inGrace ? (
-                <Link
-                  href="/banque"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    padding: "0.85rem 1rem",
-                    borderRadius: "8px",
-                    background: "rgba(212,160,23,0.06)",
-                    border: "1px solid rgba(212,160,23,0.25)",
-                    color: GOLD,
-                    textDecoration: "none",
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  <Landmark size={18} strokeWidth={1.5} />
-                  <span style={{ flex: 1 }}>Consulter votre banque</span>
-                  <ChevronRight size={16} strokeWidth={1.5} />
-                </Link>
-              ) : prevMonthRedistributed && inGrace ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    padding: "0.85rem 1rem",
-                    borderRadius: "8px",
-                    background: "rgba(212,160,23,0.06)",
-                    border: "1px solid rgba(212,160,23,0.25)",
-                    color: GOLD,
-                    textDecoration: "none",
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  <Landmark size={18} strokeWidth={1.5} />
-                  <span style={{ flex: 1 }}>Consulter votre banque</span>
-                  <ChevronRight size={16} strokeWidth={1.5} opacity={0.3} />
-                </div>
-              ) : (
-                <p style={{ margin: 0, fontSize: "0.68rem", opacity: 0.45 }}>
-                  PMQ {prevMonthLabel} · {pointsFmt.format(prevMonthPtsPonderes)} pts →
-                  Redistribution en cours
-                </p>
-              )
+            {prevMonthRedistributed && !inGrace ? (
+              <Link href="/banque" style={bankBtnStyle}>
+                <Landmark size={18} strokeWidth={1.5} />
+                <span style={{ flex: 1 }}>Consulter votre banque</span>
+                <ChevronRight size={16} strokeWidth={1.5} />
+              </Link>
+            ) : prevMonthRedistributed && inGrace ? (
+              <div style={bankBtnStyle}>
+                <Landmark size={18} strokeWidth={1.5} />
+                <span style={{ flex: 1 }}>Consulter votre banque</span>
+                <ChevronRight size={16} strokeWidth={1.5} style={{ opacity: 0.3 }} />
+              </div>
+            ) : !prevMonthRedistributed && prevMonthLabel ? (
+              <div
+                style={{
+                  ...bankBtnStyle,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "var(--text)",
+                }}
+              >
+                <Clock size={18} strokeWidth={1.5} />
+                <span style={{ flex: 1 }}>Redistribution en cours</span>
+              </div>
             ) : null}
           </article>
 
@@ -1086,52 +1023,33 @@ export default function DashboardPage(): React.JSX.Element | null {
               gap: "1rem",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <div
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: "50%",
-                    background: "rgba(212,160,23,0.08)",
-                    border: "1px solid rgba(212,160,23,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <TrendingUp size={20} strokeWidth={1.5} color={GOLD} />
-                </div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--font-bebas), Impact, sans-serif",
-                    fontSize: "0.85rem",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    opacity: 0.7,
-                  }}
-                >
-                  Multiplicateur
-                </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: "50%",
+                  background: "rgba(212,160,23,0.08)",
+                  border: "1px solid rgba(212,160,23,0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <TrendingUp size={20} strokeWidth={1.5} color={GOLD} />
               </div>
               <p
                 style={{
                   margin: 0,
-                  fontSize: "0.7rem",
-                  letterSpacing: "0.1em",
+                  fontFamily: "var(--font-bebas), Impact, sans-serif",
+                  fontSize: "0.85rem",
+                  letterSpacing: "0.12em",
                   textTransform: "uppercase",
-                  opacity: 0.55,
+                  opacity: 0.7,
                 }}
               >
-                Part du pool
+                Multiplicateur
               </p>
             </div>
 
@@ -1147,9 +1065,6 @@ export default function DashboardPage(): React.JSX.Element | null {
                   }}
                 >
                   {multiplierDisplay}
-                </p>
-                <p style={{ margin: "0.4rem 0 0", fontSize: "0.72rem", opacity: 0.5 }}>
-                  ×{profileMultiplier.toFixed(1)}
                 </p>
               </div>
               <div
@@ -1293,35 +1208,72 @@ export default function DashboardPage(): React.JSX.Element | null {
                   opacity: 0.7,
                 }}
               >
-                Pool mensuel quiz
+                Dernière redistribution PMQ
               </p>
             </div>
 
-            <div>
-              <p
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                gap: "2rem",
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.7rem",
+                    opacity: 0.55,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Redistribution PMQ · 45%
+                </p>
+                <p
+                  style={{
+                    margin: "0.4rem 0 0",
+                    fontSize: "2.5rem",
+                    fontWeight: 700,
+                    color: GOLD,
+                    lineHeight: 1,
+                  }}
+                >
+                  {lastRedistributionCad != null
+                    ? cad.format(lastRedistributionCad * 0.45)
+                    : "—"}
+                </p>
+              </div>
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: "0.7rem",
-                  opacity: 0.55,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
+                  width: 1,
+                  background: "rgba(212,160,23,0.1)",
+                  alignSelf: "stretch",
                 }}
-              >
-                Dernière redistribution PMQ
-              </p>
-              <p
-                style={{
-                  margin: "0.4rem 0 0",
-                  fontSize: "2.5rem",
-                  fontWeight: 700,
-                  color: GOLD,
-                  lineHeight: 1,
-                }}
-              >
-                {lastRedistributionCad != null
-                  ? cad.format(lastRedistributionCad * 0.45)
-                  : "—"}
-              </p>
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {redistributionPending ? (
+                  <p style={{ margin: 0, opacity: 0.75 }}>
+                    Redistribution : en attente des revenus du mois
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ margin: 0, fontWeight: 600 }}>
+                      Estimation redistribution : ~{cad.format(redistributionEstimate)}
+                    </p>
+                    <p
+                      className="dash-formule-text"
+                      style={{ margin: "0.25rem 0 0", opacity: 0.55 }}
+                    >
+                      Formule : (Pool PMQ {cad.format(pmqBalance)} × tes pts{" "}
+                      {pointsFmt.format(memberPtsPonderes)} ÷ total pts{" "}
+                      {pointsFmt.format(totalPtsPonderesAll)})
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           </article>
         </div>
