@@ -149,6 +149,7 @@ export function EnDirectBanner(): React.JSX.Element | null {
               .leve-reseau-item {
                 gap: 0.25rem;
               }
+              .leve-reseau-label { display: none; }
             }
           `,
         }}
@@ -186,7 +187,9 @@ export function EnDirectBanner(): React.JSX.Element | null {
               className="leve-reseau-item"
             >
               <ReseauSocialIcon reseau={r.reseau} size={14} />
-              <span style={{ opacity: 0.7 }}>{RESEAU_LABELS[r.reseau]}</span>
+              <span className="leve-reseau-label" style={{ opacity: 0.7 }}>
+                {RESEAU_LABELS[r.reseau]}
+              </span>
               <span style={{ fontWeight: 600 }}>{formatAbonnes(abonnes)}</span>
             </span>
           );
