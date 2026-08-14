@@ -154,10 +154,18 @@ export function AppBottomNav({
       );
   }, [navLinks, nouvelleNav]);
 
-  const { primary, secondary } = useMemo(
-    () => splitAppBottomNavLinks(transformedNavLinks),
-    [transformedNavLinks],
-  );
+  const { primary, secondary } = useMemo(() => {
+    if (!nouvelleNav) return splitAppBottomNavLinks(transformedNavLinks);
+    const newPrimaryHrefs = ["/dashboard", "/videos", "/compte", "/classement"];
+    const primarySet = new Set(newPrimaryHrefs);
+    const primary: AppBottomNavLink[] = [];
+    for (const href of newPrimaryHrefs) {
+      const link = transformedNavLinks.find((l) => l.href === href);
+      if (link) primary.push(link);
+    }
+    const secondary = transformedNavLinks.filter((l) => !primarySet.has(l.href));
+    return { primary, secondary };
+  }, [transformedNavLinks, nouvelleNav]);
 
   /** Mobile : primary + menu Plus+ ; desktop : tous les liens à plat. */
   const barLinks = isMobile ? primary : transformedNavLinks;
