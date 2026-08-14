@@ -1136,7 +1136,7 @@ export default function DashboardPage(): React.JSX.Element | null {
               <div
                 style={{
                   height: "100%",
-                  width: `${Math.min(100, (pmqShare?.total_pts ?? 0) > 0 ? pmqShare.pourcentage : 0)}%`,
+                  width: `${Math.min(100, (pmqShare?.total_pts ?? 0) > 0 ? (pmqShare?.pourcentage ?? 0) : 0)}%`,
                   background: GOLD,
                   borderRadius: 2,
                   transition: "width 0.35s ease",
