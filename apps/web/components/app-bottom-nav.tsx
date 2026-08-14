@@ -75,25 +75,8 @@ function NavItem({
   onNavigate?: () => void;
 }): React.JSX.Element {
   const style = {
-    flex: "0 0 auto",
-    display: "inline-flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "0.15rem",
-    minHeight: "48px",
-    minWidth: "48px",
-    fontSize: "12px",
-    lineHeight: 1.2,
     color: active ? GOLD : TEXT,
     opacity: blocked ? 0.35 : active ? 1 : 0.75,
-    textDecoration: "none",
-    padding: "0.25rem 0.45rem",
-    whiteSpace: "nowrap",
-    cursor: blocked ? "not-allowed" : "pointer",
-    border: "none",
-    background: "transparent",
-    fontFamily: "inherit",
   } as const;
 
   const IconComp = ICON_MAP[getAppBottomNavIcon(link.href)];
@@ -106,14 +89,14 @@ function NavItem({
 
   if (blocked) {
     return (
-      <span style={style} title="Accès suspendu (période de grâce)">
+      <span className="leve-nav-item" style={style} title="Accès suspendu (période de grâce)">
         {content}
       </span>
     );
   }
 
   return (
-    <Link href={link.href} style={style} onClick={onNavigate}>
+    <Link href={link.href} className="leve-nav-item" style={style} onClick={onNavigate}>
       {content}
     </Link>
   );
@@ -123,14 +106,14 @@ export function AppBottomNav({
   session,
   memberType,
   blockedHrefs,
-}: AppBottomNavProps): React.JSX.Element {
+}: AppBottomNavProps): React.JSX.Element | null {
   const pathname = usePathname();
   const scrollRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(true);
   const [scrollEdges, setScrollEdges] = useState({ left: false, right: false });
-  const [nouvelleNav, setNouvelleNav] = useState(false);
+  const [nouvelleNav, setNouvelleNav] = useState<boolean | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -150,9 +133,11 @@ export function AppBottomNav({
         if (res.ok) {
           const data = (await res.json()) as { actif: boolean }[];
           setNouvelleNav(data[0]?.actif ?? false);
+        } else {
+          setNouvelleNav(false);
         }
       } catch {
-        /* ignore */
+        setNouvelleNav(false);
       }
     }
     void checkFlag();
@@ -160,8 +145,10 @@ export function AppBottomNav({
 
   const navLinks = useAppBottomNavLinks(session, memberType);
 
+  const flagActif = nouvelleNav === true;
+
   const transformedNavLinks = useMemo(() => {
-    if (!nouvelleNav) return navLinks;
+    if (!flagActif) return navLinks;
     return navLinks
       .filter((link) => link.href !== "/banque")
       .map((link) =>
@@ -169,12 +156,20 @@ export function AppBottomNav({
           ? { ...link, href: "/compte", label: "Compte", shortLabel: "Compte" }
           : link,
       );
-  }, [navLinks, nouvelleNav]);
+  }, [navLinks, flagActif]);
 
-  const { primary, secondary } = useMemo(
-    () => splitAppBottomNavLinks(transformedNavLinks),
-    [transformedNavLinks],
-  );
+  const { primary, secondary } = useMemo(() => {
+    if (!flagActif) return splitAppBottomNavLinks(transformedNavLinks);
+    const newPrimaryHrefs = ["/dashboard", "/videos", "/compte", "/classement"];
+    const primarySet = new Set(newPrimaryHrefs);
+    const primary: AppBottomNavLink[] = [];
+    for (const href of newPrimaryHrefs) {
+      const link = transformedNavLinks.find((l) => l.href === href);
+      if (link) primary.push(link);
+    }
+    const secondary = transformedNavLinks.filter((l) => !primarySet.has(l.href));
+    return { primary, secondary };
+  }, [transformedNavLinks, flagActif]);
 
   /** Mobile : primary + menu Plus+ ; desktop : tous les liens à plat. */
   const barLinks = isMobile ? primary : transformedNavLinks;
@@ -251,6 +246,8 @@ export function AppBottomNav({
     fontFamily: "inherit",
   } as const;
 
+  if (nouvelleNav === null) return null;
+
   return (
     <nav
       style={{
@@ -264,6 +261,43 @@ export function AppBottomNav({
         zIndex: 30,
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: `
+        .leve-nav-item {
+          flex: 0 0 auto;
+          display: inline-flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.15rem;
+          min-height: 48px;
+          min-width: 48px;
+          font-size: 11px;
+          line-height: 1.2;
+          text-decoration: none;
+          padding: 0.25rem 0.45rem;
+          white-space: nowrap;
+          cursor: pointer;
+          border: none;
+          background: transparent;
+          font-family: inherit;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+        @media (min-width: 480px) {
+          .leve-nav-item {
+            min-width: 64px;
+            font-size: 12px;
+            padding: 0.35rem 0.75rem;
+          }
+        }
+        @media (min-width: 768px) {
+          .leve-nav-item {
+            min-width: 80px;
+            font-size: 13px;
+            padding: 0.4rem 1rem;
+          }
+        }
+      `}} />
       <div
         style={{
           position: "relative",

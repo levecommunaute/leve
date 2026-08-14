@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
 
 interface AppHeaderProps {
   displayName?: string;
@@ -27,6 +28,16 @@ export function AppHeader({ displayName, onSignOut, signingOut = false, rightExt
         zIndex: 20,
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: `
+        .leve-nav-name { display: inline; }
+        .leve-nav-logout-text { display: inline; }
+        .leve-nav-logout-icon { display: none; }
+        @media (max-width: 767px) {
+          .leve-nav-name { display: none; }
+          .leve-nav-logout-text { display: none; }
+          .leve-nav-logout-icon { display: inline-flex; }
+        }
+      `}} />
       <Link
         href="/"
         className="leve-nav-logo dash-logo"
@@ -43,6 +54,7 @@ export function AppHeader({ displayName, onSignOut, signingOut = false, rightExt
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         {displayName ? (
           <span
+            className="leve-nav-name"
             style={{
               fontSize: "0.9rem",
               opacity: 0.85,
@@ -68,9 +80,17 @@ export function AppHeader({ displayName, onSignOut, signingOut = false, rightExt
             padding: "0.45rem 0.9rem",
             fontSize: "0.8rem",
             cursor: signingOut ? "wait" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {signingOut ? "…" : "Déconnexion"}
+          <span className="leve-nav-logout-text">
+            {signingOut ? "…" : "Déconnexion"}
+          </span>
+          <span className="leve-nav-logout-icon">
+            {signingOut ? "…" : <LogOut size={16} strokeWidth={1.5} />}
+          </span>
         </button>
       </div>
     </header>

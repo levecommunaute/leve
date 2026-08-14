@@ -38,12 +38,14 @@ export const APP_BOTTOM_NAV_ICONS: Record<string, string> = {
   "/dons": "Gift",
   "/profil": "User",
   "/collaborateur": "Users",
+  "/compte": "User",
 };
 
 /** Libellés courts pour la barre mobile. */
 export const APP_BOTTOM_NAV_SHORT_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/banque": "Banque",
+  "/compte": "Compte",
 };
 
 export function getAppBottomNavIcon(href: string): string {
