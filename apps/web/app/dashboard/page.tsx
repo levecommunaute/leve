@@ -20,7 +20,7 @@ import { getAppBottomNavLinks } from "../../lib/appBottomNavLinks";
 import { isGraceBlockedHref } from "../../lib/abonnement";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
-import { Play, Landmark, Trophy, ShieldCheck, ChevronRight, TrendingUp, Users, Calendar, Clock } from "lucide-react";
+import { Play, Landmark, Trophy, ShieldCheck, ChevronRight, TrendingUp, Users, Calendar, Clock, ArrowDownToLine } from "lucide-react";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -940,7 +940,7 @@ export default function DashboardPage(): React.JSX.Element | null {
                   {pointsFmt.format(totalPointsPmq)}
                 </p>
                 <p style={{ margin: "0.4rem 0 0", fontSize: "0.72rem", opacity: 0.5 }}>
-                  {pmqMonthLabel} · UTC
+                  {pmqMonthLabel}
                 </p>
               </div>
               <div
@@ -1210,7 +1210,7 @@ export default function DashboardPage(): React.JSX.Element | null {
                   flexShrink: 0,
                 }}
               >
-                <Landmark size={20} strokeWidth={1.5} color={GOLD} />
+                <ArrowDownToLine size={20} strokeWidth={1.5} color={GOLD} />
               </div>
               <p
                 style={{
@@ -1296,7 +1296,7 @@ export default function DashboardPage(): React.JSX.Element | null {
                         fontFamily: "var(--font-mono), ui-monospace, monospace",
                       }}
                     >
-                      Formule : (Pool PMQ {cad.format(pmqBalance)} × tes pts{" "}
+                      Formule : ({cad.format(lastRedistributionCad ?? 0)} × 45% × tes pts{" "}
                       {pointsFmt.format(memberPtsPonderes)} ÷ total pts{" "}
                       {pointsFmt.format(totalPtsPonderesAll)})
                     </p>
