@@ -614,9 +614,10 @@ export default function DashboardPage(): React.JSX.Element | null {
     pmqBalance <= 0 ||
     memberPtsPonderes <= 0 ||
     totalPtsPonderesAll <= 0;
+  const pmqPoolReel = (lastRedistributionCad ?? 0) * 0.45;
   const redistributionEstimate = redistributionPending
     ? 0
-    : pmqBalance * (memberPtsPonderes / totalPtsPonderesAll);
+    : pmqPoolReel * (memberPtsPonderes / totalPtsPonderesAll);
   const isBetaTester = profile?.is_beta_tester === true;
   const betaPoints = Number(profile?.beta_points ?? 0);
   const betaTempsSecondes = Number(profile?.beta_temps_total_secondes ?? 0);
@@ -1296,7 +1297,7 @@ export default function DashboardPage(): React.JSX.Element | null {
                         fontFamily: "var(--font-mono), ui-monospace, monospace",
                       }}
                     >
-                      Formule : ({cad.format(lastRedistributionCad ?? 0)} × 45% × tes pts{" "}
+                      Formule : ({cad.format(pmqPoolReel)} × tes pts{" "}
                       {pointsFmt.format(memberPtsPonderes)} ÷ total pts{" "}
                       {pointsFmt.format(totalPtsPonderesAll)})
                     </p>
