@@ -672,6 +672,8 @@ export default function DashboardPage(): React.JSX.Element | null {
             .dash-formule-text {
               font-size: max(12px, 0.75rem);
             }
+            .dash-membres-full { display: inline; }
+            .dash-membres-short { display: none; }
             @media (max-width: 479px) {
               .dash-shortcuts-grid {
                 grid-template-columns: 1fr;
@@ -682,6 +684,8 @@ export default function DashboardPage(): React.JSX.Element | null {
               .dash-stats-grid > article:nth-child(3) {
                 grid-column: 1;
               }
+              .dash-membres-full { display: none; }
+              .dash-membres-short { display: inline; }
             }
           `,
         }}
@@ -1064,7 +1068,7 @@ export default function DashboardPage(): React.JSX.Element | null {
                     lineHeight: 1,
                   }}
                 >
-                  {multiplierDisplay}
+                  ×{profileMultiplier.toFixed(1)}
                 </p>
               </div>
               <div
@@ -1141,11 +1145,21 @@ export default function DashboardPage(): React.JSX.Element | null {
             >
               <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                 <Users size={12} />
-                {pmqShare?.nb_membres_actifs ?? 0} / {pmqShare?.nb_membres_total ?? 0} membres
-                actifs
+                <span className="dash-membres-full">
+                  {pmqShare?.nb_membres_actifs ?? 0} / {pmqShare?.nb_membres_total ?? 0} membres
+                  actifs
+                </span>
+                <span className="dash-membres-short">
+                  {pmqShare?.nb_membres_actifs ?? 0}/{pmqShare?.nb_membres_total ?? 0} actifs
+                </span>
               </span>
               <span>
-                {pointsFmt.format(pmqShare?.total_pts_pool ?? 0)} pts au total
+                <span className="dash-membres-full">
+                  {pointsFmt.format(pmqShare?.total_pts_pool ?? 0)} pts au total
+                </span>
+                <span className="dash-membres-short">
+                  {pointsFmt.format(pmqShare?.total_pts_pool ?? 0)} pts
+                </span>
               </span>
             </div>
 
@@ -1260,12 +1274,27 @@ export default function DashboardPage(): React.JSX.Element | null {
                   </p>
                 ) : (
                   <>
-                    <p style={{ margin: 0, fontWeight: 600 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.82rem",
+                        opacity: 0.85,
+                        lineHeight: 1.4,
+                        fontWeight: 600,
+                        fontFamily: "var(--font-mono), ui-monospace, monospace",
+                      }}
+                    >
                       Estimation redistribution : ~{cad.format(redistributionEstimate)}
                     </p>
                     <p
                       className="dash-formule-text"
-                      style={{ margin: "0.25rem 0 0", opacity: 0.55 }}
+                      style={{
+                        margin: "0.25rem 0 0",
+                        fontSize: "0.75rem",
+                        opacity: 0.65,
+                        lineHeight: 1.4,
+                        fontFamily: "var(--font-mono), ui-monospace, monospace",
+                      }}
                     >
                       Formule : (Pool PMQ {cad.format(pmqBalance)} × tes pts{" "}
                       {pointsFmt.format(memberPtsPonderes)} ÷ total pts{" "}
