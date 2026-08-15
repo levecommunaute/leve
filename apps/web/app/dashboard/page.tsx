@@ -992,13 +992,23 @@ export default function DashboardPage(): React.JSX.Element | null {
             {prevMonthRedistributed && !inGrace ? (
               <Link href="/banque" style={bankBtnStyle}>
                 <Landmark size={18} strokeWidth={1.5} />
-                <span style={{ flex: 1 }}>Consulter votre banque</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block" }}>Consulter votre banque</span>
+                  <span style={{ display: "block", fontSize: "0.68rem", opacity: 0.55, fontWeight: 400 }}>
+                    PMQ {prevMonthLabel} · {pointsFmt.format(prevMonthPtsPonderes)} pts
+                  </span>
+                </span>
                 <ChevronRight size={16} strokeWidth={1.5} />
               </Link>
             ) : prevMonthRedistributed && inGrace ? (
               <div style={bankBtnStyle}>
                 <Landmark size={18} strokeWidth={1.5} />
-                <span style={{ flex: 1 }}>Consulter votre banque</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block" }}>Consulter votre banque</span>
+                  <span style={{ display: "block", fontSize: "0.68rem", opacity: 0.55, fontWeight: 400 }}>
+                    PMQ {prevMonthLabel} · {pointsFmt.format(prevMonthPtsPonderes)} pts
+                  </span>
+                </span>
                 <ChevronRight size={16} strokeWidth={1.5} style={{ opacity: 0.3 }} />
               </div>
             ) : !prevMonthRedistributed && prevMonthLabel ? (
@@ -1011,7 +1021,12 @@ export default function DashboardPage(): React.JSX.Element | null {
                 }}
               >
                 <Clock size={18} strokeWidth={1.5} />
-                <span style={{ flex: 1 }}>Redistribution en cours</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block" }}>Redistribution en cours</span>
+                  <span style={{ display: "block", fontSize: "0.68rem", opacity: 0.55, fontWeight: 400 }}>
+                    PMQ {prevMonthLabel} · {pointsFmt.format(prevMonthPtsPonderes)} pts
+                  </span>
+                </span>
               </div>
             ) : null}
           </article>
