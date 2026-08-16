@@ -14,6 +14,7 @@ import {
 import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { checkJwtExpired } from "../../lib/supabase";
+import { TrendingUp, Users, Wallet, Gift, ChevronRight, Clock, Landmark } from "lucide-react";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -616,6 +617,20 @@ export default function BanquePage(): React.JSX.Element | null {
     return { dateLabel, label, signed, color, quizLines, isDollars };
   }
 
+  const bankBtnStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    padding: "0.85rem 1rem",
+    borderRadius: "8px",
+    background: "rgba(212,160,23,0.06)",
+    border: "1px solid rgba(212,160,23,0.25)",
+    color: "var(--accent)",
+    textDecoration: "none",
+    fontSize: "0.9rem",
+    fontWeight: 600,
+  } as const;
+
   return (
     <div
       className={`${fonts} leve-page-banque`}
@@ -703,84 +718,155 @@ export default function BanquePage(): React.JSX.Element | null {
         <section
           className="leve-card"
           style={{
-            borderRadius: "4px",
-            padding: "1.5rem 1.35rem",
+            borderRadius: "8px",
+            padding: "1.25rem",
             marginBottom: "1rem",
             background: "var(--bg-card)",
-            borderTop: "2px solid var(--accent)",
-            border: "1px solid var(--border-soft)",
+            border: "1px solid rgba(212,160,23,0.2)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
           }}
         >
-          <p
-            className="leve-card-label"
-            style={{
-              margin: 0,
-              fontSize: "0.72rem",
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              fontWeight: 700,
-              opacity: 0.3,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
-          >
-            SOLDE BANQUE · {moisCourantLabel}
-          </p>
-          <p
-            className="banque-solde-amount leve-card-value"
-            style={{
-              margin: "0.35rem 0 0.15rem",
-              fontSize: "clamp(2.25rem, 7vw, 3rem)",
-              fontWeight: 800,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-              letterSpacing: "-0.02em",
-              color: GOLD,
-            }}
-          >
-            {cad.format(soldeDollars)}
-          </p>
-          <p
-            style={{
-              margin: "0.85rem 0 0.35rem",
-              fontSize: "0.78rem",
-              opacity: 0.75,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
-          >
-            Seuil de retrait : {cad.format(MIN_TRANSFER_CAD)}
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: "50%",
+                background: "rgba(212,160,23,0.08)",
+                border: "1px solid rgba(212,160,23,0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Wallet size={20} strokeWidth={1.5} color={GOLD} />
+            </div>
+            <p
+              style={{
+                margin: 0,
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "0.85rem",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                opacity: 0.7,
+              }}
+            >
+              Solde banque
+            </p>
+          </div>
+
+          <div>
+            <p
+              className="banque-solde-amount"
+              style={{
+                margin: 0,
+                fontSize: "2.5rem",
+                fontWeight: 700,
+                color: GOLD,
+                lineHeight: 1,
+              }}
+            >
+              {cad.format(soldeDollars)}
+            </p>
+            <p style={{ margin: "0.4rem 0 0", fontSize: "0.72rem", opacity: 0.5 }}>
+              {moisCourantLabel}
+            </p>
+          </div>
+
+          <div style={{ height: 1, background: "rgba(212,160,23,0.1)", margin: 0 }} />
+
           <div
             style={{
-              height: "8px",
-              borderRadius: "4px",
-              background: "var(--border-soft)",
+              height: 4,
+              borderRadius: 2,
+              background: "rgba(212,160,23,0.15)",
               overflow: "hidden",
-              }}
+            }}
           >
             <div
               style={{
                 height: "100%",
                 width: `${progressPct}%`,
-                borderRadius: "4px",
                 background: canTransfer ? GOLD : ROUGE,
+                borderRadius: 2,
                 transition: "width 0.35s ease",
               }}
             />
           </div>
           <p
             style={{
-              margin: "0.45rem 0 0",
+              margin: 0,
               fontSize: "0.78rem",
               opacity: 0.7,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",}}
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+            }}
           >
             {canTransfer
               ? "Seuil atteint — transfert disponible"
               : `${progressPct.toFixed(0)} % vers le seuil de ${cad.format(MIN_TRANSFER_CAD)}`}
           </p>
+
+          <div style={{ height: 1, background: "rgba(212,160,23,0.1)", margin: 0 }} />
+
+          {canTransfer ? (
+            <button
+              type="button"
+              onClick={() => void openRetraitConfirm()}
+              style={{ ...bankBtnStyle, width: "100%", cursor: "pointer" }}
+            >
+              <Gift size={18} strokeWidth={1.5} />
+              <span style={{ flex: 1, textAlign: "left" }}>
+                <span style={{ display: "block" }}>Retrait de récompense</span>
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: "0.68rem",
+                    opacity: 0.55,
+                    fontWeight: 400,
+                  }}
+                >
+                  {cad.format(soldeDollars)} disponible
+                </span>
+              </span>
+              <ChevronRight size={16} strokeWidth={1.5} />
+            </button>
+          ) : (
+            <div
+              style={{
+                ...bankBtnStyle,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "var(--text)",
+                cursor: "not-allowed",
+                opacity: 0.6,
+              }}
+            >
+              <Clock size={18} strokeWidth={1.5} />
+              <span style={{ flex: 1 }}>
+                <span style={{ display: "block" }}>Retrait de récompense</span>
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: "0.68rem",
+                    opacity: 0.55,
+                    fontWeight: 400,
+                  }}
+                >
+                  Seuil $100 · {cad.format(soldeDollars)} disponible
+                </span>
+              </span>
+            </div>
+          )}
+
           <p
             style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.58rem",
-              opacity: 0.35,
-              marginTop: "0.35rem",
+              margin: 0,
+              fontSize: "0.72rem",
+              opacity: 0.45,
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
             }}
           >
             Minimum $100 pour transférer · PayPal · Virement · Mobile Money
@@ -790,153 +876,133 @@ export default function BanquePage(): React.JSX.Element | null {
         <section
           className="leve-card"
           style={{
-            borderRadius: "4px",
-            padding: "1.5rem 1.35rem",
+            borderRadius: "8px",
+            padding: "1.25rem",
             marginBottom: "1.5rem",
-            background: G2,
-            borderTop: `2px solid ${GOLD}`,
-            borderRight: "1px solid var(--border-soft)",
-            borderBottom: "1px solid var(--border-soft)",
-            borderLeft: "1px solid var(--border-soft)",
-            color: TEXT,
+            background: "var(--bg-card)",
+            border: "1px solid rgba(212,160,23,0.2)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: "50%",
+                background: "rgba(212,160,23,0.08)",
+                border: "1px solid rgba(212,160,23,0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <TrendingUp size={20} strokeWidth={1.5} color={GOLD} />
+            </div>
             <p
-              className="leve-card-label"
               style={{
                 margin: 0,
-                fontSize: "0.72rem",
-                letterSpacing: "0.14em",
+                fontFamily: "var(--font-bebas), Impact, sans-serif",
+                fontSize: "0.85rem",
+                letterSpacing: "0.12em",
                 textTransform: "uppercase",
+                opacity: 0.7,
+              }}
+            >
+              Points PMQ
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "2.5rem",
+                  fontWeight: 700,
+                  color: GOLD,
+                  lineHeight: 1,
+                }}
+              >
+                {pointsFmt.format(totalPoints)} pts
+              </p>
+              <p style={{ margin: "0.4rem 0 0", fontSize: "0.72rem", opacity: 0.5 }}>
+                {moisCourantLabel}
+              </p>
+            </div>
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                borderLeft: "1px solid rgba(212,160,23,0.1)",
+                paddingLeft: "1rem",
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  opacity: 0.55,
+                }}
+              >
+                Points pondérés
+              </p>
+              <p
+                style={{
+                  margin: "0.35rem 0 0",
+                  fontSize: "1.4rem",
+                  fontWeight: 700,
+                  color: GOLD,
+                }}
+              >
+                {pointsFmt.format(totalPoints * profileMultiplier)}
+              </p>
+              <p
+                style={{
+                  margin: "0.35rem 0 0",
+                  fontSize: "0.72rem",
+                  opacity: 0.55,
+                  lineHeight: 1.4,
+                }}
+              >
+                ×{profileMultiplier.toFixed(1)} · {typeMembre}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: "rgba(212,160,23,0.1)", margin: 0 }} />
+
+          <div>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.7rem",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                opacity: 0.55,
+              }}
+            >
+              Estimation redistrib.
+            </p>
+            <p
+              style={{
+                margin: "0.35rem 0 0",
+                fontSize: "1.4rem",
                 fontWeight: 700,
-                opacity: 0.85,
                 color: GOLD,
               }}
             >
-              POINTS PMQ · {moisCourantLabel}
+              {pmqValuePerPoint != null &&
+              Number.isFinite(pmqValuePerPoint) &&
+              totalPoints * pmqValuePerPoint > 0
+                ? `≈ ${cad.format(totalPoints * profileMultiplier * pmqValuePerPoint)}`
+                : "—"}
             </p>
-            {classementRang != null ? (
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.5rem",
-                  color: ROUGE,
-                  letterSpacing: "0.1em",
-                  marginLeft: "auto",
-                }}
-              >
-                #{classementRang} classement
-              </span>
-            ) : null}
-          </div>
-          <p
-            className="leve-card-value"
-            style={{
-              margin: "0.35rem 0 0.15rem",
-              fontSize: "clamp(2.25rem, 7vw, 3rem)",
-              fontWeight: 800,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-              letterSpacing: "-0.02em",
-              color: GOLD,
-            }}
-          >
-            {pointsFmt.format(totalPoints)} pts
-          </p>
-          <p
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.65rem",
-              opacity: 0.45,
-              marginTop: "0.2rem",
-            }}
-          >
-            Multiplicateur ×{profileMultiplier} · {typeMembre}
-          </p>
-          <p
-            style={{
-              margin: "0.55rem 0 0",
-              fontSize: "0.78rem",
-              letterSpacing: "0.04em",
-              opacity: 0.75,
-              lineHeight: 1.4,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-            }}
-          >
-            {pmqValuePerPoint != null
-              ? formatPmqPtValue(pmqValuePerPoint)
-              : "(Revenus × 45%) ÷ Total pts · Variable mensuel"}
-          </p>
-          <p
-            style={{
-              margin: "0.68rem 0 0",
-              fontSize: "0.68rem",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              opacity: 0.65,
-            }}
-          >
-            Points pondérés (base redistribution)
-          </p>
-          <p
-            style={{
-              margin: "0.2rem 0 0",
-              fontSize: "1.05rem",
-              fontWeight: 700,
-              opacity: 0.85,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-            }}
-          >
-            {pointsFmt.format(weightedPointsPmq)} pts
-          </p>
-          <p
-            style={{
-              margin: "0.3rem 0 0",
-              fontSize: "0.72rem",
-              opacity: 0.65,
-              lineHeight: 1.4,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-            }}
-          >
-            Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} — utilisé pour calculer votre part de redistribution
-          </p>
-          <div
-            style={{
-              borderTop: "1px solid var(--border-soft)",
-              marginTop: "0.85rem",
-              paddingTop: "0.85rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.52rem",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                opacity: 0.28,
-              }}
-            >
-              ESTIMATION REDISTRIB.
-            </span>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.9rem",
-                color: "var(--accent-green)",
-                fontWeight: 700,
-              }}
-            >
-              {estimation > 0 ? `≈ $${estimation.toFixed(0)}` : "—"}
-            </span>
           </div>
         </section>
 
@@ -956,31 +1022,6 @@ export default function BanquePage(): React.JSX.Element | null {
 
         <div style={{ marginBottom: "2rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
-          <button
-            type="button"
-            className="banque-transfer-btn"
-            disabled={!canTransfer}
-            onClick={() => void openRetraitConfirm()}
-            style={{
-              width: "100%",
-              maxWidth: "420px",
-              padding: "0.85rem 1.25rem",
-              borderRadius: "4px",
-              fontWeight: 700,
-              fontSize: "0.82rem",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              border: canTransfer
-                ? "1px solid rgba(212, 160, 23, 0.4)"
-                : "2px solid var(--border-strong)",
-              background: canTransfer ? "transparent" : "var(--border-soft)",
-              color: canTransfer ? GOLD : "var(--text-40)",
-              cursor: canTransfer ? "pointer" : "not-allowed",
-            }}
-          >
-            Transférer vers mon compte
-          </button>
-
           {retraitOpen ? (
             <div
               role="presentation"
