@@ -191,13 +191,28 @@ export default function BanquePage(): React.JSX.Element | null {
     null,
   );
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [lastRedistributionCad, setLastRedistributionCad] = useState<
+    number | null
+  >(null);
+  const [memberPtsPonderes, setMemberPtsPonderes] = useState(0);
+  const [totalPtsPonderesAll, setTotalPtsPonderesAll] = useState(0);
 
   const loadBanque = useCallback(async (activeSession: Session) => {
     const uid = activeSession.user.id;
     const sb = createAuthedSupabase(activeSession.access_token);
     const { startIso, endIso } = currentMonthBounds();
 
-    const [profileRes, banqueRes, sumRes, pointsListRes, mouvementsRes, redistRes] =
+    const [
+      profileRes,
+      banqueRes,
+      sumRes,
+      pointsListRes,
+      mouvementsRes,
+      redistRes,
+      lastHistRes,
+      memberPpRes,
+      totalPpRes,
+    ] =
       await Promise.all([
         sb
           .from("profiles")
@@ -236,6 +251,24 @@ export default function BanquePage(): React.JSX.Element | null {
           .select("value_per_point")
           .eq("month", currentMonthDate())
           .maybeSingle(),
+        sb
+          .from("redistribution_history")
+          .select("total_revenue")
+          .order("month", { ascending: false })
+          .limit(1),
+        sb
+          .from("points_ponderes")
+          .select("pts_ponderes")
+          .eq("membre_id", uid)
+          .eq("type", "quiz")
+          .gte("created_at", startIso)
+          .lt("created_at", endIso),
+        sb
+          .from("points_ponderes")
+          .select("pts_ponderes")
+          .eq("type", "quiz")
+          .gte("created_at", startIso)
+          .lt("created_at", endIso),
       ]);
 
     const errMsg =
@@ -284,6 +317,25 @@ export default function BanquePage(): React.JSX.Element | null {
       );
       setTotalPoints(sum);
     }
+
+    const histRows =
+      (lastHistRes.data ?? []) as { total_revenue?: unknown }[];
+    const firstHist = histRows[0];
+    setLastRedistributionCad(
+      firstHist?.total_revenue != null ? Number(firstHist.total_revenue) : null,
+    );
+
+    const memberPpRows =
+      (memberPpRes.data ?? []) as { pts_ponderes?: unknown }[];
+    setMemberPtsPonderes(
+      memberPpRows.reduce((acc, r) => acc + Number(r.pts_ponderes ?? 0), 0),
+    );
+
+    const totalPpRows =
+      (totalPpRes.data ?? []) as { pts_ponderes?: unknown }[];
+    setTotalPtsPonderesAll(
+      totalPpRows.reduce((acc, r) => acc + Number(r.pts_ponderes ?? 0), 0),
+    );
 
     const merged: HistoryRow[] = [];
     if (!pointsListRes.error) {
@@ -532,9 +584,10 @@ export default function BanquePage(): React.JSX.Element | null {
     pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
       ? totalPoints * pmqValuePerPoint
       : 0;
+  const pmqPoolReel = (lastRedistributionCad ?? 0) * 0.45;
   const banqueEstimation =
-    pmqValuePerPoint != null && pmqValuePerPoint > 0
-      ? totalPoints * profileMultiplier * pmqValuePerPoint
+    pmqPoolReel > 0 && totalPtsPonderesAll > 0
+      ? pmqPoolReel * (memberPtsPonderes / totalPtsPonderesAll)
       : 0;
   const typeMembre = profile?.member_type?.trim() || "—";
   const weightedPointsPmq = totalPoints * profileMultiplier;
