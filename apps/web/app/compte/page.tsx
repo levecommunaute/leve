@@ -1,7 +1,6 @@
 "use client";
 
 import { Bebas_Neue, DM_Sans } from "next/font/google";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import React, {
@@ -16,6 +15,8 @@ import { AppHeader } from "../../components/app-header";
 import { HeaderRight } from "../../components/header-right";
 import { EnDirectBanner } from "../../components/en-direct-banner";
 import { MemberAvatar } from "../../components/member-avatar";
+import { CartesPmqMultiplicateur } from "../../components/cartes-pmq-multiplicateur";
+import { CartesBanque } from "../../components/cartes-banque";
 import { signOut } from "../../lib/auth";
 import {
   PRESET_AVATARS,
@@ -161,10 +162,6 @@ type ProfilHistoryTxRow = {
 function currentMonthDate(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
-}
-
-function formatPmqPtValue(v: number): string {
-  return `~$${v.toFixed(4)}/pt · Mois en cours`;
 }
 
 function transactionDescription(type: string | null | undefined): string {
@@ -1103,7 +1100,7 @@ export default function ComptePage(): JSX.Element | null {
   const effectiveAvatarUrl = avatarUrl;
   const mult = Number(profile?.multiplier ?? 1);
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
-  const multiplierDisplay = `${profileMultiplier.toFixed(1)}×`;
+  const inGrace = false;
   const weightedPointsPmq = monthlyPtsTotal;
   const showRankBadge = isCommunauteMemberType(profile?.member_type);
   const monthlyRankBadge = showRankBadge
@@ -1191,7 +1188,6 @@ export default function ComptePage(): JSX.Element | null {
       })
       .toUpperCase() + " · UTC";
   const typeMembre = profile?.member_type?.trim() || "—";
-  const banqueWeightedPts = totalPointsPmq * profileMultiplier;
   const estimation =
     pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
       ? totalPointsPmq * pmqValuePerPoint
@@ -1481,218 +1477,26 @@ export default function ComptePage(): JSX.Element | null {
 
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                gap: "0.85rem",
                 marginBottom: "1.75rem",
                 fontFamily: "var(--font-mono), ui-monospace, monospace",
               }}
             >
-              <article
-                className="leve-card"
-                style={{
-                  position: "relative",
-                  borderRadius: "4px",
-                  padding: "1.1rem 1.1rem 2.35rem",
-                  background: "var(--bg-card)",
-                  border:
-                    "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
-                }}
-              >
-                <p
-                  className="profil-stat-label leve-card-label"
-                  style={{
-                    margin: 0,
-                    fontSize: "0.72rem",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: GOLD,
-                    opacity: 0.95,
-                  }}
-                >
-                  {pmqMonthLabel
-                    ? `Points PMQ · ${pmqMonthLabel}`
-                    : "Points PMQ"}
-                </p>
-                <p
-                  className="leve-card-value"
-                  style={{
-                    margin: "0.5rem 0 0",
-                    fontSize: "1.65rem",
-                    fontWeight: 700,
-                    color: GOLD,
-                  }}
-                >
-                  {pointsFmt.format(totalPointsPmq)}
-                </p>
-                <p
-                  className="profil-stat-label"
-                  style={{
-                    margin: "0.75rem 0 0",
-                    fontSize: "0.68rem",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    opacity: 0.5,
-                  }}
-                >
-                  {pmqMonthLabel
-                    ? `Points pondérés · ${pmqMonthLabel}`
-                    : "Points pondérés (base redistribution)"}
-                </p>
-                <p
-                  style={{
-                    margin: "0.25rem 0 0",
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    opacity: 0.75,
-                  }}
-                >
-                  {pointsFmt.format(weightedPointsPmq)}
-                </p>
-                <p
-                  style={{
-                    margin: "0.3rem 0 0",
-                    fontSize: "0.7rem",
-                    opacity: 0.45,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
-                  utilisés pour calculer votre part de redistribution
-                </p>
-                {prevMonthLabel ? (
-                  <p
-                    style={{
-                      position: "absolute",
-                      right: "1.1rem",
-                      bottom: "0.65rem",
-                      margin: 0,
-                      maxWidth: "100%",
-                      textAlign: "right",
-                      fontSize: "0.68rem",
-                      opacity: 0.45,
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    PMQ {prevMonthLabel} ·{" "}
-                    {pointsFmt.format(prevMonthPtsPonderes)} pts →{" "}
-                    {prevMonthRedistributed ? (
-                      <Link
-                        href="/banque"
-                        style={{
-                          color: "inherit",
-                          textDecoration: "underline",
-                          textUnderlineOffset: "2px",
-                        }}
-                      >
-                        ✓ Consulter votre banque
-                      </Link>
-                    ) : (
-                      "Redistribution en cours"
-                    )}
-                  </p>
-                ) : null}
-              </article>
-
-              <article
-                className="leve-card"
-                style={{
-                  borderRadius: "4px",
-                  padding: "1.1rem",
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-soft)",
-                  borderTop: "2px solid var(--accent)",
-                }}
-              >
-                <p
-                  className="profil-stat-label leve-card-label"
-                  style={{
-                    margin: 0,
-                    fontSize: "0.72rem",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    opacity: 0.55,
-                  }}
-                >
-                  Multiplicateur
-                </p>
-                {pmqShare ? (
-                  <div style={{ marginTop: "0.5rem" }}>
-                    <p
-                      className="leve-card-value"
-                      style={{
-                        margin: 0,
-                        fontSize: "0.95rem",
-                        fontWeight: 600,
-                        color: GOLD,
-                        fontFamily: "var(--font-mono), ui-monospace, monospace",
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {pmqShare.total_pts <= 0
-                        ? `×${profileMultiplier.toFixed(1)} · Aucun quiz complété ce mois`
-                        : `×${profileMultiplier.toFixed(1)} · ${pointsFmt.format(pmqShare.mes_pts)} pts · ${pmqShare.pourcentage.toFixed(1)}% du pool PMQ · ${pmqMonthLabel}`}
-                    </p>
-                    <div
-                      style={{
-                        marginTop: "0.55rem",
-                        height: 3,
-                        borderRadius: 2,
-                        background:
-                          "color-mix(in srgb, var(--accent) 18%, transparent)",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${Math.min(
-                            100,
-                            Math.max(
-                              0,
-                              pmqShare.total_pts > 0
-                                ? pmqShare.pourcentage
-                                : 0,
-                            ),
-                          )}%`,
-                          background: GOLD,
-                          borderRadius: 2,
-                          transition: "width 0.35s ease",
-                        }}
-                      />
-                    </div>
-                    {pmqShare.total_pts > 0 ? (
-                      <p
-                        style={{
-                          margin: "0.45rem 0 0",
-                          fontSize: "0.65rem",
-                          lineHeight: 1.35,
-                          opacity: 0.45,
-                          fontFamily:
-                            "var(--font-mono), ui-monospace, monospace",
-                        }}
-                      >
-                        {pmqShare.nb_membres_actifs} /{" "}
-                        {pmqShare.nb_membres_total} membres actifs ce mois ·{" "}
-                        {pointsFmt.format(pmqShare.total_pts_pool)} pts au total
-                        dans le pool
-                      </p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p
-                    className="leve-card-value"
-                    style={{
-                      margin: "0.5rem 0 0",
-                      fontSize: "1.65rem",
-                      fontWeight: 700,
-                      color: GOLD,
-                    }}
-                  >
-                    {multiplierDisplay}
-                  </p>
-                )}
-              </article>
+              <CartesPmqMultiplicateur
+                name={name}
+                avatarUrl={effectiveAvatarUrl ?? null}
+                totalPointsPmq={totalPointsPmq}
+                weightedPointsPmq={weightedPointsPmq}
+                pmqMonthLabel={pmqMonthLabel}
+                profileMultiplier={profileMultiplier}
+                prevMonthLabel={prevMonthLabel}
+                prevMonthPtsPonderes={prevMonthPtsPonderes}
+                prevMonthRedistributed={prevMonthRedistributed}
+                inGrace={inGrace}
+                pmqShare={pmqShare}
+                monthlyRankBadge={monthlyRankBadge}
+                pointsFmt={pointsFmt}
+                cad={cad}
+              />
             </div>
 
             <section
@@ -2274,228 +2078,23 @@ export default function ComptePage(): JSX.Element | null {
               <span style={{ color: GOLD }}>LEVE</span>
             </h1>
 
-            <section
-              className="leve-card"
-              style={{
-                borderRadius: "4px",
-                padding: "1.5rem 1.35rem",
-                marginBottom: "1rem",
-                background: "var(--bg-card)",
-                borderTop: "2px solid var(--accent)",
-                border: "1px solid var(--border-soft)",
-              }}
-            >
-              <p
-                className="leve-card-label"
-                style={{
-                  margin: 0,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  fontWeight: 700,
-                  opacity: 0.3,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                }}
-              >
-                SOLDE BANQUE · {moisCourantLabel}
-              </p>
-              <p
-                className="banque-solde-amount leve-card-value"
-                style={{
-                  margin: "0.35rem 0 0.15rem",
-                  fontSize: "clamp(2.25rem, 7vw, 3rem)",
-                  fontWeight: 800,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                  letterSpacing: "-0.02em",
-                  color: GOLD,
-                }}
-              >
-                {cad.format(soldeDollars)}
-              </p>
-              <p
-                style={{
-                  margin: "0.85rem 0 0.35rem",
-                  fontSize: "0.78rem",
-                  opacity: 0.75,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                }}
-              >
-                Seuil de retrait : {cad.format(MIN_TRANSFER_CAD)}
-              </p>
-              <div
-                style={{
-                  height: "8px",
-                  borderRadius: "4px",
-                  background: "var(--border-soft)",
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    height: "100%",
-                    width: `${progressPct}%`,
-                    borderRadius: "4px",
-                    background: canTransfer ? GOLD : ROUGE,
-                    transition: "width 0.35s ease",
-                  }}
-                />
-              </div>
-              <p
-                style={{
-                  margin: "0.45rem 0 0",
-                  fontSize: "0.78rem",
-                  opacity: 0.7,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                }}
-              >
-                {canTransfer
-                  ? "Seuil atteint — transfert disponible"
-                  : `${progressPct.toFixed(0)} % vers le seuil de ${cad.format(MIN_TRANSFER_CAD)}`}
-              </p>
-              <p
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.58rem",
-                  opacity: 0.35,
-                  marginTop: "0.35rem",
-                }}
-              >
-                Minimum $100 pour transférer · PayPal · Virement · Mobile Money
-              </p>
-            </section>
-
-            <section
-              className="leve-card"
-              style={{
-                borderRadius: "4px",
-                padding: "1.5rem 1.35rem",
-                marginBottom: "1.5rem",
-                background: "var(--bg-card)",
-                borderTop: `2px solid ${GOLD}`,
-                borderRight: "1px solid var(--border-soft)",
-                borderBottom: "1px solid var(--border-soft)",
-                borderLeft: "1px solid var(--border-soft)",
-                color: TEXT,
-              }}
-            >
-              <p
-                className="leve-card-label"
-                style={{
-                  margin: 0,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  fontWeight: 700,
-                  opacity: 0.85,
-                  color: GOLD,
-                }}
-              >
-                POINTS PMQ · {moisCourantLabel}
-              </p>
-              <p
-                className="leve-card-value"
-                style={{
-                  margin: "0.35rem 0 0.15rem",
-                  fontSize: "clamp(2.25rem, 7vw, 3rem)",
-                  fontWeight: 800,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                  letterSpacing: "-0.02em",
-                  color: GOLD,
-                }}
-              >
-                {pointsFmt.format(totalPointsPmq)} pts
-              </p>
-              <p
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.65rem",
-                  opacity: 0.45,
-                  marginTop: "0.2rem",
-                }}
-              >
-                Multiplicateur ×{profileMultiplier} · {typeMembre}
-              </p>
-              <p
-                style={{
-                  margin: "0.55rem 0 0",
-                  fontSize: "0.78rem",
-                  letterSpacing: "0.04em",
-                  opacity: 0.75,
-                  lineHeight: 1.4,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                }}
-              >
-                {pmqValuePerPoint != null
-                  ? formatPmqPtValue(pmqValuePerPoint)
-                  : "(Revenus × 45%) ÷ Total pts · Variable mensuel"}
-              </p>
-              <p
-                style={{
-                  margin: "0.68rem 0 0",
-                  fontSize: "0.68rem",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  opacity: 0.65,
-                }}
-              >
-                Points pondérés (base redistribution)
-              </p>
-              <p
-                style={{
-                  margin: "0.2rem 0 0",
-                  fontSize: "1.05rem",
-                  fontWeight: 700,
-                  opacity: 0.85,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                }}
-              >
-                {pointsFmt.format(banqueWeightedPts)} pts
-              </p>
-              <p
-                style={{
-                  margin: "0.3rem 0 0",
-                  fontSize: "0.72rem",
-                  opacity: 0.65,
-                  lineHeight: 1.4,
-                  fontFamily: "var(--font-mono), ui-monospace, monospace",
-                }}
-              >
-                Vos points × multiplicateur ×{profileMultiplier.toFixed(1)} —
-                utilisés pour calculer votre part de redistribution
-              </p>
-              <div
-                style={{
-                  borderTop: "1px solid var(--border-soft)",
-                  marginTop: "0.85rem",
-                  paddingTop: "0.85rem",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.52rem",
-                    letterSpacing: "0.15em",
-                    textTransform: "uppercase",
-                    opacity: 0.28,
-                  }}
-                >
-                  ESTIMATION REDISTRIB.
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.9rem",
-                    color: "var(--accent-green)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {estimation > 0 ? `≈ $${estimation.toFixed(0)}` : "—"}
-                </span>
-              </div>
-            </section>
+            <div style={{ marginBottom: "1.75rem" }}>
+              <CartesBanque
+                soldeDollars={soldeDollars}
+                moisCourantLabel={moisCourantLabel}
+                canTransfer={canTransfer}
+                progressPct={progressPct}
+                totalPoints={totalPointsPmq}
+                profileMultiplier={profileMultiplier}
+                typeMembre={typeMembre}
+                banqueEstimation={estimation}
+                onRetraitClick={() => void openRetraitConfirm()}
+                pointsFmt={pointsFmt}
+                cad={cad}
+                GOLD={GOLD}
+                ROUGE={ROUGE}
+              />
+            </div>
 
             {!canTransfer ? (
               <p
@@ -2518,31 +2117,6 @@ export default function ComptePage(): JSX.Element | null {
                 fontFamily: "var(--font-mono), ui-monospace, monospace",
               }}
             >
-              <button
-                type="button"
-                className="banque-transfer-btn"
-                disabled={!canTransfer}
-                onClick={() => void openRetraitConfirm()}
-                style={{
-                  width: "100%",
-                  maxWidth: "420px",
-                  padding: "0.85rem 1.25rem",
-                  borderRadius: "4px",
-                  fontWeight: 700,
-                  fontSize: "0.82rem",
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  border: canTransfer
-                    ? "1px solid color-mix(in srgb, var(--accent) 40%, transparent)"
-                    : "2px solid var(--border-strong)",
-                  background: canTransfer ? "transparent" : "var(--border-soft)",
-                  color: canTransfer ? GOLD : "var(--text-40)",
-                  cursor: canTransfer ? "pointer" : "not-allowed",
-                }}
-              >
-                Transférer vers mon compte
-              </button>
-
               {retraitOpen ? (
                 <div
                   role="presentation"
