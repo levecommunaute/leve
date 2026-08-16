@@ -532,6 +532,10 @@ export default function BanquePage(): React.JSX.Element | null {
     pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
       ? totalPoints * pmqValuePerPoint
       : 0;
+  const banqueEstimation =
+    pmqValuePerPoint != null && pmqValuePerPoint > 0
+      ? totalPoints * profileMultiplier * pmqValuePerPoint
+      : 0;
   const typeMembre = profile?.member_type?.trim() || "—";
   const weightedPointsPmq = totalPoints * profileMultiplier;
 
@@ -648,6 +652,12 @@ export default function BanquePage(): React.JSX.Element | null {
             .banque-solde-amount {
               font-size: clamp(1.5rem, 5vw, 2.5rem) !important;
             }
+            .banque-cards-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 0.85rem;
+              margin-bottom: 1.75rem;
+            }
             .banque-transfer-btn {
               min-height: 44px;
             }
@@ -663,6 +673,7 @@ export default function BanquePage(): React.JSX.Element | null {
               border: 1px solid var(--border-soft);
             }
             @media (max-width: 479px) {
+              .banque-cards-grid { grid-template-columns: 1fr; }
               .banque-history-table-wrap {
                 display: none !important;
               }
@@ -715,12 +726,12 @@ export default function BanquePage(): React.JSX.Element | null {
           <span style={{ color: GOLD }}>LEVE</span>
         </h1>
 
+        <div className="banque-cards-grid">
         <section
           className="leve-card"
           style={{
             borderRadius: "8px",
             padding: "1.25rem",
-            marginBottom: "1rem",
             background: "var(--bg-card)",
             border: "1px solid rgba(212,160,23,0.2)",
             display: "flex",
@@ -869,7 +880,7 @@ export default function BanquePage(): React.JSX.Element | null {
               fontFamily: "var(--font-mono), ui-monospace, monospace",
             }}
           >
-            Minimum $100 pour transférer · PayPal · Virement · Mobile Money
+            Minimum $100 pour retrait · PayPal · Virement · Mobile Money
           </p>
         </section>
 
@@ -878,7 +889,6 @@ export default function BanquePage(): React.JSX.Element | null {
           style={{
             borderRadius: "8px",
             padding: "1.25rem",
-            marginBottom: "1.5rem",
             background: "var(--bg-card)",
             border: "1px solid rgba(212,160,23,0.2)",
             display: "flex",
@@ -987,24 +997,21 @@ export default function BanquePage(): React.JSX.Element | null {
                 opacity: 0.55,
               }}
             >
-              Estimation redistrib.
+              Estimation redistribution
             </p>
             <p
               style={{
                 margin: "0.35rem 0 0",
-                fontSize: "1.4rem",
+                fontSize: "1.1rem",
                 fontWeight: 700,
                 color: GOLD,
               }}
             >
-              {pmqValuePerPoint != null &&
-              Number.isFinite(pmqValuePerPoint) &&
-              totalPoints * pmqValuePerPoint > 0
-                ? `≈ ${cad.format(totalPoints * profileMultiplier * pmqValuePerPoint)}`
-                : "—"}
+              {banqueEstimation > 0 ? `~${cad.format(banqueEstimation)}` : "—"}
             </p>
           </div>
         </section>
+        </div>
 
         {!canTransfer ? (
           <p
