@@ -44,6 +44,8 @@ type VideoRow = {
   points_value: number | null;
   collaborateur_id: string | null;
   is_active?: boolean | null;
+  categorie?: string | null;
+  tags?: string | null;
 };
 
 type MemberRow = {
@@ -1377,6 +1379,14 @@ export default function AdminPage(): React.JSX.Element {
   const [addVideoLoading, setAddVideoLoading] = useState(false);
   const [addVideoMsg, setAddVideoMsg] = useState<string | null>(null);
 
+  const [videoCategories, setVideoCategories] = useState<{id:string, nom:string, slug:string}[]>([]);
+  const [newCategorie, setNewCategorie] = useState("educatif");
+  const [newTags, setNewTags] = useState("");
+  const [newCategorieNom, setNewCategorieNom] = useState("");
+  const [newCouleur, setNewCouleur] = useState("#888780");
+  const [addCatLoading, setAddCatLoading] = useState(false);
+  const [addCatMsg, setAddCatMsg] = useState<string | null>(null);
+
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -1626,6 +1636,21 @@ export default function AdminPage(): React.JSX.Element {
       setVideosLoading(false);
     }
   }, []);
+
+  const loadCategories = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch("/api/admin/video-categories", {
+        headers: adminHeaders(),
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { categories?: { id: string; nom: string; slug: string }[] };
+        const data = j.categories ?? [];
+        setVideoCategories(data);
+        if (data.length > 0 && data[0]) setNewCategorie(data[0].slug);
+      }
+    } catch { /* ignore */ }
+  }, [adminHeaders]);
 
   const loadLinkedVideoCodes = useCallback(async (): Promise<void> => {
     try {
@@ -2876,6 +2901,7 @@ export default function AdminPage(): React.JSX.Element {
     if (!hydrated || !authed) return;
     void loadVideos();
     void loadLinkedVideoCodes();
+    void loadCategories();
     void loadMembers();
     void loadBetaSuivi();
     void loadBetaEmails();
@@ -2904,6 +2930,7 @@ export default function AdminPage(): React.JSX.Element {
     authed,
     loadVideos,
     loadLinkedVideoCodes,
+    loadCategories,
     loadMembers,
     loadBetaSuivi,
     loadBetaEmails,
@@ -3609,6 +3636,8 @@ export default function AdminPage(): React.JSX.Element {
           youtube_id: newYoutube.trim(),
           title: newTitle.trim(),
           points_value: newPoints,
+          categorie: newCategorie,
+          tags: newTags.trim(),
         }),
       });
       const j = (await r.json()) as { error?: string };
@@ -3619,12 +3648,52 @@ export default function AdminPage(): React.JSX.Element {
       setNewYoutube("");
       setNewTitle("");
       setNewPoints(15);
+      setNewTags("");
+      setNewCategorie(videoCategories[0]?.slug ?? "educatif");
       setAddVideoMsg("Vidéo ajoutée.");
       await loadVideos();
     } catch {
       setAddVideoMsg("Erreur réseau");
     } finally {
       setAddVideoLoading(false);
+    }
+  }
+
+  async function handleAddCategory(e: FormEvent): Promise<void> {
+    e.preventDefault();
+    if (!newCategorieNom.trim()) return;
+    setAddCatLoading(true);
+    setAddCatMsg(null);
+    try {
+      const slug = newCategorieNom.trim()
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      const res = await fetch("/api/admin/video-categories", {
+        method: "POST",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          nom: newCategorieNom.trim(),
+          slug,
+          couleur: newCouleur,
+          ordre: videoCategories.length,
+          is_gate: false,
+        }),
+      });
+      if (res.ok) {
+        setAddCatMsg("Catégorie ajoutée.");
+        setNewCategorieNom("");
+        setNewCouleur("#888780");
+        await loadCategories();
+      } else {
+        const j = (await res.json()) as { error?: string; message?: string };
+        setAddCatMsg(j.error ?? j.message ?? "Erreur lors de l'ajout.");
+      }
+    } catch {
+      setAddCatMsg("Erreur réseau.");
+    } finally {
+      setAddCatLoading(false);
     }
   }
 
@@ -4900,6 +4969,12 @@ export default function AdminPage(): React.JSX.Element {
                       <th className="leve-col-points" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Pts
                       </th>
+                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Catégorie
+                      </th>
+                      <th style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
+                        Tags
+                      </th>
                       <th className="leve-col-statut" style={{ padding: "0.65rem 0.5rem", letterSpacing: "0.08em", fontSize: "0.68rem", textTransform: "uppercase", opacity: 0.55 }}>
                         Statut
                       </th>
@@ -4998,6 +5073,8 @@ export default function AdminPage(): React.JSX.Element {
                             {v.youtube_id}
                           </td>
                           <td className="leve-col-points" style={{ padding: "0.75rem 0.5rem", verticalAlign: "top" }}>{v.points_value ?? "—"}</td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top" }}>{v.categorie ?? "—"}</td>
+                          <td style={{ padding: "0.75rem 0.5rem", verticalAlign: "top", fontSize: "0.75rem", opacity: 0.7 }}>{v.tags ?? "—"}</td>
                           <td className="leve-col-statut" style={{ padding: "0.75rem 0.5rem", verticalAlign: "middle" }}>
                             <span
                               style={{
@@ -5319,6 +5396,28 @@ export default function AdminPage(): React.JSX.Element {
                     <option value={30}>30</option>
                   </select>
                 </div>
+                <div>
+                  <label style={labelSm}>Catégorie</label>
+                  <select
+                    value={newCategorie}
+                    onChange={(e) => setNewCategorie(e.target.value)}
+                    style={{ ...inputBase, cursor: "pointer" }}
+                  >
+                    {videoCategories.map((c) => (
+                      <option key={c.slug} value={c.slug}>{c.nom}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelSm}>Tags</label>
+                  <input
+                    type="text"
+                    placeholder="Finance · Société · Tech"
+                    value={newTags}
+                    onChange={(e) => setNewTags(e.target.value)}
+                    style={inputBase}
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={addVideoLoading}
@@ -5341,6 +5440,60 @@ export default function AdminPage(): React.JSX.Element {
                 <p style={{ marginTop: "0.85rem", fontSize: "0.88rem", opacity: 0.85 }}>{addVideoMsg}</p>
               ) : null}
             </div>
+          </section>
+
+          <section id="section-categories" style={{ marginBottom: "2rem" }}>
+            <h2 style={{ fontFamily: "var(--font-bebas)", fontSize: "1.35rem",
+              letterSpacing: "0.08em", marginBottom: "1rem", color: "var(--accent)" }}>
+              Catégories vidéos
+            </h2>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+              {videoCategories.map((c) => (
+                <span key={c.slug} style={{
+                  padding: "0.3rem 0.75rem", borderRadius: "20px",
+                  background: "var(--bg-card)", border: "1px solid var(--border-soft)",
+                  fontSize: "0.8rem", color: "var(--text)",
+                }}>
+                  {c.nom}
+                </span>
+              ))}
+            </div>
+
+            <form onSubmit={(e) => void handleAddCategory(e)}
+              style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                type="text"
+                placeholder="Nom de la catégorie"
+                value={newCategorieNom}
+                onChange={(e) => setNewCategorieNom(e.target.value)}
+                required
+                style={{ padding: "0.4rem 0.65rem", borderRadius: "4px",
+                  background: "var(--bg-card)", border: "1px solid var(--border-soft)",
+                  color: "var(--text)", fontSize: "0.85rem" }}
+              />
+              <input
+                type="color"
+                value={newCouleur}
+                onChange={(e) => setNewCouleur(e.target.value)}
+                title="Couleur"
+                style={{ width: "36px", height: "32px", borderRadius: "4px",
+                  border: "1px solid var(--border-soft)", cursor: "pointer",
+                  background: "transparent" }}
+              />
+              <button type="submit" disabled={addCatLoading}
+                style={{ padding: "0.4rem 0.85rem", borderRadius: "4px",
+                  background: "var(--accent)", color: "#000", fontWeight: 600,
+                  border: "none", fontSize: "0.85rem", cursor: "pointer" }}>
+                {addCatLoading ? "…" : "Ajouter"}
+              </button>
+              {addCatMsg ? (
+                <span style={{ fontSize: "0.8rem",
+                  color: addCatMsg.includes("ajoutée") ? "var(--accent)" : "var(--accent-red)" }}>
+                  {addCatMsg}
+                </span>
+              ) : null}
+            </form>
           </section>
 
           {/* SECTION GESTION DES QUIZ */}

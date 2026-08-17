@@ -28,6 +28,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     youtube_id?: string;
     title?: string;
     points_value?: number;
+    categorie?: string;
+    tags?: string;
   };
   try {
     body = await request.json();
@@ -38,6 +40,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const youtubeId = typeof body.youtube_id === "string" ? body.youtube_id.trim() : "";
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const pointsValue = Number(body.points_value);
+  const categorie = typeof body.categorie === "string" ? body.categorie.trim() : "";
+  const tags = typeof body.tags === "string" ? body.tags.trim() : "";
 
   if (!youtubeId || !title) {
     return NextResponse.json({ error: "youtube_id et title requis" }, { status: 400 });
@@ -60,6 +64,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         description: "",
         bonus_expire_at: bonusExpireAt,
         is_active: true,
+        categorie: categorie || null,
+        tags: tags || null,
       })
       .select(VIDEO_SELECT)
       .single();
