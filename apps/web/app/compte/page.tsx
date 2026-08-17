@@ -459,6 +459,13 @@ export default function ComptePage(): JSX.Element | null {
   const [referralCopied, setReferralCopied] = useState<"code" | "link" | null>(
     null,
   );
+  const [cotisationFlagState, setCotisationFlagState] = useState<
+    "enabled" | "disabled" | null
+  >(null);
+  const [parrainageFlagState, setParrainageFlagState] = useState<
+    "enabled" | "disabled" | null
+  >(null);
+  const [filleulsActifs, setFilleulsActifs] = useState(0);
 
   const loadCompte = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -487,6 +494,8 @@ export default function ComptePage(): JSX.Element | null {
       totalPpRes,
       donHistoryRes,
       quizSubmissionsRes,
+      cotisationFlagRes,
+      parrainageFlagRes,
     ] = await Promise.all([
       fetchRestJson(
         `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(uid)}&select=${PROFIL_SELECT}`,
@@ -588,6 +597,14 @@ export default function ComptePage(): JSX.Element | null {
         `${SB}/rest/v1/quiz_submissions?membre_id=eq.${encodeURIComponent(uid)}&select=video_id,score,points_awarded,completed_at&order=completed_at.desc&limit=5`,
         token,
       ),
+      fetchRestJson(
+        `${SB}/rest/v1/feature_flags?nom=eq.cotisation-membre&select=actif`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/feature_flags?nom=eq.parrainage&select=actif`,
+        token,
+      ),
     ]);
 
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
@@ -633,6 +650,34 @@ export default function ComptePage(): JSX.Element | null {
         ? (themesRes as { theme_id: string; name: string }[])
         : [],
     );
+
+    const cotisationFlag = Array.isArray(cotisationFlagRes)
+      ? (cotisationFlagRes[0] as { actif?: boolean } | undefined)
+      : null;
+    setCotisationFlagState(
+      cotisationFlag?.actif === true ? "enabled" : "disabled",
+    );
+
+    const parrainageFlag = Array.isArray(parrainageFlagRes)
+      ? (parrainageFlagRes[0] as { actif?: boolean } | undefined)
+      : null;
+    setParrainageFlagState(
+      parrainageFlag?.actif === true ? "enabled" : "disabled",
+    );
+
+    const loadedReferralCode =
+      typeof row?.code_parrainage === "string" && row.code_parrainage.trim()
+        ? row.code_parrainage.trim().toUpperCase()
+        : null;
+    if (loadedReferralCode) {
+      const filleulsRes = await fetchRestJson(
+        `${SB}/rest/v1/profiles?code_parrain=eq.${encodeURIComponent(loadedReferralCode)}&select=id`,
+        token,
+      );
+      setFilleulsActifs(Array.isArray(filleulsRes) ? filleulsRes.length : 0);
+    } else {
+      setFilleulsActifs(0);
+    }
 
     const txData = Array.isArray(txRes) ? txRes : [];
     const sum = txData.reduce(
@@ -1160,6 +1205,10 @@ export default function ComptePage(): JSX.Element | null {
     ? `${window.location.origin}/?ref=${encodeURIComponent(referralCode)}`
     : null;
   const profilPublic = Boolean(profile?.profil_public);
+  const publicProfileHref =
+    profilPublic && profile?.numero_membre
+      ? `/profil/${profile.numero_membre}`
+      : null;
   const palierVerification = Number(profile?.palier_verification ?? 0);
   const retraitGeleJusqua =
     typeof profile?.retrait_gele_jusqua === "string"
@@ -1619,98 +1668,240 @@ export default function ComptePage(): JSX.Element | null {
               </dl>
             </section>
 
-            <section
-              style={{
-                borderRadius: "4px",
-                padding: "1.25rem 1.1rem",
-                marginBottom: "1.75rem",
-                background: "var(--bg-card)",
-                border:
-                  "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
-              }}
-            >
-              <p
-                className="leve-card-label"
+            {publicProfileHref ? (
+              <section
                 style={{
-                  margin: 0,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: GOLD,
-                  opacity: 0.95,
+                  borderRadius: "8px",
+                  padding: "1.25rem",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-soft)",
+                  marginBottom: "1rem",
                 }}
               >
-                CODE PARRAINAGE
-              </p>
-              {referralCode ? (
-                <>
-                  <p
+                <h2
+                  style={{
+                    margin: "0 0 0.75rem",
+                    fontFamily: "var(--font-bebas)",
+                    fontSize: "1.1rem",
+                    letterSpacing: "0.08em",
+                    color: "var(--accent)",
+                  }}
+                >
+                  Profil Public
+                </h2>
+                <p
+                  style={{
+                    margin: "0 0 0.5rem",
+                    fontSize: "0.82rem",
+                    opacity: 0.7,
+                  }}
+                >
+                  Votre profil est public — partagez ce lien :
+                </p>
+                <a
+                  href={publicProfileHref}
+                  style={{
+                    color: "var(--accent)",
+                    fontSize: "0.85rem",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}
+                >
+                  {typeof window !== "undefined" ? window.location.origin : ""}
+                  {publicProfileHref}
+                </a>
+              </section>
+            ) : null}
+
+            {cotisationFlagState === "enabled" ? (
+              <section
+                style={{
+                  borderRadius: "8px",
+                  padding: "1.25rem",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-soft)",
+                  marginBottom: "1rem",
+                }}
+              >
+                <h2
+                  style={{
+                    margin: "0 0 0.75rem",
+                    fontFamily: "var(--font-bebas)",
+                    fontSize: "1.1rem",
+                    letterSpacing: "0.08em",
+                    color: "var(--accent)",
+                  }}
+                >
+                  Cotisation
+                </h2>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.82rem",
+                    opacity: 0.7,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  La gestion de la cotisation est disponible dans{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("parametres");
+                      setActiveParamsTab("identite");
+                    }}
                     style={{
-                      margin: "0.65rem 0 1rem",
-                      fontFamily: "var(--font-mono), ui-monospace, monospace",
-                      fontSize: "1.35rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                      color: GOLD,
+                      background: "none",
+                      border: "none",
+                      color: "var(--accent)",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontSize: "inherit",
                     }}
                   >
-                    {referralCode}
-                  </p>
+                    Paramètres → Identité
+                  </button>
+                </p>
+              </section>
+            ) : null}
+
+            {parrainageFlagState === "enabled" ? (
+              <section
+                style={{
+                  borderRadius: "8px",
+                  padding: "1.25rem",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-soft)",
+                  marginBottom: "1rem",
+                }}
+              >
+                <h2
+                  style={{
+                    margin: "0 0 0.75rem",
+                    fontFamily: "var(--font-bebas)",
+                    fontSize: "1.1rem",
+                    letterSpacing: "0.08em",
+                    color: "var(--accent)",
+                  }}
+                >
+                  Inviter un ami
+                </h2>
+                <p
+                  style={{
+                    margin: "0 0 0.75rem",
+                    fontSize: "0.82rem",
+                    opacity: 0.7,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Partagez votre code — votre ami reçoit +20 pts, vous recevez
+                  +50 pts après 30 jours.
+                </p>
+                {referralCode ? (
                   <div
                     style={{
                       display: "flex",
-                      flexWrap: "wrap",
-                      gap: "0.65rem",
+                      flexDirection: "column",
+                      gap: "0.5rem",
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => void copyReferral(referralCode, "code")}
+                    <div
                       style={{
-                        background: "transparent",
-                        color: TEXT,
-                        border: "1px solid var(--border-strong)",
-                        borderRadius: "4px",
-                        padding: "0.45rem 0.85rem",
-                        fontSize: "0.78rem",
-                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
                       }}
                     >
-                      {referralCopied === "code" ? "Copié !" : "Copier le code"}
-                    </button>
-                    {referralLink ? (
+                      <code
+                        style={{
+                          flex: 1,
+                          padding: "0.5rem 0.75rem",
+                          borderRadius: "4px",
+                          background: "rgba(212,160,23,0.08)",
+                          border: "1px solid rgba(212,160,23,0.2)",
+                          fontSize: "0.9rem",
+                          letterSpacing: "0.1em",
+                          color: "var(--accent)",
+                        }}
+                      >
+                        {referralCode}
+                      </code>
                       <button
                         type="button"
-                        onClick={() => void copyReferral(referralLink, "link")}
+                        onClick={() =>
+                          void navigator.clipboard.writeText(referralCode)
+                        }
                         style={{
-                          background: "transparent",
-                          color: TEXT,
-                          border: "1px solid var(--border-strong)",
+                          padding: "0.5rem 0.75rem",
                           borderRadius: "4px",
-                          padding: "0.45rem 0.85rem",
-                          fontSize: "0.78rem",
+                          background: "rgba(212,160,23,0.1)",
+                          border: "1px solid rgba(212,160,23,0.3)",
+                          color: "var(--accent)",
+                          fontSize: "0.8rem",
                           cursor: "pointer",
                         }}
                       >
-                        {referralCopied === "link"
-                          ? "Copié !"
-                          : "Copier le lien"}
+                        Copier le code
                       </button>
-                    ) : null}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      <code
+                        style={{
+                          flex: 1,
+                          padding: "0.5rem 0.75rem",
+                          borderRadius: "4px",
+                          background: "rgba(212,160,23,0.08)",
+                          border: "1px solid rgba(212,160,23,0.2)",
+                          fontSize: "0.75rem",
+                          color: "var(--text)",
+                          opacity: 0.8,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {referralLink}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void navigator.clipboard.writeText(referralLink ?? "")
+                        }
+                        style={{
+                          padding: "0.5rem 0.75rem",
+                          borderRadius: "4px",
+                          background: "rgba(212,160,23,0.1)",
+                          border: "1px solid rgba(212,160,23,0.3)",
+                          color: "var(--accent)",
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Copier le lien
+                      </button>
+                    </div>
+                    <p
+                      style={{
+                        margin: "0.25rem 0 0",
+                        fontSize: "0.72rem",
+                        opacity: 0.5,
+                      }}
+                    >
+                      Filleuls actifs : {filleulsActifs}
+                    </p>
                   </div>
-                </>
-              ) : (
-                <p
-                  style={{
-                    margin: "0.65rem 0 0",
-                    opacity: 0.65,
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  Votre code parrainage sera disponible prochainement.
-                </p>
-              )}
-            </section>
+                ) : (
+                  <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.55 }}>
+                    Votre code parrainage sera disponible prochainement.
+                  </p>
+                )}
+              </section>
+            ) : null}
 
             <section style={{ marginBottom: "1.75rem" }}>
               <div
