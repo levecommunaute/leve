@@ -436,7 +436,12 @@ export default function ComptePage(): JSX.Element | null {
     pourcentage: number;
   } | null>(null);
   const [soldeDollars, setSoldeDollars] = useState(0);
-  const [pmqValuePerPoint, setPmqValuePerPoint] = useState<number | null>(null);
+  const [, setPmqValuePerPoint] = useState<number | null>(null);
+  const [lastRedistributionCad, setLastRedistributionCad] = useState<
+    number | null
+  >(null);
+  const [memberPtsPonderes, setMemberPtsPonderes] = useState(0);
+  const [totalPtsPonderesAll, setTotalPtsPonderesAll] = useState(0);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [retraitOpen, setRetraitOpen] = useState(false);
   const [retraitPreview, setRetraitPreview] = useState<{
@@ -477,6 +482,9 @@ export default function ComptePage(): JSX.Element | null {
       pointsListRes,
       mouvementsRes,
       redistValueRes,
+      lastHistRes,
+      memberPpRes,
+      totalPpRes,
       donHistoryRes,
       quizSubmissionsRes,
     ] = await Promise.all([
@@ -556,6 +564,20 @@ export default function ComptePage(): JSX.Element | null {
       ),
       fetchRestJson(
         `${SB}/rest/v1/redistribution_history?month=eq.${encodeURIComponent(currentMonthDate())}&select=value_per_point&limit=1`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/redistribution_history?select=total_revenue&order=month.desc&limit=1`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/points_ponderes?membre_id=eq.${encodeURIComponent(uid)}&type=eq.quiz` +
+          `${createdAtRangeFilter(currentMonth)}&select=pts_ponderes`,
+        token,
+      ),
+      fetchRestJson(
+        `${SB}/rest/v1/points_ponderes?type=eq.quiz` +
+          `${createdAtRangeFilter(currentMonth)}&select=pts_ponderes`,
         token,
       ),
       fetchRestJson(
@@ -642,6 +664,26 @@ export default function ComptePage(): JSX.Element | null {
     } else {
       setPmqValuePerPoint(null);
     }
+
+    const histRows = Array.isArray(lastHistRes) ? lastHistRes : [];
+    const firstHist = histRows[0] as { total_revenue?: unknown } | undefined;
+    setLastRedistributionCad(
+      firstHist?.total_revenue != null ? Number(firstHist.total_revenue) : null,
+    );
+    setMemberPtsPonderes(
+      (Array.isArray(memberPpRes) ? memberPpRes : []).reduce(
+        (acc: number, r: { pts_ponderes?: unknown }) =>
+          acc + Number(r.pts_ponderes ?? 0),
+        0,
+      ),
+    );
+    setTotalPtsPonderesAll(
+      (Array.isArray(totalPpRes) ? totalPpRes : []).reduce(
+        (acc: number, r: { pts_ponderes?: unknown }) =>
+          acc + Number(r.pts_ponderes ?? 0),
+        0,
+      ),
+    );
 
     const merged: HistoryRow[] = [];
     if (Array.isArray(pointsListRes)) {
@@ -1100,7 +1142,6 @@ export default function ComptePage(): JSX.Element | null {
   const effectiveAvatarUrl = avatarUrl;
   const mult = Number(profile?.multiplier ?? 1);
   const profileMultiplier = Number.isFinite(mult) && mult > 0 ? mult : 1;
-  const inGrace = false;
   const weightedPointsPmq = monthlyPtsTotal;
   const showRankBadge = isCommunauteMemberType(profile?.member_type);
   const monthlyRankBadge = showRankBadge
@@ -1188,9 +1229,10 @@ export default function ComptePage(): JSX.Element | null {
       })
       .toUpperCase() + " · UTC";
   const typeMembre = profile?.member_type?.trim() || "—";
-  const estimation =
-    pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
-      ? totalPointsPmq * pmqValuePerPoint
+  const pmqPoolReel = (lastRedistributionCad ?? 0) * 0.45;
+  const banqueEstimation =
+    pmqPoolReel > 0 && totalPtsPonderesAll > 0
+      ? pmqPoolReel * (memberPtsPonderes / totalPtsPonderesAll)
       : 0;
 
   function renderHistoryEntry(row: HistoryRow): {
@@ -1491,9 +1533,10 @@ export default function ComptePage(): JSX.Element | null {
                 prevMonthLabel={prevMonthLabel}
                 prevMonthPtsPonderes={prevMonthPtsPonderes}
                 prevMonthRedistributed={prevMonthRedistributed}
-                inGrace={inGrace}
+                inGrace={false}
                 pmqShare={pmqShare}
-                monthlyRankBadge={monthlyRankBadge}
+                monthlyRankBadge={null}
+                isOwnProfile={true}
                 pointsFmt={pointsFmt}
                 cad={cad}
               />
@@ -2087,7 +2130,7 @@ export default function ComptePage(): JSX.Element | null {
                 totalPoints={totalPointsPmq}
                 profileMultiplier={profileMultiplier}
                 typeMembre={typeMembre}
-                banqueEstimation={estimation}
+                banqueEstimation={banqueEstimation}
                 onRetraitClick={() => void openRetraitConfirm()}
                 pointsFmt={pointsFmt}
                 cad={cad}
