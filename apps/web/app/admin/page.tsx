@@ -1382,6 +1382,21 @@ export default function AdminPage(): React.JSX.Element {
   const [videoCategories, setVideoCategories] = useState<{id:string, nom:string, slug:string}[]>([]);
   const [newCategorie, setNewCategorie] = useState("educatif");
   const [newTags, setNewTags] = useState("");
+  const TAGS_PREDÉFINIS = [
+    "Économie mondiale", "Finance personnelle", "Finance", "Histoire · Haïti",
+    "Identité", "Sciences", "Éducation financière", "Histoire · Afrique",
+    "Tech · IA", "Société", "Linguistique", "Sport · Afrique",
+    "Culture · Éducation", "Histoire mondiale", "Finance mondiale",
+    "Prospective · Afrique", "Économie politique", "Creator Economy",
+    "Investissement", "Psychologie", "Entrepreneuriat", "Finance · Crypto",
+    "Musique", "Santé", "Géopolitique", "Environnement", "Tech · Vie privée",
+    "Alimentation", "Philosophie", "Développement personnel",
+    "Société · Immobilier", "Mode · Culture", "Leadership · Femmes",
+    "Politique · Femmes · Afrique", "Carrière", "Littérature",
+    "Psychologie sociale", "Prospective sociale", "Cinéma · Arts",
+    "Business · Haïti", "Économie · Afrique", "Histoire · Viral",
+    "Actualité · Haïti", "Économie · Alimentation", "Sciences · Géopolitique",
+  ];
   const [newCategorieNom, setNewCategorieNom] = useState("");
   const [newCouleur, setNewCouleur] = useState("#888780");
   const [addCatLoading, setAddCatLoading] = useState(false);
@@ -5410,9 +5425,43 @@ export default function AdminPage(): React.JSX.Element {
                 </div>
                 <div>
                   <label style={labelSm}>Tags</label>
+
+                  <div style={{
+                    display: "flex", flexWrap: "wrap", gap: "0.35rem",
+                    marginBottom: "0.5rem", maxHeight: "80px", overflowY: "auto",
+                    padding: "0.35rem", background: "var(--bg-card-inner)",
+                    borderRadius: "4px", border: "1px solid var(--border-soft)",
+                  }}>
+                    {TAGS_PREDÉFINIS.map((tag) => {
+                      const isSelected = newTags.split("·").map(t => t.trim()).includes(tag);
+                      return (
+                        <span
+                          key={tag}
+                          onClick={() => {
+                            const current = newTags.split("·").map(t => t.trim()).filter(Boolean);
+                            if (isSelected) {
+                              setNewTags(current.filter(t => t !== tag).join(" · "));
+                            } else {
+                              setNewTags([...current, tag].join(" · "));
+                            }
+                          }}
+                          style={{
+                            fontSize: "0.72rem", padding: "2px 8px", borderRadius: "20px",
+                            cursor: "pointer", userSelect: "none",
+                            background: isSelected ? "rgba(212,160,23,0.15)" : "rgba(245,240,232,0.06)",
+                            border: isSelected ? "1px solid rgba(212,160,23,0.5)" : "1px solid rgba(245,240,232,0.12)",
+                            color: isSelected ? "var(--accent)" : "rgba(245,240,232,0.6)",
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+
                   <input
                     type="text"
-                    placeholder="Finance · Société · Tech"
+                    placeholder="Ajouter un tag libre..."
                     value={newTags}
                     onChange={(e) => setNewTags(e.target.value)}
                     style={inputBase}
