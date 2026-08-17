@@ -42,6 +42,8 @@ type VideoRow = {
   bonus_expire_at: string | null;
   created_at: string | null;
   collaborateur_id: string | null;
+  categorie?: string | null;
+  tags?: string | null;
 };
 
 type SubmissionRow = {
@@ -326,6 +328,8 @@ export default function VideosPage(): React.JSX.Element | null {
     }
     return "grid";
   });
+  const [categories, setCategories] = useState<{nom:string, slug:string, is_gate:boolean}[]>([]);
+  const [selectedCat, setSelectedCat] = useState<string>("tous");
 
   const loadVideos = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -342,7 +346,7 @@ export default function VideosPage(): React.JSX.Element | null {
     try {
       const [videosRes, quizRes, codeRes] = await Promise.all([
         fetch(
-          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at,collaborateur_id&is_active=eq.true&order=created_at.desc`,
+          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at,collaborateur_id,categorie,tags&is_active=eq.true&order=created_at.desc`,
           { headers },
         ),
         fetch(
@@ -414,8 +418,22 @@ export default function VideosPage(): React.JSX.Element | null {
     }
   }, []);
 
+  const loadCategories = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(
+        `${SB}/rest/v1/video_categories?select=nom,slug,is_gate&order=ordre.asc`,
+        { headers: { apikey: KEY } }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {nom:string, slug:string, is_gate:boolean}[];
+        setCategories(data);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
+    void loadCategories();
 
     async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
@@ -471,7 +489,7 @@ export default function VideosPage(): React.JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [router, loadVideos]);
+  }, [router, loadVideos, loadCategories]);
 
   useEffect(() => {
     if (!session) return;
@@ -637,22 +655,33 @@ export default function VideosPage(): React.JSX.Element | null {
   const name = displayNameFrom(profile, session);
   const { hero, rest } = pickHeroVideo(videos);
 
+  const leveVideos = videos.filter(v => v.categorie === 'leve');
+  const leveCompleted = leveVideos.length === 0 || leveVideos.every(v => quizVideoIds.has(v.id));
+  const leveProgress = leveVideos.length === 0 ? 1 : leveVideos.filter(v => quizVideoIds.has(v.id)).length;
+
+  function filterByCat(vids: VideoRow[]): VideoRow[] {
+    if (selectedCat === "tous") return vids;
+    if (selectedCat === "leve") return vids.filter(v => v.categorie === "leve");
+    return vids.filter(v => v.categorie === selectedCat);
+  }
+
   function renderPlatformGrid(): React.JSX.Element {
-    const bonusActif = videos.filter(v => {
+    const filtered = filterByCat(videos);
+    const bonusActif = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === 'not_completed' && bonus;
     });
-    const disponibles = videos.filter(v => {
+    const disponibles = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === 'not_completed' && !bonus;
     });
-    const codeSubmis = videos.filter(v => {
+    const codeSubmis = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === 'code_submitted';
     });
-    const completes = videos.filter(v => {
+    const completes = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === 'completed';
     });
@@ -695,6 +724,12 @@ export default function VideosPage(): React.JSX.Element | null {
             <div style={{ fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.2rem', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {v.title}
             </div>
+            {v.tags ? (
+              <p style={{ margin: "2px 0 0", fontSize: "0.68rem",
+                opacity: 0.5, letterSpacing: "0.02em" }}>
+                {v.tags}
+              </p>
+            ) : null}
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', opacity: 0.3, letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
               {formatPublishedAgo(v.created_at)}
             </div>
@@ -744,6 +779,7 @@ export default function VideosPage(): React.JSX.Element | null {
 
     return (
       <div>
+        <div style={!leveCompleted ? { opacity: 0.35, pointerEvents: "none", userSelect: "none" } : undefined}>
         {bonusActif.length > 0 && (
           <>
             {sectionHdr('var(--accent-green)', 'Points +2 — Moins de 72h', bonusActif.length)}
@@ -771,26 +807,28 @@ export default function VideosPage(): React.JSX.Element | null {
             {completes.map(v => renderGridItem(v, 'done'))}
           </>
         )}
+        </div>
       </div>
     );
   }
 
   function renderListView(): React.JSX.Element {
-    const bonusActif = videos.filter((v) => {
+    const filtered = filterByCat(videos);
+    const bonusActif = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === "not_completed" && bonus;
     });
-    const disponibles = videos.filter((v) => {
+    const disponibles = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === "not_completed" && !bonus;
     });
-    const codeSubmis = videos.filter((v) => {
+    const codeSubmis = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === "code_submitted";
     });
-    const completes = videos.filter((v) => {
+    const completes = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === "completed";
     });
@@ -881,6 +919,12 @@ export default function VideosPage(): React.JSX.Element | null {
             >
               {v.title}
             </div>
+            {v.tags ? (
+              <p style={{ margin: "2px 0 0", fontSize: "0.68rem",
+                opacity: 0.5, letterSpacing: "0.02em" }}>
+                {v.tags}
+              </p>
+            ) : null}
             <div
               style={{
                 fontFamily: "var(--font-mono)",
@@ -1025,6 +1069,7 @@ export default function VideosPage(): React.JSX.Element | null {
 
     return (
       <div>
+        <div style={!leveCompleted ? { opacity: 0.35, pointerEvents: "none", userSelect: "none" } : undefined}>
         {bonusActif.length > 0 && (
           <>
             {sectionHdr("var(--accent-green)", "Points +2 — Moins de 72h", bonusActif.length)}
@@ -1058,6 +1103,7 @@ export default function VideosPage(): React.JSX.Element | null {
             {completes.map((v) => renderItem(v, "done"))}
           </>
         )}
+        </div>
       </div>
     );
   }
@@ -1463,6 +1509,125 @@ export default function VideosPage(): React.JSX.Element | null {
                 </svg>
               </button>
             </div>
+            <div style={{
+              display: "flex", flexWrap: "wrap", gap: "0.4rem",
+              margin: "0.75rem 0",
+            }}>
+              <button
+                type="button"
+                onClick={() => setSelectedCat("tous")}
+                style={{
+                  fontSize: "0.72rem", padding: "4px 12px", borderRadius: "20px",
+                  border: selectedCat === "tous"
+                    ? "1px solid rgba(212,160,23,0.6)"
+                    : "1px solid rgba(245,240,232,0.12)",
+                  background: selectedCat === "tous"
+                    ? "rgba(212,160,23,0.12)"
+                    : "rgba(245,240,232,0.04)",
+                  color: selectedCat === "tous" ? "var(--accent)" : "rgba(245,240,232,0.55)",
+                  cursor: "pointer",
+                }}
+              >
+                Tous
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.slug}
+                  type="button"
+                  onClick={() => setSelectedCat(c.slug)}
+                  style={{
+                    fontSize: "0.72rem", padding: "4px 12px", borderRadius: "20px",
+                    border: selectedCat === c.slug
+                      ? "1px solid rgba(212,160,23,0.6)"
+                      : "1px solid rgba(245,240,232,0.12)",
+                    background: selectedCat === c.slug
+                      ? "rgba(212,160,23,0.12)"
+                      : c.is_gate ? "rgba(74,144,217,0.08)" : "rgba(245,240,232,0.04)",
+                    color: selectedCat === c.slug
+                      ? "var(--accent)"
+                      : c.is_gate ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.55)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {c.is_gate ? "🚀 " : ""}{c.nom}
+                </button>
+              ))}
+            </div>
+
+            {!leveCompleted && leveVideos.length > 0 && (
+              <section style={{
+                background: "rgba(74,144,217,0.08)",
+                border: "1.5px solid rgba(74,144,217,0.35)",
+                borderRadius: "8px", padding: "1.1rem",
+                marginBottom: "1rem",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"0.4rem" }}>
+                  <span style={{ fontSize:"1rem" }}>🚀</span>
+                  <p style={{ margin:0, fontFamily:"var(--font-bebas)", fontSize:"1rem",
+                    letterSpacing:"0.08em", color:"rgba(74,144,217,0.9)" }}>
+                    LEVE — Commence ici
+                  </p>
+                  <span style={{
+                    marginLeft:"auto", fontSize:"0.68rem", padding:"2px 8px",
+                    borderRadius:"20px", background:"rgba(212,160,23,0.1)",
+                    border:"1px solid rgba(212,160,23,0.3)", color:"var(--accent)",
+                  }}>
+                    🔒 {leveVideos.length - leveProgress} restante{leveVideos.length - leveProgress > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <p style={{ margin:"0 0 0.75rem", fontSize:"0.8rem", opacity:0.65, lineHeight:1.5 }}>
+                  Regarde ces vidéos pour déverrouiller toute la plateforme.
+                  Chaque nouvelle vidéo LEVE apparaît ici en priorité.
+                </p>
+                {leveVideos.map(v => {
+                  const done = quizVideoIds.has(v.id);
+                  const codeSubmitted = codeVideoIds.has(v.id);
+                  return (
+                    <div key={v.id} style={{
+                      display:"flex", alignItems:"center", gap:"10px",
+                      padding:"0.5rem 0.7rem",
+                      background: done ? "rgba(245,240,232,0.03)" : "rgba(74,144,217,0.06)",
+                      borderRadius:"6px", marginBottom:"4px",
+                      opacity: done ? 0.5 : 1,
+                    }}>
+                      <span style={{ fontSize:"0.9rem" }}>{done ? "✅" : codeSubmitted ? "🔒" : "▶"}</span>
+                      <span style={{ flex:1, fontSize:"0.85rem", fontWeight:500 }}>{v.title}</span>
+                      <span style={{ fontSize:"0.72rem", opacity:0.55 }}>+{v.points_value} pts</span>
+                      {!done && !codeSubmitted ? (
+                        <Link href={`/videos/${v.id}`} style={{
+                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                          background:"rgba(74,144,217,0.15)", border:"1px solid rgba(74,144,217,0.4)",
+                          color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                        }}>VOIR →</Link>
+                      ) : codeSubmitted && !done ? (
+                        <Link href={`/videos/${v.id}/quiz`} style={{
+                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                          background:"var(--accent)", color:"#000",
+                          border:"none", textDecoration:"none", fontWeight:600,
+                        }}>QUIZ →</Link>
+                      ) : (
+                        <Link href={`/videos/${v.id}`} style={{
+                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                          border:"1px solid rgba(245,240,232,0.15)",
+                          color:"rgba(245,240,232,0.4)", textDecoration:"none",
+                        }}>REVOIR</Link>
+                      )}
+                    </div>
+                  );
+                })}
+                <div style={{ height:4, borderRadius:2,
+                  background:"rgba(74,144,217,0.15)", overflow:"hidden", marginTop:"0.75rem" }}>
+                  <div style={{
+                    height:"100%", borderRadius:2, background:"rgba(74,144,217,0.7)",
+                    width:`${Math.round((leveProgress / leveVideos.length) * 100)}%`,
+                    transition:"width 0.35s ease",
+                  }} />
+                </div>
+                <p style={{ margin:"4px 0 0", fontSize:"0.68rem", opacity:0.5 }}>
+                  {leveProgress} / {leveVideos.length} vidéos LEVE vues
+                </p>
+              </section>
+            )}
             {viewMode === "list"
               ? renderListView()
               : youtubeMode
