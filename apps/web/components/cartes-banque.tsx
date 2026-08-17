@@ -152,7 +152,7 @@ export function CartesBanque({
           <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.65 }}>
             {canTransfer
               ? "Seuil atteint — transfert disponible"
-              : `${progressPct.toFixed(0)}% vers le seuil`}
+              : `${progressPct.toFixed(0)}% vers le seuil · 🔒 ${cad.format(100 - soldeDollars)} manquants`}
           </p>
 
           <div style={separator} />
