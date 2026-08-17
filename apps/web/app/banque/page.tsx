@@ -765,20 +765,6 @@ export default function BanquePage(): React.JSX.Element | null {
           />
         </div>
 
-        {!canTransfer ? (
-          <p
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.65rem",
-              color: ROUGE,
-              opacity: 0.8,
-              margin: "0.5rem 0",
-            }}
-          >
-            🔒 Solde insuffisant · ${(100 - soldeDollars).toFixed(2)} manquants
-          </p>
-        ) : null}
-
         <div style={{ marginBottom: "2rem",
               fontFamily: "var(--font-mono), ui-monospace, monospace",}}>
           {retraitOpen ? (
