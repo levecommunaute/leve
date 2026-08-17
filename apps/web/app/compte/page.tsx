@@ -96,6 +96,9 @@ type ProfileRow = {
   notif_redistribution: boolean | null;
   notif_concours: boolean | null;
   theme: string | null;
+  cotisation_active: boolean | null;
+  cotisation_montant: number | string | null;
+  cotisation_points_bonus: number | string | null;
 };
 
 type PointsTxRow = {
@@ -143,7 +146,7 @@ const RETRAIT_METHODES = [
 ] as const;
 
 const PROFIL_SELECT =
-  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,nom_legal,date_naissance,pays_residence_fiscale,telephone,adresse,palier_verification,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme";
+  "display_name,email,member_type,multiplier,numero_membre,is_beta_tester,code_parrainage,profil_public,message_don,avatar_url,nom_legal,date_naissance,pays_residence_fiscale,telephone,adresse,palier_verification,retrait_methode,retrait_identifiant,retrait_gele_jusqua,notif_quiz,notif_redistribution,notif_concours,theme,cotisation_active,cotisation_montant,cotisation_points_bonus";
 
 type QuizSubmissionRow = {
   video_id: string;
@@ -462,6 +465,10 @@ export default function ComptePage(): JSX.Element | null {
   const [cotisationFlagState, setCotisationFlagState] = useState<
     "enabled" | "disabled" | null
   >(null);
+  const [cotisationActive, setCotisationActive] = useState(false);
+  const [cotisationMontant, setCotisationMontant] = useState<5 | 10 | 15>(5);
+  const [cotisationPointsBonus, setCotisationPointsBonus] = useState(10);
+  const [cotisationSaving, setCotisationSaving] = useState(false);
   const [parrainageFlagState, setParrainageFlagState] = useState<
     "enabled" | "disabled" | null
   >(null);
@@ -610,6 +617,21 @@ export default function ComptePage(): JSX.Element | null {
     const profileData = Array.isArray(profileRes) ? profileRes[0] : null;
     const row = (profileData as ProfileRow | null) ?? null;
     setProfile(row);
+    const montant = ([5, 10, 15].includes(Number(row?.cotisation_montant))
+      ? Number(row?.cotisation_montant)
+      : 5) as 5 | 10 | 15;
+    setCotisationActive(Boolean(row?.cotisation_active));
+    setCotisationMontant(montant);
+    const bonus = Number(row?.cotisation_points_bonus);
+    setCotisationPointsBonus(
+      Number.isFinite(bonus) && bonus > 0
+        ? bonus
+        : montant === 5
+          ? 10
+          : montant === 10
+            ? 20
+            : 30,
+    );
     const nextAvatar =
       typeof row?.avatar_url === "string" ? row.avatar_url : null;
     setAvatarUrl(nextAvatar);
@@ -1318,6 +1340,45 @@ export default function ComptePage(): JSX.Element | null {
     return { dateLabel, label, signed, color, quizLines, isDollars };
   }
 
+  async function handleSaveCotisation(
+    patch: { cotisation_active?: boolean; cotisation_montant?: 5 | 10 | 15 },
+  ): Promise<void> {
+    if (!session) return;
+    setCotisationSaving(true);
+    try {
+      const res = await fetch("/api/membres/cotisation", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(patch),
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        cotisation_active?: boolean;
+        cotisation_montant?: number;
+        cotisation_points_bonus?: number;
+      };
+      if (!res.ok) return;
+      const montant = ([5, 10, 15].includes(Number(json.cotisation_montant))
+        ? Number(json.cotisation_montant)
+        : 5) as 5 | 10 | 15;
+      const active = Boolean(json.cotisation_active);
+      const bonus = Number(
+        json.cotisation_points_bonus ??
+          (montant === 5 ? 10 : montant === 10 ? 20 : 30),
+      );
+      setCotisationActive(active);
+      setCotisationMontant(montant);
+      setCotisationPointsBonus(bonus);
+    } catch {
+      // ignore
+    } finally {
+      setCotisationSaving(false);
+    }
+  }
+
   return (
     <div
       className={`${fonts} leve-page-compte`}
@@ -1734,32 +1795,89 @@ export default function ComptePage(): JSX.Element | null {
                 >
                   Cotisation
                 </h2>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    cursor: "pointer",
+                    fontSize: "0.9rem",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={cotisationActive}
+                    disabled={cotisationSaving}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setCotisationActive(next);
+                      void handleSaveCotisation({
+                        cotisation_active: next,
+                        cotisation_montant: cotisationMontant,
+                      });
+                    }}
+                  />
+                  Activer ma cotisation mensuelle
+                </label>
+                {cotisationActive ? (
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <p
+                      style={{
+                        margin: "0 0 0.35rem",
+                        fontSize: "0.72rem",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        opacity: 0.55,
+                      }}
+                    >
+                      Montant mensuel
+                    </p>
+                    <select
+                      value={cotisationMontant}
+                      disabled={cotisationSaving}
+                      onChange={(e) => {
+                        const m = Number(e.target.value) as 5 | 10 | 15;
+                        setCotisationMontant(m);
+                        void handleSaveCotisation({
+                          cotisation_active: true,
+                          cotisation_montant: m,
+                        });
+                      }}
+                      style={{
+                        padding: "0.45rem 0.75rem",
+                        borderRadius: "4px",
+                        background: "var(--bg-card-inner)",
+                        border: "1px solid var(--border-soft)",
+                        color: "var(--text)",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      <option value={5}>$5</option>
+                      <option value={10}>$10</option>
+                      <option value={15}>$15</option>
+                    </select>
+                  </div>
+                ) : null}
                 <p
                   style={{
-                    margin: 0,
-                    fontSize: "0.82rem",
-                    opacity: 0.7,
+                    margin: "0.75rem 0 0",
+                    fontSize: "0.78rem",
+                    opacity: 0.6,
                     lineHeight: 1.5,
                   }}
                 >
-                  La gestion de la cotisation est disponible dans{" "}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab("parametres");
-                      setActiveParamsTab("identite");
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--accent)",
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                      fontSize: "inherit",
-                    }}
-                  >
-                    Paramètres → Identité
-                  </button>
+                  Prélevée automatiquement le 1er du mois · Jamais sur votre
+                  argent personnel
+                </p>
+                <p
+                  style={{
+                    margin: "0.35rem 0 0",
+                    fontSize: "0.82rem",
+                    color: "var(--accent)",
+                    fontWeight: 600,
+                  }}
+                >
+                  +{cotisationPointsBonus} pts bonus / mois en compensation
                 </p>
               </section>
             ) : null}
