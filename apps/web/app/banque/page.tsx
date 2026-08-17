@@ -15,7 +15,7 @@ import { formatQuizTransactionLines } from "../../lib/quizTransactionDisplay";
 import { readSessionFromAuthCookies } from "../../lib/supabase-auth-cookies";
 import { useBetaTracking } from "../../lib/beta-tracking";
 import { checkJwtExpired } from "../../lib/supabase";
-import { TrendingUp, Users, Wallet, Gift, ChevronRight, Clock, Landmark } from "lucide-react";
+import { CartesBanque } from "../../components/cartes-banque";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -45,10 +45,6 @@ function currentMonthBounds(): { startIso: string; endIso: string } {
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return { startIso: start.toISOString(), endIso: end.toISOString() };
-}
-
-function formatPmqPtValue(v: number): string {
-  return `~$${v.toFixed(4)}/pt · Mois en cours`;
 }
 
 const SB = "https://lrolatbudvianeazliax.supabase.co";
@@ -197,7 +193,7 @@ export default function BanquePage(): React.JSX.Element | null {
   const [profileMultiplier, setProfileMultiplier] = useState(1);
   const [soldeDollars, setSoldeDollars] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
-  const [pmqValuePerPoint, setPmqValuePerPoint] = useState<number | null>(null);
+  const [, setPmqValuePerPoint] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -845,17 +841,12 @@ export default function BanquePage(): React.JSX.Element | null {
     .toLocaleDateString("fr-CA", { month: "long", year: "numeric", timeZone: "UTC" })
     .toUpperCase() + " · UTC";
   const classementRang: number | null = null; // pas de fetch — badge masqué
-  const estimation =
-    pmqValuePerPoint != null && Number.isFinite(pmqValuePerPoint)
-      ? totalPoints * pmqValuePerPoint
-      : 0;
   const pmqPoolReel = (lastRedistributionCad ?? 0) * 0.45;
   const banqueEstimation =
     pmqPoolReel > 0 && totalPtsPonderesAll > 0
       ? pmqPoolReel * (memberPtsPonderes / totalPtsPonderesAll)
       : 0;
   const typeMembre = profile?.member_type?.trim() || "—";
-  const weightedPointsPmq = totalPoints * profileMultiplier;
 
   if (session === undefined) {
     return (
@@ -939,19 +930,6 @@ export default function BanquePage(): React.JSX.Element | null {
     return { dateLabel, label, signed, color, quizLines, isDollars };
   }
 
-  const bankBtnStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.75rem",
-    padding: "0.85rem 1rem",
-    borderRadius: "8px",
-    background: "rgba(212,160,23,0.06)",
-    border: "1px solid rgba(212,160,23,0.25)",
-    color: "var(--accent)",
-    textDecoration: "none",
-    fontSize: "0.9rem",
-    fontWeight: 600,
-  } as const;
 
   return (
     <div
@@ -967,15 +945,6 @@ export default function BanquePage(): React.JSX.Element | null {
       <style
         dangerouslySetInnerHTML={{
           __html: `
-            .banque-solde-amount {
-              font-size: clamp(1.5rem, 5vw, 2.5rem) !important;
-            }
-            .banque-cards-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 0.85rem;
-              margin-bottom: 1.75rem;
-            }
             .banque-transfer-btn {
               min-height: 44px;
             }
@@ -991,7 +960,6 @@ export default function BanquePage(): React.JSX.Element | null {
               border: 1px solid var(--border-soft);
             }
             @media (max-width: 479px) {
-              .banque-cards-grid { grid-template-columns: 1fr; }
               .banque-history-table-wrap {
                 display: none !important;
               }
@@ -1064,291 +1032,22 @@ export default function BanquePage(): React.JSX.Element | null {
           <span style={{ color: GOLD }}>LEVE</span>
         </h1>
 
-        <div className="banque-cards-grid">
-        <section
-          className="leve-card"
-          style={{
-            borderRadius: "8px",
-            padding: "1.25rem",
-            background: "var(--bg-card)",
-            border: "1px solid rgba(212,160,23,0.2)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: "50%",
-                background: "rgba(212,160,23,0.08)",
-                border: "1px solid rgba(212,160,23,0.2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <Wallet size={20} strokeWidth={1.5} color={GOLD} />
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "0.85rem",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                opacity: 0.7,
-              }}
-            >
-              Solde banque
-            </p>
-          </div>
-
-          <div>
-            <p
-              className="banque-solde-amount"
-              style={{
-                margin: 0,
-                fontSize: "2.5rem",
-                fontWeight: 700,
-                color: GOLD,
-                lineHeight: 1,
-              }}
-            >
-              {cad.format(soldeDollars)}
-            </p>
-            <p style={{ margin: "0.4rem 0 0", fontSize: "0.72rem", opacity: 0.5 }}>
-              {moisCourantLabel}
-            </p>
-          </div>
-
-          <div style={{ height: 1, background: "rgba(212,160,23,0.1)", margin: 0 }} />
-
-          <div
-            style={{
-              height: 4,
-              borderRadius: 2,
-              background: "rgba(212,160,23,0.15)",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                height: "100%",
-                width: `${progressPct}%`,
-                background: canTransfer ? GOLD : ROUGE,
-                borderRadius: 2,
-                transition: "width 0.35s ease",
-              }}
-            />
-          </div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "0.78rem",
-              opacity: 0.7,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-            }}
-          >
-            {canTransfer
-              ? "Seuil atteint — transfert disponible"
-              : `${progressPct.toFixed(0)} % vers le seuil de ${cad.format(MIN_TRANSFER_CAD)}`}
-          </p>
-
-          <div style={{ height: 1, background: "rgba(212,160,23,0.1)", margin: 0 }} />
-
-          {canTransfer ? (
-            <button
-              type="button"
-              onClick={() => void openRetraitConfirm()}
-              style={{ ...bankBtnStyle, width: "100%", cursor: "pointer" }}
-            >
-              <Gift size={18} strokeWidth={1.5} />
-              <span style={{ flex: 1, textAlign: "left" }}>
-                <span style={{ display: "block" }}>Retrait de récompense</span>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: "0.68rem",
-                    opacity: 0.55,
-                    fontWeight: 400,
-                  }}
-                >
-                  {cad.format(soldeDollars)} disponible
-                </span>
-              </span>
-              <ChevronRight size={16} strokeWidth={1.5} />
-            </button>
-          ) : (
-            <div
-              style={{
-                ...bankBtnStyle,
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                color: "var(--text)",
-                cursor: "not-allowed",
-                opacity: 0.6,
-              }}
-            >
-              <Clock size={18} strokeWidth={1.5} />
-              <span style={{ flex: 1 }}>
-                <span style={{ display: "block" }}>Retrait de récompense</span>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: "0.68rem",
-                    opacity: 0.55,
-                    fontWeight: 400,
-                  }}
-                >
-                  Seuil $100 · {cad.format(soldeDollars)} disponible
-                </span>
-              </span>
-            </div>
-          )}
-
-          <p
-            style={{
-              margin: 0,
-              fontSize: "0.72rem",
-              opacity: 0.45,
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-            }}
-          >
-            Minimum $100 pour retrait · PayPal · Virement · Mobile Money
-          </p>
-        </section>
-
-        <section
-          className="leve-card"
-          style={{
-            borderRadius: "8px",
-            padding: "1.25rem",
-            background: "var(--bg-card)",
-            border: "1px solid rgba(212,160,23,0.2)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: "50%",
-                background: "rgba(212,160,23,0.08)",
-                border: "1px solid rgba(212,160,23,0.2)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <TrendingUp size={20} strokeWidth={1.5} color={GOLD} />
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-bebas), Impact, sans-serif",
-                fontSize: "0.85rem",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                opacity: 0.7,
-              }}
-            >
-              Points PMQ
-            </p>
-          </div>
-
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "2.5rem",
-                  fontWeight: 700,
-                  color: GOLD,
-                  lineHeight: 1,
-                }}
-              >
-                {pointsFmt.format(totalPoints)} pts
-              </p>
-              <p style={{ margin: "0.4rem 0 0", fontSize: "0.72rem", opacity: 0.5 }}>
-                {moisCourantLabel}
-              </p>
-            </div>
-            <div
-              style={{
-                flex: 1,
-                minWidth: 0,
-                borderLeft: "1px solid rgba(212,160,23,0.1)",
-                paddingLeft: "1rem",
-              }}
-            >
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "0.7rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  opacity: 0.55,
-                }}
-              >
-                Points pondérés
-              </p>
-              <p
-                style={{
-                  margin: "0.35rem 0 0",
-                  fontSize: "1.4rem",
-                  fontWeight: 700,
-                  color: GOLD,
-                }}
-              >
-                {pointsFmt.format(totalPoints * profileMultiplier)}
-              </p>
-              <p
-                style={{
-                  margin: "0.35rem 0 0",
-                  fontSize: "0.72rem",
-                  opacity: 0.55,
-                  lineHeight: 1.4,
-                }}
-              >
-                ×{profileMultiplier.toFixed(1)} · {typeMembre}
-              </p>
-            </div>
-          </div>
-
-          <div style={{ height: 1, background: "rgba(212,160,23,0.1)", margin: 0 }} />
-
-          <div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.7rem",
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                opacity: 0.55,
-              }}
-            >
-              Estimation redistribution
-            </p>
-            <p
-              style={{
-                margin: "0.35rem 0 0",
-                fontSize: "1.1rem",
-                fontWeight: 700,
-                color: GOLD,
-              }}
-            >
-              {banqueEstimation > 0 ? `~${cad.format(banqueEstimation)}` : "—"}
-            </p>
-          </div>
-        </section>
+        <div style={{ marginBottom: "1.75rem" }}>
+          <CartesBanque
+            soldeDollars={soldeDollars}
+            moisCourantLabel={moisCourantLabel}
+            canTransfer={canTransfer}
+            progressPct={progressPct}
+            totalPoints={totalPoints}
+            profileMultiplier={profileMultiplier}
+            typeMembre={typeMembre}
+            banqueEstimation={banqueEstimation}
+            onRetraitClick={() => void openRetraitConfirm()}
+            pointsFmt={pointsFmt}
+            cad={cad}
+            GOLD={GOLD}
+            ROUGE={ROUGE}
+          />
         </div>
 
         {!canTransfer ? (
