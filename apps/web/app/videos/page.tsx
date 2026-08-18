@@ -655,9 +655,19 @@ export default function VideosPage(): React.JSX.Element | null {
   const name = displayNameFrom(profile, session);
   const { hero, rest } = pickHeroVideo(videos);
 
-  const leveVideos = videos.filter(v => v.categorie === 'leve');
+  const leveVideos = [...videos.filter(v => v.categorie === 'leve')]
+    .sort((a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime());
   const leveCompleted = leveVideos.length === 0 || leveVideos.every(v => quizVideoIds.has(v.id));
   const leveProgress = leveVideos.length === 0 ? 1 : leveVideos.filter(v => quizVideoIds.has(v.id)).length;
+
+  function isLeveUnlocked(index: number): boolean {
+    if (index === 0) return true;
+    return quizVideoIds.has(leveVideos[index - 1]?.id ?? "");
+  }
+
+  function statusOf(v: VideoRow): VideoMemberStatus {
+    return memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+  }
 
   function filterByCat(vids: VideoRow[]): VideoRow[] {
     if (selectedCat === "tous") return vids;
@@ -779,7 +789,6 @@ export default function VideosPage(): React.JSX.Element | null {
 
     return (
       <div>
-        <div style={!leveCompleted ? { opacity: 0.35, pointerEvents: "none", userSelect: "none" } : undefined}>
         {bonusActif.length > 0 && (
           <>
             {sectionHdr('var(--accent-green)', 'Points +2 — Moins de 72h', bonusActif.length)}
@@ -807,7 +816,6 @@ export default function VideosPage(): React.JSX.Element | null {
             {completes.map(v => renderGridItem(v, 'done'))}
           </>
         )}
-        </div>
       </div>
     );
   }
@@ -1069,7 +1077,6 @@ export default function VideosPage(): React.JSX.Element | null {
 
     return (
       <div>
-        <div style={!leveCompleted ? { opacity: 0.35, pointerEvents: "none", userSelect: "none" } : undefined}>
         {bonusActif.length > 0 && (
           <>
             {sectionHdr("var(--accent-green)", "Points +2 — Moins de 72h", bonusActif.length)}
@@ -1103,7 +1110,6 @@ export default function VideosPage(): React.JSX.Element | null {
             {completes.map((v) => renderItem(v, "done"))}
           </>
         )}
-        </div>
       </div>
     );
   }
@@ -1530,28 +1536,39 @@ export default function VideosPage(): React.JSX.Element | null {
               >
                 Tous
               </button>
-              {categories.map((c) => (
-                <button
-                  key={c.slug}
-                  type="button"
-                  onClick={() => setSelectedCat(c.slug)}
-                  style={{
-                    fontSize: "0.72rem", padding: "4px 12px", borderRadius: "20px",
-                    border: selectedCat === c.slug
-                      ? "1px solid rgba(212,160,23,0.6)"
-                      : "1px solid rgba(245,240,232,0.12)",
-                    background: selectedCat === c.slug
-                      ? "rgba(212,160,23,0.12)"
-                      : c.is_gate ? "rgba(74,144,217,0.08)" : "rgba(245,240,232,0.04)",
-                    color: selectedCat === c.slug
-                      ? "var(--accent)"
-                      : c.is_gate ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.55)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {c.is_gate ? "🚀 " : ""}{c.nom}
-                </button>
-              ))}
+              {categories.map((c) => {
+                const isLocked = !leveCompleted && !c.is_gate;
+                return (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    onClick={() => { if (!isLocked) setSelectedCat(c.slug); }}
+                    disabled={isLocked}
+                    style={{
+                      fontSize: "0.72rem", padding: "4px 12px", borderRadius: "20px",
+                      border: isLocked
+                        ? "1px solid rgba(245,240,232,0.08)"
+                        : selectedCat === c.slug
+                          ? "1px solid rgba(212,160,23,0.6)"
+                          : "1px solid rgba(245,240,232,0.12)",
+                      background: isLocked
+                        ? "rgba(245,240,232,0.02)"
+                        : selectedCat === c.slug
+                          ? "rgba(212,160,23,0.12)"
+                          : c.is_gate ? "rgba(74,144,217,0.08)" : "rgba(245,240,232,0.04)",
+                      color: isLocked
+                        ? "rgba(245,240,232,0.2)"
+                        : selectedCat === c.slug
+                          ? "var(--accent)"
+                          : c.is_gate ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.55)",
+                      cursor: isLocked ? "not-allowed" : "pointer",
+                      opacity: isLocked ? 0.5 : 1,
+                    }}
+                  >
+                    {c.is_gate ? "🚀 " : ""}{c.nom}
+                  </button>
+                );
+              })}
             </div>
 
             {!leveCompleted && leveVideos.length > 0 && (
@@ -1579,38 +1596,59 @@ export default function VideosPage(): React.JSX.Element | null {
                   Regarde ces vidéos pour déverrouiller toute la plateforme.
                   Chaque nouvelle vidéo LEVE apparaît ici en priorité.
                 </p>
-                {leveVideos.map(v => {
+                {leveVideos.map((v, index) => {
                   const done = quizVideoIds.has(v.id);
                   const codeSubmitted = codeVideoIds.has(v.id);
+                  const unlocked = isLeveUnlocked(index);
                   return (
                     <div key={v.id} style={{
                       display:"flex", alignItems:"center", gap:"10px",
                       padding:"0.5rem 0.7rem",
-                      background: done ? "rgba(245,240,232,0.03)" : "rgba(74,144,217,0.06)",
+                      background: done
+                        ? "rgba(245,240,232,0.03)"
+                        : unlocked
+                          ? "rgba(74,144,217,0.06)"
+                          : "rgba(245,240,232,0.02)",
                       borderRadius:"6px", marginBottom:"4px",
                       opacity: done ? 0.5 : 1,
                     }}>
-                      <span style={{ fontSize:"0.9rem" }}>{done ? "✅" : codeSubmitted ? "🔒" : "▶"}</span>
-                      <span style={{ flex:1, fontSize:"0.85rem", fontWeight:500 }}>{v.title}</span>
-                      <span style={{ fontSize:"0.72rem", opacity:0.55 }}>+{v.points_value} pts</span>
-                      {!done && !codeSubmitted ? (
-                        <Link href={`/videos/${v.id}`} style={{
-                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                          background:"rgba(74,144,217,0.15)", border:"1px solid rgba(74,144,217,0.4)",
-                          color:"rgba(74,144,217,0.9)", textDecoration:"none",
-                        }}>VOIR →</Link>
-                      ) : codeSubmitted && !done ? (
-                        <Link href={`/videos/${v.id}/quiz`} style={{
-                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                          background:"var(--accent)", color:"#000",
-                          border:"none", textDecoration:"none", fontWeight:600,
-                        }}>QUIZ →</Link>
-                      ) : (
+                      <span style={{ fontSize:"0.9rem", flexShrink:0 }}>
+                        {done ? "✅" : codeSubmitted ? "🔒" : unlocked ? "▶" : "🔒"}
+                      </span>
+                      <span style={{
+                        flex:1, fontSize:"0.85rem", fontWeight:500,
+                        color: unlocked ? "var(--text)" : "rgba(245,240,232,0.4)",
+                      }}>
+                        {v.title}
+                      </span>
+                      <span style={{ fontSize:"0.72rem", opacity:0.55 }}>
+                        +{v.points_value} pts
+                      </span>
+                      {done ? (
                         <Link href={`/videos/${v.id}`} style={{
                           fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
                           border:"1px solid rgba(245,240,232,0.15)",
                           color:"rgba(245,240,232,0.4)", textDecoration:"none",
                         }}>REVOIR</Link>
+                      ) : codeSubmitted ? (
+                        <Link href={`/videos/${v.id}/quiz`} style={{
+                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                          background:"var(--accent)", color:"#000",
+                          border:"none", textDecoration:"none", fontWeight:600,
+                        }}>QUIZ →</Link>
+                      ) : unlocked ? (
+                        <Link href={`/videos/${v.id}`} style={{
+                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                          background:"rgba(74,144,217,0.15)",
+                          border:"1px solid rgba(74,144,217,0.4)",
+                          color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                        }}>VOIR →</Link>
+                      ) : (
+                        <span style={{
+                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                          border:"1px solid rgba(245,240,232,0.1)",
+                          color:"rgba(245,240,232,0.25)",
+                        }}>🔒</span>
                       )}
                     </div>
                   );
@@ -1628,11 +1666,51 @@ export default function VideosPage(): React.JSX.Element | null {
                 </p>
               </section>
             )}
+            {!leveCompleted && (
+              <div style={{ marginTop:"0.5rem" }}>
+                {[
+                  { label:"⚡ Points +2 — Moins de 72h", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'not_completed' && isBonusActive(v.bonus_expire_at)).length },
+                  { label:"Points disponibles — Bonus expiré", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'not_completed' && !isBonusActive(v.bonus_expire_at)).length },
+                  { label:"Code soumis — Quiz en attente", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'code_submitted').length },
+                  { label:"Vidéos complétées", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'completed').length },
+                ].filter(s => s.count > 0).map(s => (
+                  <div key={s.label} style={{ marginBottom:"0.5rem" }}>
+                    <div style={{
+                      display:"flex", alignItems:"center", gap:"8px",
+                      padding:"0.5rem 0", opacity:0.5,
+                    }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%",
+                        background:"rgba(245,240,232,0.3)", flexShrink:0 }} />
+                      <span style={{ fontSize:"0.78rem", color:"var(--text)", fontWeight:500 }}>
+                        {s.label}
+                      </span>
+                      <span style={{ marginLeft:"auto", fontSize:"0.72rem",
+                        color:"rgba(245,240,232,0.5)",
+                        display:"flex", alignItems:"center", gap:"4px" }}>
+                        🔒 {s.count}
+                      </span>
+                    </div>
+                    <div style={{
+                      display:"flex", alignItems:"center", gap:"8px",
+                      padding:"0.55rem 0.85rem",
+                      background:"rgba(245,240,232,0.02)",
+                      border:"0.5px solid rgba(245,240,232,0.08)",
+                      borderRadius:"6px", opacity:0.45,
+                    }}>
+                      <span style={{ fontSize:"0.72rem" }}>🔒</span>
+                      <span style={{ fontSize:"0.78rem", color:"rgba(245,240,232,0.5)" }}>
+                        Termine les vidéos LEVE pour déverrouiller
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {viewMode === "list"
-              ? renderListView()
+              ? (leveCompleted ? renderListView() : null)
               : youtubeMode
                 ? renderYoutubeFeed()
-                : renderPlatformGrid()}
+                : (leveCompleted ? renderPlatformGrid() : null)}
           </>
         )}
       </main>
