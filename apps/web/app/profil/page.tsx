@@ -2287,12 +2287,43 @@ export default function ProfilPage(): React.JSX.Element | null {
                   </button>
                 </div>
                 {referralLink ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.65rem", marginBottom: "0.85rem" }}>
-                    <span style={{ fontSize: "0.85rem", opacity: 0.8, wordBreak: "break-all" }}>{referralLink}</span>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.65rem",
+                      marginBottom: "0.85rem",
+                    }}
+                  >
+                    <p
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        margin: 0,
+                        fontFamily: "var(--font-mono), ui-monospace, monospace",
+                        fontSize: "0.82rem",
+                        lineHeight: 1.5,
+                        color: TEXT,
+                        wordBreak: "break-all",
+                        overflowWrap: "anywhere",
+                        userSelect: "all",
+                      }}
+                    >
+                      {referralLink}
+                    </p>
                     <button
                       type="button"
                       onClick={() => void copyReferral(referralLink, "link")}
-                      style={{ background: "transparent", color: TEXT, border: `1px solid var(--border-strong)`, borderRadius: "4px", padding: "0.4rem 0.75rem", fontSize: "0.78rem", cursor: "pointer" }}
+                      style={{
+                        flexShrink: 0,
+                        background: "transparent",
+                        color: TEXT,
+                        border: "1px solid var(--border-strong)",
+                        borderRadius: "4px",
+                        padding: "0.4rem 0.75rem",
+                        fontSize: "0.78rem",
+                        cursor: "pointer",
+                      }}
                     >
                       {referralCopied === "link" ? "Copié ✓" : "Copier le lien"}
                     </button>
