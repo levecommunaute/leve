@@ -3,6 +3,7 @@
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useState,
@@ -1401,6 +1402,15 @@ export default function AdminPage(): React.JSX.Element {
   const [newCouleur, setNewCouleur] = useState("#888780");
   const [addCatLoading, setAddCatLoading] = useState(false);
   const [addCatMsg, setAddCatMsg] = useState<string | null>(null);
+
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editPoints, setEditPoints] = useState<15|25|30>(15);
+  const [editCategorie, setEditCategorie] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [editCollaborateurId, setEditCollaborateurId] = useState<string>("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
 
   const [month, setMonth] = useState(() => {
     const d = new Date();
@@ -3966,6 +3976,42 @@ export default function AdminPage(): React.JSX.Element {
     }
   }
 
+  async function handleEditVideo(videoId: string): Promise<void> {
+    setEditSaving(true);
+    setEditMsg(null);
+    try {
+      const body: Record<string, unknown> = {
+        id: videoId,
+        title: editTitle.trim(),
+        points_value: editPoints,
+        categorie: editCategorie,
+        tags: editTags.trim(),
+      };
+      if (editCategorie === "collaborateur") {
+        body.collaborateur_id = editCollaborateurId || null;
+      } else {
+        body.collaborateur_id = null;
+      }
+      const res = await fetch("/api/admin/videos", {
+        method: "PATCH",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setEditMsg(j.error ?? "Erreur lors de la sauvegarde.");
+      } else {
+        setEditMsg("Sauvegardé.");
+        setEditingVideoId(null);
+        await loadVideos();
+      }
+    } catch {
+      setEditMsg("Erreur réseau.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   function openVideoDeleteModal(video: VideoRow): void {
     setVideoDeleteConfirmId(video.id);
     setVideoDeletePassword("");
@@ -5022,7 +5068,8 @@ export default function AdminPage(): React.JSX.Element {
                             ]
                           : collaboratorMembers;
                       return (
-                        <tr key={v.id} style={{ borderBottom: "1px solid var(--border-soft)" }}>
+                        <Fragment key={v.id}>
+                        <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
                           <td style={{ padding: "0.75rem 0.5rem", minWidth: "140px", maxWidth: "320px", verticalAlign: "top" }}>
                             <div style={{ fontWeight: 500, lineHeight: 1.35 }}>{v.title ?? "—"}</div>
                             <div className="leve-video-actions">
@@ -5047,6 +5094,27 @@ export default function AdminPage(): React.JSX.Element {
                                 }}
                               >
                                 {actionBusy ? "…" : isActive ? "Désactiver" : "Activer"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingVideoId(v.id);
+                                  setEditTitle(v.title ?? "");
+                                  setEditPoints(([15,25,30].includes(Number(v.points_value)) ? Number(v.points_value) : 15) as 15|25|30);
+                                  setEditCategorie(v.categorie ?? "");
+                                  setEditTags(v.tags ?? "");
+                                  setEditCollaborateurId(v.collaborateur_id ?? "");
+                                  setEditMsg(null);
+                                }}
+                                style={{
+                                  padding: "0.3rem 0.65rem", borderRadius: "4px",
+                                  background: "transparent",
+                                  border: "1px solid rgba(212,160,23,0.4)",
+                                  color: "var(--accent)", fontSize: "0.72rem",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Modifier
                               </button>
                               <button
                                 type="button"
@@ -5127,6 +5195,7 @@ export default function AdminPage(): React.JSX.Element {
                                 borderRadius: "4px",
                                 color: TEXT,
                                 cursor: collabBusy || membersLoading ? "wait" : "pointer",
+                                display: v.categorie === "collaborateur" ? "block" : "none",
                               }}
                             >
                               <option value="">Aucun</option>
@@ -5351,6 +5420,125 @@ export default function AdminPage(): React.JSX.Element {
                             ) : null}
                           </td>
                         </tr>
+                        {editingVideoId === v.id ? (
+                          <tr>
+                            <td colSpan={9} style={{ padding: "0.75rem 1rem",
+                              background: "rgba(212,160,23,0.04)",
+                              border: "1px solid rgba(212,160,23,0.2)" }}>
+
+                              <div style={{ display:"flex", flexWrap:"wrap", gap:"0.75rem", alignItems:"flex-end" }}>
+
+                                <div>
+                                  <label style={labelSm}>Titre</label>
+                                  <input type="text" value={editTitle}
+                                    onChange={e => setEditTitle(e.target.value)}
+                                    style={{ ...inputBase, minWidth:"200px" }} />
+                                </div>
+
+                                <div>
+                                  <label style={labelSm}>Points</label>
+                                  <select value={editPoints}
+                                    onChange={e => setEditPoints(Number(e.target.value) as 15|25|30)}
+                                    style={{ ...inputBase, cursor:"pointer" }}>
+                                    <option value={15}>15</option>
+                                    <option value={25}>25</option>
+                                    <option value={30}>30</option>
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label style={labelSm}>Catégorie</label>
+                                  <select value={editCategorie}
+                                    onChange={e => {
+                                      setEditCategorie(e.target.value);
+                                      if (e.target.value !== "collaborateur") setEditCollaborateurId("");
+                                    }}
+                                    style={{ ...inputBase, cursor:"pointer" }}>
+                                    <option value="">— Aucune —</option>
+                                    {videoCategories.map(c => (
+                                      <option key={c.slug} value={c.slug}>{c.nom}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {editCategorie === "collaborateur" ? (
+                                  <div>
+                                    <label style={labelSm}>Collaborateur</label>
+                                    <select value={editCollaborateurId}
+                                      onChange={e => setEditCollaborateurId(e.target.value)}
+                                      style={{ ...inputBase, cursor:"pointer" }}>
+                                      <option value="">— Aucun —</option>
+                                      {collaboratorMembers.map(m => (
+                                        <option key={m.id} value={m.id}>{memberDisplayLabel(m)}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                ) : null}
+
+                                <div style={{ flex:1, minWidth:"200px" }}>
+                                  <label style={labelSm}>Tags</label>
+                                  <div style={{
+                                    display:"flex", flexWrap:"wrap", gap:"0.3rem",
+                                    marginBottom:"0.35rem", maxHeight:"60px", overflowY:"auto",
+                                    padding:"0.3rem", background:"var(--bg-card-inner)",
+                                    borderRadius:"4px", border:"1px solid var(--border-soft)",
+                                  }}>
+                                    {TAGS_PREDÉFINIS.map(tag => {
+                                      const isSelected = editTags.split("·").map(t=>t.trim()).includes(tag);
+                                      return (
+                                        <span key={tag}
+                                          onClick={() => {
+                                            const current = editTags.split("·").map(t=>t.trim()).filter(Boolean);
+                                            if (isSelected) setEditTags(current.filter(t=>t!==tag).join(" · "));
+                                            else setEditTags([...current, tag].join(" · "));
+                                          }}
+                                          style={{
+                                            fontSize:"0.68rem", padding:"1px 7px", borderRadius:"20px",
+                                            cursor:"pointer", userSelect:"none",
+                                            background: isSelected ? "rgba(212,160,23,0.15)" : "rgba(245,240,232,0.06)",
+                                            border: isSelected ? "1px solid rgba(212,160,23,0.5)" : "1px solid rgba(245,240,232,0.12)",
+                                            color: isSelected ? "var(--accent)" : "rgba(245,240,232,0.6)",
+                                          }}>
+                                          {tag}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                  <input type="text" value={editTags}
+                                    onChange={e => setEditTags(e.target.value)}
+                                    placeholder="Tags libres..."
+                                    style={inputBase} />
+                                </div>
+
+                                <div style={{ display:"flex", gap:"0.5rem", alignItems:"center" }}>
+                                  <button type="button" disabled={editSaving}
+                                    onClick={() => void handleEditVideo(v.id)}
+                                    style={{ padding:"0.4rem 0.85rem", borderRadius:"4px",
+                                      background:"var(--accent)", color:"#000",
+                                      border:"none", fontSize:"0.85rem",
+                                      fontWeight:600, cursor:"pointer" }}>
+                                    {editSaving ? "…" : "Enregistrer"}
+                                  </button>
+                                  <button type="button"
+                                    onClick={() => { setEditingVideoId(null); setEditMsg(null); }}
+                                    style={{ padding:"0.4rem 0.85rem", borderRadius:"4px",
+                                      background:"transparent", color:"var(--text)",
+                                      border:"1px solid var(--border-soft)",
+                                      fontSize:"0.85rem", cursor:"pointer" }}>
+                                    Annuler
+                                  </button>
+                                  {editMsg ? (
+                                    <span style={{ fontSize:"0.8rem",
+                                      color: editMsg === "Sauvegardé." ? "var(--accent)" : "var(--accent-red)" }}>
+                                      {editMsg}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                        </Fragment>
                       );
                     })}
                   </tbody>

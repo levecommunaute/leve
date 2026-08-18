@@ -9,7 +9,7 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const VIDEO_SELECT =
-  "id, youtube_id, title, points_value, bonus_expire_at, collaborateur_id, is_active";
+  "id, youtube_id, title, points_value, bonus_expire_at, collaborateur_id, is_active, categorie, tags";
 
 function parseCollaborateurId(raw: unknown): string | null | "invalid" {
   if (raw === null) return null;
@@ -85,7 +85,15 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const denied = requireAdminSecret(request);
   if (denied) return denied;
 
-  let body: { id?: string; collaborateur_id?: unknown; is_active?: unknown };
+  let body: {
+    id?: string;
+    collaborateur_id?: unknown;
+    is_active?: unknown;
+    title?: unknown;
+    points_value?: unknown;
+    categorie?: unknown;
+    tags?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -99,9 +107,13 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
   const hasIsActive = "is_active" in body;
   const hasCollaborateur = "collaborateur_id" in body;
-  if (!hasIsActive && !hasCollaborateur) {
+  const hasTitle = "title" in body;
+  const hasPoints = "points_value" in body;
+  const hasCategorie = "categorie" in body;
+  const hasTags = "tags" in body;
+  if (!hasIsActive && !hasCollaborateur && !hasTitle && !hasPoints && !hasCategorie && !hasTags) {
     return NextResponse.json(
-      { error: "is_active ou collaborateur_id requis" },
+      { error: "Aucun champ à mettre à jour" },
       { status: 400 },
     );
   }
@@ -109,6 +121,10 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const updates: {
     is_active?: boolean;
     collaborateur_id?: string | null;
+    title?: string;
+    points_value?: number;
+    categorie?: string | null;
+    tags?: string | null;
   } = {};
 
   if (hasIsActive) {
@@ -124,6 +140,36 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "collaborateur_id invalide" }, { status: 400 });
     }
     updates.collaborateur_id = collaborateurId;
+  }
+
+  if (hasTitle) {
+    updates.title = String(body.title ?? "").trim();
+  }
+
+  if (hasPoints) {
+    const pts = Number(body.points_value);
+    if (![15, 25, 30].includes(pts)) {
+      return NextResponse.json({ error: "points_value doit être 15, 25 ou 30" }, { status: 400 });
+    }
+    updates.points_value = pts;
+  }
+
+  if (hasCategorie) {
+    if (body.categorie === null) {
+      updates.categorie = null;
+    } else {
+      const cat = typeof body.categorie === "string" ? body.categorie.trim() : "";
+      updates.categorie = cat || null;
+    }
+  }
+
+  if (hasTags) {
+    if (body.tags === null) {
+      updates.tags = null;
+    } else {
+      const tags = typeof body.tags === "string" ? body.tags.trim() : "";
+      updates.tags = tags || null;
+    }
   }
 
   try {
