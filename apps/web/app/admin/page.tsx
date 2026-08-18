@@ -2,8 +2,7 @@
 
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import Link from "next/link";
-import {
-  Fragment,
+import React, {
   useCallback,
   useEffect,
   useState,
@@ -5068,7 +5067,7 @@ export default function AdminPage(): React.JSX.Element {
                             ]
                           : collaboratorMembers;
                       return (
-                        <Fragment key={v.id}>
+                        <React.Fragment key={v.id}>
                         <tr style={{ borderBottom: "1px solid var(--border-soft)" }}>
                           <td style={{ padding: "0.75rem 0.5rem", minWidth: "140px", maxWidth: "320px", verticalAlign: "top" }}>
                             <div style={{ fontWeight: 500, lineHeight: 1.35 }}>{v.title ?? "—"}</div>
@@ -5538,7 +5537,7 @@ export default function AdminPage(): React.JSX.Element {
                             </td>
                           </tr>
                         ) : null}
-                        </Fragment>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
