@@ -1623,8 +1623,7 @@ export default function VideosPage(): React.JSX.Element | null {
                   </span>
                 </div>
                 <p style={{ margin:"0 0 0.75rem", fontSize:"0.8rem", opacity:0.65, lineHeight:1.5 }}>
-                  Regarde ces vidéos pour déverrouiller toute la plateforme.
-                  Chaque nouvelle vidéo LEVE apparaît ici en priorité.
+                  Regarde chaque vidéo pour débloquer la suivante. Complète tous les quiz LEVE pour accéder à la plateforme complète. Chaque nouvelle vidéo LEVE s'affiche ici en premier.
                 </p>
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.5rem" }}>
                   <div style={{ display:"flex" }}>
