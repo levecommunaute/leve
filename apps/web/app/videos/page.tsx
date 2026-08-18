@@ -1144,156 +1144,6 @@ export default function VideosPage(): React.JSX.Element | null {
     );
   }
 
-  function renderLeveLockedGrid(): React.JSX.Element {
-    return (
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-        gap: "0.85rem",
-        marginTop: "0.5rem",
-      }}>
-        {leveVideos.map((v, index) => {
-          const done = quizVideoIds.has(v.id);
-          const codeSubmitted = codeVideoIds.has(v.id);
-          const unlocked = isLeveUnlocked(index);
-          return (
-            <div key={v.id} style={{
-              borderRadius: "8px", overflow: "hidden",
-              background: "var(--bg-card)",
-              border: unlocked
-                ? "1px solid rgba(74,144,217,0.3)"
-                : "1px solid var(--border-soft)",
-              opacity: done ? 0.5 : 1,
-            }}>
-              <div style={{ position: "relative" }}>
-                <img
-                  src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
-                  alt={v.title ?? ""}
-                  style={{ width:"100%", height:"160px", objectFit:"cover",
-                    filter: unlocked ? "none" : "grayscale(0.7) brightness(0.5)" }}
-                />
-                {!unlocked && (
-                  <div style={{ position:"absolute", inset:0,
-                    display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <span style={{ fontSize:"2rem" }}>🔒</span>
-                  </div>
-                )}
-              </div>
-              <div style={{ padding:"0.75rem" }}>
-                <p style={{ margin:0, fontSize:"0.85rem", fontWeight:500,
-                  color: unlocked ? "var(--text)" : "rgba(245,240,232,0.4)",
-                  lineHeight:1.35 }}>
-                  {v.title}
-                </p>
-                <div style={{ display:"flex", alignItems:"center",
-                  justifyContent:"space-between", marginTop:"0.65rem" }}>
-                  <span style={{ fontSize:"0.72rem", opacity:0.55 }}>
-                    +{v.points_value} pts
-                  </span>
-                  {done ? (
-                    <Link href={`/videos/${v.id}`} style={{
-                      fontSize:"0.72rem", padding:"3px 10px", borderRadius:"4px",
-                      border:"1px solid rgba(245,240,232,0.15)",
-                      color:"rgba(245,240,232,0.4)", textDecoration:"none",
-                    }}>REVOIR</Link>
-                  ) : codeSubmitted ? (
-                    <Link href={`/videos/${v.id}/quiz`} style={{
-                      fontSize:"0.72rem", padding:"3px 10px", borderRadius:"4px",
-                      background:"var(--accent)", color:"#000",
-                      textDecoration:"none", fontWeight:600,
-                    }}>QUIZ →</Link>
-                  ) : unlocked ? (
-                    <Link href={`/videos/${v.id}`} style={{
-                      fontSize:"0.72rem", padding:"3px 10px", borderRadius:"4px",
-                      background:"rgba(74,144,217,0.15)",
-                      border:"1px solid rgba(74,144,217,0.4)",
-                      color:"rgba(74,144,217,0.9)", textDecoration:"none",
-                    }}>VOIR →</Link>
-                  ) : (
-                    <span style={{ fontSize:"0.72rem", padding:"3px 10px",
-                      borderRadius:"4px", border:"1px solid rgba(245,240,232,0.1)",
-                      color:"rgba(245,240,232,0.25)" }}>🔒</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  function renderLeveLockedList(): React.JSX.Element {
-    return (
-      <div style={{ marginTop:"0.5rem" }}>
-        {leveVideos.map((v, index) => {
-          const done = quizVideoIds.has(v.id);
-          const codeSubmitted = codeVideoIds.has(v.id);
-          const unlocked = isLeveUnlocked(index);
-          return (
-            <div key={v.id} style={{
-              display:"flex", alignItems:"center", gap:"10px",
-              padding:"0.55rem 0.75rem",
-              background: done
-                ? "rgba(245,240,232,0.02)"
-                : unlocked
-                  ? "rgba(74,144,217,0.04)"
-                  : "rgba(245,240,232,0.01)",
-              borderRadius:"6px", marginBottom:"4px",
-              border: unlocked
-                ? "0.5px solid rgba(74,144,217,0.2)"
-                : "0.5px solid rgba(245,240,232,0.06)",
-              opacity: done ? 0.5 : 1,
-            }}>
-              <span style={{ flexShrink:0 }}>
-                {done ? "✅" : codeSubmitted ? "🔒" : unlocked ? "▶" : "🔒"}
-              </span>
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ margin:0, fontSize:"0.85rem", fontWeight:500,
-                  color: unlocked ? "var(--text)" : "rgba(245,240,232,0.35)",
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                  {v.title}
-                </p>
-                {v.tags ? (
-                  <p style={{ margin:"2px 0 0", fontSize:"0.68rem", opacity:0.45 }}>
-                    {v.tags}
-                  </p>
-                ) : null}
-              </div>
-              <span style={{ fontSize:"0.72rem", opacity:0.5, flexShrink:0 }}>
-                +{v.points_value} pts
-              </span>
-              {done ? (
-                <Link href={`/videos/${v.id}`} style={{
-                  fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                  border:"1px solid rgba(245,240,232,0.12)",
-                  color:"rgba(245,240,232,0.35)", textDecoration:"none",
-                }}>REVOIR</Link>
-              ) : codeSubmitted ? (
-                <Link href={`/videos/${v.id}/quiz`} style={{
-                  fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                  background:"var(--accent)", color:"#000",
-                  textDecoration:"none", fontWeight:600,
-                }}>QUIZ →</Link>
-              ) : unlocked ? (
-                <Link href={`/videos/${v.id}`} style={{
-                  fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                  background:"rgba(74,144,217,0.15)",
-                  border:"1px solid rgba(74,144,217,0.4)",
-                  color:"rgba(74,144,217,0.9)", textDecoration:"none",
-                }}>VOIR →</Link>
-              ) : (
-                <span style={{ fontSize:"0.72rem", padding:"2px 10px",
-                  borderRadius:"4px", border:"1px solid rgba(245,240,232,0.08)",
-                  color:"rgba(245,240,232,0.2)" }}>🔒</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
   function renderYoutubeListItem(v: VideoRow): React.JSX.Element {
     const title = v.title?.trim() || "Vidéo";
     const pts = Number(v.points_value ?? 0);
@@ -1776,63 +1626,174 @@ export default function VideosPage(): React.JSX.Element | null {
                   Regarde ces vidéos pour déverrouiller toute la plateforme.
                   Chaque nouvelle vidéo LEVE apparaît ici en priorité.
                 </p>
-                {leveVideos.map((v, index) => {
-                  const done = quizVideoIds.has(v.id);
-                  const codeSubmitted = codeVideoIds.has(v.id);
-                  const unlocked = isLeveUnlocked(index);
-                  return (
-                    <div key={v.id} style={{
-                      display:"flex", alignItems:"center", gap:"10px",
-                      padding:"0.5rem 0.7rem",
-                      background: done
-                        ? "rgba(245,240,232,0.03)"
-                        : unlocked
-                          ? "rgba(74,144,217,0.06)"
-                          : "rgba(245,240,232,0.02)",
-                      borderRadius:"6px", marginBottom:"4px",
-                      opacity: done ? 0.5 : 1,
-                    }}>
-                      <span style={{ fontSize:"0.9rem", flexShrink:0 }}>
-                        {done ? "✅" : codeSubmitted ? "🔒" : unlocked ? "▶" : "🔒"}
-                      </span>
-                      <span style={{
-                        flex:1, fontSize:"0.85rem", fontWeight:500,
-                        color: unlocked ? "var(--text)" : "rgba(245,240,232,0.4)",
+                <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.5rem" }}>
+                  <div style={{ display:"flex" }}>
+                    <button type="button"
+                      onClick={() => setViewMode("grid")}
+                      style={{
+                        width:28, height:28, border:"0.5px solid rgba(74,144,217,0.3)",
+                        borderRadius:"4px 0 0 4px",
+                        background: viewMode === "grid" ? "rgba(74,144,217,0.2)" : "transparent",
+                        color: viewMode === "grid" ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.4)",
+                        cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
                       }}>
-                        {v.title}
-                      </span>
-                      <span style={{ fontSize:"0.72rem", opacity:0.55 }}>
-                        +{v.points_value} pts
-                      </span>
-                      {done ? (
-                        <Link href={`/videos/${v.id}`} style={{
-                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                          border:"1px solid rgba(245,240,232,0.15)",
-                          color:"rgba(245,240,232,0.4)", textDecoration:"none",
-                        }}>REVOIR</Link>
-                      ) : codeSubmitted ? (
-                        <Link href={`/videos/${v.id}/quiz`} style={{
-                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                          background:"var(--accent)", color:"#000",
-                          border:"none", textDecoration:"none", fontWeight:600,
-                        }}>QUIZ →</Link>
-                      ) : unlocked ? (
-                        <Link href={`/videos/${v.id}`} style={{
-                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                          background:"rgba(74,144,217,0.15)",
-                          border:"1px solid rgba(74,144,217,0.4)",
-                          color:"rgba(74,144,217,0.9)", textDecoration:"none",
-                        }}>VOIR →</Link>
-                      ) : (
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor">
+                        <rect x="0" y="0" width="5.5" height="5.5" rx="1"/>
+                        <rect x="7.5" y="0" width="5.5" height="5.5" rx="1"/>
+                        <rect x="0" y="7.5" width="5.5" height="5.5" rx="1"/>
+                        <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1"/>
+                      </svg>
+                    </button>
+                    <button type="button"
+                      onClick={() => setViewMode("list")}
+                      style={{
+                        width:28, height:28, border:"0.5px solid rgba(74,144,217,0.3)",
+                        borderRadius:"0 4px 4px 0",
+                        background: viewMode === "list" ? "rgba(74,144,217,0.2)" : "transparent",
+                        color: viewMode === "list" ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.4)",
+                        cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+                      }}>
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor">
+                        <rect x="0" y="0" width="13" height="2.5" rx="1"/>
+                        <rect x="0" y="5.25" width="13" height="2.5" rx="1"/>
+                        <rect x="0" y="10.5" width="13" height="2.5" rx="1"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {viewMode === "grid" ? (
+                  <div style={{
+                    display:"grid",
+                    gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))",
+                    gap:"0.65rem",
+                    marginBottom:"0.75rem",
+                  }}>
+                    {leveVideos.map((v, index) => {
+                      const done = quizVideoIds.has(v.id);
+                      const codeSubmitted = codeVideoIds.has(v.id);
+                      const unlocked = isLeveUnlocked(index);
+                      return (
+                        <div key={v.id} style={{
+                          borderRadius:"6px", overflow:"hidden",
+                          background:"rgba(245,240,232,0.04)",
+                          border: unlocked && !done
+                            ? "1px solid rgba(74,144,217,0.3)"
+                            : "1px solid rgba(245,240,232,0.08)",
+                          opacity: done ? 0.45 : 1,
+                        }}>
+                          <div style={{ position:"relative" }}>
+                            <img
+                              src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
+                              alt={v.title ?? ""}
+                              style={{ width:"100%", height:"90px", objectFit:"cover", display:"block",
+                                filter: unlocked ? "none" : "grayscale(0.8) brightness(0.4)" }}
+                            />
+                            {!unlocked && (
+                              <div style={{ position:"absolute", inset:0,
+                                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                <span style={{ fontSize:"1.25rem" }}>🔒</span>
+                              </div>
+                            )}
+                            {done && (
+                              <div style={{ position:"absolute", top:4, right:4 }}>
+                                <span style={{ fontSize:"0.85rem" }}>✅</span>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ padding:"0.5rem" }}>
+                            <p style={{ margin:"0 0 0.4rem", fontSize:"0.75rem", fontWeight:500,
+                              lineHeight:1.3,
+                              color: unlocked ? "var(--text)" : "rgba(245,240,232,0.3)",
+                              overflow:"hidden", display:"-webkit-box",
+                              WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+                              {v.title}
+                            </p>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                              <span style={{ fontSize:"0.65rem", opacity:0.5 }}>+{v.points_value} pts</span>
+                              {done ? (
+                                <Link href={`/videos/${v.id}`} style={{
+                                  fontSize:"0.65rem", padding:"2px 7px", borderRadius:"3px",
+                                  border:"1px solid rgba(245,240,232,0.12)",
+                                  color:"rgba(245,240,232,0.35)", textDecoration:"none",
+                                }}>REVOIR</Link>
+                              ) : codeSubmitted ? (
+                                <Link href={`/videos/${v.id}/quiz`} style={{
+                                  fontSize:"0.65rem", padding:"2px 7px", borderRadius:"3px",
+                                  background:"var(--accent)", color:"#000",
+                                  textDecoration:"none", fontWeight:600,
+                                }}>QUIZ</Link>
+                              ) : unlocked ? (
+                                <Link href={`/videos/${v.id}`} style={{
+                                  fontSize:"0.65rem", padding:"2px 7px", borderRadius:"3px",
+                                  background:"rgba(74,144,217,0.15)",
+                                  border:"1px solid rgba(74,144,217,0.4)",
+                                  color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                                }}>VOIR</Link>
+                              ) : (
+                                <span style={{ fontSize:"0.65rem", color:"rgba(245,240,232,0.2)" }}>🔒</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  leveVideos.map((v, index) => {
+                    const done = quizVideoIds.has(v.id);
+                    const codeSubmitted = codeVideoIds.has(v.id);
+                    const unlocked = isLeveUnlocked(index);
+                    return (
+                      <div key={v.id} style={{
+                        display:"flex", alignItems:"center", gap:"10px",
+                        padding:"0.5rem 0.7rem",
+                        background: done
+                          ? "rgba(245,240,232,0.03)"
+                          : unlocked
+                            ? "rgba(74,144,217,0.06)"
+                            : "rgba(245,240,232,0.02)",
+                        borderRadius:"6px", marginBottom:"4px",
+                        opacity: done ? 0.5 : 1,
+                      }}>
+                        <span style={{ fontSize:"0.9rem", flexShrink:0 }}>
+                          {done ? "✅" : codeSubmitted ? "🔒" : unlocked ? "▶" : "🔒"}
+                        </span>
                         <span style={{
-                          fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
-                          border:"1px solid rgba(245,240,232,0.1)",
-                          color:"rgba(245,240,232,0.25)",
-                        }}>🔒</span>
-                      )}
-                    </div>
-                  );
-                })}
+                          flex:1, fontSize:"0.85rem", fontWeight:500,
+                          color: unlocked ? "var(--text)" : "rgba(245,240,232,0.4)",
+                        }}>
+                          {v.title}
+                        </span>
+                        <span style={{ fontSize:"0.72rem", opacity:0.55 }}>+{v.points_value} pts</span>
+                        {done ? (
+                          <Link href={`/videos/${v.id}`} style={{
+                            fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                            border:"1px solid rgba(245,240,232,0.15)",
+                            color:"rgba(245,240,232,0.4)", textDecoration:"none",
+                          }}>REVOIR</Link>
+                        ) : codeSubmitted ? (
+                          <Link href={`/videos/${v.id}/quiz`} style={{
+                            fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                            background:"var(--accent)", color:"#000",
+                            textDecoration:"none", fontWeight:600,
+                          }}>QUIZ →</Link>
+                        ) : unlocked ? (
+                          <Link href={`/videos/${v.id}`} style={{
+                            fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                            background:"rgba(74,144,217,0.15)",
+                            border:"1px solid rgba(74,144,217,0.4)",
+                            color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                          }}>VOIR →</Link>
+                        ) : (
+                          <span style={{ fontSize:"0.72rem", padding:"2px 10px",
+                            borderRadius:"4px", border:"1px solid rgba(245,240,232,0.08)",
+                            color:"rgba(245,240,232,0.2)" }}>🔒</span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
                 <div style={{ height:4, borderRadius:2,
                   background:"rgba(74,144,217,0.15)", overflow:"hidden", marginTop:"0.75rem" }}>
                   <div style={{
@@ -1886,17 +1847,11 @@ export default function VideosPage(): React.JSX.Element | null {
                 ))}
               </div>
             )}
-            {leveCompleted ? (
-              viewMode === "list"
-                ? renderListView()
-                : youtubeMode
-                  ? renderYoutubeFeed()
-                  : renderPlatformGrid()
-            ) : (
-              viewMode === "list"
-                ? renderLeveLockedList()
-                : renderLeveLockedGrid()
-            )}
+            {viewMode === "list"
+              ? (leveCompleted ? renderListView() : null)
+              : youtubeMode
+                ? renderYoutubeFeed()
+                : (leveCompleted ? renderPlatformGrid() : null)}
           </>
         )}
       </main>
