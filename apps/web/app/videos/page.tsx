@@ -330,6 +330,7 @@ export default function VideosPage(): React.JSX.Element | null {
   });
   const [categories, setCategories] = useState<{nom:string, slug:string, is_gate:boolean}[]>([]);
   const [selectedCat, setSelectedCat] = useState<string>("tous");
+  const [leveProgress, setLeveProgress] = useState<Record<string, boolean>>({});
 
   const loadVideos = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -418,6 +419,26 @@ export default function VideosPage(): React.JSX.Element | null {
     }
   }, []);
 
+  const loadLeveProgress = useCallback(async (activeSession: Session): Promise<void> => {
+    try {
+      const res = await fetch(
+        `${SB}/rest/v1/video_progress?membre_id=eq.${encodeURIComponent(activeSession.user.id)}&unlocked=eq.true&select=video_id`,
+        {
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${activeSession.access_token}`,
+          },
+        }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { video_id: string }[];
+        const map: Record<string, boolean> = {};
+        for (const row of data) map[row.video_id] = true;
+        setLeveProgress(map);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const loadCategories = useCallback(async (): Promise<void> => {
     try {
       const res = await fetch(
@@ -444,6 +465,7 @@ export default function VideosPage(): React.JSX.Element | null {
       }
       setSession(next);
       void loadVideos(next);
+      void loadLeveProgress(next);
       const res = await fetch(
         `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name,member_type,avatar_url`,
         {
@@ -489,7 +511,7 @@ export default function VideosPage(): React.JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [router, loadVideos, loadCategories]);
+  }, [router, loadVideos, loadLeveProgress, loadCategories]);
 
   useEffect(() => {
     if (!session) return;
@@ -656,13 +678,21 @@ export default function VideosPage(): React.JSX.Element | null {
   const { hero, rest } = pickHeroVideo(videos);
 
   const leveVideos = [...videos.filter(v => v.categorie === 'leve')]
-    .sort((a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime());
+    .sort((a, b) => {
+      const aDone = quizVideoIds.has(a.id);
+      const bDone = quizVideoIds.has(b.id);
+      if (aDone && !bDone) return 1;
+      if (!aDone && bDone) return -1;
+      return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+    });
   const leveCompleted = leveVideos.length === 0 || leveVideos.every(v => quizVideoIds.has(v.id));
-  const leveProgress = leveVideos.length === 0 ? 1 : leveVideos.filter(v => quizVideoIds.has(v.id)).length;
+  const leveProgressCount = leveVideos.length === 0 ? 1 : leveVideos.filter(v => quizVideoIds.has(v.id)).length;
 
   function isLeveUnlocked(index: number): boolean {
     if (index === 0) return true;
-    return quizVideoIds.has(leveVideos[index - 1]?.id ?? "");
+    const prevVideo = leveVideos[index - 1];
+    if (!prevVideo) return false;
+    return leveProgress[prevVideo.id] === true || quizVideoIds.has(prevVideo.id);
   }
 
   function statusOf(v: VideoRow): VideoMemberStatus {
@@ -1110,6 +1140,156 @@ export default function VideosPage(): React.JSX.Element | null {
             {completes.map((v) => renderItem(v, "done"))}
           </>
         )}
+      </div>
+    );
+  }
+
+  function renderLeveLockedGrid(): React.JSX.Element {
+    return (
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+        gap: "0.85rem",
+        marginTop: "0.5rem",
+      }}>
+        {leveVideos.map((v, index) => {
+          const done = quizVideoIds.has(v.id);
+          const codeSubmitted = codeVideoIds.has(v.id);
+          const unlocked = isLeveUnlocked(index);
+          return (
+            <div key={v.id} style={{
+              borderRadius: "8px", overflow: "hidden",
+              background: "var(--bg-card)",
+              border: unlocked
+                ? "1px solid rgba(74,144,217,0.3)"
+                : "1px solid var(--border-soft)",
+              opacity: done ? 0.5 : 1,
+            }}>
+              <div style={{ position: "relative" }}>
+                <img
+                  src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
+                  alt={v.title ?? ""}
+                  style={{ width:"100%", height:"160px", objectFit:"cover",
+                    filter: unlocked ? "none" : "grayscale(0.7) brightness(0.5)" }}
+                />
+                {!unlocked && (
+                  <div style={{ position:"absolute", inset:0,
+                    display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <span style={{ fontSize:"2rem" }}>🔒</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ padding:"0.75rem" }}>
+                <p style={{ margin:0, fontSize:"0.85rem", fontWeight:500,
+                  color: unlocked ? "var(--text)" : "rgba(245,240,232,0.4)",
+                  lineHeight:1.35 }}>
+                  {v.title}
+                </p>
+                <div style={{ display:"flex", alignItems:"center",
+                  justifyContent:"space-between", marginTop:"0.65rem" }}>
+                  <span style={{ fontSize:"0.72rem", opacity:0.55 }}>
+                    +{v.points_value} pts
+                  </span>
+                  {done ? (
+                    <Link href={`/videos/${v.id}`} style={{
+                      fontSize:"0.72rem", padding:"3px 10px", borderRadius:"4px",
+                      border:"1px solid rgba(245,240,232,0.15)",
+                      color:"rgba(245,240,232,0.4)", textDecoration:"none",
+                    }}>REVOIR</Link>
+                  ) : codeSubmitted ? (
+                    <Link href={`/videos/${v.id}/quiz`} style={{
+                      fontSize:"0.72rem", padding:"3px 10px", borderRadius:"4px",
+                      background:"var(--accent)", color:"#000",
+                      textDecoration:"none", fontWeight:600,
+                    }}>QUIZ →</Link>
+                  ) : unlocked ? (
+                    <Link href={`/videos/${v.id}`} style={{
+                      fontSize:"0.72rem", padding:"3px 10px", borderRadius:"4px",
+                      background:"rgba(74,144,217,0.15)",
+                      border:"1px solid rgba(74,144,217,0.4)",
+                      color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                    }}>VOIR →</Link>
+                  ) : (
+                    <span style={{ fontSize:"0.72rem", padding:"3px 10px",
+                      borderRadius:"4px", border:"1px solid rgba(245,240,232,0.1)",
+                      color:"rgba(245,240,232,0.25)" }}>🔒</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderLeveLockedList(): React.JSX.Element {
+    return (
+      <div style={{ marginTop:"0.5rem" }}>
+        {leveVideos.map((v, index) => {
+          const done = quizVideoIds.has(v.id);
+          const codeSubmitted = codeVideoIds.has(v.id);
+          const unlocked = isLeveUnlocked(index);
+          return (
+            <div key={v.id} style={{
+              display:"flex", alignItems:"center", gap:"10px",
+              padding:"0.55rem 0.75rem",
+              background: done
+                ? "rgba(245,240,232,0.02)"
+                : unlocked
+                  ? "rgba(74,144,217,0.04)"
+                  : "rgba(245,240,232,0.01)",
+              borderRadius:"6px", marginBottom:"4px",
+              border: unlocked
+                ? "0.5px solid rgba(74,144,217,0.2)"
+                : "0.5px solid rgba(245,240,232,0.06)",
+              opacity: done ? 0.5 : 1,
+            }}>
+              <span style={{ flexShrink:0 }}>
+                {done ? "✅" : codeSubmitted ? "🔒" : unlocked ? "▶" : "🔒"}
+              </span>
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ margin:0, fontSize:"0.85rem", fontWeight:500,
+                  color: unlocked ? "var(--text)" : "rgba(245,240,232,0.35)",
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                  {v.title}
+                </p>
+                {v.tags ? (
+                  <p style={{ margin:"2px 0 0", fontSize:"0.68rem", opacity:0.45 }}>
+                    {v.tags}
+                  </p>
+                ) : null}
+              </div>
+              <span style={{ fontSize:"0.72rem", opacity:0.5, flexShrink:0 }}>
+                +{v.points_value} pts
+              </span>
+              {done ? (
+                <Link href={`/videos/${v.id}`} style={{
+                  fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                  border:"1px solid rgba(245,240,232,0.12)",
+                  color:"rgba(245,240,232,0.35)", textDecoration:"none",
+                }}>REVOIR</Link>
+              ) : codeSubmitted ? (
+                <Link href={`/videos/${v.id}/quiz`} style={{
+                  fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                  background:"var(--accent)", color:"#000",
+                  textDecoration:"none", fontWeight:600,
+                }}>QUIZ →</Link>
+              ) : unlocked ? (
+                <Link href={`/videos/${v.id}`} style={{
+                  fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                  background:"rgba(74,144,217,0.15)",
+                  border:"1px solid rgba(74,144,217,0.4)",
+                  color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                }}>VOIR →</Link>
+              ) : (
+                <span style={{ fontSize:"0.72rem", padding:"2px 10px",
+                  borderRadius:"4px", border:"1px solid rgba(245,240,232,0.08)",
+                  color:"rgba(245,240,232,0.2)" }}>🔒</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -1589,7 +1769,7 @@ export default function VideosPage(): React.JSX.Element | null {
                     borderRadius:"20px", background:"rgba(212,160,23,0.1)",
                     border:"1px solid rgba(212,160,23,0.3)", color:"var(--accent)",
                   }}>
-                    🔒 {leveVideos.length - leveProgress} restante{leveVideos.length - leveProgress > 1 ? "s" : ""}
+                    🔒 {leveVideos.length - leveProgressCount} restante{leveVideos.length - leveProgressCount > 1 ? "s" : ""}
                   </span>
                 </div>
                 <p style={{ margin:"0 0 0.75rem", fontSize:"0.8rem", opacity:0.65, lineHeight:1.5 }}>
@@ -1657,12 +1837,12 @@ export default function VideosPage(): React.JSX.Element | null {
                   background:"rgba(74,144,217,0.15)", overflow:"hidden", marginTop:"0.75rem" }}>
                   <div style={{
                     height:"100%", borderRadius:2, background:"rgba(74,144,217,0.7)",
-                    width:`${Math.round((leveProgress / leveVideos.length) * 100)}%`,
+                    width:`${Math.round((leveProgressCount / leveVideos.length) * 100)}%`,
                     transition:"width 0.35s ease",
                   }} />
                 </div>
                 <p style={{ margin:"4px 0 0", fontSize:"0.68rem", opacity:0.5 }}>
-                  {leveProgress} / {leveVideos.length} vidéos LEVE vues
+                  {leveProgressCount} / {leveVideos.length} vidéos LEVE vues
                 </p>
               </section>
             )}
@@ -1706,11 +1886,17 @@ export default function VideosPage(): React.JSX.Element | null {
                 ))}
               </div>
             )}
-            {viewMode === "list"
-              ? (leveCompleted ? renderListView() : null)
-              : youtubeMode
-                ? renderYoutubeFeed()
-                : (leveCompleted ? renderPlatformGrid() : null)}
+            {leveCompleted ? (
+              viewMode === "list"
+                ? renderListView()
+                : youtubeMode
+                  ? renderYoutubeFeed()
+                  : renderPlatformGrid()
+            ) : (
+              viewMode === "list"
+                ? renderLeveLockedList()
+                : renderLeveLockedGrid()
+            )}
           </>
         )}
       </main>
