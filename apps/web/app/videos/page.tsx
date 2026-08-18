@@ -43,6 +43,8 @@ type VideoRow = {
   bonus_expire_at: string | null;
   created_at: string | null;
   collaborateur_id: string | null;
+  categorie?: string | null;
+  tags?: string | null;
 };
 
 type SubmissionRow = {
@@ -328,6 +330,9 @@ export default function VideosPage(): React.JSX.Element | null {
     }
     return "grid";
   });
+  const [categories, setCategories] = useState<{nom:string, slug:string, is_gate:boolean}[]>([]);
+  const [selectedCat, setSelectedCat] = useState<string>("tous");
+  const [leveProgress, setLeveProgress] = useState<Record<string, boolean>>({});
 
   const loadVideos = useCallback(async (activeSession: Session) => {
     const token = activeSession.access_token;
@@ -344,7 +349,7 @@ export default function VideosPage(): React.JSX.Element | null {
     try {
       const [videosRes, quizRes, codeRes] = await Promise.all([
         fetch(
-          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at,collaborateur_id&is_active=eq.true&order=created_at.desc`,
+          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at,collaborateur_id,categorie,tags&is_active=eq.true&order=created_at.desc`,
           { headers },
         ),
         fetch(
@@ -416,8 +421,42 @@ export default function VideosPage(): React.JSX.Element | null {
     }
   }, []);
 
+  const loadLeveProgress = useCallback(async (activeSession: Session): Promise<void> => {
+    try {
+      const res = await fetch(
+        `${SB}/rest/v1/video_progress?membre_id=eq.${encodeURIComponent(activeSession.user.id)}&unlocked=eq.true&select=video_id`,
+        {
+          headers: {
+            apikey: KEY,
+            Authorization: `Bearer ${activeSession.access_token}`,
+          },
+        }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { video_id: string }[];
+        const map: Record<string, boolean> = {};
+        for (const row of data) map[row.video_id] = true;
+        setLeveProgress(map);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const loadCategories = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(
+        `${SB}/rest/v1/video_categories?select=nom,slug,is_gate&order=ordre.asc`,
+        { headers: { apikey: KEY } }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {nom:string, slug:string, is_gate:boolean}[];
+        setCategories(data);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
+    void loadCategories();
 
     async function applyCookieSession(next: Session | null): Promise<void> {
       if (cancelled) return;
@@ -428,6 +467,7 @@ export default function VideosPage(): React.JSX.Element | null {
       }
       setSession(next);
       void loadVideos(next);
+      void loadLeveProgress(next);
       const res = await fetch(
         `${SB}/rest/v1/profiles?id=eq.${encodeURIComponent(next.user.id)}&select=display_name,member_type,avatar_url`,
         {
@@ -473,7 +513,7 @@ export default function VideosPage(): React.JSX.Element | null {
       document.removeEventListener("visibilitychange", onVisible);
       window.clearInterval(pollId);
     };
-  }, [router, loadVideos]);
+  }, [router, loadVideos, loadLeveProgress, loadCategories]);
 
   useEffect(() => {
     if (!session) return;
@@ -639,22 +679,51 @@ export default function VideosPage(): React.JSX.Element | null {
   const name = displayNameFrom(profile, session);
   const { hero, rest } = pickHeroVideo(videos);
 
+  const leveVideos = [...videos.filter(v => v.categorie === 'leve')]
+    .sort((a, b) => {
+      const aDone = quizVideoIds.has(a.id);
+      const bDone = quizVideoIds.has(b.id);
+      if (aDone && !bDone) return 1;
+      if (!aDone && bDone) return -1;
+      return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+    });
+  const leveCompleted = leveVideos.length === 0 || leveVideos.every(v => quizVideoIds.has(v.id));
+  const leveProgressCount = leveVideos.length === 0 ? 1 : leveVideos.filter(v => quizVideoIds.has(v.id)).length;
+
+  function isLeveUnlocked(index: number): boolean {
+    if (index === 0) return true;
+    const prevVideo = leveVideos[index - 1];
+    if (!prevVideo) return false;
+    return leveProgress[prevVideo.id] === true || quizVideoIds.has(prevVideo.id);
+  }
+
+  function statusOf(v: VideoRow): VideoMemberStatus {
+    return memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
+  }
+
+  function filterByCat(vids: VideoRow[]): VideoRow[] {
+    if (selectedCat === "tous") return vids;
+    if (selectedCat === "leve") return vids.filter(v => v.categorie === "leve");
+    return vids.filter(v => v.categorie === selectedCat);
+  }
+
   function renderPlatformGrid(): React.JSX.Element {
-    const bonusActif = videos.filter(v => {
+    const filtered = filterByCat(videos);
+    const bonusActif = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === 'not_completed' && bonus;
     });
-    const disponibles = videos.filter(v => {
+    const disponibles = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === 'not_completed' && !bonus;
     });
-    const codeSubmis = videos.filter(v => {
+    const codeSubmis = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === 'code_submitted';
     });
-    const completes = videos.filter(v => {
+    const completes = filtered.filter(v => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === 'completed';
     });
@@ -697,6 +766,12 @@ export default function VideosPage(): React.JSX.Element | null {
             <div style={{ fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.2rem', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {v.title}
             </div>
+            {v.tags ? (
+              <p style={{ margin: "2px 0 0", fontSize: "0.68rem",
+                opacity: 0.5, letterSpacing: "0.02em" }}>
+                {v.tags}
+              </p>
+            ) : null}
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.5rem', opacity: 0.3, letterSpacing: '0.06em', marginBottom: '0.25rem' }}>
               {formatPublishedAgo(v.created_at)}
             </div>
@@ -778,21 +853,22 @@ export default function VideosPage(): React.JSX.Element | null {
   }
 
   function renderListView(): React.JSX.Element {
-    const bonusActif = videos.filter((v) => {
+    const filtered = filterByCat(videos);
+    const bonusActif = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === "not_completed" && bonus;
     });
-    const disponibles = videos.filter((v) => {
+    const disponibles = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       const bonus = v.bonus_expire_at ? new Date(v.bonus_expire_at) > new Date() : false;
       return status === "not_completed" && !bonus;
     });
-    const codeSubmis = videos.filter((v) => {
+    const codeSubmis = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === "code_submitted";
     });
-    const completes = videos.filter((v) => {
+    const completes = filtered.filter((v) => {
       const status = memberStatusForVideo(v.id, quizVideoIds, codeVideoIds);
       return status === "completed";
     });
@@ -883,6 +959,12 @@ export default function VideosPage(): React.JSX.Element | null {
             >
               {v.title}
             </div>
+            {v.tags ? (
+              <p style={{ margin: "2px 0 0", fontSize: "0.68rem",
+                opacity: 0.5, letterSpacing: "0.02em" }}>
+                {v.tags}
+              </p>
+            ) : null}
             <div
               style={{
                 fontFamily: "var(--font-mono)",
@@ -1465,11 +1547,312 @@ export default function VideosPage(): React.JSX.Element | null {
                 </svg>
               </button>
             </div>
+            <div style={{
+              display: "flex", flexWrap: "wrap", gap: "0.4rem",
+              margin: "0.75rem 0",
+            }}>
+              <button
+                type="button"
+                onClick={() => setSelectedCat("tous")}
+                style={{
+                  fontSize: "0.72rem", padding: "4px 12px", borderRadius: "20px",
+                  border: selectedCat === "tous"
+                    ? "1px solid rgba(212,160,23,0.6)"
+                    : "1px solid rgba(245,240,232,0.12)",
+                  background: selectedCat === "tous"
+                    ? "rgba(212,160,23,0.12)"
+                    : "rgba(245,240,232,0.04)",
+                  color: selectedCat === "tous" ? "var(--accent)" : "rgba(245,240,232,0.55)",
+                  cursor: "pointer",
+                }}
+              >
+                Tous
+              </button>
+              {categories.map((c) => {
+                const isLocked = !leveCompleted && !c.is_gate;
+                return (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    onClick={() => { if (!isLocked) setSelectedCat(c.slug); }}
+                    disabled={isLocked}
+                    style={{
+                      fontSize: "0.72rem", padding: "4px 12px", borderRadius: "20px",
+                      border: isLocked
+                        ? "1px solid rgba(245,240,232,0.08)"
+                        : selectedCat === c.slug
+                          ? "1px solid rgba(212,160,23,0.6)"
+                          : "1px solid rgba(245,240,232,0.12)",
+                      background: isLocked
+                        ? "rgba(245,240,232,0.02)"
+                        : selectedCat === c.slug
+                          ? "rgba(212,160,23,0.12)"
+                          : c.is_gate ? "rgba(74,144,217,0.08)" : "rgba(245,240,232,0.04)",
+                      color: isLocked
+                        ? "rgba(245,240,232,0.2)"
+                        : selectedCat === c.slug
+                          ? "var(--accent)"
+                          : c.is_gate ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.55)",
+                      cursor: isLocked ? "not-allowed" : "pointer",
+                      opacity: isLocked ? 0.5 : 1,
+                    }}
+                  >
+                    {c.is_gate ? "🚀 " : ""}{c.nom}
+                  </button>
+                );
+              })}
+            </div>
+
+            {!leveCompleted && leveVideos.length > 0 && (
+              <section style={{
+                background: "rgba(74,144,217,0.08)",
+                border: "1.5px solid rgba(74,144,217,0.35)",
+                borderRadius: "8px", padding: "1.1rem",
+                marginBottom: "1rem",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"0.4rem" }}>
+                  <span style={{ fontSize:"1rem" }}>🚀</span>
+                  <p style={{ margin:0, fontFamily:"var(--font-bebas)", fontSize:"1rem",
+                    letterSpacing:"0.08em", color:"rgba(74,144,217,0.9)" }}>
+                    LEVE — Commence ici
+                  </p>
+                  <span style={{
+                    marginLeft:"auto", fontSize:"0.68rem", padding:"2px 8px",
+                    borderRadius:"20px", background:"rgba(212,160,23,0.1)",
+                    border:"1px solid rgba(212,160,23,0.3)", color:"var(--accent)",
+                  }}>
+                    🔒 {leveVideos.length - leveProgressCount} restante{leveVideos.length - leveProgressCount > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <p style={{ margin:"0 0 0.75rem", fontSize:"0.8rem", opacity:0.65, lineHeight:1.5 }}>
+                  Regarde chaque vidéo pour débloquer la suivante. Complète tous les quiz LEVE pour accéder à la plateforme complète. Chaque nouvelle vidéo LEVE s'affiche ici en premier.
+                </p>
+                <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.5rem" }}>
+                  <div style={{ display:"flex" }}>
+                    <button type="button"
+                      onClick={() => setViewMode("grid")}
+                      style={{
+                        width:28, height:28, border:"0.5px solid rgba(74,144,217,0.3)",
+                        borderRadius:"4px 0 0 4px",
+                        background: viewMode === "grid" ? "rgba(74,144,217,0.2)" : "transparent",
+                        color: viewMode === "grid" ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.4)",
+                        cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+                      }}>
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor">
+                        <rect x="0" y="0" width="5.5" height="5.5" rx="1"/>
+                        <rect x="7.5" y="0" width="5.5" height="5.5" rx="1"/>
+                        <rect x="0" y="7.5" width="5.5" height="5.5" rx="1"/>
+                        <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1"/>
+                      </svg>
+                    </button>
+                    <button type="button"
+                      onClick={() => setViewMode("list")}
+                      style={{
+                        width:28, height:28, border:"0.5px solid rgba(74,144,217,0.3)",
+                        borderRadius:"0 4px 4px 0",
+                        background: viewMode === "list" ? "rgba(74,144,217,0.2)" : "transparent",
+                        color: viewMode === "list" ? "rgba(74,144,217,0.9)" : "rgba(245,240,232,0.4)",
+                        cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+                      }}>
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor">
+                        <rect x="0" y="0" width="13" height="2.5" rx="1"/>
+                        <rect x="0" y="5.25" width="13" height="2.5" rx="1"/>
+                        <rect x="0" y="10.5" width="13" height="2.5" rx="1"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {viewMode === "grid" ? (
+                  <div style={{
+                    display:"grid",
+                    gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))",
+                    gap:"0.65rem",
+                    marginBottom:"0.75rem",
+                  }}>
+                    {leveVideos.map((v, index) => {
+                      const done = quizVideoIds.has(v.id);
+                      const codeSubmitted = codeVideoIds.has(v.id);
+                      const unlocked = isLeveUnlocked(index);
+                      return (
+                        <div key={v.id} style={{
+                          borderRadius:"6px", overflow:"hidden",
+                          background:"rgba(245,240,232,0.04)",
+                          border: unlocked && !done
+                            ? "1px solid rgba(74,144,217,0.3)"
+                            : "1px solid rgba(245,240,232,0.08)",
+                          opacity: done ? 0.45 : 1,
+                        }}>
+                          <div style={{ position:"relative" }}>
+                            <img
+                              src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
+                              alt={v.title ?? ""}
+                              style={{ width:"100%", height:"90px", objectFit:"cover", display:"block",
+                                filter: unlocked ? "none" : "grayscale(0.8) brightness(0.4)" }}
+                            />
+                            {!unlocked && (
+                              <div style={{ position:"absolute", inset:0,
+                                display:"flex", alignItems:"center", justifyContent:"center" }}>
+                                <span style={{ fontSize:"1.25rem" }}>🔒</span>
+                              </div>
+                            )}
+                            {done && (
+                              <div style={{ position:"absolute", top:4, right:4 }}>
+                                <span style={{ fontSize:"0.85rem" }}>✅</span>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ padding:"0.5rem" }}>
+                            <p style={{ margin:"0 0 0.4rem", fontSize:"0.75rem", fontWeight:500,
+                              lineHeight:1.3,
+                              color: unlocked ? "var(--text)" : "rgba(245,240,232,0.3)",
+                              overflow:"hidden", display:"-webkit-box",
+                              WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+                              {v.title}
+                            </p>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                              <span style={{ fontSize:"0.65rem", opacity:0.5 }}>+{v.points_value} pts</span>
+                              {done ? (
+                                <Link href={`/videos/${v.id}`} style={{
+                                  fontSize:"0.65rem", padding:"2px 7px", borderRadius:"3px",
+                                  border:"1px solid rgba(245,240,232,0.12)",
+                                  color:"rgba(245,240,232,0.35)", textDecoration:"none",
+                                }}>REVOIR</Link>
+                              ) : codeSubmitted ? (
+                                <Link href={`/videos/${v.id}/quiz`} style={{
+                                  fontSize:"0.65rem", padding:"2px 7px", borderRadius:"3px",
+                                  background:"var(--accent)", color:"#000",
+                                  textDecoration:"none", fontWeight:600,
+                                }}>QUIZ</Link>
+                              ) : unlocked ? (
+                                <Link href={`/videos/${v.id}`} style={{
+                                  fontSize:"0.65rem", padding:"2px 7px", borderRadius:"3px",
+                                  background:"rgba(74,144,217,0.15)",
+                                  border:"1px solid rgba(74,144,217,0.4)",
+                                  color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                                }}>VOIR</Link>
+                              ) : (
+                                <span style={{ fontSize:"0.65rem", color:"rgba(245,240,232,0.2)" }}>🔒</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  leveVideos.map((v, index) => {
+                    const done = quizVideoIds.has(v.id);
+                    const codeSubmitted = codeVideoIds.has(v.id);
+                    const unlocked = isLeveUnlocked(index);
+                    return (
+                      <div key={v.id} style={{
+                        display:"flex", alignItems:"center", gap:"10px",
+                        padding:"0.5rem 0.7rem",
+                        background: done
+                          ? "rgba(245,240,232,0.03)"
+                          : unlocked
+                            ? "rgba(74,144,217,0.06)"
+                            : "rgba(245,240,232,0.02)",
+                        borderRadius:"6px", marginBottom:"4px",
+                        opacity: done ? 0.5 : 1,
+                      }}>
+                        <span style={{ fontSize:"0.9rem", flexShrink:0 }}>
+                          {done ? "✅" : codeSubmitted ? "🔒" : unlocked ? "▶" : "🔒"}
+                        </span>
+                        <span style={{
+                          flex:1, fontSize:"0.85rem", fontWeight:500,
+                          color: unlocked ? "var(--text)" : "rgba(245,240,232,0.4)",
+                        }}>
+                          {v.title}
+                        </span>
+                        <span style={{ fontSize:"0.72rem", opacity:0.55 }}>+{v.points_value} pts</span>
+                        {done ? (
+                          <Link href={`/videos/${v.id}`} style={{
+                            fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                            border:"1px solid rgba(245,240,232,0.15)",
+                            color:"rgba(245,240,232,0.4)", textDecoration:"none",
+                          }}>REVOIR</Link>
+                        ) : codeSubmitted ? (
+                          <Link href={`/videos/${v.id}/quiz`} style={{
+                            fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                            background:"var(--accent)", color:"#000",
+                            textDecoration:"none", fontWeight:600,
+                          }}>QUIZ →</Link>
+                        ) : unlocked ? (
+                          <Link href={`/videos/${v.id}`} style={{
+                            fontSize:"0.72rem", padding:"2px 10px", borderRadius:"4px",
+                            background:"rgba(74,144,217,0.15)",
+                            border:"1px solid rgba(74,144,217,0.4)",
+                            color:"rgba(74,144,217,0.9)", textDecoration:"none",
+                          }}>VOIR →</Link>
+                        ) : (
+                          <span style={{ fontSize:"0.72rem", padding:"2px 10px",
+                            borderRadius:"4px", border:"1px solid rgba(245,240,232,0.08)",
+                            color:"rgba(245,240,232,0.2)" }}>🔒</span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                <div style={{ height:4, borderRadius:2,
+                  background:"rgba(74,144,217,0.15)", overflow:"hidden", marginTop:"0.75rem" }}>
+                  <div style={{
+                    height:"100%", borderRadius:2, background:"rgba(74,144,217,0.7)",
+                    width:`${Math.round((leveProgressCount / leveVideos.length) * 100)}%`,
+                    transition:"width 0.35s ease",
+                  }} />
+                </div>
+                <p style={{ margin:"4px 0 0", fontSize:"0.68rem", opacity:0.5 }}>
+                  {leveProgressCount} / {leveVideos.length} vidéos LEVE vues
+                </p>
+              </section>
+            )}
+            {!leveCompleted && (
+              <div style={{ marginTop:"0.5rem" }}>
+                {[
+                  { label:"⚡ Points +2 — Moins de 72h", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'not_completed' && isBonusActive(v.bonus_expire_at)).length },
+                  { label:"Points disponibles — Bonus expiré", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'not_completed' && !isBonusActive(v.bonus_expire_at)).length },
+                  { label:"Code soumis — Quiz en attente", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'code_submitted').length },
+                  { label:"Vidéos complétées", count: videos.filter(v => v.categorie !== 'leve' && statusOf(v) === 'completed').length },
+                ].filter(s => s.count > 0).map(s => (
+                  <div key={s.label} style={{ marginBottom:"0.5rem" }}>
+                    <div style={{
+                      display:"flex", alignItems:"center", gap:"8px",
+                      padding:"0.5rem 0", opacity:0.5,
+                    }}>
+                      <div style={{ width:8, height:8, borderRadius:"50%",
+                        background:"rgba(245,240,232,0.3)", flexShrink:0 }} />
+                      <span style={{ fontSize:"0.78rem", color:"var(--text)", fontWeight:500 }}>
+                        {s.label}
+                      </span>
+                      <span style={{ marginLeft:"auto", fontSize:"0.72rem",
+                        color:"rgba(245,240,232,0.5)",
+                        display:"flex", alignItems:"center", gap:"4px" }}>
+                        🔒 {s.count}
+                      </span>
+                    </div>
+                    <div style={{
+                      display:"flex", alignItems:"center", gap:"8px",
+                      padding:"0.55rem 0.85rem",
+                      background:"rgba(245,240,232,0.02)",
+                      border:"0.5px solid rgba(245,240,232,0.08)",
+                      borderRadius:"6px", opacity:0.45,
+                    }}>
+                      <span style={{ fontSize:"0.72rem" }}>🔒</span>
+                      <span style={{ fontSize:"0.78rem", color:"rgba(245,240,232,0.5)" }}>
+                        Termine les vidéos LEVE pour déverrouiller
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {viewMode === "list"
-              ? renderListView()
+              ? (leveCompleted ? renderListView() : null)
               : youtubeMode
                 ? renderYoutubeFeed()
-                : renderPlatformGrid()}
+                : (leveCompleted ? renderPlatformGrid() : null)}
           </>
         )}
       </main>
