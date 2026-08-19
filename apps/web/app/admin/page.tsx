@@ -612,6 +612,7 @@ const FEATURE_FLAG_ORDER = [
   "parrainage",
   "verification-60-pct",
   "video-controls-switch",
+  "mini-player-pip",
   "videos-mode-youtube",
   "pool-pa",
   "collaborateur",
