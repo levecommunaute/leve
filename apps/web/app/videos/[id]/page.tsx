@@ -187,13 +187,6 @@ export default function VideoPage(): React.JSX.Element {
     }
   }, []);
 
-  const markUnlocked = useCallback((): void => {
-    if (unlockedRef.current) return;
-    unlockedRef.current = true;
-    setCodeUnlocked(true);
-    void saveProgress();
-  }, [saveProgress]);
-
   const showControls = useCallback((): void => {
     if (!hasStartedPlayingRef.current) return;
     setControlsVisible(true);
@@ -204,6 +197,20 @@ export default function VideoPage(): React.JSX.Element {
       setControlsVisible(false);
     }, CONTROLS_HIDE_MS);
   }, []);
+
+  const markUnlocked = useCallback((): void => {
+    if (unlockedRef.current) return;
+    unlockedRef.current = true;
+    setCodeUnlocked(true);
+    void saveProgress();
+    if (!hasStartedPlayingRef.current && !firstPlayTimerRef.current) {
+      firstPlayTimerRef.current = setTimeout(() => {
+        hasStartedPlayingRef.current = true;
+        setHasStartedPlaying(true);
+        showControls();
+      }, 5000);
+    }
+  }, [saveProgress, showControls]);
 
   const handleRewind = useCallback((): void => {
     const player = playerRef.current;
@@ -519,15 +526,18 @@ export default function VideoPage(): React.JSX.Element {
                 lastKnownPositionRef.current = event.target.getCurrentTime();
               }
             }
-            if (typeof opts?.seekTo !== "number" && maxProgressRef.current > 0) {
+            const resumedFromProgress =
+              typeof opts?.seekTo !== "number" && maxProgressRef.current > 0;
+            if (resumedFromProgress) {
               const duration = event.target.getDuration();
               if (duration > 0) {
                 const resumeAt = (maxProgressRef.current / 100) * duration;
                 event.target.seekTo(resumeAt, true);
                 lastKnownPositionRef.current = resumeAt;
+                event.target.pauseVideo();
               }
             }
-            if (opts?.autoplay) {
+            if (opts?.autoplay && !resumedFromProgress) {
               event.target.playVideo();
             }
             setIsPlaying(event.target.getPlayerState() === YT_STATE_PLAYING);
@@ -540,7 +550,11 @@ export default function VideoPage(): React.JSX.Element {
             if (event.data === YT_STATE_PLAYING) {
               setWasInterrupted(false);
               setIsPlayingLocked(!unlockedRef.current);
-              if (!hasStartedPlayingRef.current && !firstPlayTimerRef.current) {
+              if (
+                unlockedRef.current &&
+                !hasStartedPlayingRef.current &&
+                !firstPlayTimerRef.current
+              ) {
                 firstPlayTimerRef.current = setTimeout(() => {
                   hasStartedPlayingRef.current = true;
                   setHasStartedPlaying(true);
@@ -593,7 +607,7 @@ export default function VideoPage(): React.JSX.Element {
       await loadYouTubeIframeApi();
       if (cancelled || !playerContainerRef.current || !window.YT?.Player) return;
 
-      createPlayer(1);
+      createPlayer(1, { autoplay: false });
 
       progressIntervalRef.current = setInterval(() => {
         trackLinearProgress();
