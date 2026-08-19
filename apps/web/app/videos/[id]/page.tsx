@@ -202,6 +202,7 @@ export default function VideoPage(): React.JSX.Element {
     if (unlockedRef.current) return;
     unlockedRef.current = true;
     setCodeUnlocked(true);
+    setIsPlayingLocked(false);
     void saveProgress();
     if (!hasStartedPlayingRef.current && !firstPlayTimerRef.current) {
       firstPlayTimerRef.current = setTimeout(() => {
@@ -541,7 +542,9 @@ export default function VideoPage(): React.JSX.Element {
               event.target.playVideo();
             }
             setIsPlaying(event.target.getPlayerState() === YT_STATE_PLAYING);
-            showControls();
+            if (!resumedFromProgress) {
+              showControls();
+            }
           },
           onStateChange: (event) => {
             if (cancelled) return;
