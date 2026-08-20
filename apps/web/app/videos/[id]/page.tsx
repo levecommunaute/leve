@@ -535,7 +535,6 @@ export default function VideoPage(): React.JSX.Element {
                 const resumeAt = (maxProgressRef.current / 100) * duration;
                 event.target.seekTo(resumeAt, true);
                 lastKnownPositionRef.current = resumeAt;
-                event.target.pauseVideo();
               }
             }
             if (opts?.autoplay && !resumedFromProgress) {
@@ -568,6 +567,10 @@ export default function VideoPage(): React.JSX.Element {
 
             if (event.data === YT_STATE_PAUSED) {
               setIsPlayingLocked(false);
+            }
+
+            if (event.data === YT_STATE_PAUSED && unlockedRef.current) {
+              showControls();
             }
 
             // Mode A: controls: 1 permanent — no switch.
