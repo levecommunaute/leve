@@ -34,6 +34,7 @@ interface YTPlayer {
   playVideo(): void;
   pauseVideo(): void;
   seekTo(seconds: number, allowSeekAhead?: boolean): void;
+  cueVideoById(options: { videoId: string; startSeconds?: number }): void;
   destroy(): void;
 }
 
@@ -189,6 +190,9 @@ export default function VideoPage(): React.JSX.Element {
 
   const showControls = useCallback((): void => {
     if (!hasStartedPlayingRef.current) return;
+    if (!playerRef.current) return;
+    const state = playerRef.current.getPlayerState?.();
+    if (state !== YT_STATE_PLAYING) return;
     setControlsVisible(true);
     if (controlsHideTimeoutRef.current) {
       clearTimeout(controlsHideTimeoutRef.current);
@@ -533,8 +537,11 @@ export default function VideoPage(): React.JSX.Element {
               const duration = event.target.getDuration();
               if (duration > 0) {
                 const resumeAt = (maxProgressRef.current / 100) * duration;
-                event.target.seekTo(resumeAt, true);
                 lastKnownPositionRef.current = resumeAt;
+                event.target.cueVideoById({
+                  videoId: youtubeId,
+                  startSeconds: resumeAt,
+                });
               }
             }
             if (opts?.autoplay && !resumedFromProgress) {
@@ -567,10 +574,10 @@ export default function VideoPage(): React.JSX.Element {
 
             if (event.data === YT_STATE_PAUSED) {
               setIsPlayingLocked(false);
-            }
-
-            if (event.data === YT_STATE_PAUSED && unlockedRef.current) {
-              showControls();
+              setControlsVisible(false);
+              if (controlsHideTimeoutRef.current) {
+                clearTimeout(controlsHideTimeoutRef.current);
+              }
             }
 
             // Mode A: controls: 1 permanent — no switch.
