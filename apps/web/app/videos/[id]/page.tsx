@@ -3,7 +3,6 @@
 import { createBrowserClient } from "@repo/supabase/browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { BonusBadge } from "../../../components/bonus-badge";
 import { checkJwtExpired } from "../../../lib/supabase";
 
@@ -18,8 +17,6 @@ interface Video {
   title: string;
   points_value: number;
   bonus_expire_at: string | null;
-  categorie?: string | null;
-  tags?: string | null;
 }
 
 interface VideoProgressRow {
@@ -34,7 +31,6 @@ interface YTPlayer {
   playVideo(): void;
   pauseVideo(): void;
   seekTo(seconds: number, allowSeekAhead?: boolean): void;
-  cueVideoById(options: { videoId: string; startSeconds?: number }): void;
   destroy(): void;
 }
 
@@ -100,6 +96,23 @@ function isCodeComplete(formatted: string): boolean {
   return formatted.replace(/-/g, "").length === 12;
 }
 
+function codeInputStyle(disabled: boolean): React.CSSProperties {
+  return {
+    flex: "1 1 220px",
+    minWidth: "220px",
+    maxWidth: "320px",
+    padding: ".75rem 1rem",
+    background: "var(--bg-card-inner)",
+    border: "1px solid #333",
+    color: disabled ? "var(--text-40)" : "var(--text)",
+    textAlign: "center",
+    fontSize: "1.1rem",
+    letterSpacing: "0.08em",
+    fontFamily: "var(--font-mono), ui-monospace, monospace",
+    cursor: disabled ? "not-allowed" : "text",
+  };
+}
+
 const pageShell: React.CSSProperties = {
   background: "var(--bg)",
   minHeight: "100vh",
@@ -117,7 +130,6 @@ export default function VideoPage(): React.JSX.Element {
   const [loading, setLoading] = useState<boolean>(true);
   const [verification60Enabled, setVerification60Enabled] = useState<boolean>(false);
   const [controlsSwitchEnabled, setControlsSwitchEnabled] = useState<boolean>(false);
-  const [pipEnabled, setPipEnabled] = useState<boolean>(false);
   const [flagLoaded, setFlagLoaded] = useState<boolean>(false);
   const [userId, setUserId] = useState<string>("");
   const [progressLoaded, setProgressLoaded] = useState<boolean>(false);
@@ -133,22 +145,14 @@ export default function VideoPage(): React.JSX.Element {
     already_completed?: boolean;
   } | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [viewCount, setViewCount] = useState<number>(0);
-  const [displayProgress, setDisplayProgress] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [controlsVisible, setControlsVisible] = useState<boolean>(false);
+  const [controlsVisible, setControlsVisible] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [playerControls, setPlayerControls] = useState<0 | 1>(1);
-  const [wasInterrupted, setWasInterrupted] = useState<boolean>(false);
-  const [isPlayingLocked, setIsPlayingLocked] = useState<boolean>(false);
-  const [hasStartedPlaying, setHasStartedPlaying] = useState<boolean>(false);
-  const [isVideoPaused, setIsVideoPaused] = useState<boolean>(true);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const firstPlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasStartedPlayingRef = useRef<boolean>(false);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -189,11 +193,14 @@ export default function VideoPage(): React.JSX.Element {
     }
   }, []);
 
+  const markUnlocked = useCallback((): void => {
+    if (unlockedRef.current) return;
+    unlockedRef.current = true;
+    setCodeUnlocked(true);
+    void saveProgress();
+  }, [saveProgress]);
+
   const showControls = useCallback((): void => {
-    if (!hasStartedPlayingRef.current) return;
-    if (!playerRef.current) return;
-    const state = playerRef.current.getPlayerState?.();
-    if (state !== YT_STATE_PLAYING) return;
     setControlsVisible(true);
     if (controlsHideTimeoutRef.current) {
       clearTimeout(controlsHideTimeoutRef.current);
@@ -202,21 +209,6 @@ export default function VideoPage(): React.JSX.Element {
       setControlsVisible(false);
     }, CONTROLS_HIDE_MS);
   }, []);
-
-  const markUnlocked = useCallback((): void => {
-    if (unlockedRef.current) return;
-    unlockedRef.current = true;
-    setCodeUnlocked(true);
-    setIsPlayingLocked(false);
-    void saveProgress();
-    if (!hasStartedPlayingRef.current && !firstPlayTimerRef.current) {
-      firstPlayTimerRef.current = setTimeout(() => {
-        hasStartedPlayingRef.current = true;
-        setHasStartedPlaying(true);
-        showControls();
-      }, 5000);
-    }
-  }, [saveProgress, showControls]);
 
   const handleRewind = useCallback((): void => {
     const player = playerRef.current;
@@ -267,7 +259,6 @@ export default function VideoPage(): React.JSX.Element {
     if (timeDiff >= 0 && currentPct > maxProgressRef.current) {
       maxProgressRef.current = currentPct;
     }
-    setDisplayProgress(Math.round(maxProgressRef.current));
 
     if (maxProgressRef.current >= WATCH_THRESHOLD) {
       markUnlocked();
@@ -283,22 +274,6 @@ export default function VideoPage(): React.JSX.Element {
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    function handleVisibility(): void {
-      if (document.visibilityState === "hidden") {
-        if (playerRef.current && typeof playerRef.current.pauseVideo === "function") {
-          playerRef.current.pauseVideo();
-          setWasInterrupted(true);
-        }
-      }
-    }
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
@@ -332,7 +307,7 @@ export default function VideoPage(): React.JSX.Element {
       const supabase = createBrowserClient();
       const { data, error } = await supabase
         .from("videos")
-        .select("id, youtube_id, title, points_value, bonus_expire_at, categorie, tags")
+        .select("id, youtube_id, title, points_value, bonus_expire_at")
         .eq("id", id)
         .maybeSingle();
 
@@ -356,23 +331,19 @@ export default function VideoPage(): React.JSX.Element {
     let cancelled = false;
     void (async () => {
       try {
-        const [r60, rSwitch, rPip] = await Promise.all([
+        const [r60, rSwitch] = await Promise.all([
           fetch("/api/feature-flags?nom=verification-60-pct", { cache: "no-store" }),
           fetch("/api/feature-flags?nom=video-controls-switch", { cache: "no-store" }),
-          fetch("/api/feature-flags?nom=mini-player-pip", { cache: "no-store" }),
         ]);
         const j60 = (await r60.json()) as { actif?: boolean };
         const jSwitch = (await rSwitch.json()) as { actif?: boolean };
-        const jPip = (await rPip.json()) as { actif?: boolean };
         if (cancelled) return;
         setVerification60Enabled(Boolean(j60.actif));
         setControlsSwitchEnabled(Boolean(jSwitch.actif));
-        setPipEnabled(Boolean(jPip.actif));
       } catch {
         if (!cancelled) {
           setVerification60Enabled(false);
           setControlsSwitchEnabled(false);
-          setPipEnabled(false);
         }
       } finally {
         if (!cancelled) setFlagLoaded(true);
@@ -532,53 +503,15 @@ export default function VideoPage(): React.JSX.Element {
                 lastKnownPositionRef.current = event.target.getCurrentTime();
               }
             }
-            const resumedFromProgress =
-              typeof opts?.seekTo !== "number" && maxProgressRef.current > 0;
-            if (resumedFromProgress) {
-              const duration = event.target.getDuration();
-              if (duration > 0) {
-                const resumeAt = (maxProgressRef.current / 100) * duration;
-                lastKnownPositionRef.current = resumeAt;
-                event.target.seekTo(resumeAt, true);
-              }
-            }
-            if (opts?.autoplay && !resumedFromProgress) {
+            if (opts?.autoplay) {
               event.target.playVideo();
             }
             setIsPlaying(event.target.getPlayerState() === YT_STATE_PLAYING);
-            if (!resumedFromProgress) {
-              showControls();
-            }
+            showControls();
           },
           onStateChange: (event) => {
             if (cancelled) return;
             setIsPlaying(event.data === YT_STATE_PLAYING);
-
-            if (event.data === YT_STATE_PLAYING) {
-              setIsVideoPaused(false);
-              setWasInterrupted(false);
-              setIsPlayingLocked(!unlockedRef.current);
-              if (
-                unlockedRef.current &&
-                !hasStartedPlayingRef.current &&
-                !firstPlayTimerRef.current
-              ) {
-                firstPlayTimerRef.current = setTimeout(() => {
-                  hasStartedPlayingRef.current = true;
-                  setHasStartedPlaying(true);
-                  showControls();
-                }, 5000);
-              }
-            }
-
-            if (event.data === YT_STATE_PAUSED) {
-              setIsVideoPaused(true);
-              setIsPlayingLocked(false);
-              setControlsVisible(false);
-              if (controlsHideTimeoutRef.current) {
-                clearTimeout(controlsHideTimeoutRef.current);
-              }
-            }
 
             // Mode A: controls: 1 permanent — no switch.
             if (!controlsSwitchEnabledRef.current) return;
@@ -620,7 +553,7 @@ export default function VideoPage(): React.JSX.Element {
       await loadYouTubeIframeApi();
       if (cancelled || !playerContainerRef.current || !window.YT?.Player) return;
 
-      createPlayer(1, { autoplay: false });
+      createPlayer(1);
 
       progressIntervalRef.current = setInterval(() => {
         trackLinearProgress();
@@ -638,10 +571,6 @@ export default function VideoPage(): React.JSX.Element {
       if (controlsHideTimeoutRef.current) {
         clearTimeout(controlsHideTimeoutRef.current);
         controlsHideTimeoutRef.current = null;
-      }
-      if (firstPlayTimerRef.current) {
-        clearTimeout(firstPlayTimerRef.current);
-        firstPlayTimerRef.current = null;
       }
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -771,14 +700,9 @@ export default function VideoPage(): React.JSX.Element {
               padding: 0.25rem 0.5rem;
             }
             .video-page-content {
-              max-width: 800px;
+              max-width: 900px;
               margin: 0 auto;
-              padding: 0;
-            }
-            @media (max-width: 767px) {
-              .video-page-content {
-                max-width: 100%;
-              }
+              padding: 2rem;
             }
             .video-page-code-box {
               padding: 2rem;
@@ -808,9 +732,6 @@ export default function VideoPage(): React.JSX.Element {
               pointer-events: all;
               background: transparent;
             }
-            .video-player-progress-blocker--inactive {
-              pointer-events: none !important;
-            }
             .video-player-controls {
               position: absolute;
               inset: 0;
@@ -821,15 +742,10 @@ export default function VideoPage(): React.JSX.Element {
               padding-bottom: 1rem;
               pointer-events: none;
               opacity: 0;
-              visibility: hidden;
               transition: opacity 0.25s ease;
             }
             .video-player-controls--visible {
               opacity: 1;
-              visibility: visible;
-            }
-            .video-player-controls:not(.video-player-controls--visible) {
-              display: none;
             }
             .video-player-controls-bar {
               display: flex;
@@ -869,9 +785,6 @@ export default function VideoPage(): React.JSX.Element {
             .video-player-controls--visible .video-player-fullscreen-btn {
               pointer-events: all;
             }
-            .video-player-controls--locked .video-player-controls-bar {
-              display: none;
-            }
             .video-player-btn:hover {
               background: rgba(255, 255, 255, 0.15);
             }
@@ -880,7 +793,7 @@ export default function VideoPage(): React.JSX.Element {
                 padding: 1rem !important;
               }
               .video-page-content {
-                padding: 0;
+                padding: 1rem;
               }
               .video-page-code-box {
                 padding: 1rem;
@@ -890,123 +803,55 @@ export default function VideoPage(): React.JSX.Element {
         }}
       />
       <nav
+        className="video-page-nav"
         style={{
-          padding: "0.75rem 1.25rem",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          padding: "1rem 2rem",
+          borderBottom: "1px solid rgba(255,255,255,.08)",
           display: "flex",
-          alignItems: "center",
-          gap: "0.75rem",
-          position: "sticky",
-          top: 0,
-          background: "rgba(8,8,8,0.92)",
-          backdropFilter: "blur(8px)",
-          zIndex: 20,
+          justifyContent: "space-between",
         }}
       >
-        <button
-          type="button"
-          onClick={() => router.push("/videos")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            background: "transparent",
-            border: "none",
-            color: "rgba(245,240,232,0.55)",
-            cursor: "pointer",
-            fontSize: "0.82rem",
-            padding: "4px 0",
-          }}
-        >
-          <ChevronLeft size={16} strokeWidth={1.5} />
-          Vidéos
-        </button>
-        <span style={{ opacity: 0.2 }}>|</span>
         <span
-          style={{
-            fontFamily: "var(--font-bebas), Impact, sans-serif",
-            fontSize: "1.1rem",
-            letterSpacing: "0.1em",
-            color: "var(--accent)",
-            opacity: 0.9,
-          }}
+          style={{ fontFamily: "Bebas Neue,sans-serif", fontSize: "1.5rem", cursor: "pointer" }}
+          onClick={() => router.push("/dashboard")}
         >
           LEVE
+        </span>
+        <span
+          className="video-page-nav-back"
+          style={{ opacity: 0.5, cursor: "pointer" }}
+          onClick={() => router.push("/videos")}
+        >
+          Retour
         </span>
       </nav>
       <div
         className="video-page-content"
         style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
       >
-        <div style={{ padding: "1.25rem 1.25rem 0.75rem" }}>
-          {video.categorie || video.tags ? (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: "0.4rem",
-                marginBottom: "0.6rem",
-              }}
-            >
-              {video.categorie ? (
-                <span
-                  style={{
-                    fontSize: "0.68rem",
-                    padding: "2px 8px",
-                    borderRadius: "20px",
-                    background: "rgba(74,144,217,0.1)",
-                    border: "1px solid rgba(74,144,217,0.3)",
-                    color: "rgba(74,144,217,0.9)",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {video.categorie}
-                </span>
-              ) : null}
-              {video.tags ? (
-                <span
-                  style={{
-                    fontSize: "0.68rem",
-                    color: "rgba(245,240,232,0.4)",
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  {video.tags}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-
-          <h1
+        <h1 className="video-page-title" style={{ fontFamily: "Bebas Neue,sans-serif", margin: 0 }}>
+          {video.title}
+        </h1>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginTop: "0.75rem",
+          }}
+        >
+          <span
             style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "clamp(1.5rem, 5vw, 2.25rem)",
-              letterSpacing: "0.04em",
-              color: "var(--text)",
-              lineHeight: 1.1,
-              margin: "0 0 0.75rem",
+              background: "var(--accent)",
+              color: "#080808",
+              padding: ".25rem .75rem",
+              fontSize: ".75rem",
             }}
           >
-            {video.title}
-          </h1>
-
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
-            <span
-              style={{
-                background: "var(--accent)",
-                color: "#080808",
-                padding: "0.25rem 0.75rem",
-                fontSize: "0.75rem",
-                borderRadius: "4px",
-                fontWeight: 600,
-              }}
-            >
-              {video.points_value} pts
-            </span>
-            <BonusBadge bonusExpireAt={video.bonus_expire_at} />
-          </div>
+            {video.points_value} pts
+          </span>
+          <BonusBadge bonusExpireAt={video.bonus_expire_at} />
         </div>
         <div
           style={{
@@ -1020,7 +865,7 @@ export default function VideoPage(): React.JSX.Element {
               <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
               {!controlsSwitchEnabled ? (
                 <div
-                  className={`video-player-progress-blocker${isVideoPaused && codeUnlocked ? " video-player-progress-blocker--inactive" : ""}`}
+                  className="video-player-progress-blocker"
                   aria-hidden="true"
                   onClick={showControls}
                   onMouseEnter={showControls}
@@ -1037,7 +882,7 @@ export default function VideoPage(): React.JSX.Element {
                 />
               ) : null}
               <div
-                className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}${isPlayingLocked ? " video-player-controls--locked" : ""}`}
+                className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                 onMouseEnter={showControls}
               >
                 <div className="video-player-controls-bar">
@@ -1076,244 +921,105 @@ export default function VideoPage(): React.JSX.Element {
             />
           )}
         </div>
-        {(() => {
-          const modeRevoir = quizAlreadyCompleted;
-          const modePremiere = !quizAlreadyCompleted && formLocked;
-
-          if (modeRevoir) {
-            return (
-              <div style={{ padding: "1.25rem" }}>
-                <div
+        <div className="video-page-code-box" style={{ background: "var(--bg-card)", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
+          <h2
+            style={{
+              fontFamily: "Bebas Neue,sans-serif",
+              fontSize: "1.8rem",
+              color: "#C0392B",
+              marginBottom: "1.5rem",
+            }}
+          >
+            SOUMETS TON CODE
+          </h2>
+          {quizAlreadyCompleted && !result?.already_completed ? (
+            <p
+              style={{
+                margin: "0 0 1.5rem",
+                padding: "1rem 1.25rem",
+                background: "rgba(46, 125, 50, 0.15)",
+                border: "1px solid rgba(46, 125, 50, 0.4)",
+                fontSize: "0.95rem",
+                lineHeight: 1.5,
+              }}
+            >
+              ✅ Quiz complété — Essaie une autre vidéo pour gagner plus de points
+            </p>
+          ) : formLocked ? (
+            <p
+              style={{
+                margin: "0 0 1.5rem",
+                padding: "1rem 1.25rem",
+                background: "rgba(212, 160, 23, 0.12)",
+                border: "1px solid rgba(212, 160, 23, 0.35)",
+                fontSize: "0.95rem",
+                lineHeight: 1.5,
+              }}
+            >
+              Regardez au moins 60% de la vidéo pour déverrouiller le code 🔒
+            </p>
+          ) : null}
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={quizAlreadyCompleted ? "" : codeInput}
+              onChange={handleCodeChange}
+              placeholder={quizAlreadyCompleted ? "Quiz déjà complété ✅" : "XXXX-YYYY-ZZZZ"}
+              disabled={codeFieldDisabled}
+              style={codeInputStyle(codeFieldDisabled)}
+            />
+            {!quizAlreadyCompleted ? (
+              !codeValidated ? (
+                <button
+                  onClick={() => void handleSubmit()}
+                  disabled={formLocked || submitting || !isCodeComplete(codeInput)}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "0.75rem 1rem",
-                    background: "rgba(46,204,113,0.08)",
-                    border: "1px solid rgba(46,204,113,0.25)",
-                    borderRadius: "8px",
-                    marginBottom: "1rem",
+                    background: formLocked ? "#555" : "#C0392B",
+                    color: "#fff",
+                    border: "none",
+                    padding: ".75rem 2rem",
+                    cursor: formLocked ? "not-allowed" : "pointer",
+                    opacity: formLocked ? 0.6 : 1,
                   }}
                 >
-                  <span style={{ fontSize: "1rem" }}>✅</span>
-                  <span style={{ fontSize: "0.85rem", color: "rgba(46,204,113,0.9)" }}>
-                    Quiz complété — +{video.points_value} pts gagnés
-                  </span>
-                </div>
-                <div
-                  style={{
-                    background: "var(--bg-card)",
-                    border: "1px solid var(--border-soft)",
-                    borderRadius: "8px",
-                    padding: "1rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "0.75rem",
-                    }}
-                  >
-                    <div>
-                      <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--text)" }}>
-                        {viewCount + 1}×
-                      </p>
-                      <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.5 }}>visionnages</p>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.5 }}>Bonus défini prochainement</p>
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      padding: "0.75rem",
-                      background: "rgba(46,204,113,0.06)",
-                      borderRadius: "6px",
-                      border: "1px solid rgba(46,204,113,0.15)",
-                      fontSize: "0.8rem",
-                      color: "rgba(46,204,113,0.8)",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    Chaque réécoute compte. Un système de bonus sera mis en place pour les membres assidus.
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          if (modePremiere) {
-            return (
-              <div style={{ padding: "1.25rem" }}>
-                <div
-                  style={{
-                    background: "var(--bg-card)",
-                    border: "1px solid rgba(212,160,23,0.2)",
-                    borderRadius: "8px",
-                    padding: "1rem",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
-                    <div style={{ flexShrink: 0 }}>
-                      <p style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700, color: "var(--accent)" }}>
-                        {displayProgress}%
-                      </p>
-                      <p style={{ margin: 0, fontSize: "0.68rem", opacity: 0.45 }}>/ 60%</p>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", lineHeight: 1.5, opacity: 0.75 }}>
-                        Regarde la vidéo jusqu&apos;à 60% pour débloquer le formulaire de code.
-                      </p>
-                      <div
-                        style={{
-                          height: 4,
-                          borderRadius: 2,
-                          background: "rgba(212,160,23,0.12)",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: "100%",
-                            borderRadius: 2,
-                            background: "var(--accent)",
-                            width: `${Math.min(100, (displayProgress / 60) * 100)}%`,
-                            transition: "width 0.3s ease",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <div style={{ padding: "1.25rem" }}>
-              {!codeValidated ? (
-                <div
-                  style={{
-                    background: "var(--bg-card)",
-                    border: "1px solid var(--border-soft)",
-                    borderRadius: "8px",
-                    padding: "1rem",
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: "0 0 0.6rem",
-                      fontSize: "0.72rem",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      opacity: 0.55,
-                    }}
-                  >
-                    Code secret de la vidéo
-                  </p>
-                  <div style={{ display: "flex", gap: "0.65rem", alignItems: "center" }}>
-                    <input
-                      type="text"
-                      inputMode="text"
-                      autoComplete="off"
-                      spellCheck={false}
-                      value={codeInput}
-                      onChange={handleCodeChange}
-                      placeholder="XXXX-YYYY-ZZZZ"
-                      disabled={codeFieldDisabled}
-                      style={{
-                        flex: 1,
-                        height: "38px",
-                        borderRadius: "4px",
-                        background: "rgba(245,240,232,0.05)",
-                        border: "1px solid rgba(245,240,232,0.15)",
-                        color: "var(--text)",
-                        padding: "0 0.75rem",
-                        fontFamily: "var(--font-mono), ui-monospace, monospace",
-                        fontSize: "0.88rem",
-                        letterSpacing: "0.08em",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      disabled={formLocked || submitting || !isCodeComplete(codeInput)}
-                      onClick={() => void handleSubmit()}
-                      style={{
-                        height: "38px",
-                        padding: "0 1.25rem",
-                        borderRadius: "4px",
-                        background: "#C0392B",
-                        color: "white",
-                        border: "none",
-                        fontWeight: 600,
-                        fontSize: "0.85rem",
-                        cursor: "pointer",
-                        opacity: formLocked || submitting || !isCodeComplete(codeInput) ? 0.4 : 1,
-                      }}
-                    >
-                      {submitting ? "…" : "VALIDER"}
-                    </button>
-                  </div>
-                  {result && !result.success ? (
-                    <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: "#C0392B" }}>
-                      {result.already_completed ? result.message : `❌ ${result.message || "Code incorrect"}`}
-                    </p>
-                  ) : null}
-                  <p style={{ margin: "0.6rem 0 0", fontSize: "0.72rem", opacity: 0.45, lineHeight: 1.5 }}>
-                    Le code apparaît dans la vidéo. Soumets-le pour faire le quiz et gagner tes points.
-                  </p>
-                </div>
+                  VALIDER
+                </button>
               ) : (
-                <div
+                <button
+                  onClick={startQuiz}
                   style={{
-                    background: "var(--bg-card)",
-                    border: "1px solid rgba(46,204,113,0.25)",
-                    borderRadius: "8px",
-                    padding: "1rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
+                    background: "#C0392B",
+                    color: "#fff",
+                    border: "none",
+                    padding: ".75rem 2rem",
+                    cursor: "pointer",
                   }}
                 >
-                  <div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: "0.85rem",
-                        color: "rgba(46,204,113,0.9)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Code validé ✓
-                    </p>
-                    <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", opacity: 0.55 }}>
-                      Prêt pour le quiz
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={startQuiz}
-                    style={{
-                      height: "36px",
-                      padding: "0 1.25rem",
-                      borderRadius: "4px",
-                      background: "var(--accent)",
-                      color: "#000",
-                      border: "none",
-                      fontWeight: 700,
-                      fontSize: "0.85rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    COMMENCER LE QUIZ →
-                  </button>
-                </div>
-              )}
+                  Commencer le quiz
+                </button>
+              )
+            ) : null}
+          </div>
+          {result && !result.success ? (
+            <div
+              style={{
+                marginTop: "1.5rem",
+                padding: "1rem",
+                background: result.already_completed
+                  ? "rgba(46, 125, 50, 0.15)"
+                  : "rgba(192,57,43,.1)",
+                fontFamily: "var(--font-mono), ui-monospace, monospace",
+              }}
+            >
+              {result.already_completed
+                ? result.message
+                : `❌ ${result.message || "Code incorrect"}`}
             </div>
-          );
-        })()}
+          ) : null}
+        </div>
       </div>
 
       {showQuizReadyModal ? (
@@ -1397,73 +1103,6 @@ export default function VideoPage(): React.JSX.Element {
               </button>
             </div>
           </div>
-        </div>
-      ) : null}
-
-      {pipEnabled ? (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "5rem",
-            left: "1rem",
-            right: "1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            padding: "0.75rem 1rem",
-            borderRadius: "8px",
-            background: "rgba(18,18,18,0.95)",
-            border: "1px solid rgba(245,240,232,0.1)",
-            backdropFilter: "blur(8px)",
-            zIndex: 25,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-          }}
-        >
-          <span style={{ fontSize: "0.9rem" }}>▶</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.78rem",
-                fontWeight: 500,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {video.title}
-            </p>
-            <p style={{ margin: 0, fontSize: "0.68rem", opacity: 0.45 }}>En cours de lecture</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.push("/videos")}
-            style={{
-              fontSize: "0.72rem",
-              padding: "4px 10px",
-              borderRadius: "4px",
-              border: "1px solid rgba(212,160,23,0.35)",
-              color: "var(--accent)",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-          >
-            Mini player
-          </button>
-          <button
-            type="button"
-            onClick={() => setPipEnabled(false)}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "rgba(245,240,232,0.4)",
-              cursor: "pointer",
-              fontSize: "1rem",
-              padding: "4px",
-            }}
-          >
-            ×
-          </button>
         </div>
       ) : null}
     </main>
