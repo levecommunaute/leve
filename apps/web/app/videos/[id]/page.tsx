@@ -824,10 +824,15 @@ export default function VideoPage(): React.JSX.Element {
               padding-bottom: 1rem;
               pointer-events: none;
               opacity: 0;
+              visibility: hidden;
               transition: opacity 0.25s ease;
             }
             .video-player-controls--visible {
               opacity: 1;
+              visibility: visible;
+            }
+            .video-player-controls:not(.video-player-controls--visible) {
+              display: none;
             }
             .video-player-controls-bar {
               display: flex;
