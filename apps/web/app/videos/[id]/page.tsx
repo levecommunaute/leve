@@ -811,6 +811,9 @@ export default function VideoPage(): React.JSX.Element {
               pointer-events: all;
               background: transparent;
             }
+            .video-player-progress-blocker--inactive {
+              pointer-events: none !important;
+            }
             .video-player-controls {
               position: absolute;
               inset: 0;
@@ -1013,9 +1016,9 @@ export default function VideoPage(): React.JSX.Element {
           {verification60Enabled ? (
             <div ref={videoShellRef} className="video-player-shell">
               <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
-              {!controlsSwitchEnabled && (!isVideoPaused || !codeUnlocked) ? (
+              {!controlsSwitchEnabled ? (
                 <div
-                  className="video-player-progress-blocker"
+                  className={`video-player-progress-blocker${isVideoPaused && codeUnlocked ? " video-player-progress-blocker--inactive" : ""}`}
                   aria-hidden="true"
                   onClick={showControls}
                   onMouseEnter={showControls}
