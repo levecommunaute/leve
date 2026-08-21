@@ -142,6 +142,7 @@ export default function VideoPage(): React.JSX.Element {
   const [wasInterrupted, setWasInterrupted] = useState<boolean>(false);
   const [isPlayingLocked, setIsPlayingLocked] = useState<boolean>(false);
   const [hasStartedPlaying, setHasStartedPlaying] = useState<boolean>(false);
+  const [isVideoPaused, setIsVideoPaused] = useState<boolean>(true);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -557,6 +558,7 @@ export default function VideoPage(): React.JSX.Element {
             setIsPlaying(event.data === YT_STATE_PLAYING);
 
             if (event.data === YT_STATE_PLAYING) {
+              setIsVideoPaused(false);
               setWasInterrupted(false);
               setIsPlayingLocked(!unlockedRef.current);
               if (
@@ -573,6 +575,7 @@ export default function VideoPage(): React.JSX.Element {
             }
 
             if (event.data === YT_STATE_PAUSED) {
+              setIsVideoPaused(true);
               setIsPlayingLocked(false);
               setControlsVisible(false);
               if (controlsHideTimeoutRef.current) {
@@ -1010,7 +1013,7 @@ export default function VideoPage(): React.JSX.Element {
           {verification60Enabled ? (
             <div ref={videoShellRef} className="video-player-shell">
               <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
-              {!controlsSwitchEnabled ? (
+              {!controlsSwitchEnabled && (!isVideoPaused || !unlockedRef.current) ? (
                 <div
                   className="video-player-progress-blocker"
                   aria-hidden="true"
