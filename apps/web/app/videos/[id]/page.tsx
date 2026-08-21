@@ -539,10 +539,7 @@ export default function VideoPage(): React.JSX.Element {
               if (duration > 0) {
                 const resumeAt = (maxProgressRef.current / 100) * duration;
                 lastKnownPositionRef.current = resumeAt;
-                event.target.cueVideoById({
-                  videoId: youtubeId,
-                  startSeconds: resumeAt,
-                });
+                event.target.seekTo(resumeAt, true);
               }
             }
             if (opts?.autoplay && !resumedFromProgress) {
