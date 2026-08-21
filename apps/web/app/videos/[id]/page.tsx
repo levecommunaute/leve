@@ -138,6 +138,7 @@ export default function VideoPage(): React.JSX.Element {
   const [userId, setUserId] = useState<string>("");
   const [progressLoaded, setProgressLoaded] = useState<boolean>(false);
   const [codeUnlocked, setCodeUnlocked] = useState<boolean>(false);
+  const [displayProgress, setDisplayProgress] = useState<number>(0);
   const [codeInput, setCodeInput] = useState<string>("");
   const [codeValidated, setCodeValidated] = useState<boolean>(false);
   const [quizAlreadyCompleted, setQuizAlreadyCompleted] = useState<boolean>(false);
@@ -263,6 +264,8 @@ export default function VideoPage(): React.JSX.Element {
     if (timeDiff >= 0 && currentPct > maxProgressRef.current) {
       maxProgressRef.current = currentPct;
     }
+
+    setDisplayProgress(Math.min(100, Math.round(maxProgressRef.current)));
 
     if (maxProgressRef.current >= WATCH_THRESHOLD) {
       markUnlocked();
@@ -402,6 +405,7 @@ export default function VideoPage(): React.JSX.Element {
         const row = data as VideoProgressRow;
         const savedMax = Number(row.max_progress) || 0;
         maxProgressRef.current = savedMax;
+        setDisplayProgress(Math.min(100, Math.round(savedMax)));
 
         if (row.unlocked || savedMax >= WATCH_THRESHOLD) {
           unlockedRef.current = true;
@@ -1076,9 +1080,27 @@ export default function VideoPage(): React.JSX.Element {
                     padding: "1rem",
                   }}
                 >
-                  <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", lineHeight: 1.5, opacity: 0.75 }}>
-                    Regarde la vidéo jusqu&apos;à 60% pour débloquer le formulaire de code.
-                  </p>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
+                    <div style={{ flexShrink: 0, textAlign: "center", minWidth: "48px" }}>
+                      <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--accent)", lineHeight: 1 }}>
+                        {displayProgress}%
+                      </p>
+                      <p style={{ margin: 0, fontSize: "0.65rem", opacity: 0.45 }}>/ 60%</p>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.75 }}>
+                        Regarde la vidéo jusqu&apos;à 60% pour débloquer le formulaire de code.
+                      </p>
+                      <div style={{ height: 4, borderRadius: 2, background: "rgba(212,160,23,0.12)", overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%", borderRadius: 2,
+                          background: "var(--accent)",
+                          width: `${Math.min(100, (displayProgress / 60) * 100)}%`,
+                          transition: "width 0.5s ease",
+                        }} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
