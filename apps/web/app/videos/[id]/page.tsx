@@ -34,6 +34,7 @@ interface YTPlayer {
   playVideo(): void;
   pauseVideo(): void;
   seekTo(seconds: number, allowSeekAhead?: boolean): void;
+  cueVideoById(options: { videoId: string; startSeconds?: number }): void;
   destroy(): void;
 }
 
@@ -133,14 +134,21 @@ export default function VideoPage(): React.JSX.Element {
   } | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [viewCount, setViewCount] = useState<number>(0);
+  const [displayProgress, setDisplayProgress] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [controlsVisible, setControlsVisible] = useState<boolean>(true);
+  const [controlsVisible, setControlsVisible] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [playerControls, setPlayerControls] = useState<0 | 1>(1);
+  const [wasInterrupted, setWasInterrupted] = useState<boolean>(false);
+  const [isPlayingLocked, setIsPlayingLocked] = useState<boolean>(false);
+  const [hasStartedPlaying, setHasStartedPlaying] = useState<boolean>(false);
+  const [isVideoPaused, setIsVideoPaused] = useState<boolean>(true);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const firstPlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasStartedPlayingRef = useRef<boolean>(false);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -181,14 +189,11 @@ export default function VideoPage(): React.JSX.Element {
     }
   }, []);
 
-  const markUnlocked = useCallback((): void => {
-    if (unlockedRef.current) return;
-    unlockedRef.current = true;
-    setCodeUnlocked(true);
-    void saveProgress();
-  }, [saveProgress]);
-
   const showControls = useCallback((): void => {
+    if (!hasStartedPlayingRef.current) return;
+    if (!playerRef.current) return;
+    const state = playerRef.current.getPlayerState?.();
+    if (state !== YT_STATE_PLAYING) return;
     setControlsVisible(true);
     if (controlsHideTimeoutRef.current) {
       clearTimeout(controlsHideTimeoutRef.current);
@@ -197,6 +202,21 @@ export default function VideoPage(): React.JSX.Element {
       setControlsVisible(false);
     }, CONTROLS_HIDE_MS);
   }, []);
+
+  const markUnlocked = useCallback((): void => {
+    if (unlockedRef.current) return;
+    unlockedRef.current = true;
+    setCodeUnlocked(true);
+    setIsPlayingLocked(false);
+    void saveProgress();
+    if (!hasStartedPlayingRef.current && !firstPlayTimerRef.current) {
+      firstPlayTimerRef.current = setTimeout(() => {
+        hasStartedPlayingRef.current = true;
+        setHasStartedPlaying(true);
+        showControls();
+      }, 5000);
+    }
+  }, [saveProgress, showControls]);
 
   const handleRewind = useCallback((): void => {
     const player = playerRef.current;
@@ -247,6 +267,7 @@ export default function VideoPage(): React.JSX.Element {
     if (timeDiff >= 0 && currentPct > maxProgressRef.current) {
       maxProgressRef.current = currentPct;
     }
+    setDisplayProgress(Math.round(maxProgressRef.current));
 
     if (maxProgressRef.current >= WATCH_THRESHOLD) {
       markUnlocked();
@@ -262,6 +283,22 @@ export default function VideoPage(): React.JSX.Element {
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleVisibility(): void {
+      if (document.visibilityState === "hidden") {
+        if (playerRef.current && typeof playerRef.current.pauseVideo === "function") {
+          playerRef.current.pauseVideo();
+          setWasInterrupted(true);
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, []);
 
@@ -495,15 +532,53 @@ export default function VideoPage(): React.JSX.Element {
                 lastKnownPositionRef.current = event.target.getCurrentTime();
               }
             }
-            if (opts?.autoplay) {
+            const resumedFromProgress =
+              typeof opts?.seekTo !== "number" && maxProgressRef.current > 0;
+            if (resumedFromProgress) {
+              const duration = event.target.getDuration();
+              if (duration > 0) {
+                const resumeAt = (maxProgressRef.current / 100) * duration;
+                lastKnownPositionRef.current = resumeAt;
+                event.target.seekTo(resumeAt, true);
+              }
+            }
+            if (opts?.autoplay && !resumedFromProgress) {
               event.target.playVideo();
             }
             setIsPlaying(event.target.getPlayerState() === YT_STATE_PLAYING);
-            showControls();
+            if (!resumedFromProgress) {
+              showControls();
+            }
           },
           onStateChange: (event) => {
             if (cancelled) return;
             setIsPlaying(event.data === YT_STATE_PLAYING);
+
+            if (event.data === YT_STATE_PLAYING) {
+              setIsVideoPaused(false);
+              setWasInterrupted(false);
+              setIsPlayingLocked(!unlockedRef.current);
+              if (
+                unlockedRef.current &&
+                !hasStartedPlayingRef.current &&
+                !firstPlayTimerRef.current
+              ) {
+                firstPlayTimerRef.current = setTimeout(() => {
+                  hasStartedPlayingRef.current = true;
+                  setHasStartedPlaying(true);
+                  showControls();
+                }, 5000);
+              }
+            }
+
+            if (event.data === YT_STATE_PAUSED) {
+              setIsVideoPaused(true);
+              setIsPlayingLocked(false);
+              setControlsVisible(false);
+              if (controlsHideTimeoutRef.current) {
+                clearTimeout(controlsHideTimeoutRef.current);
+              }
+            }
 
             // Mode A: controls: 1 permanent — no switch.
             if (!controlsSwitchEnabledRef.current) return;
@@ -545,7 +620,7 @@ export default function VideoPage(): React.JSX.Element {
       await loadYouTubeIframeApi();
       if (cancelled || !playerContainerRef.current || !window.YT?.Player) return;
 
-      createPlayer(1);
+      createPlayer(1, { autoplay: false });
 
       progressIntervalRef.current = setInterval(() => {
         trackLinearProgress();
@@ -563,6 +638,10 @@ export default function VideoPage(): React.JSX.Element {
       if (controlsHideTimeoutRef.current) {
         clearTimeout(controlsHideTimeoutRef.current);
         controlsHideTimeoutRef.current = null;
+      }
+      if (firstPlayTimerRef.current) {
+        clearTimeout(firstPlayTimerRef.current);
+        firstPlayTimerRef.current = null;
       }
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
@@ -729,6 +808,9 @@ export default function VideoPage(): React.JSX.Element {
               pointer-events: all;
               background: transparent;
             }
+            .video-player-progress-blocker--inactive {
+              pointer-events: none !important;
+            }
             .video-player-controls {
               position: absolute;
               inset: 0;
@@ -745,6 +827,9 @@ export default function VideoPage(): React.JSX.Element {
             .video-player-controls--visible {
               opacity: 1;
               visibility: visible;
+            }
+            .video-player-controls:not(.video-player-controls--visible) {
+              display: none;
             }
             .video-player-controls-bar {
               display: flex;
@@ -935,7 +1020,7 @@ export default function VideoPage(): React.JSX.Element {
               <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
               {!controlsSwitchEnabled ? (
                 <div
-                  className="video-player-progress-blocker"
+                  className={`video-player-progress-blocker${isVideoPaused && codeUnlocked ? " video-player-progress-blocker--inactive" : ""}`}
                   aria-hidden="true"
                   onClick={showControls}
                   onMouseEnter={showControls}
@@ -952,7 +1037,7 @@ export default function VideoPage(): React.JSX.Element {
                 />
               ) : null}
               <div
-                className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}${formLocked ? " video-player-controls--locked" : ""}`}
+                className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}${isPlayingLocked ? " video-player-controls--locked" : ""}`}
                 onMouseEnter={showControls}
               >
                 <div className="video-player-controls-bar">
@@ -1073,7 +1158,7 @@ export default function VideoPage(): React.JSX.Element {
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
                     <div style={{ flexShrink: 0 }}>
                       <p style={{ margin: 0, fontSize: "1.75rem", fontWeight: 700, color: "var(--accent)" }}>
-                        0%
+                        {displayProgress}%
                       </p>
                       <p style={{ margin: 0, fontSize: "0.68rem", opacity: 0.45 }}>/ 60%</p>
                     </div>
@@ -1094,7 +1179,7 @@ export default function VideoPage(): React.JSX.Element {
                             height: "100%",
                             borderRadius: 2,
                             background: "var(--accent)",
-                            width: "0%",
+                            width: `${Math.min(100, (displayProgress / 60) * 100)}%`,
                             transition: "width 0.3s ease",
                           }}
                         />
