@@ -515,6 +515,14 @@ export default function VideoPage(): React.JSX.Element {
                 lastKnownPositionRef.current = event.target.getCurrentTime();
               }
             }
+            if (!opts?.seekTo && maxProgressRef.current > 0 && !unlockedRef.current) {
+              const duration = event.target.getDuration();
+              if (duration > 0) {
+                const resumeAt = (maxProgressRef.current / 100) * duration;
+                event.target.seekTo(resumeAt, true);
+                lastKnownPositionRef.current = resumeAt;
+              }
+            }
             if (opts?.autoplay) {
               event.target.playVideo();
             }
@@ -961,37 +969,39 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              <div
-                className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
-                onMouseEnter={showControls}
-              >
-                <div className="video-player-controls-bar">
+              {!formLocked ? (
+                <div
+                  className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
+                  onMouseEnter={showControls}
+                >
+                  <div className="video-player-controls-bar">
+                    <button
+                      type="button"
+                      className="video-player-btn"
+                      aria-label="Reculer 10 secondes"
+                      onClick={handleRewind}
+                    >
+                      ◀ 10s
+                    </button>
+                    <button
+                      type="button"
+                      className="video-player-btn"
+                      aria-label={isPlaying ? "Pause" : "Lecture"}
+                      onClick={handlePlayPause}
+                    >
+                      {isPlaying ? "⏸" : "▶"}
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    className="video-player-btn"
-                    aria-label="Reculer 10 secondes"
-                    onClick={handleRewind}
+                    className="video-player-btn video-player-fullscreen-btn"
+                    aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                    onClick={handleFullscreen}
                   >
-                    ◀ 10s
-                  </button>
-                  <button
-                    type="button"
-                    className="video-player-btn"
-                    aria-label={isPlaying ? "Pause" : "Lecture"}
-                    onClick={handlePlayPause}
-                  >
-                    {isPlaying ? "⏸" : "▶"}
+                    {isFullscreen ? "↙" : "⛶"}
                   </button>
                 </div>
-                <button
-                  type="button"
-                  className="video-player-btn video-player-fullscreen-btn"
-                  aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
-                  onClick={handleFullscreen}
-                >
-                  {isFullscreen ? "↙" : "⛶"}
-                </button>
-              </div>
+              ) : null}
             </div>
           ) : (
             <iframe
