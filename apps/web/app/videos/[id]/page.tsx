@@ -286,6 +286,29 @@ export default function VideoPage(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    function handleVisibility(): void {
+      if (document.visibilityState === "hidden") return;
+      if (!playerRef.current) return;
+      if (unlockedRef.current) return;
+      if (maxProgressRef.current <= 0) return;
+      try {
+        const state = playerRef.current.getPlayerState();
+        if (state === -1 || state === 0) {
+          const duration = playerRef.current.getDuration();
+          if (duration > 0) {
+            const resumeAt = (maxProgressRef.current / 100) * duration;
+            isResumingRef.current = true;
+            playerRef.current.seekTo(resumeAt, true);
+            lastKnownPositionRef.current = resumeAt;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  useEffect(() => {
     userIdRef.current = userId;
   }, [userId]);
 
