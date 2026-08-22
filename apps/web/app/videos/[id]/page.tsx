@@ -34,6 +34,7 @@ interface YTPlayer {
   playVideo(): void;
   pauseVideo(): void;
   seekTo(seconds: number, allowSeekAhead?: boolean): void;
+  loadVideoById(options: { videoId: string; startSeconds?: number }): void;
   destroy(): void;
 }
 
@@ -285,28 +286,34 @@ export default function VideoPage(): React.JSX.Element {
     };
   }, []);
 
+  const youtubeId = video?.youtube_id;
+
   useEffect(() => {
     function handleVisibility(): void {
       if (document.visibilityState === "hidden") return;
       if (!playerRef.current) return;
       if (unlockedRef.current) return;
       if (maxProgressRef.current <= 0) return;
+      if (!youtubeId) return;
       try {
         const state = playerRef.current.getPlayerState();
         if (state === -1 || state === 0) {
           const duration = playerRef.current.getDuration();
           if (duration > 0) {
             const resumeAt = (maxProgressRef.current / 100) * duration;
-            isResumingRef.current = true;
-            playerRef.current.seekTo(resumeAt, true);
             lastKnownPositionRef.current = resumeAt;
+            isResumingRef.current = true;
+            playerRef.current.loadVideoById({
+              videoId: youtubeId,
+              startSeconds: resumeAt,
+            });
           }
         }
       } catch { /* ignore */ }
     }
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, []);
+  }, [youtubeId]);
 
   useEffect(() => {
     userIdRef.current = userId;
@@ -543,9 +550,12 @@ export default function VideoPage(): React.JSX.Element {
               const duration = event.target.getDuration();
               if (duration > 0) {
                 const resumeAt = (maxProgressRef.current / 100) * duration;
-                event.target.seekTo(resumeAt, true);
                 lastKnownPositionRef.current = resumeAt;
                 isResumingRef.current = true;
+                event.target.loadVideoById({
+                  videoId: youtubeId,
+                  startSeconds: resumeAt,
+                });
               }
             }
             if (opts?.autoplay) {
