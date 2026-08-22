@@ -164,6 +164,7 @@ export default function VideoPage(): React.JSX.Element {
   const maxProgressRef = useRef<number>(0);
   const lastKnownPositionRef = useRef<number>(0);
   const unlockedRef = useRef<boolean>(false);
+  const isResumingRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
   const videoIdRef = useRef<string>("");
   const controlsSwitchEnabledRef = useRef<boolean>(false);
@@ -521,7 +522,7 @@ export default function VideoPage(): React.JSX.Element {
                 const resumeAt = (maxProgressRef.current / 100) * duration;
                 event.target.seekTo(resumeAt, true);
                 lastKnownPositionRef.current = resumeAt;
-                event.target.pauseVideo();
+                isResumingRef.current = true;
               }
             }
             if (opts?.autoplay) {
@@ -533,6 +534,12 @@ export default function VideoPage(): React.JSX.Element {
           onStateChange: (event) => {
             if (cancelled) return;
             setIsPlaying(event.data === YT_STATE_PLAYING);
+
+            if (event.data === 1 && isResumingRef.current) {
+              isResumingRef.current = false;
+              event.target.pauseVideo();
+              return;
+            }
 
             // Mode A: controls: 1 permanent — no switch.
             if (!controlsSwitchEnabledRef.current) return;
