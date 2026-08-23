@@ -290,26 +290,10 @@ export default function VideoPage(): React.JSX.Element {
 
   useEffect(() => {
     function handleVisibility(): void {
-      if (document.visibilityState === "hidden") return;
-      if (!playerRef.current) return;
+      if (document.visibilityState !== "visible") return;
       if (unlockedRef.current) return;
       if (maxProgressRef.current <= 0) return;
-      if (!youtubeId) return;
-      try {
-        const state = playerRef.current.getPlayerState();
-        if (state === -1 || state === 0) {
-          const duration = playerRef.current.getDuration();
-          if (duration > 0) {
-            const resumeAt = (maxProgressRef.current / 100) * duration;
-            lastKnownPositionRef.current = resumeAt;
-            isResumingRef.current = true;
-            playerRef.current.loadVideoById({
-              videoId: youtubeId,
-              startSeconds: resumeAt,
-            });
-          }
-        }
-      } catch { /* ignore */ }
+      window.location.reload();
     }
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
