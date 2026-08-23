@@ -513,10 +513,10 @@ export default function VideoPage(): React.JSX.Element {
         modestbranding: 1,
       };
 
+      playerVars.disablekb = 1;
       if (quizAlreadyCompleted) {
         playerVars.controls = 1;
       } else {
-        playerVars.disablekb = 1;
         playerVars.controls = controls;
       }
 
