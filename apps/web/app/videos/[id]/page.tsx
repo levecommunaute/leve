@@ -166,6 +166,7 @@ export default function VideoPage(): React.JSX.Element {
   const lastKnownPositionRef = useRef<number>(0);
   const unlockedRef = useRef<boolean>(false);
   const isResumingRef = useRef<boolean>(false);
+  const formLockedRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
   const videoIdRef = useRef<string>("");
   const controlsSwitchEnabledRef = useRef<boolean>(false);
@@ -558,6 +559,14 @@ export default function VideoPage(): React.JSX.Element {
               return;
             }
 
+            // Fullscreen auto en mode Première vue
+            if (event.data === 1 && formLockedRef.current) {
+              const shell = videoShellRef.current;
+              if (shell && !document.fullscreenElement) {
+                void shell.requestFullscreen().catch(() => {});
+              }
+            }
+
             // Mode A: controls: 1 permanent — no switch.
             if (!controlsSwitchEnabledRef.current) return;
 
@@ -711,6 +720,12 @@ export default function VideoPage(): React.JSX.Element {
     setCodeInput(formatCodeInput(e.target.value));
   };
 
+  const formLocked = !quizAlreadyCompleted && verification60Enabled && !codeUnlocked;
+
+  useEffect(() => {
+    formLockedRef.current = formLocked;
+  }, [formLocked]);
+
   if (loading || !flagLoaded || !quizStatusLoaded || (verification60Enabled && !progressLoaded)) {
     return (
       <div style={{ ...pageShell, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -727,7 +742,6 @@ export default function VideoPage(): React.JSX.Element {
     );
   }
 
-  const formLocked = !quizAlreadyCompleted && verification60Enabled && !codeUnlocked;
   const codeFieldDisabled = formLocked || codeValidated || quizAlreadyCompleted;
 
   return (
