@@ -233,9 +233,13 @@ export default function VideoPage(): React.JSX.Element {
     if (!player) return;
     if (player.getPlayerState() === YT_STATE_PLAYING) {
       player.pauseVideo();
+      const currentTime = player.getCurrentTime();
       setTimeout(() => {
         setControlsVisible(false);
         setModeRevoirControlsReady(false);
+        if (quizAlreadyCompleted && recreatePlayerRef.current) {
+          recreatePlayerRef.current(1, { seekTo: currentTime, autoplay: false });
+        }
       }, 2000);
     } else {
       player.playVideo();
