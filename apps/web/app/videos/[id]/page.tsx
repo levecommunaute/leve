@@ -1017,7 +1017,7 @@ export default function VideoPage(): React.JSX.Element {
           {verification60Enabled ? (
             <div ref={videoShellRef} className="video-player-shell">
               <div ref={playerContainerRef} style={{ width: "100%", height: "100%" }} />
-              {!controlsSwitchEnabled ? (
+              {!controlsSwitchEnabled && !quizAlreadyCompleted ? (
                 <div
                   className="video-player-progress-blocker"
                   aria-hidden="true"
