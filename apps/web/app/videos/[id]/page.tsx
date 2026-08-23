@@ -155,10 +155,12 @@ export default function VideoPage(): React.JSX.Element {
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [playerControls, setPlayerControls] = useState<0 | 1>(1);
+  const [modeRevoirControlsReady, setModeRevoirControlsReady] = useState(false);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modeRevoirTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -167,6 +169,7 @@ export default function VideoPage(): React.JSX.Element {
   const unlockedRef = useRef<boolean>(false);
   const isResumingRef = useRef<boolean>(false);
   const formLockedRef = useRef<boolean>(false);
+  const quizDoneRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
   const videoIdRef = useRef<string>("");
   const controlsSwitchEnabledRef = useRef<boolean>(false);
@@ -575,6 +578,24 @@ export default function VideoPage(): React.JSX.Element {
               }
             }
 
+            if (quizDoneRef.current) {
+              if (event.data === YT_STATE_PLAYING) {
+                if (modeRevoirTimerRef.current) clearTimeout(modeRevoirTimerRef.current);
+                modeRevoirTimerRef.current = setTimeout(() => {
+                  setModeRevoirControlsReady(true);
+                  showControls();
+                }, 5000);
+              }
+              if (event.data === YT_STATE_PAUSED) {
+                if (modeRevoirTimerRef.current) {
+                  clearTimeout(modeRevoirTimerRef.current);
+                  modeRevoirTimerRef.current = null;
+                }
+                setModeRevoirControlsReady(false);
+                setControlsVisible(false);
+              }
+            }
+
             // Mode A: controls: 1 permanent — no switch.
             if (!controlsSwitchEnabledRef.current) return;
 
@@ -642,6 +663,7 @@ export default function VideoPage(): React.JSX.Element {
         clearInterval(saveIntervalRef.current);
         saveIntervalRef.current = null;
       }
+      if (modeRevoirTimerRef.current) clearTimeout(modeRevoirTimerRef.current);
       try {
         playerRef.current?.destroy();
       } catch {
@@ -733,6 +755,10 @@ export default function VideoPage(): React.JSX.Element {
   useEffect(() => {
     formLockedRef.current = formLocked;
   }, [formLocked]);
+
+  useEffect(() => {
+    quizDoneRef.current = quizAlreadyCompleted;
+  }, [quizAlreadyCompleted]);
 
   if (loading || !flagLoaded || !quizStatusLoaded || (verification60Enabled && !progressLoaded)) {
     return (
@@ -1016,7 +1042,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {!formLocked && !quizAlreadyCompleted ? (
+              {!formLocked && (!quizAlreadyCompleted || modeRevoirControlsReady) ? (
                 <div
                   className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                   onMouseEnter={showControls}
