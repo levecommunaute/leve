@@ -235,7 +235,8 @@ export default function VideoPage(): React.JSX.Element {
       player.pauseVideo();
       setTimeout(() => {
         setControlsVisible(false);
-      }, 100);
+        setModeRevoirControlsReady(false);
+      }, 2000);
     } else {
       player.playVideo();
     }
@@ -591,8 +592,6 @@ export default function VideoPage(): React.JSX.Element {
                   clearTimeout(modeRevoirTimerRef.current);
                   modeRevoirTimerRef.current = null;
                 }
-                setModeRevoirControlsReady(false);
-                setControlsVisible(false);
               }
             }
 
@@ -1042,7 +1041,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {!formLocked ? (
+              {!formLocked && (!quizAlreadyCompleted || modeRevoirControlsReady) ? (
                 <div
                   className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                   onMouseEnter={showControls}
@@ -1056,16 +1055,14 @@ export default function VideoPage(): React.JSX.Element {
                     >
                       ◀ 10s
                     </button>
-                    {!quizAlreadyCompleted ? (
-                      <button
-                        type="button"
-                        className="video-player-btn"
-                        aria-label={isPlaying ? "Pause" : "Lecture"}
-                        onClick={handlePlayPause}
-                      >
-                        {isPlaying ? "⏸" : "▶"}
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="video-player-btn"
+                      aria-label={isPlaying ? "Pause" : "Lecture"}
+                      onClick={handlePlayPause}
+                    >
+                      {isPlaying ? "⏸" : "▶"}
+                    </button>
                   </div>
                   <button
                     type="button"
