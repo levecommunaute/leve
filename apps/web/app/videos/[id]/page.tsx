@@ -1042,19 +1042,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {quizAlreadyCompleted ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    zIndex: 2,
-                    pointerEvents: "all",
-                    background: "transparent",
-                  }}
-                  aria-hidden="true"
-                />
-              ) : null}
-              {!formLocked && (!quizAlreadyCompleted || modeRevoirControlsReady) ? (
+              {!formLocked ? (
                 <div
                   className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                   onMouseEnter={showControls}
