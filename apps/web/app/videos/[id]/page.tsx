@@ -508,9 +508,14 @@ export default function VideoPage(): React.JSX.Element {
       const playerVars: Record<string, number | string> = {
         rel: 0,
         modestbranding: 1,
-        disablekb: 1,
-        controls,
       };
+
+      if (quizAlreadyCompleted) {
+        playerVars.controls = 1;
+      } else {
+        playerVars.disablekb = 1;
+        playerVars.controls = controls;
+      }
 
       // Mode A: loop. Mode B: no loop so ENDED can fire and restore controls: 1.
       if (!modeB && !quizAlreadyCompleted) {
@@ -1002,7 +1007,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {controlsSwitchEnabled ? (
+              {controlsSwitchEnabled && !quizAlreadyCompleted ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
