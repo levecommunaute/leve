@@ -1033,13 +1033,25 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {controlsSwitchEnabled && !quizAlreadyCompleted ? (
+              {controlsSwitchEnabled ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
                   onClick={showControls}
                   onMouseEnter={showControls}
                   onMouseMove={showControls}
+                />
+              ) : null}
+              {quizAlreadyCompleted ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 2,
+                    pointerEvents: "all",
+                    background: "transparent",
+                  }}
+                  aria-hidden="true"
                 />
               ) : null}
               {!formLocked && (!quizAlreadyCompleted || modeRevoirControlsReady) ? (
