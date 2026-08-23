@@ -233,6 +233,10 @@ export default function VideoPage(): React.JSX.Element {
     if (!player) return;
     if (player.getPlayerState() === YT_STATE_PLAYING) {
       player.pauseVideo();
+      setTimeout(() => {
+        setControlsVisible(false);
+        setModeRevoirControlsReady(false);
+      }, 100);
     } else {
       player.playVideo();
     }
