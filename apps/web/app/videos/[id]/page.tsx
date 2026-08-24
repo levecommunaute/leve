@@ -308,7 +308,7 @@ export default function VideoPage(): React.JSX.Element {
     function handleVisibility(): void {
       if (document.visibilityState !== "visible") return;
       if (!hasPlayedRef.current) return;
-      if (unlockedRef.current && !quizDoneRef.current) return;
+      if (unlockedRef.current) return;
       if (maxProgressRef.current <= 0) return;
       window.location.reload();
     }
@@ -552,7 +552,7 @@ export default function VideoPage(): React.JSX.Element {
                 lastKnownPositionRef.current = event.target.getCurrentTime();
               }
             }
-            if (!opts?.seekTo && maxProgressRef.current > 0 && (!unlockedRef.current || quizDoneRef.current)) {
+            if (!opts?.seekTo && maxProgressRef.current > 0 && !unlockedRef.current) {
               const duration = event.target.getDuration();
               if (duration > 0) {
                 const resumeAt = (maxProgressRef.current / 100) * duration;
@@ -585,7 +585,7 @@ export default function VideoPage(): React.JSX.Element {
             }
 
             // Fullscreen auto en mode Première vue
-            if (event.data === 1 && (formLockedRef.current || quizDoneRef.current)) {
+            if (event.data === 1 && formLockedRef.current) {
               const shell = videoShellRef.current;
               if (shell && !document.fullscreenElement) {
                 void shell.requestFullscreen().catch(() => {});
