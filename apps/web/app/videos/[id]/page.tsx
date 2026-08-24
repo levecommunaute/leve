@@ -168,6 +168,7 @@ export default function VideoPage(): React.JSX.Element {
   const lastKnownPositionRef = useRef<number>(0);
   const unlockedRef = useRef<boolean>(false);
   const isResumingRef = useRef<boolean>(false);
+  const hasPlayedRef = useRef<boolean>(false);
   const formLockedRef = useRef<boolean>(false);
   const quizDoneRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
@@ -306,6 +307,7 @@ export default function VideoPage(): React.JSX.Element {
   useEffect(() => {
     function handleVisibility(): void {
       if (document.visibilityState !== "visible") return;
+      if (!hasPlayedRef.current) return;
       if (unlockedRef.current && !quizDoneRef.current) return;
       if (maxProgressRef.current <= 0) return;
       window.location.reload();
@@ -576,6 +578,10 @@ export default function VideoPage(): React.JSX.Element {
               isResumingRef.current = false;
               event.target.pauseVideo();
               return;
+            }
+
+            if (event.data === YT_STATE_PLAYING) {
+              hasPlayedRef.current = true;
             }
 
             // Fullscreen auto en mode Première vue
