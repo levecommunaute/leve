@@ -7,7 +7,7 @@ import { ChevronLeft } from "lucide-react";
 import { BonusBadge } from "../../../components/bonus-badge";
 import { checkJwtExpired } from "../../../lib/supabase";
 
-const WATCH_THRESHOLD = 60;
+const WATCH_THRESHOLD = 80;
 const PROGRESS_CHECK_MS = 2000;
 const SAVE_PROGRESS_MS = 10000;
 const SEEK_TOLERANCE_SEC = 5;
@@ -1048,7 +1048,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {!formLocked && (!quizAlreadyCompleted || modeRevoirControlsReady) ? (
+              {!formLocked && !quizAlreadyCompleted ? (
                 <div
                   className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                   onMouseEnter={showControls}
@@ -1174,17 +1174,17 @@ export default function VideoPage(): React.JSX.Element {
                       <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--accent)", lineHeight: 1 }}>
                         {displayProgress}%
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.65rem", opacity: 0.45 }}>/ 60%</p>
+                      <p style={{ margin: 0, fontSize: "0.65rem", opacity: 0.45 }}>/ 80%</p>
                     </div>
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.75 }}>
-                        Regarde la vidéo jusqu&apos;à 60% pour débloquer le formulaire de code.
+                        Regarde la vidéo jusqu&apos;à 80% pour débloquer le formulaire de code.
                       </p>
                       <div style={{ height: 4, borderRadius: 2, background: "rgba(212,160,23,0.12)", overflow: "hidden" }}>
                         <div style={{
                           height: "100%", borderRadius: 2,
                           background: "var(--accent)",
-                          width: `${Math.min(100, (displayProgress / 60) * 100)}%`,
+                          width: `${Math.min(100, (displayProgress / 80) * 100)}%`,
                           transition: "width 0.5s ease",
                         }} />
                       </div>
