@@ -523,7 +523,9 @@ export default function VideoPage(): React.JSX.Element {
         modestbranding: 1,
       };
 
-      playerVars.disablekb = 1;
+      if (!quizAlreadyCompleted) {
+        playerVars.disablekb = 1;
+      }
       playerVars.controls = controls;
 
       // Mode A: loop. Mode B: no loop so ENDED can fire and restore controls: 1.
