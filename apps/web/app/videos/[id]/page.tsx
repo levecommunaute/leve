@@ -524,14 +524,10 @@ export default function VideoPage(): React.JSX.Element {
       };
 
       playerVars.disablekb = 1;
-      if (quizAlreadyCompleted) {
-        playerVars.controls = 1;
-      } else {
-        playerVars.controls = controls;
-      }
+      playerVars.controls = controls;
 
       // Mode A: loop. Mode B: no loop so ENDED can fire and restore controls: 1.
-      if (!modeB && !quizAlreadyCompleted) {
+      if (!modeB) {
         playerVars.loop = 1;
         playerVars.playlist = youtubeId;
       }
