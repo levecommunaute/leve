@@ -168,7 +168,6 @@ export default function VideoPage(): React.JSX.Element {
   const lastKnownPositionRef = useRef<number>(0);
   const unlockedRef = useRef<boolean>(false);
   const isResumingRef = useRef<boolean>(false);
-  const hasPlayedRef = useRef<boolean>(false);
   const formLockedRef = useRef<boolean>(false);
   const quizDoneRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
@@ -301,20 +300,6 @@ export default function VideoPage(): React.JSX.Element {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
     };
   }, []);
-
-  const youtubeId = video?.youtube_id;
-
-  useEffect(() => {
-    function handleVisibility(): void {
-      if (document.visibilityState !== "visible") return;
-      if (!hasPlayedRef.current) return;
-      if (unlockedRef.current) return;
-      if (maxProgressRef.current <= 0) return;
-      window.location.reload();
-    }
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [youtubeId]);
 
   useEffect(() => {
     userIdRef.current = userId;
@@ -576,10 +561,6 @@ export default function VideoPage(): React.JSX.Element {
               isResumingRef.current = false;
               event.target.pauseVideo();
               return;
-            }
-
-            if (event.data === YT_STATE_PLAYING) {
-              hasPlayedRef.current = true;
             }
 
             // Fullscreen auto en mode Première vue
@@ -1043,7 +1024,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {controlsSwitchEnabled && !quizAlreadyCompleted ? (
+              {controlsSwitchEnabled && !quizAlreadyCompleted && !formLocked ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
