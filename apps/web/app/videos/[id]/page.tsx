@@ -529,7 +529,7 @@ export default function VideoPage(): React.JSX.Element {
       playerVars.controls = controls;
 
       // Mode A: loop. Mode B: no loop so ENDED can fire and restore controls: 1.
-      if (!modeB) {
+      if (!modeB && !quizAlreadyCompleted) {
         playerVars.loop = 1;
         playerVars.playlist = youtubeId;
       }
