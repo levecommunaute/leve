@@ -1043,7 +1043,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {controlsSwitchEnabled ? (
+              {controlsSwitchEnabled && !quizAlreadyCompleted ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
