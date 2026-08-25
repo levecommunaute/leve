@@ -7,7 +7,7 @@ import { ChevronLeft } from "lucide-react";
 import { BonusBadge } from "../../../components/bonus-badge";
 import { checkJwtExpired } from "../../../lib/supabase";
 
-const WATCH_THRESHOLD = 60;
+const WATCH_THRESHOLD = 80;
 const PROGRESS_CHECK_MS = 2000;
 const SAVE_PROGRESS_MS = 10000;
 const SEEK_TOLERANCE_SEC = 5;
@@ -155,10 +155,12 @@ export default function VideoPage(): React.JSX.Element {
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [playerControls, setPlayerControls] = useState<0 | 1>(1);
+  const [modeRevoirControlsReady, setModeRevoirControlsReady] = useState(false);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const controlsHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modeRevoirTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -166,7 +168,9 @@ export default function VideoPage(): React.JSX.Element {
   const lastKnownPositionRef = useRef<number>(0);
   const unlockedRef = useRef<boolean>(false);
   const isResumingRef = useRef<boolean>(false);
+  const hasPlayedRef = useRef<boolean>(false);
   const formLockedRef = useRef<boolean>(false);
+  const quizDoneRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
   const videoIdRef = useRef<string>("");
   const controlsSwitchEnabledRef = useRef<boolean>(false);
@@ -228,8 +232,19 @@ export default function VideoPage(): React.JSX.Element {
   const handlePlayPause = useCallback((): void => {
     const player = playerRef.current;
     if (!player) return;
+    if (quizAlreadyCompleted) {
+      player.pauseVideo();
+      setTimeout(() => {
+        setControlsVisible(false);
+        setModeRevoirControlsReady(false);
+      }, 2000);
+      return;
+    }
     if (player.getPlayerState() === YT_STATE_PLAYING) {
       player.pauseVideo();
+      setTimeout(() => {
+        setControlsVisible(false);
+      }, 100);
     } else {
       player.playVideo();
     }
@@ -292,6 +307,7 @@ export default function VideoPage(): React.JSX.Element {
   useEffect(() => {
     function handleVisibility(): void {
       if (document.visibilityState !== "visible") return;
+      if (!hasPlayedRef.current) return;
       if (unlockedRef.current) return;
       if (maxProgressRef.current <= 0) return;
       window.location.reload();
@@ -505,12 +521,15 @@ export default function VideoPage(): React.JSX.Element {
       const playerVars: Record<string, number | string> = {
         rel: 0,
         modestbranding: 1,
-        disablekb: 1,
-        controls,
       };
 
+      if (!quizAlreadyCompleted) {
+        playerVars.disablekb = 1;
+      }
+      playerVars.controls = controls;
+
       // Mode A: loop. Mode B: no loop so ENDED can fire and restore controls: 1.
-      if (!modeB) {
+      if (!modeB && !quizAlreadyCompleted) {
         playerVars.loop = 1;
         playerVars.playlist = youtubeId;
       }
@@ -559,11 +578,31 @@ export default function VideoPage(): React.JSX.Element {
               return;
             }
 
+            if (event.data === YT_STATE_PLAYING) {
+              hasPlayedRef.current = true;
+            }
+
             // Fullscreen auto en mode Première vue
             if (event.data === 1 && formLockedRef.current) {
               const shell = videoShellRef.current;
               if (shell && !document.fullscreenElement) {
                 void shell.requestFullscreen().catch(() => {});
+              }
+            }
+
+            if (quizDoneRef.current) {
+              if (event.data === YT_STATE_PLAYING) {
+                if (modeRevoirTimerRef.current) clearTimeout(modeRevoirTimerRef.current);
+                modeRevoirTimerRef.current = setTimeout(() => {
+                  setModeRevoirControlsReady(true);
+                  showControls();
+                }, 5000);
+              }
+              if (event.data === YT_STATE_PAUSED) {
+                if (modeRevoirTimerRef.current) {
+                  clearTimeout(modeRevoirTimerRef.current);
+                  modeRevoirTimerRef.current = null;
+                }
               }
             }
 
@@ -634,6 +673,7 @@ export default function VideoPage(): React.JSX.Element {
         clearInterval(saveIntervalRef.current);
         saveIntervalRef.current = null;
       }
+      if (modeRevoirTimerRef.current) clearTimeout(modeRevoirTimerRef.current);
       try {
         playerRef.current?.destroy();
       } catch {
@@ -725,6 +765,10 @@ export default function VideoPage(): React.JSX.Element {
   useEffect(() => {
     formLockedRef.current = formLocked;
   }, [formLocked]);
+
+  useEffect(() => {
+    quizDoneRef.current = quizAlreadyCompleted;
+  }, [quizAlreadyCompleted]);
 
   if (loading || !flagLoaded || !quizStatusLoaded || (verification60Enabled && !progressLoaded)) {
     return (
@@ -999,7 +1043,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {controlsSwitchEnabled ? (
+              {controlsSwitchEnabled && !quizAlreadyCompleted ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
@@ -1008,7 +1052,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {!formLocked ? (
+              {!formLocked && !quizAlreadyCompleted ? (
                 <div
                   className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                   onMouseEnter={showControls}
@@ -1134,17 +1178,17 @@ export default function VideoPage(): React.JSX.Element {
                       <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--accent)", lineHeight: 1 }}>
                         {displayProgress}%
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.65rem", opacity: 0.45 }}>/ 60%</p>
+                      <p style={{ margin: 0, fontSize: "0.65rem", opacity: 0.45 }}>/ 80%</p>
                     </div>
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.75 }}>
-                        Regarde la vidéo jusqu&apos;à 60% pour débloquer le formulaire de code.
+                        Regarde la vidéo jusqu&apos;à 80% pour débloquer le formulaire de code.
                       </p>
                       <div style={{ height: 4, borderRadius: 2, background: "rgba(212,160,23,0.12)", overflow: "hidden" }}>
                         <div style={{
                           height: "100%", borderRadius: 2,
                           background: "var(--accent)",
-                          width: `${Math.min(100, (displayProgress / 60) * 100)}%`,
+                          width: `${Math.min(100, (displayProgress / 80) * 100)}%`,
                           transition: "width 0.5s ease",
                         }} />
                       </div>
