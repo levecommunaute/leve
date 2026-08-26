@@ -1112,7 +1112,7 @@ export default function VideoPage(): React.JSX.Element {
                   {isFullscreen ? "↙" : "⛶"}
                 </button>
               ) : null}
-              {controlsSwitchEnabled && !quizAlreadyCompleted && !formLocked ? (
+              {false ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
