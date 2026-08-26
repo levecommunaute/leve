@@ -155,6 +155,7 @@ export default function VideoPage(): React.JSX.Element {
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [playerControls, setPlayerControls] = useState<0 | 1>(1);
+  const [modeVoirFirstClick, setModeVoirFirstClick] = useState(false);
   const [modeRevoirControlsReady, setModeRevoirControlsReady] = useState(false);
   const [revoirProgress, setRevoirProgress] = useState<number>(0);
   const [revoirViewCount, setRevoirViewCount] = useState<number>(0);
@@ -626,6 +627,10 @@ export default function VideoPage(): React.JSX.Element {
               isResumingRef.current = false;
               event.target.pauseVideo();
               return;
+            }
+
+            if (event.data === YT_STATE_PLAYING && !formLockedRef.current && !quizDoneRef.current) {
+              setModeVoirFirstClick(true);
             }
 
             // Fullscreen auto en mode Première vue
@@ -1121,7 +1126,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {!formLocked && !quizAlreadyCompleted ? (
+              {!formLocked && !quizAlreadyCompleted && modeVoirFirstClick ? (
                 <div
                   className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                   onMouseEnter={showControls}
