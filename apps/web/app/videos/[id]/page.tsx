@@ -1149,14 +1149,6 @@ export default function VideoPage(): React.JSX.Element {
                     >
                       ◀ 10s
                     </button>
-                    <button
-                      type="button"
-                      className="video-player-btn"
-                      aria-label={isPlaying ? "Pause" : "Lecture"}
-                      onClick={handlePlayPause}
-                    >
-                      {isPlaying ? "⏸" : "▶"}
-                    </button>
                   </div>
                   <button
                     type="button"
