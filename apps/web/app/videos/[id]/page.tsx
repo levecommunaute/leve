@@ -217,17 +217,24 @@ export default function VideoPage(): React.JSX.Element {
   const incrementViewCount = useCallback(async (): Promise<void> => {
     if (!userId || !id) return;
     const supabase = createBrowserClient();
+    const { data } = await supabase
+      .from("video_views")
+      .select("view_count")
+      .eq("membre_id", userId)
+      .eq("video_id", id)
+      .maybeSingle();
+    const newCount = (data?.view_count ?? 0) + 1;
     await supabase.from("video_views").upsert(
       {
         membre_id: userId,
         video_id: id,
-        view_count: revoirViewCount + 1,
+        view_count: newCount,
         last_viewed_at: new Date().toISOString(),
       },
       { onConflict: "membre_id,video_id" },
     );
-    setRevoirViewCount((prev) => prev + 1);
-  }, [userId, id, revoirViewCount]);
+    setRevoirViewCount(newCount);
+  }, [userId, id]);
 
   const trackRevoirProgress = useCallback((): void => {
     if (!quizAlreadyCompleted) return;
