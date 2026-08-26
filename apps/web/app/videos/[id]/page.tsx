@@ -172,6 +172,7 @@ export default function VideoPage(): React.JSX.Element {
   const unlockedRef = useRef<boolean>(false);
   const isResumingRef = useRef<boolean>(false);
   const formLockedRef = useRef<boolean>(false);
+  const modeVoirFirstClickRef = useRef<boolean>(false);
   const quizDoneRef = useRef<boolean>(false);
   const revoirUnlockedRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
@@ -633,6 +634,10 @@ export default function VideoPage(): React.JSX.Element {
               setModeVoirFirstClick(true);
             }
 
+            if (event.data === YT_STATE_PAUSED && !formLockedRef.current && !quizDoneRef.current && modeVoirFirstClickRef.current) {
+              showControls();
+            }
+
             // Fullscreen auto en mode Première vue
             if (event.data === 1 && formLockedRef.current) {
               const shell = videoShellRef.current;
@@ -828,6 +833,10 @@ export default function VideoPage(): React.JSX.Element {
   useEffect(() => {
     formLockedRef.current = formLocked;
   }, [formLocked]);
+
+  useEffect(() => {
+    modeVoirFirstClickRef.current = modeVoirFirstClick;
+  }, [modeVoirFirstClick]);
 
   useEffect(() => {
     quizDoneRef.current = quizAlreadyCompleted;
