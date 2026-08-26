@@ -155,6 +155,7 @@ export default function VideoPage(): React.JSX.Element {
   const [controlsVisible, setControlsVisible] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [playerControls, setPlayerControls] = useState<0 | 1>(1);
+  const [modeVoirFirstClick, setModeVoirFirstClick] = useState(false);
   const [modeRevoirControlsReady, setModeRevoirControlsReady] = useState(false);
   const [revoirProgress, setRevoirProgress] = useState<number>(0);
   const [revoirViewCount, setRevoirViewCount] = useState<number>(0);
@@ -171,6 +172,7 @@ export default function VideoPage(): React.JSX.Element {
   const unlockedRef = useRef<boolean>(false);
   const isResumingRef = useRef<boolean>(false);
   const formLockedRef = useRef<boolean>(false);
+  const modeVoirFirstClickRef = useRef<boolean>(false);
   const quizDoneRef = useRef<boolean>(false);
   const revoirUnlockedRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
@@ -628,6 +630,14 @@ export default function VideoPage(): React.JSX.Element {
               return;
             }
 
+            if (event.data === YT_STATE_PLAYING && !formLockedRef.current && !quizDoneRef.current) {
+              setModeVoirFirstClick(true);
+            }
+
+            if (event.data === YT_STATE_PAUSED && !formLockedRef.current && !quizDoneRef.current && modeVoirFirstClickRef.current) {
+              showControls();
+            }
+
             // Fullscreen auto en mode Première vue
             if (event.data === 1 && formLockedRef.current) {
               const shell = videoShellRef.current;
@@ -823,6 +833,10 @@ export default function VideoPage(): React.JSX.Element {
   useEffect(() => {
     formLockedRef.current = formLocked;
   }, [formLocked]);
+
+  useEffect(() => {
+    modeVoirFirstClickRef.current = modeVoirFirstClick;
+  }, [modeVoirFirstClick]);
 
   useEffect(() => {
     quizDoneRef.current = quizAlreadyCompleted;
@@ -1112,7 +1126,7 @@ export default function VideoPage(): React.JSX.Element {
                   {isFullscreen ? "↙" : "⛶"}
                 </button>
               ) : null}
-              {controlsSwitchEnabled && !quizAlreadyCompleted && !formLocked ? (
+              {false ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
                   aria-hidden="true"
@@ -1121,7 +1135,7 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
-              {!formLocked && !quizAlreadyCompleted ? (
+              {!formLocked && !quizAlreadyCompleted && modeVoirFirstClick ? (
                 <div
                   className={`video-player-controls${controlsVisible ? " video-player-controls--visible" : ""}`}
                   onMouseEnter={showControls}
@@ -1134,14 +1148,6 @@ export default function VideoPage(): React.JSX.Element {
                       onClick={handleRewind}
                     >
                       ◀ 10s
-                    </button>
-                    <button
-                      type="button"
-                      className="video-player-btn"
-                      aria-label={isPlaying ? "Pause" : "Lecture"}
-                      onClick={handlePlayPause}
-                    >
-                      {isPlaying ? "⏸" : "▶"}
                     </button>
                   </div>
                   <button
