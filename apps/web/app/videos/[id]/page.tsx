@@ -240,7 +240,6 @@ export default function VideoPage(): React.JSX.Element {
     setRevoirProgress(Math.min(100, Math.round(currentPct)));
     if (currentPct >= 60 && !revoirUnlockedRef.current) {
       revoirUnlockedRef.current = true;
-      setRevoirProgress(60);
       void incrementViewCount();
     }
   }, [quizAlreadyCompleted, incrementViewCount]);
@@ -1094,6 +1093,17 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseEnter={showControls}
                   onMouseMove={showControls}
                 />
+              ) : null}
+              {quizAlreadyCompleted ? (
+                <button
+                  type="button"
+                  className="video-player-btn video-player-fullscreen-btn"
+                  aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                  onClick={handleFullscreen}
+                  style={{ pointerEvents: "all", zIndex: 11 }}
+                >
+                  {isFullscreen ? "↙" : "⛶"}
+                </button>
               ) : null}
               {controlsSwitchEnabled && !quizAlreadyCompleted && !formLocked ? (
                 <div
