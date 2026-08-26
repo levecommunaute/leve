@@ -156,6 +156,8 @@ export default function VideoPage(): React.JSX.Element {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [playerControls, setPlayerControls] = useState<0 | 1>(1);
   const [modeRevoirControlsReady, setModeRevoirControlsReady] = useState(false);
+  const [revoirProgress, setRevoirProgress] = useState<number>(0);
+  const [revoirViewCount, setRevoirViewCount] = useState<number>(0);
 
   const videoShellRef = useRef<HTMLDivElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -170,6 +172,7 @@ export default function VideoPage(): React.JSX.Element {
   const isResumingRef = useRef<boolean>(false);
   const formLockedRef = useRef<boolean>(false);
   const quizDoneRef = useRef<boolean>(false);
+  const revoirUnlockedRef = useRef<boolean>(false);
   const userIdRef = useRef<string>("");
   const videoIdRef = useRef<string>("");
   const controlsSwitchEnabledRef = useRef<boolean>(false);
@@ -210,6 +213,43 @@ export default function VideoPage(): React.JSX.Element {
     setCodeUnlocked(true);
     void saveProgress();
   }, [saveProgress]);
+
+  const incrementViewCount = useCallback(async (): Promise<void> => {
+    if (!userId || !id) return;
+    const supabase = createBrowserClient();
+    const { data } = await supabase
+      .from("video_views")
+      .select("view_count")
+      .eq("membre_id", userId)
+      .eq("video_id", id)
+      .maybeSingle();
+    const newCount = (data?.view_count ?? 0) + 1;
+    await supabase.from("video_views").upsert(
+      {
+        membre_id: userId,
+        video_id: id,
+        view_count: newCount,
+        last_viewed_at: new Date().toISOString(),
+      },
+      { onConflict: "membre_id,video_id" },
+    );
+    setRevoirViewCount(newCount);
+  }, [userId, id]);
+
+  const trackRevoirProgress = useCallback((): void => {
+    if (!quizAlreadyCompleted) return;
+    const player = playerRef.current;
+    if (!player) return;
+    const duration = player.getDuration();
+    if (!duration || duration <= 0) return;
+    const currentTime = player.getCurrentTime();
+    const currentPct = (currentTime / duration) * 100;
+    setRevoirProgress(Math.min(100, Math.round(currentPct)));
+    if (currentPct >= 60 && !revoirUnlockedRef.current) {
+      revoirUnlockedRef.current = true;
+      void incrementViewCount();
+    }
+  }, [quizAlreadyCompleted, incrementViewCount]);
 
   const showControls = useCallback((): void => {
     setControlsVisible(true);
@@ -481,10 +521,35 @@ export default function VideoPage(): React.JSX.Element {
   }, [id, userId]);
 
   useEffect(() => {
+    if (!quizAlreadyCompleted || !userId || !id) return;
+    let cancelled = false;
+    void (async () => {
+      const supabase = createBrowserClient();
+      const { data: viewData, error } = await supabase
+        .from("video_views")
+        .select("view_count")
+        .eq("membre_id", userId)
+        .eq("video_id", id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        if (await checkJwtExpired({ message: error.message })) return;
+        console.error("video_views load:", error.message);
+        return;
+      }
+      setRevoirViewCount(viewData?.view_count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [quizAlreadyCompleted, userId, id]);
+
+  useEffect(() => {
     if (!flagLoaded || !verification60Enabled || !video?.youtube_id || !progressLoaded) return;
 
     let cancelled = false;
     const youtubeId = video.youtube_id;
+    let revoirIntervalId: ReturnType<typeof setInterval> | null = null;
 
     const createPlayer = (
       controls: 0 | 1,
@@ -573,6 +638,11 @@ export default function VideoPage(): React.JSX.Element {
 
             if (quizDoneRef.current) {
               if (event.data === YT_STATE_PLAYING) {
+                const currentTime = event.target.getCurrentTime();
+                if (currentTime < 5) {
+                  revoirUnlockedRef.current = false;
+                  setRevoirProgress(0);
+                }
                 if (modeRevoirTimerRef.current) clearTimeout(modeRevoirTimerRef.current);
                 modeRevoirTimerRef.current = setTimeout(() => {
                   setModeRevoirControlsReady(true);
@@ -636,6 +706,10 @@ export default function VideoPage(): React.JSX.Element {
       saveIntervalRef.current = setInterval(() => {
         void saveProgress();
       }, SAVE_PROGRESS_MS);
+
+      if (quizAlreadyCompleted) {
+        revoirIntervalId = setInterval(trackRevoirProgress, PROGRESS_CHECK_MS);
+      }
     })();
 
     return () => {
@@ -655,6 +729,7 @@ export default function VideoPage(): React.JSX.Element {
         saveIntervalRef.current = null;
       }
       if (modeRevoirTimerRef.current) clearTimeout(modeRevoirTimerRef.current);
+      if (revoirIntervalId) clearInterval(revoirIntervalId);
       try {
         playerRef.current?.destroy();
       } catch {
@@ -669,6 +744,8 @@ export default function VideoPage(): React.JSX.Element {
     video?.youtube_id,
     progressLoaded,
     trackLinearProgress,
+    trackRevoirProgress,
+    quizAlreadyCompleted,
     saveProgress,
     showControls,
   ]);
@@ -1024,6 +1101,17 @@ export default function VideoPage(): React.JSX.Element {
                   onMouseMove={showControls}
                 />
               ) : null}
+              {quizAlreadyCompleted ? (
+                <button
+                  type="button"
+                  className="video-player-btn video-player-fullscreen-btn"
+                  aria-label={isFullscreen ? "Quitter le plein écran" : "Plein écran"}
+                  onClick={handleFullscreen}
+                  style={{ pointerEvents: "all", zIndex: 11 }}
+                >
+                  {isFullscreen ? "↙" : "⛶"}
+                </button>
+              ) : null}
               {controlsSwitchEnabled && !quizAlreadyCompleted && !formLocked ? (
                 <div
                   className={`video-player-block-overlay${playerControls === 0 ? " video-player-block-overlay--active" : ""}`}
@@ -1116,8 +1204,17 @@ export default function VideoPage(): React.JSX.Element {
                     }}
                   >
                     <div>
+                      {revoirProgress < 60 ? (
+                        <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--accent)" }}>
+                          {revoirProgress}%
+                        </p>
+                      ) : (
+                        <p style={{ margin: "0 0 0.25rem", fontSize: "1rem", color: "rgba(46,204,113,0.9)", fontWeight: 600 }}>
+                          Vue débloquée ✓
+                        </p>
+                      )}
                       <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--text)" }}>
-                        1×
+                        {revoirViewCount}×
                       </p>
                       <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.5 }}>visionnages</p>
                     </div>
