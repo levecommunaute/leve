@@ -974,6 +974,12 @@ export default function VideoPage(): React.JSX.Element {
                 padding: 1rem;
               }
             }
+            @media (max-width: 480px) {
+              .video-page-content {
+                max-width: 100%;
+                padding: 0;
+              }
+            }
           `,
         }}
       />
@@ -1026,7 +1032,7 @@ export default function VideoPage(): React.JSX.Element {
         className="video-page-content"
         style={{ fontFamily: "var(--font-mono), ui-monospace, monospace" }}
       >
-        <div style={{ padding: "1.25rem 1.25rem 0.75rem" }}>
+        <div style={{ padding: "0.85rem 1rem 0.65rem" }}>
           {video.categorie || video.tags ? (
             <div
               style={{
@@ -1034,20 +1040,21 @@ export default function VideoPage(): React.JSX.Element {
                 flexWrap: "wrap",
                 alignItems: "center",
                 gap: "0.4rem",
-                marginBottom: "0.6rem",
+                marginBottom: "0.5rem",
               }}
             >
               {video.categorie ? (
                 <span
                   style={{
-                    fontSize: "0.68rem",
-                    padding: "2px 8px",
+                    fontSize: "0.65rem",
+                    padding: "2px 7px",
                     borderRadius: "20px",
                     background: "rgba(74,144,217,0.1)",
-                    border: "1px solid rgba(74,144,217,0.3)",
+                    border: "0.5px solid rgba(74,144,217,0.3)",
                     color: "rgba(74,144,217,0.9)",
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
+                    fontWeight: 500,
                   }}
                 >
                   {video.categorie}
@@ -1057,7 +1064,7 @@ export default function VideoPage(): React.JSX.Element {
                 <span
                   style={{
                     fontSize: "0.68rem",
-                    color: "rgba(245,240,232,0.4)",
+                    color: "rgba(245,240,232,0.35)",
                     letterSpacing: "0.02em",
                   }}
                 >
@@ -1070,11 +1077,11 @@ export default function VideoPage(): React.JSX.Element {
           <h1
             style={{
               fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "clamp(1.5rem, 5vw, 2.25rem)",
-              letterSpacing: "0.04em",
+              fontSize: "clamp(1.4rem, 6vw, 2rem)",
+              letterSpacing: "0.03em",
               color: "var(--text)",
               lineHeight: 1.1,
-              margin: "0 0 0.75rem",
+              margin: "0 0 0.6rem",
             }}
           >
             {video.title}
@@ -1083,10 +1090,10 @@ export default function VideoPage(): React.JSX.Element {
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
             <span
               style={{
-                background: "var(--accent)",
+                background: "#D4A017",
                 color: "#080808",
-                padding: "0.25rem 0.75rem",
-                fontSize: "0.75rem",
+                padding: "0.2rem 0.65rem",
+                fontSize: "0.72rem",
                 borderRadius: "4px",
                 fontWeight: 600,
               }}
@@ -1175,72 +1182,75 @@ export default function VideoPage(): React.JSX.Element {
 
           if (modeRevoir) {
             return (
-              <div style={{ padding: "1.25rem" }}>
+              <div style={{ padding: "0.85rem 1rem" }}>
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "8px",
-                    padding: "0.75rem 1rem",
-                    background: "rgba(46,204,113,0.08)",
-                    border: "1px solid rgba(46,204,113,0.25)",
-                    borderRadius: "8px",
-                    marginBottom: "1rem",
+                    padding: "0.6rem 0.85rem",
+                    background: "rgba(46,204,113,0.07)",
+                    border: "0.5px solid rgba(46,204,113,0.2)",
+                    borderRadius: "6px",
+                    marginBottom: "0.65rem",
                   }}
                 >
-                  <span style={{ fontSize: "1rem" }}>✅</span>
-                  <span style={{ fontSize: "0.85rem", color: "rgba(46,204,113,0.9)" }}>
+                  <span style={{ fontSize: "0.85rem" }}>✅</span>
+                  <span style={{ fontSize: "0.82rem", color: "rgba(46,204,113,0.9)" }}>
                     Quiz complété — +{video.points_value} pts gagnés
                   </span>
                 </div>
                 <div
                   style={{
-                    background: "var(--bg-card)",
-                    border: "1px solid var(--border-soft)",
-                    borderRadius: "8px",
-                    padding: "1rem",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "0.5rem",
+                    marginBottom: "0.65rem",
                   }}
                 >
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "0.75rem",
+                      padding: "0.75rem 0.85rem",
+                      background: "rgba(245,240,232,0.03)",
+                      border: "0.5px solid rgba(245,240,232,0.08)",
+                      borderRadius: "6px",
                     }}
                   >
-                    <div>
-                      {revoirProgress < 60 ? (
-                        <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--accent)" }}>
-                          {revoirProgress}%
-                        </p>
-                      ) : (
-                        <p style={{ margin: "0 0 0.25rem", fontSize: "1rem", color: "rgba(46,204,113,0.9)", fontWeight: 600 }}>
-                          Vue débloquée ✓
-                        </p>
-                      )}
-                      <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--text)" }}>
-                        {revoirViewCount}×
-                      </p>
-                      <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.5 }}>visionnages</p>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.5 }}>Bonus défini prochainement</p>
-                    </div>
+                    <p style={{ margin: 0, fontSize: "1.35rem", fontWeight: 500, color: "#D4A017", lineHeight: 1 }}>
+                      {revoirProgress < 60 ? `${revoirProgress}%` : "✓"}
+                    </p>
+                    <p style={{ margin: "3px 0 0", fontSize: "0.68rem", color: "rgba(245,240,232,0.35)" }}>
+                      {revoirProgress < 60 ? "progression" : "vue débloquée"}
+                    </p>
                   </div>
                   <div
                     style={{
-                      padding: "0.75rem",
-                      background: "rgba(46,204,113,0.06)",
+                      padding: "0.75rem 0.85rem",
+                      background: "rgba(245,240,232,0.03)",
+                      border: "0.5px solid rgba(245,240,232,0.08)",
                       borderRadius: "6px",
-                      border: "1px solid rgba(46,204,113,0.15)",
-                      fontSize: "0.8rem",
-                      color: "rgba(46,204,113,0.8)",
-                      lineHeight: 1.5,
                     }}
                   >
-                    Chaque réécoute compte. Un système de bonus sera mis en place pour les membres assidus.
+                    <p style={{ margin: 0, fontSize: "1.35rem", fontWeight: 500, color: "var(--text)", lineHeight: 1 }}>
+                      {revoirViewCount}×
+                    </p>
+                    <p style={{ margin: "3px 0 0", fontSize: "0.68rem", color: "rgba(245,240,232,0.35)" }}>
+                      visionnages
+                    </p>
                   </div>
+                </div>
+                <div
+                  style={{
+                    padding: "0.6rem 0.85rem",
+                    background: "rgba(46,204,113,0.04)",
+                    borderRadius: "6px",
+                    border: "0.5px solid rgba(46,204,113,0.1)",
+                    fontSize: "0.78rem",
+                    color: "rgba(245,240,232,0.4)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Chaque réécoute compte. Un système de bonus sera mis en place pour les membres assidus.
                 </div>
               </div>
             );
@@ -1248,30 +1258,32 @@ export default function VideoPage(): React.JSX.Element {
 
           if (modePremiere) {
             return (
-              <div style={{ padding: "1.25rem" }}>
+              <div style={{ padding: "0.85rem 1rem" }}>
                 <div
                   style={{
-                    background: "var(--bg-card)",
-                    border: "1px solid rgba(212,160,23,0.2)",
+                    background: "rgba(212,160,23,0.05)",
+                    border: "0.5px solid rgba(212,160,23,0.2)",
                     borderRadius: "8px",
-                    padding: "1rem",
+                    padding: "0.85rem",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem", marginBottom: "0.75rem" }}>
-                    <div style={{ flexShrink: 0, textAlign: "center", minWidth: "48px" }}>
-                      <p style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, color: "var(--accent)", lineHeight: 1 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "0.85rem" }}>
+                    <div style={{ flexShrink: 0, textAlign: "center", minWidth: "44px" }}>
+                      <p style={{ margin: 0, fontSize: "1.4rem", fontWeight: 500, color: "#D4A017", lineHeight: 1 }}>
                         {displayProgress}%
                       </p>
-                      <p style={{ margin: 0, fontSize: "0.65rem", opacity: 0.45 }}>/ 80%</p>
+                      <p style={{ margin: 0, fontSize: "0.65rem", color: "rgba(245,240,232,0.35)", marginTop: "2px" }}>
+                        / 80%
+                      </p>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", lineHeight: 1.5, opacity: 0.75 }}>
+                      <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", lineHeight: 1.5, color: "rgba(245,240,232,0.6)" }}>
                         Regarde la vidéo jusqu&apos;à 80% pour débloquer le formulaire de code.
                       </p>
-                      <div style={{ height: 4, borderRadius: 2, background: "rgba(212,160,23,0.12)", overflow: "hidden" }}>
+                      <div style={{ height: 3, borderRadius: 2, background: "rgba(212,160,23,0.1)", overflow: "hidden" }}>
                         <div style={{
                           height: "100%", borderRadius: 2,
-                          background: "var(--accent)",
+                          background: "#D4A017",
                           width: `${Math.min(100, (displayProgress / 80) * 100)}%`,
                           transition: "width 0.5s ease",
                         }} />
@@ -1284,28 +1296,28 @@ export default function VideoPage(): React.JSX.Element {
           }
 
           return (
-            <div style={{ padding: "1.25rem" }}>
+            <div style={{ padding: "0.85rem 1rem" }}>
               {!codeValidated ? (
                 <div
                   style={{
-                    background: "var(--bg-card)",
-                    border: "1px solid var(--border-soft)",
+                    background: "rgba(245,240,232,0.03)",
+                    border: "0.5px solid rgba(245,240,232,0.1)",
                     borderRadius: "8px",
-                    padding: "1rem",
+                    padding: "0.85rem",
                   }}
                 >
                   <p
                     style={{
-                      margin: "0 0 0.6rem",
-                      fontSize: "0.72rem",
+                      margin: "0 0 0.5rem",
+                      fontSize: "0.68rem",
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
-                      opacity: 0.55,
+                      color: "rgba(245,240,232,0.35)",
                     }}
                   >
                     Code secret de la vidéo
                   </p>
-                  <div style={{ display: "flex", gap: "0.65rem", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     <input
                       type="text"
                       inputMode="text"
@@ -1317,14 +1329,14 @@ export default function VideoPage(): React.JSX.Element {
                       disabled={codeFieldDisabled}
                       style={{
                         flex: 1,
-                        height: "38px",
+                        height: "36px",
                         borderRadius: "4px",
-                        background: "rgba(245,240,232,0.05)",
-                        border: "1px solid rgba(245,240,232,0.15)",
+                        background: "rgba(245,240,232,0.04)",
+                        border: "0.5px solid rgba(245,240,232,0.12)",
                         color: "var(--text)",
                         padding: "0 0.75rem",
                         fontFamily: "var(--font-mono), ui-monospace, monospace",
-                        fontSize: "0.88rem",
+                        fontSize: "0.85rem",
                         letterSpacing: "0.08em",
                       }}
                     />
@@ -1333,27 +1345,28 @@ export default function VideoPage(): React.JSX.Element {
                       disabled={formLocked || submitting || !isCodeComplete(codeInput)}
                       onClick={() => void handleSubmit()}
                       style={{
-                        height: "38px",
-                        padding: "0 1.25rem",
+                        height: "36px",
+                        padding: "0 1rem",
                         borderRadius: "4px",
                         background: "#C0392B",
                         color: "white",
                         border: "none",
                         fontWeight: 600,
-                        fontSize: "0.85rem",
+                        fontSize: "0.82rem",
                         cursor: "pointer",
                         opacity: formLocked || submitting || !isCodeComplete(codeInput) ? 0.4 : 1,
+                        flexShrink: 0,
                       }}
                     >
                       {submitting ? "…" : "VALIDER"}
                     </button>
                   </div>
                   {result && !result.success ? (
-                    <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", color: "#C0392B" }}>
+                    <p style={{ margin: "0.4rem 0 0", fontSize: "0.78rem", color: "#C0392B" }}>
                       {result.already_completed ? result.message : `❌ ${result.message || "Code incorrect"}`}
                     </p>
                   ) : null}
-                  <p style={{ margin: "0.6rem 0 0", fontSize: "0.72rem", opacity: 0.45, lineHeight: 1.5 }}>
+                  <p style={{ margin: "0.5rem 0 0", fontSize: "0.68rem", color: "rgba(245,240,232,0.3)", lineHeight: 1.5 }}>
                     Le code apparaît dans la vidéo. Soumets-le pour faire le quiz et gagner tes points.
                   </p>
                 </div>
