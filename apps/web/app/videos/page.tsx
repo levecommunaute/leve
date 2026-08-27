@@ -943,6 +943,18 @@ export default function VideosPage(): React.JSX.Element | null {
             opacity: variant === "done" ? 0.5 : 1,
           }}
         >
+          <img
+            src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
+            alt=""
+            style={{
+              width: 54,
+              height: 36,
+              borderRadius: "4px",
+              objectFit: "cover",
+              flexShrink: 0,
+              opacity: 0.75,
+            }}
+          />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
@@ -957,11 +969,36 @@ export default function VideosPage(): React.JSX.Element | null {
             >
               {v.title}
             </div>
-            {v.tags ? (
-              <p style={{ margin: "2px 0 0", fontSize: "0.68rem",
-                opacity: 0.5, letterSpacing: "0.02em" }}>
-                {v.tags}
-              </p>
+            {v.categorie || v.tags ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  marginTop: "2px",
+                  flexWrap: "wrap",
+                }}
+              >
+                {v.categorie ? (
+                  <span
+                    style={{
+                      fontSize: "9px",
+                      padding: "1px 5px",
+                      borderRadius: "3px",
+                      background: "rgba(74,144,217,0.08)",
+                      color: "rgba(74,144,217,0.8)",
+                      border: "0.5px solid rgba(74,144,217,0.2)",
+                    }}
+                  >
+                    {v.categorie}
+                  </span>
+                ) : null}
+                {v.tags ? (
+                  <span style={{ fontSize: "9px", color: "rgba(245,240,232,0.3)" }}>
+                    {v.tags}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
             <div
               style={{
@@ -1326,154 +1363,142 @@ export default function VideosPage(): React.JSX.Element | null {
       <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "1.25rem" }}>
-        <section
-          className="leve-hero"
+        <p
           style={{
-            marginBottom: "1.75rem",
-            paddingBottom: "1.25rem",
-            borderBottom: "1px solid var(--border-soft)",
+            fontSize: "0.78rem",
+            color: "rgba(245,240,232,0.35)",
+            letterSpacing: "0.06em",
+            padding: "0.75rem 1.25rem 0",
+            fontFamily: "var(--font-mono), ui-monospace, monospace",
           }}
         >
-          <h1
-            style={{
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "clamp(2.75rem, 10vw, 4.25rem)",
-              letterSpacing: "0.14em",
-              margin: 0,
-              lineHeight: 1.05,
-              color: TEXT,
-            }}
-          >
-            VIDÉOS
-          </h1>
-          <p
-            style={{
-              margin: "0.65rem 0 0",
-              fontSize: "1rem",
-              opacity: 0.82,
-              maxWidth: "36rem",
-              lineHeight: 1.5,
-            }}
-          >
-            Regarde, trouve le code secret, gagne des points
-          </p>
-        </section>
+          Regarde, trouve le code secret, gagne des points
+        </p>
 
-        <section
+        <div
           style={{
-            marginBottom: "1.75rem",
-            padding: "1.1rem 1.15rem",
-            borderRadius: "4px",
-            background: "var(--bg-card)",
-            border: "1px solid var(--border-soft)",
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center",
+            padding: "0.5rem 1.25rem 0.75rem",
           }}
         >
-          <h2
+          <input
+            type="text"
+            inputMode="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={codeInput}
+            onChange={(e) => {
+              setCodeInput(formatCodeInput(e.target.value));
+              if (codeError) setCodeError(null);
+              if (alreadyCompletedMessage) setAlreadyCompletedMessage(null);
+              if (alreadyCompletedVideoId) setAlreadyCompletedVideoId(null);
+              if (watchFirstVideoId) setWatchFirstVideoId(null);
+            }}
+            placeholder="XXXX-YYYY-ZZZZ"
+            disabled={codeSubmitting}
+            maxLength={14}
             style={{
-              margin: "0 0 0.85rem",
-              fontFamily: "var(--font-bebas), Impact, sans-serif",
-              fontSize: "1.35rem",
-              letterSpacing: "0.1em",
-              color: ROUGE,
+              flex: 1,
+              height: "34px",
+              borderRadius: "4px",
+              background: "rgba(245,240,232,0.04)",
+              border: "0.5px solid rgba(245,240,232,0.12)",
+              color: "var(--text)",
+              padding: "0 0.75rem",
+              fontFamily: "var(--font-mono), ui-monospace, monospace",
+              fontSize: "0.82rem",
+              letterSpacing: "0.06em",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => void handleCodeSubmit()}
+            disabled={codeSubmitting || !isCodeComplete(codeInput)}
+            style={{
+              height: "34px",
+              padding: "0 1rem",
+              borderRadius: "4px",
+              background: "#C0392B",
+              color: "white",
+              border: "none",
+              fontWeight: 600,
+              fontSize: "0.78rem",
+              cursor: "pointer",
+              opacity: codeSubmitting || !isCodeComplete(codeInput) ? 0.4 : 1,
+              flexShrink: 0,
             }}
           >
-            SOUMETS TON CODE
-          </h2>
-          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              type="text"
-              inputMode="text"
-              autoComplete="off"
-              spellCheck={false}
-              value={codeInput}
-              onChange={(e) => {
-                setCodeInput(formatCodeInput(e.target.value));
-                if (codeError) setCodeError(null);
-                if (alreadyCompletedMessage) setAlreadyCompletedMessage(null);
-                if (alreadyCompletedVideoId) setAlreadyCompletedVideoId(null);
-                if (watchFirstVideoId) setWatchFirstVideoId(null);
-              }}
-              placeholder="XXXX-YYYY-ZZZZ"
-              disabled={codeSubmitting || showQuizReadyModal}
-              style={{
-                flex: "1 1 220px",
-                minWidth: "220px",
-                maxWidth: "320px",
-                padding: "0.75rem 1rem",
-                background: "var(--bg-card-inner)",
-                border: "1px solid var(--border-strong)",
-                color: TEXT,
-                textAlign: "center",
-                fontSize: "1.05rem",
-                letterSpacing: "0.08em",
-                fontFamily: "var(--font-mono), ui-monospace, monospace",
-                borderRadius: "4px",
-              }}
-            />
+            {codeSubmitting ? "…" : "VALIDER"}
+          </button>
+          <div style={{ display: "flex", flexShrink: 0 }}>
             <button
               type="button"
-              onClick={() => void handleCodeSubmit()}
-              disabled={codeSubmitting || !isCodeComplete(codeInput) || showQuizReadyModal}
+              onClick={() => toggleViewMode("grid")}
+              aria-label="Vue grille"
+              aria-pressed={viewMode === "grid"}
               style={{
-                background: ROUGE,
-                color: TEXT,
-                border: `1px solid ${ROUGE}`,
-                borderRadius: "4px",
-                padding: "0.75rem 1.35rem",
-                fontWeight: 600,
-                fontSize: "0.9rem",
-                cursor: codeSubmitting ? "wait" : "pointer",
-                opacity: codeSubmitting || !isCodeComplete(codeInput) ? 0.65 : 1,
+                width: 30,
+                height: 30,
+                border: "0.5px solid rgba(245,240,232,0.12)",
+                borderRadius: "4px 0 0 4px",
+                background: viewMode === "grid" ? "rgba(212,160,23,0.12)" : "transparent",
+                color: viewMode === "grid" ? "#D4A017" : "rgba(245,240,232,0.4)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              {codeSubmitting ? "Validation…" : "VALIDER"}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+                <rect x="0" y="0" width="5" height="5" rx="1" />
+                <rect x="7" y="0" width="5" height="5" rx="1" />
+                <rect x="0" y="7" width="5" height="5" rx="1" />
+                <rect x="7" y="7" width="5" height="5" rx="1" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleViewMode("list")}
+              aria-label="Vue liste"
+              aria-pressed={viewMode === "list"}
+              style={{
+                width: 30,
+                height: 30,
+                border: "0.5px solid rgba(245,240,232,0.12)",
+                borderRadius: "0 4px 4px 0",
+                background: viewMode === "list" ? "rgba(212,160,23,0.12)" : "transparent",
+                color: viewMode === "list" ? "#D4A017" : "rgba(245,240,232,0.4)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+                <rect x="0" y="0" width="12" height="2" rx="1" />
+                <rect x="0" y="5" width="12" height="2" rx="1" />
+                <rect x="0" y="10" width="12" height="2" rx="1" />
+              </svg>
             </button>
           </div>
-          {watchFirstVideoId ? (
-            <p style={{ margin: "0.85rem 0 0", color: GOLD, fontSize: "0.9rem", lineHeight: 1.5 }}>
-              Regarde d&apos;abord la vidéo pour débloquer le code —{" "}
-              <a
-                href={`/videos/${watchFirstVideoId}`}
-                style={{ color: GOLD, fontWeight: 600 }}
-              >
-                Regarder la vidéo →
-              </a>
-            </p>
-          ) : alreadyCompletedMessage ? (
-            <p style={{ margin: "0.85rem 0 0", color: "var(--accent-green)", fontSize: "0.9rem", lineHeight: 1.5 }}>
-              {alreadyCompletedMessage}
-              {alreadyCompletedVideoId && (
-                <>
-                  <br />
-                  <a
-                    href={`/videos/${alreadyCompletedVideoId}`}
-                    style={{
-                      display: "inline-block",
-                      marginTop: "0.4rem",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "0.52rem",
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      padding: "0.28rem 0.65rem",
-                      background: "transparent",
-                      border: "1px solid rgba(46,204,113,0.3)",
-                      color: "var(--accent-green)",
-                      textDecoration: "none",
-                    }}
-                  >
-                    Revoir la vidéo pour bonus →
-                  </a>
-                </>
-              )}
-            </p>
-          ) : codeError ? (
-            <p style={{ margin: "0.85rem 0 0", color: ROUGE, fontSize: "0.9rem" }}>❌ {codeError}</p>
-          ) : (
-            <p style={{ margin: "0.75rem 0 0", fontSize: "0.82rem", opacity: 0.6, lineHeight: 1.45 }}>
-              Le code est vérifié sur toutes les vidéos actives.
-            </p>
-          )}
-        </section>
+        </div>
+        {codeError ? (
+          <p style={{ padding: "0 1.25rem 0.5rem", fontSize: "0.78rem", color: "#C0392B" }}>
+            {codeError}
+          </p>
+        ) : null}
+        {watchFirstVideoId ? (
+          <p style={{ padding: "0 1.25rem 0.5rem", fontSize: "0.78rem", color: "rgba(212,160,23,0.8)" }}>
+            Regarde d&apos;abord la vidéo pour soumettre un code.
+          </p>
+        ) : null}
+        {alreadyCompletedMessage ? (
+          <p style={{ padding: "0 1.25rem 0.5rem", fontSize: "0.78rem", color: "rgba(46,204,113,0.8)" }}>
+            {alreadyCompletedMessage}
+          </p>
+        ) : null}
 
         {listError ? (
           <p style={{ color: ROUGE, fontSize: "0.95rem", marginBottom: "1rem" }}>{listError}</p>
@@ -1487,64 +1512,6 @@ export default function VideosPage(): React.JSX.Element | null {
           </p>
         ) : (
           <>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "2px",
-                marginBottom: "0.75rem",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => toggleViewMode("grid")}
-                aria-label="Vue grille"
-                aria-pressed={viewMode === "grid"}
-                style={{
-                  background: viewMode === "grid" ? "var(--border-soft)" : "transparent",
-                  border: "1px solid var(--border-strong)",
-                  color: viewMode === "grid" ? TEXT : "var(--text-40)",
-                  padding: "0.4rem 0.55rem",
-                  cursor: "pointer",
-                  borderRadius: "2px 0 0 2px",
-                  lineHeight: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
-                  <rect x="0" y="0" width="6" height="6" rx="0.5" />
-                  <rect x="8" y="0" width="6" height="6" rx="0.5" />
-                  <rect x="0" y="8" width="6" height="6" rx="0.5" />
-                  <rect x="8" y="8" width="6" height="6" rx="0.5" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleViewMode("list")}
-                aria-label="Vue liste"
-                aria-pressed={viewMode === "list"}
-                style={{
-                  background: viewMode === "list" ? "var(--border-soft)" : "transparent",
-                  border: "1px solid var(--border-strong)",
-                  color: viewMode === "list" ? TEXT : "var(--text-40)",
-                  padding: "0.4rem 0.55rem",
-                  cursor: "pointer",
-                  borderRadius: "0 2px 2px 0",
-                  lineHeight: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
-                  <rect x="0" y="1" width="14" height="2" rx="0.5" />
-                  <rect x="0" y="6" width="14" height="2" rx="0.5" />
-                  <rect x="0" y="11" width="14" height="2" rx="0.5" />
-                </svg>
-              </button>
-            </div>
             <div style={{
               display: "flex", flexWrap: "wrap", gap: "0.4rem",
               margin: "0.75rem 0",
