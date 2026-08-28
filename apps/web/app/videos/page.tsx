@@ -940,127 +940,140 @@ export default function VideosPage(): React.JSX.Element | null {
       </div>
     );
 
-    const renderItem = (v: VideoRow, _variant: "bonus" | "urgent" | "normal" | "done" | "quiz") => {
+    const renderItem = (v: VideoRow, variant: "bonus" | "urgent" | "normal" | "done" | "quiz") => {
+      const borderColor =
+        variant === "bonus" ? "#2ecc71"
+        : variant === "urgent" ? "#e74c3c"
+        : variant === "quiz" ? "#D4A017"
+        : variant === "done" ? "rgba(245,240,232,0.15)"
+        : "rgba(245,240,232,0.08)";
+
       return (
         <div
           key={v.id}
           style={{
             display: "flex",
-            gap: "0",
-            margin: "0 1rem 0.65rem",
-            borderRadius: "8px",
-            overflow: "hidden",
-            border: "0.5px solid rgba(245,240,232,0.08)",
-            background: "rgba(245,240,232,0.02)",
-            cursor: "pointer",
+            alignItems: "center",
+            gap: "0.75rem",
+            padding: "0.6rem 1rem",
+            borderLeft: `3px solid ${borderColor}`,
+            borderBottom: "0.5px solid rgba(245,240,232,0.06)",
+            opacity: variant === "done" ? 0.5 : 1,
+            background: variant === "urgent" ? "rgba(231,76,60,0.04)" : "transparent",
           }}
-          onClick={() => router.push(`/videos/${v.id}`)}
         >
-          <div style={{ position: "relative", flexShrink: 0, width: "120px", height: "78px" }}>
+          <div style={{ flexShrink: 0, width: 54, height: 36, borderRadius: 3, overflow: "hidden" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
               alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.8 }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.75 }}
             />
           </div>
 
-          <div
-            style={{
-              flex: 1,
-              padding: "0.55rem 0.75rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              minWidth: 0,
-            }}
-          >
-            <div>
-              {v.categorie ? (
-                <span
-                  style={{
-                    fontSize: "9px",
-                    padding: "1px 6px",
-                    borderRadius: "3px",
-                    background: "rgba(74,144,217,0.08)",
-                    color: "rgba(74,144,217,0.8)",
-                    border: "0.5px solid rgba(74,144,217,0.2)",
-                    display: "inline-block",
-                    marginBottom: "3px",
-                  }}
-                >
-                  {v.categorie}
-                </span>
-              ) : null}
-              <p
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {v.categorie ? (
+              <span
                 style={{
-                  margin: 0,
-                  fontSize: "0.82rem",
-                  fontWeight: 500,
-                  color: "var(--text)",
-                  lineHeight: 1.3,
-                  overflow: "hidden",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
+                  fontSize: "9px",
+                  padding: "1px 5px",
+                  borderRadius: "3px",
+                  background: "rgba(74,144,217,0.08)",
+                  color: "rgba(74,144,217,0.75)",
+                  border: "0.5px solid rgba(74,144,217,0.2)",
+                  display: "inline-block",
+                  marginBottom: "2px",
                 }}
               >
-                {v.title}
-              </p>
-              {v.tags ? (
-                <p style={{ margin: "2px 0 0", fontSize: "9px", color: "rgba(245,240,232,0.3)", lineHeight: 1.3 }}>
-                  {v.tags}
-                </p>
-              ) : null}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px" }}>
-              <span style={{ fontSize: "9px", color: "rgba(245,240,232,0.3)" }}>
-                {v.points_value} pts
+                {v.categorie}
               </span>
-              {quizVideoIds.has(v.id) ? (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    padding: "2px 8px",
-                    borderRadius: "4px",
-                    background: "rgba(46,204,113,0.1)",
-                    color: "rgba(46,204,113,0.85)",
-                    border: "0.5px solid rgba(46,204,113,0.25)",
-                    fontWeight: 500,
-                  }}
-                >
-                  REVOIR ✓
-                </span>
-              ) : codeVideoIds.has(v.id) ? (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    padding: "2px 8px",
-                    borderRadius: "4px",
-                    background: "rgba(212,160,23,0.1)",
-                    color: "#D4A017",
-                    border: "0.5px solid rgba(212,160,23,0.3)",
-                    fontWeight: 500,
-                  }}
-                >
-                  QUIZ →
-                </span>
-              ) : (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    padding: "2px 8px",
-                    borderRadius: "4px",
-                    background: "rgba(52,152,219,0.15)",
-                    color: "rgba(52,152,219,0.9)",
-                    border: "0.5px solid rgba(52,152,219,0.3)",
-                    fontWeight: 500,
-                  }}
-                >
-                  VOIR →
-                </span>
-              )}
-            </div>
+            ) : null}
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.82rem",
+                fontWeight: 500,
+                color: "var(--text)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {v.title}
+            </p>
+            {v.tags ? (
+              <p style={{ margin: "1px 0 0", fontSize: "9px", color: "rgba(245,240,232,0.3)" }}>
+                {v.tags}
+              </p>
+            ) : null}
+          </div>
+
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+            {variant === "quiz" ? (
+              <Link
+                href={`/videos/${v.id}/quiz`}
+                style={{
+                  fontSize: "10px",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  background: "var(--accent)",
+                  color: "#000",
+                  textDecoration: "none",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                FAIRE LE QUIZ
+              </Link>
+            ) : variant === "urgent" ? (
+              <Link
+                href={`/videos/${v.id}`}
+                style={{
+                  fontSize: "10px",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  border: "0.5px solid rgba(231,76,60,0.5)",
+                  color: "rgba(231,76,60,0.9)",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                URGENT →
+              </Link>
+            ) : variant === "done" ? (
+              <Link
+                href={`/videos/${v.id}`}
+                style={{
+                  fontSize: "10px",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  border: "0.5px solid rgba(46,204,113,0.3)",
+                  color: "rgba(46,204,113,0.8)",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                REVOIR ✓
+              </Link>
+            ) : (
+              <Link
+                href={`/videos/${v.id}`}
+                style={{
+                  fontSize: "10px",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  border: "0.5px solid rgba(245,240,232,0.2)",
+                  color: "rgba(245,240,232,0.6)",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                VOIR →
+              </Link>
+            )}
+            <span style={{ fontSize: "9px", color: "rgba(245,240,232,0.25)" }}>
+              +{v.points_value} pts
+            </span>
           </div>
         </div>
       );
