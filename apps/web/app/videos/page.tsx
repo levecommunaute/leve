@@ -745,7 +745,23 @@ export default function VideosPage(): React.JSX.Element | null {
       const expiresSoon = v.bonus_expire_at ? (new Date(v.bonus_expire_at).getTime() - Date.now()) < 1000 * 60 * 60 * 6 : false;
 
       return (
-        <div key={v.id} style={{ background: 'var(--bg-card)', borderLeft: `3px solid ${borderColor}`, display: 'flex', gap: '0.75rem', alignItems: 'flex-start', marginBottom: '1px', opacity: variant === 'done' ? 0.5 : 1, overflow: 'hidden' }}>
+        <div
+          key={v.id}
+          style={{
+            background: 'var(--bg-card)',
+            border: '0.5px solid rgba(245,240,232,0.08)',
+            borderTop: `2px solid ${borderColor}`,
+            borderRadius: '8px',
+            display: 'flex',
+            gap: '0.75rem',
+            alignItems: 'flex-start',
+            marginBottom: '0.65rem',
+            opacity: variant === 'done' ? 0.5 : 1,
+            overflow: 'hidden',
+            cursor: 'pointer',
+          }}
+          onClick={() => router.push(`/videos/${v.id}`)}
+        >
           {/* Thumbnail gauche */}
           <div style={{ width: '120px', minWidth: '120px', height: '68px', overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
             <img
@@ -761,6 +777,16 @@ export default function VideosPage(): React.JSX.Element | null {
           </div>
           {/* Info droite */}
           <div style={{ flex: 1, minWidth: 0, padding: '0.55rem 0.75rem 0.55rem 0' }}>
+            {v.categorie ? (
+              <span style={{
+                fontSize: "9px", padding: "1px 6px", borderRadius: "3px",
+                background: "rgba(74,144,217,0.08)", color: "rgba(74,144,217,0.8)",
+                border: "0.5px solid rgba(74,144,217,0.2)",
+                display: "inline-block", marginBottom: "3px",
+              }}>
+                {v.categorie}
+              </span>
+            ) : null}
             <div style={{ fontSize: '0.78rem', fontWeight: 500, marginBottom: '0.2rem', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {v.title}
             </div>
