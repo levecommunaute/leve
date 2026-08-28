@@ -89,6 +89,19 @@ const STATUS_STYLES: Record<
   },
 };
 
+const CATEGORIE_EMOJI: Record<string, string> = {
+  tous: "🔲",
+  leve: "🚀",
+  educatif: "🎓",
+  economie: "📊",
+  viral: "🔥",
+  social: "❤️",
+  culture: "🏛️",
+  adn: "🧬",
+  sport: "⚽",
+  collaborateur: "👥",
+};
+
 type ProfileRow = {
   display_name: string | null;
   member_type: string | null;
@@ -1528,7 +1541,7 @@ export default function VideosPage(): React.JSX.Element | null {
                   cursor: "pointer",
                 }}
               >
-                Tous
+                🔲 Tous
               </button>
               {categories.map((c) => {
                 const isLocked = !leveCompleted && !c.is_gate;
@@ -1559,7 +1572,7 @@ export default function VideosPage(): React.JSX.Element | null {
                       opacity: isLocked ? 0.5 : 1,
                     }}
                   >
-                    {c.is_gate ? "🚀 " : ""}{c.nom}
+                    {CATEGORIE_EMOJI[c.slug] ?? ""} {c.nom}
                   </button>
                 );
               })}
