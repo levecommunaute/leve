@@ -44,6 +44,7 @@ type VideoRow = {
   collaborateur_id: string | null;
   categorie?: string | null;
   tags?: string | null;
+  collaborateur_nom?: string | null;
 };
 
 type SubmissionRow = {
@@ -360,7 +361,7 @@ export default function VideosPage(): React.JSX.Element | null {
     try {
       const [videosRes, quizRes, codeRes] = await Promise.all([
         fetch(
-          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at,collaborateur_id,categorie,tags&is_active=eq.true&order=created_at.desc`,
+          `${SB}/rest/v1/videos?select=id,youtube_id,title,description,points_value,bonus_expire_at,created_at,collaborateur_id,categorie,tags,collaborateur:profiles(display_name)&is_active=eq.true&order=created_at.desc`,
           { headers },
         ),
         fetch(
@@ -393,9 +394,15 @@ export default function VideosPage(): React.JSX.Element | null {
         setListError(msg);
         setVideos([]);
       } else {
-        const allVideos = Array.isArray(videosJson) ? (videosJson as VideoRow[]) : [];
+        const allVideos = Array.isArray(videosJson) ? videosJson : [];
+        const mapped = (allVideos as (VideoRow & {
+          collaborateur?: { display_name?: string } | null;
+        })[]).map((v) => ({
+          ...v,
+          collaborateur_nom: v.collaborateur?.display_name ?? null,
+        }));
         // Le collaborateur ne voit pas sa propre vidéo dans la liste.
-        setVideos(allVideos.filter((v) => v.collaborateur_id !== uid));
+        setVideos(mapped.filter((v) => v.collaborateur_id !== uid));
       }
 
       if (quizRes.ok && Array.isArray(quizJson)) {
@@ -1823,11 +1830,102 @@ export default function VideosPage(): React.JSX.Element | null {
                 ))}
               </div>
             )}
-            {viewMode === "list"
-              ? (leveCompleted ? renderListView() : null)
-              : youtubeMode
-                ? renderYoutubeFeed()
-                : (leveCompleted ? renderPlatformGrid() : null)}
+            {selectedCat === "collaborateur" ? (() => {
+              const collabVideos = videos.filter(v => v.categorie === "collaborateur");
+              const grouped = collabVideos.reduce<Record<string, { nom: string; videos: VideoRow[] }>>((acc, v) => {
+                const id = v.collaborateur_id ?? "unknown";
+                const nom = v.collaborateur_nom ?? "Collaborateur";
+                if (!acc[id]) acc[id] = { nom, videos: [] };
+                acc[id].videos.push(v);
+                return acc;
+              }, {});
+
+              return (
+                <div style={{ padding: "0 1rem" }}>
+                  {Object.entries(grouped).map(([collabId, { nom, videos: cvids }]) => (
+                    <div key={collabId} style={{
+                      background: "rgba(29,158,117,0.06)",
+                      border: "1px solid rgba(29,158,117,0.25)",
+                      borderRadius: "8px",
+                      padding: "1rem",
+                      marginBottom: "1rem",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "0.75rem" }}>
+                        <span style={{ fontSize: "1rem" }}>👤</span>
+                        <p style={{
+                          margin: 0,
+                          fontFamily: "var(--font-bebas), Impact, sans-serif",
+                          fontSize: "1rem", letterSpacing: "0.08em",
+                          color: "rgba(29,158,117,0.9)",
+                        }}>
+                          {nom}
+                        </p>
+                        <span style={{
+                          marginLeft: "auto", fontSize: "0.68rem",
+                          padding: "2px 8px", borderRadius: "20px",
+                          background: "rgba(29,158,117,0.1)",
+                          border: "1px solid rgba(29,158,117,0.25)",
+                          color: "rgba(29,158,117,0.8)",
+                        }}>
+                          {cvids.length} vidéo{cvids.length > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      {cvids.map(v => {
+                        const done = quizVideoIds.has(v.id);
+                        const codeSubmitted = codeVideoIds.has(v.id);
+                        return (
+                          <div key={v.id} style={{
+                            display: "flex", alignItems: "center", gap: "10px",
+                            padding: "0.5rem 0.7rem",
+                            background: done ? "rgba(245,240,232,0.03)" : "rgba(29,158,117,0.04)",
+                            borderRadius: "6px", marginBottom: "4px",
+                            opacity: done ? 0.5 : 1,
+                          }}>
+                            <div style={{ flexShrink: 0, width: 54, height: 36, borderRadius: 3, overflow: "hidden" }}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
+                                alt=""
+                                style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.8 }}
+                              />
+                            </div>
+                            <span style={{ flex: 1, fontSize: "0.85rem", fontWeight: 500, color: "var(--text)" }}>
+                              {v.title}
+                            </span>
+                            <span style={{ fontSize: "0.72rem", opacity: 0.55 }}>+{v.points_value} pts</span>
+                            {done ? (
+                              <Link href={`/videos/${v.id}`} style={{
+                                fontSize: "0.72rem", padding: "2px 10px", borderRadius: "4px",
+                                border: "1px solid rgba(46,204,113,0.3)", color: "rgba(46,204,113,0.8)",
+                                textDecoration: "none",
+                              }}>REVOIR ✓</Link>
+                            ) : codeSubmitted ? (
+                              <Link href={`/videos/${v.id}/quiz`} style={{
+                                fontSize: "0.72rem", padding: "2px 10px", borderRadius: "4px",
+                                background: "var(--accent)", color: "#000",
+                                textDecoration: "none", fontWeight: 600,
+                              }}>QUIZ →</Link>
+                            ) : (
+                              <Link href={`/videos/${v.id}`} style={{
+                                fontSize: "0.72rem", padding: "2px 10px", borderRadius: "4px",
+                                background: "rgba(29,158,117,0.15)",
+                                border: "1px solid rgba(29,158,117,0.4)",
+                                color: "rgba(29,158,117,0.9)", textDecoration: "none",
+                              }}>VOIR →</Link>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()
+              : viewMode === "list"
+                ? (leveCompleted ? renderListView() : null)
+                : youtubeMode
+                  ? renderYoutubeFeed()
+                  : (leveCompleted ? renderPlatformGrid() : null)}
           </>
         )}
       </main>
