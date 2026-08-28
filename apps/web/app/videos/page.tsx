@@ -914,229 +914,127 @@ export default function VideosPage(): React.JSX.Element | null {
       </div>
     );
 
-    const renderItem = (v: VideoRow, variant: "bonus" | "urgent" | "normal" | "done" | "quiz") => {
-      const borderColor =
-        variant === "bonus"
-          ? "var(--accent-green)"
-          : variant === "urgent"
-            ? "var(--accent-red)"
-            : variant === "quiz"
-              ? "var(--accent)"
-              : variant === "done"
-                ? "rgba(255,255,255,0.06)"
-                : "rgba(255,255,255,0.08)";
-      const pts = v.points_value ?? 0;
-      const expiresSoon = v.bonus_expire_at
-        ? new Date(v.bonus_expire_at).getTime() - Date.now() < 1000 * 60 * 60 * 6
-        : false;
+    const renderItem = (v: VideoRow, _variant: "bonus" | "urgent" | "normal" | "done" | "quiz") => {
       return (
         <div
           key={v.id}
           style={{
-            background: "var(--bg-card)",
-            borderLeft: `3px solid ${borderColor}`,
-            padding: "0.75rem 1rem",
             display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            marginBottom: "1px",
-            opacity: variant === "done" ? 0.5 : 1,
+            gap: "0",
+            margin: "0 1rem 0.65rem",
+            borderRadius: "8px",
+            overflow: "hidden",
+            border: "0.5px solid rgba(245,240,232,0.08)",
+            background: "rgba(245,240,232,0.02)",
+            cursor: "pointer",
           }}
+          onClick={() => router.push(`/videos/${v.id}`)}
         >
-          <img
-            src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
-            alt=""
-            style={{
-              width: 54,
-              height: 36,
-              borderRadius: "4px",
-              objectFit: "cover",
-              flexShrink: 0,
-              opacity: 0.75,
-            }}
-          />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: "0.78rem",
-                fontWeight: 500,
-                marginBottom: "0.2rem",
-                lineHeight: 1.35,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {v.title}
-            </div>
-            {v.categorie || v.tags ? (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  marginTop: "2px",
-                  flexWrap: "wrap",
-                }}
-              >
-                {v.categorie ? (
-                  <span
-                    style={{
-                      fontSize: "9px",
-                      padding: "1px 5px",
-                      borderRadius: "3px",
-                      background: "rgba(74,144,217,0.08)",
-                      color: "rgba(74,144,217,0.8)",
-                      border: "0.5px solid rgba(74,144,217,0.2)",
-                    }}
-                  >
-                    {v.categorie}
-                  </span>
-                ) : null}
-                {v.tags ? (
-                  <span style={{ fontSize: "9px", color: "rgba(245,240,232,0.3)" }}>
-                    {v.tags}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.5rem",
-                opacity: 0.3,
-                letterSpacing: "0.06em",
-              }}
-            >
-              {formatPublishedAgo(v.created_at)}
-            </div>
-            {variant === "bonus" && (
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.48rem",
-                  color: "var(--accent-green)",
-                  marginTop: "0.15rem",
-                }}
-              >
-                ⚡ +{pts * 2} pts avec ×2 {profile?.member_type ?? ""}
-              </div>
-            )}
-            {(variant === "urgent") && (
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.48rem",
-                  color: "var(--accent-red)",
-                  marginTop: "0.15rem",
-                }}
-              >
-                ⚡ Bonus expire bientôt !
-              </div>
-            )}
-            {variant === "quiz" && (
-              <div
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.48rem",
-                  color: "var(--accent)",
-                  marginTop: "0.15rem",
-                }}
-              >
-                ⚡ Code trouvé · Lance le quiz pour gagner tes points
-              </div>
-            )}
+          <div style={{ position: "relative", flexShrink: 0, width: "120px", height: "78px" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://img.youtube.com/vi/${v.youtube_id}/mqdefault.jpg`}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: 0.8 }}
+            />
           </div>
+
           <div
             style={{
+              flex: 1,
+              padding: "0.55rem 0.75rem",
               display: "flex",
               flexDirection: "column",
-              alignItems: "flex-end",
-              gap: "0.3rem",
-              flexShrink: 0,
+              justifyContent: "space-between",
+              minWidth: 0,
             }}
           >
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.6rem",
-                color: variant === "done" ? "rgba(255,255,255,0.25)" : "var(--accent)",
-                fontWeight: 600,
-              }}
-            >
-              {variant === "done"
-                ? `✓ +${pts} pts`
-                : `+${variant === "bonus" ? pts * 2 : pts} PTS`}
-            </span>
-            {variant === "quiz" ? (
-              <a
-                href={`/videos/${v.id}/quiz`}
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.48rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  padding: "0.28rem 0.65rem",
-                  background: "transparent",
-                  border: "1px solid var(--accent)",
-                  color: "var(--accent)",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                FAIRE LE QUIZ →
-              </a>
-            ) : variant !== "done" ? (
-              <a
-                href={`/videos/${v.id}`}
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.48rem",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  padding: "0.28rem 0.65rem",
-                  background:
-                    variant === "bonus" || variant === "urgent" ? "var(--accent-red)" : "transparent",
-                  border:
-                    variant === "normal" ? "1px solid rgba(255,255,255,0.15)" : "none",
-                  color: "var(--text)",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {variant === "urgent" ? "URGENT →" : "VOIR LA VIDÉO →"}
-              </a>
-            ) : (
-              <>
-                <a
-                  href={`/videos/${v.id}`}
+            <div>
+              {v.categorie ? (
+                <span
                   style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.48rem",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    padding: "0.28rem 0.65rem",
-                    background: "transparent",
-                    border: "1px solid rgba(46,204,113,0.2)",
-                    color: "var(--accent-green)",
-                    textDecoration: "none",
+                    fontSize: "9px",
+                    padding: "1px 6px",
+                    borderRadius: "3px",
+                    background: "rgba(74,144,217,0.08)",
+                    color: "rgba(74,144,217,0.8)",
+                    border: "0.5px solid rgba(74,144,217,0.2)",
+                    display: "inline-block",
+                    marginBottom: "3px",
+                  }}
+                >
+                  {v.categorie}
+                </span>
+              ) : null}
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.82rem",
+                  fontWeight: 500,
+                  color: "var(--text)",
+                  lineHeight: 1.3,
+                  overflow: "hidden",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                }}
+              >
+                {v.title}
+              </p>
+              {v.tags ? (
+                <p style={{ margin: "2px 0 0", fontSize: "9px", color: "rgba(245,240,232,0.3)", lineHeight: 1.3 }}>
+                  {v.tags}
+                </p>
+              ) : null}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px" }}>
+              <span style={{ fontSize: "9px", color: "rgba(245,240,232,0.3)" }}>
+                {v.points_value} pts
+              </span>
+              {quizVideoIds.has(v.id) ? (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    background: "rgba(46,204,113,0.1)",
+                    color: "rgba(46,204,113,0.85)",
+                    border: "0.5px solid rgba(46,204,113,0.25)",
+                    fontWeight: 500,
                   }}
                 >
                   REVOIR ✓
-                </a>
-                <div
+                </span>
+              ) : codeVideoIds.has(v.id) ? (
+                <span
                   style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.44rem",
-                    color: "rgba(46,204,113,0.7)",
-                    marginTop: "0.2rem",
-                    textAlign: "right",
+                    fontSize: "10px",
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    background: "rgba(212,160,23,0.1)",
+                    color: "#D4A017",
+                    border: "0.5px solid rgba(212,160,23,0.3)",
+                    fontWeight: 500,
                   }}
                 >
-                  Revoir pour bonus
-                </div>
-              </>
-            )}
+                  QUIZ →
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    background: "rgba(52,152,219,0.15)",
+                    color: "rgba(52,152,219,0.9)",
+                    border: "0.5px solid rgba(52,152,219,0.3)",
+                    fontWeight: 500,
+                  }}
+                >
+                  VOIR →
+                </span>
+              )}
+            </div>
           </div>
         </div>
       );
@@ -1363,76 +1261,151 @@ export default function VideosPage(): React.JSX.Element | null {
       <AppHeader displayName={name} onSignOut={() => void handleSignOut()} signingOut={signingOut} rightExtra={<HeaderRight displayName={name} avatarUrl={avatarUrl} />} />
 
       <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "1.25rem" }}>
-        <p
-          style={{
-            fontSize: "0.78rem",
-            color: "rgba(245,240,232,0.35)",
-            letterSpacing: "0.06em",
-            padding: "0.75rem 1.25rem 0",
-            fontFamily: "var(--font-mono), ui-monospace, monospace",
-          }}
-        >
-          Regarde, trouve le code secret, gagne des points
-        </p>
-
         <div
           style={{
+            margin: "0.75rem 1rem",
+            borderRadius: "10px",
+            overflow: "hidden",
+            position: "relative",
+            minHeight: "120px",
+            background: "linear-gradient(135deg, #0a0a0f 0%, #0f0f1a 50%, #0a0f0a 100%)",
+            border: "0.5px solid rgba(212,160,23,0.15)",
             display: "flex",
-            gap: "0.5rem",
-            alignItems: "center",
-            padding: "0.5rem 1.25rem 0.75rem",
+            flexDirection: "column",
+            justifyContent: "flex-end",
+            padding: "1rem",
           }}
         >
-          <input
-            type="text"
-            inputMode="text"
-            autoComplete="off"
-            spellCheck={false}
-            value={codeInput}
-            onChange={(e) => {
-              setCodeInput(formatCodeInput(e.target.value));
-              if (codeError) setCodeError(null);
-              if (alreadyCompletedMessage) setAlreadyCompletedMessage(null);
-              if (alreadyCompletedVideoId) setAlreadyCompletedVideoId(null);
-              if (watchFirstVideoId) setWatchFirstVideoId(null);
-            }}
-            placeholder="XXXX-YYYY-ZZZZ"
-            disabled={codeSubmitting}
-            maxLength={14}
+          <div
             style={{
-              flex: 1,
-              height: "34px",
-              borderRadius: "4px",
-              background: "rgba(245,240,232,0.04)",
-              border: "0.5px solid rgba(245,240,232,0.12)",
-              color: "var(--text)",
-              padding: "0 0.75rem",
-              fontFamily: "var(--font-mono), ui-monospace, monospace",
-              fontSize: "0.82rem",
-              letterSpacing: "0.06em",
+              position: "absolute",
+              top: "-20px",
+              right: "-20px",
+              width: "120px",
+              height: "120px",
+              borderRadius: "50%",
+              border: "1px solid rgba(212,160,23,0.08)",
+              pointerEvents: "none",
             }}
           />
-          <button
-            type="button"
-            onClick={() => void handleCodeSubmit()}
-            disabled={codeSubmitting || !isCodeComplete(codeInput)}
+          <div
             style={{
-              height: "34px",
-              padding: "0 1rem",
-              borderRadius: "4px",
-              background: "#C0392B",
-              color: "white",
-              border: "none",
-              fontWeight: 600,
-              fontSize: "0.78rem",
-              cursor: "pointer",
-              opacity: codeSubmitting || !isCodeComplete(codeInput) ? 0.4 : 1,
-              flexShrink: 0,
+              position: "absolute",
+              top: "10px",
+              right: "20px",
+              width: "60px",
+              height: "60px",
+              borderRadius: "50%",
+              border: "1px solid rgba(212,160,23,0.06)",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "30px",
+              right: "40px",
+              width: "20px",
+              height: "20px",
+              borderRadius: "50%",
+              background: "rgba(212,160,23,0.08)",
+              pointerEvents: "none",
+            }}
+          />
+
+          <p
+            style={{
+              margin: "0 0 0.85rem",
+              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontSize: "clamp(1.2rem, 5vw, 1.6rem)",
+              letterSpacing: "0.04em",
+              lineHeight: 1.15,
+              color: "var(--text)",
             }}
           >
-            {codeSubmitting ? "…" : "VALIDER"}
-          </button>
-          <div style={{ display: "flex", flexShrink: 0 }}>
+            Regarde, trouve le code secret,{" "}
+            <span style={{ color: "#D4A017" }}>gagne des points</span>
+          </p>
+
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <input
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={codeInput}
+              onChange={(e) => {
+                setCodeInput(formatCodeInput(e.target.value));
+                if (codeError) setCodeError(null);
+                if (alreadyCompletedMessage) setAlreadyCompletedMessage(null);
+                if (alreadyCompletedVideoId) setAlreadyCompletedVideoId(null);
+                if (watchFirstVideoId) setWatchFirstVideoId(null);
+              }}
+              placeholder="XXXX-YYYY-ZZZZ"
+              disabled={codeSubmitting}
+              maxLength={14}
+              style={{
+                flex: 1,
+                height: "36px",
+                borderRadius: "4px",
+                background: "rgba(245,240,232,0.06)",
+                border: "0.5px solid rgba(245,240,232,0.15)",
+                color: "var(--text)",
+                padding: "0 0.75rem",
+                fontFamily: "var(--font-mono), ui-monospace, monospace",
+                fontSize: "0.82rem",
+                letterSpacing: "0.06em",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void handleCodeSubmit()}
+              disabled={codeSubmitting || !isCodeComplete(codeInput)}
+              style={{
+                height: "36px",
+                padding: "0 1rem",
+                borderRadius: "4px",
+                background: "#D4A017",
+                color: "#080808",
+                border: "none",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+                cursor: "pointer",
+                opacity: codeSubmitting || !isCodeComplete(codeInput) ? 0.5 : 1,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}
+            >
+              {codeSubmitting ? "…" : "VALIDER"}
+              {!codeSubmitting && (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2 5h6M6 3l2 2-2 2" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {codeError ? (
+            <p style={{ margin: "0.4rem 0 0", fontSize: "0.75rem", color: "#C0392B" }}>
+              {codeError}
+            </p>
+          ) : null}
+          {watchFirstVideoId ? (
+            <p style={{ margin: "0.4rem 0 0", fontSize: "0.75rem", color: "rgba(212,160,23,0.8)" }}>
+              Regarde d&apos;abord la vidéo pour soumettre un code.
+            </p>
+          ) : null}
+          {alreadyCompletedMessage ? (
+            <p style={{ margin: "0.4rem 0 0", fontSize: "0.75rem", color: "rgba(46,204,113,0.8)" }}>
+              {alreadyCompletedMessage}
+            </p>
+          ) : null}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 1rem 0.5rem" }}>
+          <div style={{ display: "flex" }}>
             <button
               type="button"
               onClick={() => toggleViewMode("grid")}
@@ -1484,21 +1457,6 @@ export default function VideosPage(): React.JSX.Element | null {
             </button>
           </div>
         </div>
-        {codeError ? (
-          <p style={{ padding: "0 1.25rem 0.5rem", fontSize: "0.78rem", color: "#C0392B" }}>
-            {codeError}
-          </p>
-        ) : null}
-        {watchFirstVideoId ? (
-          <p style={{ padding: "0 1.25rem 0.5rem", fontSize: "0.78rem", color: "rgba(212,160,23,0.8)" }}>
-            Regarde d&apos;abord la vidéo pour soumettre un code.
-          </p>
-        ) : null}
-        {alreadyCompletedMessage ? (
-          <p style={{ padding: "0 1.25rem 0.5rem", fontSize: "0.78rem", color: "rgba(46,204,113,0.8)" }}>
-            {alreadyCompletedMessage}
-          </p>
-        ) : null}
 
         {listError ? (
           <p style={{ color: ROUGE, fontSize: "0.95rem", marginBottom: "1rem" }}>{listError}</p>
