@@ -384,7 +384,7 @@ export default function Home(): React.JSX.Element {
         fontFamily: "var(--font-dm), system-ui, sans-serif",
       }}
     >
-      {process.env.NEXT_PUBLIC_IS_PRODUCTION === "true" ? (
+      {typeof window !== "undefined" && window.location.hostname === "www.levecommunaute.com" ? (
         <div
           style={{
             background: "#D4A017",
