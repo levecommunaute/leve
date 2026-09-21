@@ -384,6 +384,36 @@ export default function Home(): React.JSX.Element {
         fontFamily: "var(--font-dm), system-ui, sans-serif",
       }}
     >
+      {process.env.NEXT_PUBLIC_IS_PRODUCTION === "true" ? (
+        <div
+          style={{
+            background: "#D4A017",
+            color: "#080808",
+            textAlign: "center",
+            padding: "0.75rem 1rem",
+            position: "sticky",
+            top: 0,
+            zIndex: 100,
+            fontFamily: "var(--font-mono), ui-monospace, monospace",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+            🚧 Application en construction
+          </p>
+          <p style={{ margin: "0.25rem 0 0", fontSize: "0.65rem", letterSpacing: "0.08em" }}>
+            La date de lancement officiel sera annoncée sur notre chaîne YouTube{" "}
+            <a
+              href="https://www.youtube.com/@levecommunaute"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#080808", fontWeight: 700, textDecoration: "underline" }}
+            >
+              @levecommunaute
+            </a>
+          </p>
+        </div>
+      ) : null}
+
       <style
         dangerouslySetInnerHTML={{
           __html: `
