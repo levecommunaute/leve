@@ -387,30 +387,98 @@ export default function Home(): React.JSX.Element {
       {typeof window !== "undefined" && window.location.hostname === "www.levecommunaute.com" ? (
         <div
           style={{
-            background: "#D4A017",
-            color: "#080808",
-            textAlign: "center",
-            padding: "0.75rem 1rem",
-            position: "sticky",
+            position: "fixed",
             top: 0,
-            zIndex: 100,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "#080808",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "2rem",
+            textAlign: "center",
             fontFamily: "var(--font-mono), ui-monospace, monospace",
           }}
         >
-          <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-            🚧 Application en construction
+          <h1
+            style={{
+              fontFamily: "var(--font-bebas), Impact, sans-serif",
+              fontSize: "clamp(3rem, 12vw, 6rem)",
+              letterSpacing: "0.15em",
+              color: "#D4A017",
+              margin: "0 0 0.5rem",
+              lineHeight: 1,
+            }}
+          >
+            LEVE
+          </h1>
+          <p
+            style={{
+              fontSize: "0.65rem",
+              letterSpacing: "0.35em",
+              textTransform: "uppercase",
+              color: "rgba(245,240,232,0.4)",
+              margin: "0 0 3rem",
+            }}
+          >
+            COMMUNAUTÉ
           </p>
-          <p style={{ margin: "0.25rem 0 0", fontSize: "0.65rem", letterSpacing: "0.08em" }}>
-            La date de lancement officiel sera annoncée sur notre chaîne YouTube{" "}
-            <a
-              href="https://www.youtube.com/@levecommunaute"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#080808", fontWeight: 700, textDecoration: "underline" }}
-            >
-              @levecommunaute
-            </a>
+          <div
+            style={{
+              width: "40px",
+              height: "2px",
+              background: "#D4A017",
+              margin: "0 auto 2.5rem",
+            }}
+          />
+          <p
+            style={{
+              fontSize: "clamp(0.85rem, 3vw, 1.1rem)",
+              color: "rgba(245,240,232,0.85)",
+              lineHeight: 1.7,
+              maxWidth: "480px",
+              margin: "0 0 0.75rem",
+              letterSpacing: "0.04em",
+            }}
+          >
+            La plateforme est en cours de construction.
           </p>
+          <p
+            style={{
+              fontSize: "clamp(0.75rem, 2.5vw, 0.9rem)",
+              color: "rgba(245,240,232,0.5)",
+              lineHeight: 1.7,
+              maxWidth: "480px",
+              margin: "0 0 2.5rem",
+              letterSpacing: "0.04em",
+            }}
+          >
+            La date de lancement officiel sera annoncée prochainement.
+          </p>
+          <a
+            href="https://www.youtube.com/@levecommunaute"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              background: "transparent",
+              border: "1px solid rgba(212,160,23,0.4)",
+              color: "#D4A017",
+              padding: "0.75rem 1.5rem",
+              fontSize: "0.65rem",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              textDecoration: "none",
+              borderRadius: "4px",
+            }}
+          >
+            📺 Suivre @levecommunaute
+          </a>
         </div>
       ) : null}
 
